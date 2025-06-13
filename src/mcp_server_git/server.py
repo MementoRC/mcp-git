@@ -213,20 +213,31 @@ def git_diff(repo: git.Repo, target: str) -> str:
 def git_commit(repo: git.Repo, message: str, gpg_sign: bool = False, gpg_key_id: str | None = None) -> str:
     """Commit staged changes with optional GPG signing"""
     try:
-        commit_kwargs = {"message": message}
-        
         if gpg_sign:
-            commit_kwargs["gpg_sign"] = True
+            # Use git command directly for GPG signing
+            import subprocess
+            cmd = ["git", "commit"]
             if gpg_key_id:
-                commit_kwargs["gpg_keyid"] = gpg_key_id
-                
-        commit = repo.index.commit(**commit_kwargs)
-        
-        status_parts = [f"Changes committed successfully with hash {commit.hexsha[:8]}"]
-        if gpg_sign:
-            status_parts.append("✓ GPG signed")
+                cmd.append(f"--gpg-sign={gpg_key_id}")
+            else:
+                cmd.append("-S")
+            cmd.extend(["-m", message])
             
-        return " ".join(status_parts)
+            result = subprocess.run(cmd, cwd=repo.working_dir, capture_output=True, text=True)
+            if result.returncode == 0:
+                # Get the commit hash from git log
+                hash_result = subprocess.run(
+                    ["git", "rev-parse", "HEAD"], 
+                    cwd=repo.working_dir, capture_output=True, text=True
+                )
+                commit_hash = hash_result.stdout.strip()[:8] if hash_result.returncode == 0 else "unknown"
+                return f"Changes committed successfully with hash {commit_hash} ✓ GPG signed"
+            else:
+                return f"Commit failed: {result.stderr}"
+        else:
+            # Use GitPython for regular commit
+            commit = repo.index.commit(message)
+            return f"Changes committed successfully with hash {commit.hexsha[:8]}"
         
     except git.exc.GitCommandError as e:
         return f"Commit failed: {str(e)}"
