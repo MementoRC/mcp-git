@@ -1,0 +1,35 @@
+__pycache__
+.venv
+.env
+*.log
+.DS_Store
+.pytest_cache/
+*.pyc
+*.pyo
+*.pyd
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# IDE
+.vscode/
+.idea/
+
+# Local settings that might contain sensitive data
+.claude/settings_local.json
+.mcp.json
+.mcp.json.backup
+.taskmaster/

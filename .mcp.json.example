@@ -1,0 +1,18 @@
+{
+  "mcpServers": {
+    "git": {
+      "command": "uv",
+      "args": [
+        "--directory",
+        "/path/to/mcp-git",
+        "run",
+        "mcp-server-git",
+        "--repository",
+        "/path/to/your/repository"
+      ],
+      "env": {
+        "GITHUB_TOKEN": "your_github_token_here"
+      }
+    }
+  }
+}
