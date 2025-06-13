@@ -2,9 +2,7 @@ import pytest
 from pathlib import Path
 import git
 from mcp_server_git.server import git_checkout, GitTools
-from mcp.types import TextContent
 import shutil
-import unittest.mock
 
 @pytest.fixture
 def test_repository(tmp_path: Path):
@@ -33,7 +31,6 @@ def test_git_checkout_nonexistent_branch(test_repository):
 
 def test_github_api_tools_no_repo_path_required():
     """Test that GitHub API tools are identified correctly for repo_path handling"""
-    from mcp_server_git.server import GitTools
     
     # These are the GitHub tools that don't need repo_path
     github_tools = [

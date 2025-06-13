@@ -1,13 +1,110 @@
 import logging
+import os
+from dataclasses import dataclass
+from enum import Enum
 from pathlib import Path
 from typing import Sequence
+
+import aiohttp
+import git
+from dotenv import load_dotenv
 from mcp.server import Server
 from mcp.server.session import ServerSession
 from mcp.server.stdio import stdio_server
-import os
-import aiohttp
-import json
-from dataclasses import dataclass
+from mcp.types import (
+    ClientCapabilities,
+    GetPromptResult,
+    ListRootsResult,
+    Prompt,
+    PromptArgument,
+    PromptMessage,
+    RootsCapability,
+    TextContent,
+    Tool,
+)
+from pydantic import BaseModel
+
+def load_environment_variables(repository_path: Path | None = None):
+    """Load environment variables from .env files with proper precedence.
+    
+    Order of precedence:
+    1. Project-specific .env file (current working directory)
+    2. Repository-specific .env file (if repository path provided)
+    3. ClaudeCode working directory .env file (if available)
+    4. System environment variables (existing behavior)
+    
+    Args:
+        repository_path: Optional path to the repository being used
+    """
+    logger = logging.getLogger(__name__)
+    loaded_files = []
+    
+    # Try to load from project-specific .env file first
+    project_env = Path.cwd() / ".env"
+    if project_env.exists():
+        try:
+            load_dotenv(project_env, override=False)  # Don't override existing env vars
+            loaded_files.append(str(project_env))
+            logger.info(f"Loaded environment variables from project .env: {project_env}")
+        except Exception as e:
+            logger.warning(f"Failed to load project .env file {project_env}: {e}")
+    
+    # Try to load from repository-specific .env file (if repository path provided)
+    if repository_path:
+        repo_env = repository_path / ".env"
+        if repo_env.exists() and str(repo_env) not in loaded_files:
+            try:
+                load_dotenv(repo_env, override=False)  # Don't override existing env vars
+                loaded_files.append(str(repo_env))
+                logger.info(f"Loaded environment variables from repository .env: {repo_env}")
+            except Exception as e:
+                logger.warning(f"Failed to load repository .env file {repo_env}: {e}")
+    
+    # Try to load from ClaudeCode working directory .env file
+    # Check if we're in a ClaudeCode context by looking for typical ClaudeCode paths
+    claude_code_dirs = []
+    
+    # Method 1: Check if current path contains ClaudeCode and traverse up to find it
+    current_path = Path.cwd()
+    if "ClaudeCode" in str(current_path):
+        for parent in [current_path] + list(current_path.parents):
+            if parent.name == "ClaudeCode":
+                claude_code_dirs.append(parent)
+                break
+    
+    # Method 2: Check if repository path contains ClaudeCode and traverse up to find it
+    if repository_path and "ClaudeCode" in str(repository_path):
+        for parent in [repository_path] + list(repository_path.parents):
+            if parent.name == "ClaudeCode":
+                claude_code_dirs.append(parent)
+                break
+    
+    # Method 3: Standard Claude directories
+    claude_code_dirs.extend([
+        Path.home() / ".claude",
+        Path("/tmp/claude-code") if Path("/tmp/claude-code").exists() else None
+    ])
+    
+    # Remove None values and duplicates
+    claude_code_dirs = list(dict.fromkeys([d for d in claude_code_dirs if d]))
+    
+    for claude_dir in claude_code_dirs:
+        if claude_dir and claude_dir.exists():
+            claude_env = claude_dir / ".env"
+            if claude_env.exists():
+                try:
+                    load_dotenv(claude_env, override=False)  # Don't override existing env vars
+                    if str(claude_env) not in loaded_files:
+                        loaded_files.append(str(claude_env))
+                        logger.info(f"Loaded environment variables from ClaudeCode .env: {claude_env}")
+                except Exception as e:
+                    logger.warning(f"Failed to load ClaudeCode .env file {claude_env}: {e}")
+                break  # Only load from the first found ClaudeCode directory
+    
+    if not loaded_files:
+        logger.info("No .env files found, using system environment variables only")
+    else:
+        logger.info(f"Environment variables loaded from: {', '.join(loaded_files)}")
 
 @dataclass
 class GitHubClient:
@@ -40,20 +137,6 @@ def get_github_client() -> GitHubClient:
     if not token:
         raise Exception("GITHUB_TOKEN environment variable not set")
     return GitHubClient(token=token)
-from mcp.types import (
-    ClientCapabilities,
-    TextContent,
-    Tool,
-    ListRootsResult,
-    RootsCapability,
-    Prompt,
-    PromptArgument,
-    PromptMessage,
-    GetPromptResult,
-)
-from enum import Enum
-import git
-from pydantic import BaseModel
 
 class GitStatus(BaseModel):
     repo_path: str
@@ -566,7 +649,7 @@ async def github_get_failing_jobs(repo_owner: str, repo_name: str, pr_number: in
                             output.append(f"     • {annotation.get('title', 'Error')}: {annotation.get('message', 'No message')}")
                             if annotation.get("path"):
                                 output.append(f"       File: {annotation['path']} (line {annotation.get('start_line', 'unknown')})")
-                except:
+                except Exception:
                     pass  # Annotations might not be available
             
             # Get logs if requested (simplified)
@@ -828,7 +911,7 @@ async def github_get_pr_files(repo_owner: str, repo_name: str, pr_number: int, p
             
             # Include patch data only if requested and for small files
             if include_patch and file.get("patch") and len(file["patch"]) < 2000:
-                output.append(f"   Patch preview (first 2000 chars):")
+                output.append("   Patch preview (first 2000 chars):")
                 output.append(f"   {file['patch'][:2000]}{'...' if len(file['patch']) > 2000 else ''}")
             
             output.append("")
@@ -852,6 +935,9 @@ async def github_get_pr_files(repo_owner: str, repo_name: str, pr_number: int, p
 
 async def serve(repository: Path | None) -> None:
     logger = logging.getLogger(__name__)
+    
+    # Load environment variables from .env files with proper precedence
+    load_environment_variables(repository)
 
     if repository is not None:
         try:
