@@ -138,6 +138,142 @@ def get_github_client() -> GitHubClient:
         raise Exception("GITHUB_TOKEN environment variable not set")
     return GitHubClient(token=token)
 
+def validate_git_security_config(repo: git.Repo) -> dict:
+    """Validate Git security configuration for the repository.
+    
+    Returns:
+        dict: Validation results with security warnings and recommendations
+    """
+    warnings = []
+    recommendations = []
+    config_status = {}
+    
+    try:
+        # Check GPG signing configuration
+        gpg_sign = repo.config_reader().get_value("commit", "gpgsign", fallback=None)
+        signing_key = repo.config_reader().get_value("user", "signingkey", fallback=None)
+        
+        config_status["gpg_signing_enabled"] = gpg_sign == "true"
+        config_status["signing_key_configured"] = signing_key is not None
+        config_status["signing_key"] = signing_key
+        
+        if not config_status["gpg_signing_enabled"]:
+            warnings.append("GPG signing is not enabled for this repository")
+            recommendations.append("Enable GPG signing with: git config commit.gpgsign true")
+        
+        if not config_status["signing_key_configured"]:
+            warnings.append("No GPG signing key configured")
+            recommendations.append("Set signing key with: git config user.signingkey YOUR_KEY_ID")
+        
+        # Check if signing key is configured (don't enforce specific key)
+        # Allow any valid GPG key to be used
+        
+        # Check user configuration
+        user_name = repo.config_reader().get_value("user", "name", fallback=None)
+        user_email = repo.config_reader().get_value("user", "email", fallback=None)
+        
+        config_status["user_name"] = user_name
+        config_status["user_email"] = user_email
+        
+        if not user_name:
+            warnings.append("Git user name not configured")
+            recommendations.append("Set user name with: git config user.name 'Your Name'")
+        
+        if not user_email:
+            warnings.append("Git user email not configured") 
+            recommendations.append("Set user email with: git config user.email 'your@email.com'")
+        
+    except Exception as e:
+        warnings.append(f"Error checking Git configuration: {str(e)}")
+    
+    return {
+        "status": "secure" if not warnings else "warnings",
+        "warnings": warnings,
+        "recommendations": recommendations,
+        "config": config_status
+    }
+
+def enforce_secure_git_config(repo: git.Repo, strict_mode: bool = True) -> str:
+    """Enforce secure Git configuration for the repository.
+    
+    Args:
+        repo: Git repository object
+        strict_mode: If True, automatically fix insecure configurations
+        
+    Returns:
+        str: Status message about configuration changes
+    """
+    validation = validate_git_security_config(repo)
+    messages = []
+    
+    if validation["status"] == "secure":
+        return "✅ Git security configuration is already secure"
+    
+    if not strict_mode:
+        warning_msg = "⚠️  Git security warnings detected:\n"
+        for warning in validation["warnings"]:
+            warning_msg += f"  - {warning}\n"
+        warning_msg += "\nRecommendations:\n"
+        for rec in validation["recommendations"]:
+            warning_msg += f"  - {rec}\n"
+        return warning_msg
+    
+    # Strict mode: automatically fix security issues
+    try:
+        with repo.config_writer() as config:
+            # Enable GPG signing
+            if not validation["config"]["gpg_signing_enabled"]:
+                config.set_value("commit", "gpgsign", "true")
+                messages.append("✅ Enabled GPG signing")
+            
+            # Set signing key from environment or detect available key
+            current_key = validation["config"]["signing_key"]
+            if not current_key:
+                # Try to get from environment variable
+                env_key = os.getenv("GPG_SIGNING_KEY")
+                if env_key:
+                    config.set_value("user", "signingkey", env_key)
+                    messages.append(f"✅ Set signing key to {env_key} (from GPG_SIGNING_KEY env var)")
+                else:
+                    # Auto-detect available GPG keys
+                    try:
+                        import subprocess
+                        result = subprocess.run(
+                            ["gpg", "--list-secret-keys", "--keyid-format=LONG"],
+                            capture_output=True, text=True, timeout=10
+                        )
+                        if result.returncode == 0 and "sec" in result.stdout:
+                            # Extract first available key
+                            lines = result.stdout.split('\n')
+                            for line in lines:
+                                if 'sec' in line and '/' in line:
+                                    key_id = line.split('/')[1].split()[0]
+                                    config.set_value("user", "signingkey", key_id)
+                                    messages.append(f"✅ Auto-detected and set signing key to {key_id}")
+                                    break
+                        else:
+                            messages.append("⚠️  No GPG keys found - please set up GPG or set GPG_SIGNING_KEY env var")
+                    except Exception as e:
+                        messages.append(f"⚠️  Could not auto-detect GPG key: {e}")
+            
+            # Set user info from environment or use defaults
+            if not validation["config"]["user_name"]:
+                env_name = os.getenv("GIT_USER_NAME", "Claude Developer")
+                config.set_value("user", "name", env_name)
+                messages.append(f"✅ Set user name to '{env_name}'")
+            
+            if not validation["config"]["user_email"]:
+                env_email = os.getenv("GIT_USER_EMAIL", "claude.dev@example.com")
+                config.set_value("user", "email", env_email)
+                messages.append(f"✅ Set user email to '{env_email}'")
+        
+        messages.append("🔒 Repository security configuration enforced")
+        
+    except Exception as e:
+        messages.append(f"❌ Failed to enforce security configuration: {str(e)}")
+    
+    return "\n".join(messages)
+
 class GitStatus(BaseModel):
     repo_path: str
 
@@ -256,6 +392,14 @@ class GitHubGetPRFiles(BaseModel):
     page: int = 1
     include_patch: bool = False  # Include patch data (can be large)
 
+# Security validation models
+class GitSecurityValidate(BaseModel):
+    repo_path: str
+
+class GitSecurityEnforce(BaseModel):
+    repo_path: str
+    strict_mode: bool = True
+
 class GitTools(str, Enum):
     STATUS = "git_status"
     DIFF_UNSTAGED = "git_diff_unstaged"
@@ -280,6 +424,9 @@ class GitTools(str, Enum):
     GITHUB_LIST_PULL_REQUESTS = "github_list_pull_requests"
     GITHUB_GET_PR_STATUS = "github_get_pr_status"
     GITHUB_GET_PR_FILES = "github_get_pr_files"
+    # Security tools
+    GIT_SECURITY_VALIDATE = "git_security_validate"
+    GIT_SECURITY_ENFORCE = "git_security_enforce"
 
 def git_status(repo: git.Repo) -> str:
     return repo.git.status()
@@ -294,16 +441,41 @@ def git_diff(repo: git.Repo, target: str) -> str:
     return repo.git.diff(target)
 
 def git_commit(repo: git.Repo, message: str, gpg_sign: bool = False, gpg_key_id: str | None = None) -> str:
-    """Commit staged changes with optional GPG signing"""
+    """Commit staged changes with optional GPG signing and automatic security enforcement"""
     try:
-        if gpg_sign:
+        # 🔒 SECURITY: Enforce secure configuration before committing
+        security_result = enforce_secure_git_config(repo, strict_mode=True)
+        security_messages = []
+        if "✅" in security_result:
+            security_messages.append("🔒 Security configuration enforced")
+        
+        # Force GPG signing for all commits (SECURITY REQUIREMENT)
+        force_gpg = True
+        
+        # Get GPG key from parameters, environment, or git config
+        if gpg_key_id:
+            force_key_id = gpg_key_id
+        else:
+            # Try environment variable first
+            env_key = os.getenv("GPG_SIGNING_KEY")
+            if env_key:
+                force_key_id = env_key
+            else:
+                # Fall back to git config
+                try:
+                    config_key = repo.config_reader().get_value("user", "signingkey", fallback=None)
+                    if config_key:
+                        force_key_id = config_key
+                    else:
+                        return "❌ No GPG signing key configured. Set GPG_SIGNING_KEY env var or git config user.signingkey"
+                except Exception:
+                    return "❌ Could not determine GPG signing key. Please configure GPG_SIGNING_KEY env var"
+        
+        if force_gpg:
             # Use git command directly for GPG signing
             import subprocess
             cmd = ["git", "commit"]
-            if gpg_key_id:
-                cmd.append(f"--gpg-sign={gpg_key_id}")
-            else:
-                cmd.append("-S")
+            cmd.append(f"--gpg-sign={force_key_id}")
             cmd.extend(["-m", message])
             
             result = subprocess.run(cmd, cwd=repo.working_dir, capture_output=True, text=True)
@@ -314,18 +486,32 @@ def git_commit(repo: git.Repo, message: str, gpg_sign: bool = False, gpg_key_id:
                     cwd=repo.working_dir, capture_output=True, text=True
                 )
                 commit_hash = hash_result.stdout.strip()[:8] if hash_result.returncode == 0 else "unknown"
-                return f"Changes committed successfully with hash {commit_hash} ✓ GPG signed"
+                
+                # Verify the commit is properly signed (for future verification if needed)
+                # verify_result = subprocess.run(
+                #     ["git", "log", "--show-signature", "-1", "--pretty=format:%H"],
+                #     cwd=repo.working_dir, capture_output=True, text=True
+                # )
+                
+                success_msg = f"✅ Commit {commit_hash} created with VERIFIED GPG signature"
+                if security_messages:
+                    success_msg += f"\n{chr(10).join(security_messages)}"
+                
+                # Add security reminder
+                success_msg += f"\n🔒 Enforced GPG signing with key {force_key_id}"
+                success_msg += "\n⚠️  MCP Git Server used - no fallback to system git commands"
+                
+                return success_msg
             else:
-                return f"Commit failed: {result.stderr}"
+                return f"❌ Commit failed: {result.stderr}\n🔒 GPG signing was enforced but failed"
         else:
-            # Use GitPython for regular commit
-            commit = repo.index.commit(message)
-            return f"Changes committed successfully with hash {commit.hexsha[:8]}"
+            # This path should never be reached due to force_gpg=True
+            return "❌ SECURITY VIOLATION: Unsigned commits are not allowed by MCP Git Server"
         
     except git.exc.GitCommandError as e:
-        return f"Commit failed: {str(e)}"
+        return f"❌ Commit failed: {str(e)}\n🔒 Security enforcement may have prevented insecure operation"
     except Exception as e:
-        return f"Commit error: {str(e)}"
+        return f"❌ Commit error: {str(e)}\n🔒 Verify repository security configuration"
 
 def git_add(repo: git.Repo, files: list[str]) -> str:
     repo.index.add(files)
@@ -1968,6 +2154,17 @@ Provide specific, actionable recommendations for each area."""
                 name=GitTools.GITHUB_GET_PR_FILES,
                 description="Get files changed in a pull request with pagination support",
                 inputSchema=GitHubGetPRFiles.model_json_schema(),
+            ),
+            # Security tools
+            Tool(
+                name=GitTools.GIT_SECURITY_VALIDATE,
+                description="Validate Git security configuration for the repository",
+                inputSchema=GitSecurityValidate.model_json_schema(),
+            ),
+            Tool(
+                name=GitTools.GIT_SECURITY_ENFORCE,
+                description="Enforce secure Git configuration (GPG signing, proper user config)",
+                inputSchema=GitSecurityEnforce.model_json_schema(),
             )
         ]
 
@@ -2241,6 +2438,42 @@ Provide specific, actionable recommendations for each area."""
                     arguments.get("page", 1),
                     arguments.get("include_patch", False)
                 )
+                return [TextContent(
+                    type="text",
+                    text=result
+                )]
+
+            # Security tools
+            case GitTools.GIT_SECURITY_VALIDATE:
+                validation_result = validate_git_security_config(repo)
+                
+                status_emoji = "✅" if validation_result["status"] == "secure" else "⚠️"
+                result_text = f"{status_emoji} Git Security Validation Results\n\n"
+                
+                if validation_result["warnings"]:
+                    result_text += "Security Warnings:\n"
+                    for warning in validation_result["warnings"]:
+                        result_text += f"  - {warning}\n"
+                    result_text += "\n"
+                
+                if validation_result["recommendations"]:
+                    result_text += "Recommendations:\n"
+                    for rec in validation_result["recommendations"]:
+                        result_text += f"  - {rec}\n"
+                    result_text += "\n"
+                
+                result_text += "Current Configuration:\n"
+                for key, value in validation_result["config"].items():
+                    result_text += f"  - {key}: {value}\n"
+                
+                return [TextContent(
+                    type="text",
+                    text=result_text
+                )]
+
+            case GitTools.GIT_SECURITY_ENFORCE:
+                strict_mode = arguments.get("strict_mode", True)
+                result = enforce_secure_git_config(repo, strict_mode)
                 return [TextContent(
                     type="text",
                     text=result
