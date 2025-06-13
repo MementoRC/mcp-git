@@ -24,13 +24,17 @@ from mcp.types import (
 )
 from pydantic import BaseModel
 
-def load_environment_variables():
+def load_environment_variables(repository_path: Path | None = None):
     """Load environment variables from .env files with proper precedence.
     
     Order of precedence:
     1. Project-specific .env file (current working directory)
-    2. ClaudeCode working directory .env file (if available)
-    3. System environment variables (existing behavior)
+    2. Repository-specific .env file (if repository path provided)
+    3. ClaudeCode working directory .env file (if available)
+    4. System environment variables (existing behavior)
+    
+    Args:
+        repository_path: Optional path to the repository being used
     """
     logger = logging.getLogger(__name__)
     loaded_files = []
@@ -45,13 +49,44 @@ def load_environment_variables():
         except Exception as e:
             logger.warning(f"Failed to load project .env file {project_env}: {e}")
     
+    # Try to load from repository-specific .env file (if repository path provided)
+    if repository_path:
+        repo_env = repository_path / ".env"
+        if repo_env.exists() and str(repo_env) not in loaded_files:
+            try:
+                load_dotenv(repo_env, override=False)  # Don't override existing env vars
+                loaded_files.append(str(repo_env))
+                logger.info(f"Loaded environment variables from repository .env: {repo_env}")
+            except Exception as e:
+                logger.warning(f"Failed to load repository .env file {repo_env}: {e}")
+    
     # Try to load from ClaudeCode working directory .env file
     # Check if we're in a ClaudeCode context by looking for typical ClaudeCode paths
-    claude_code_dirs = [
+    claude_code_dirs = []
+    
+    # Method 1: Check if current path contains ClaudeCode and traverse up to find it
+    current_path = Path.cwd()
+    if "ClaudeCode" in str(current_path):
+        for parent in [current_path] + list(current_path.parents):
+            if parent.name == "ClaudeCode":
+                claude_code_dirs.append(parent)
+                break
+    
+    # Method 2: Check if repository path contains ClaudeCode and traverse up to find it
+    if repository_path and "ClaudeCode" in str(repository_path):
+        for parent in [repository_path] + list(repository_path.parents):
+            if parent.name == "ClaudeCode":
+                claude_code_dirs.append(parent)
+                break
+    
+    # Method 3: Standard Claude directories
+    claude_code_dirs.extend([
         Path.home() / ".claude",
-        Path.cwd().parent.parent if "ClaudeCode" in str(Path.cwd()) else None,
         Path("/tmp/claude-code") if Path("/tmp/claude-code").exists() else None
-    ]
+    ])
+    
+    # Remove None values and duplicates
+    claude_code_dirs = list(dict.fromkeys([d for d in claude_code_dirs if d]))
     
     for claude_dir in claude_code_dirs:
         if claude_dir and claude_dir.exists():
@@ -902,7 +937,7 @@ async def serve(repository: Path | None) -> None:
     logger = logging.getLogger(__name__)
     
     # Load environment variables from .env files with proper precedence
-    load_environment_variables()
+    load_environment_variables(repository)
 
     if repository is not None:
         try:
