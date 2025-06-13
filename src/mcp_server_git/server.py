@@ -352,34 +352,40 @@ def git_push(repo: git.Repo, remote: str = "origin", branch: str | None = None, 
         if branch is None:
             branch = repo.active_branch.name
             
-        push_args = []
-        if set_upstream:
-            push_args.append("--set-upstream")
-        if force:
-            push_args.append("--force")
-            
         # Build the refspec
         refspec = f"{branch}:{branch}"
         
-        # Execute push
-        push_info = remote_ref.push(refspec, *push_args)
-        
-        # Process results
-        results = []
-        for info in push_info:
-            if info.flags & info.ERROR:
-                results.append(f"Error: {info.summary}")
-            elif info.flags & info.REJECTED:
-                results.append(f"Rejected: {info.summary}")
-            elif info.flags & info.UP_TO_DATE:
-                results.append(f"Up to date: {info.summary}")
-            else:
-                results.append(f"Success: {info.summary}")
-                
+        # Execute push with proper GitPython approach
+        # GitPython doesn't have set_upstream parameter, we need to use git command directly for that
         if set_upstream:
-            results.append(f"Set upstream tracking for '{branch}' to '{remote}/{branch}'")
+            # Use git command directly for set-upstream functionality
+            import subprocess
+            cmd = ["git", "push", "--set-upstream", remote, branch]
+            if force:
+                cmd.insert(2, "--force")
             
-        return "\n".join(results) if results else f"Successfully pushed {branch} to {remote}"
+            result = subprocess.run(cmd, cwd=repo.working_dir, capture_output=True, text=True)
+            if result.returncode == 0:
+                return f"Successfully pushed {branch} to {remote} and set upstream tracking"
+            else:
+                return f"Push failed: {result.stderr}"
+        else:
+            # Use GitPython for regular push
+            push_info = remote_ref.push(refspec, force=force)
+            
+            # Process results
+            results = []
+            for info in push_info:
+                if info.flags & info.ERROR:
+                    results.append(f"Error: {info.summary}")
+                elif info.flags & info.REJECTED:
+                    results.append(f"Rejected: {info.summary}")
+                elif info.flags & info.UP_TO_DATE:
+                    results.append(f"Up to date: {info.summary}")
+                else:
+                    results.append(f"Success: {info.summary}")
+                    
+            return "\n".join(results) if results else f"Successfully pushed {branch} to {remote}"
         
     except git.exc.GitCommandError as e:
         return f"Push failed: {str(e)}"
