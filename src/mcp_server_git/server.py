@@ -149,6 +149,30 @@ class GitHubGetPRDetails(BaseModel):
     include_files: bool = False
     include_reviews: bool = False
 
+class GitHubListPullRequests(BaseModel):
+    repo_owner: str
+    repo_name: str
+    state: str = "open"  # "open", "closed", "all"
+    head: str | None = None  # Filter by head branch
+    base: str | None = None  # Filter by base branch
+    sort: str = "created"  # "created", "updated", "popularity"
+    direction: str = "desc"  # "asc", "desc"
+    per_page: int = 30  # Max 100
+    page: int = 1
+
+class GitHubGetPRStatus(BaseModel):
+    repo_owner: str
+    repo_name: str
+    pr_number: int
+
+class GitHubGetPRFiles(BaseModel):
+    repo_owner: str
+    repo_name: str
+    pr_number: int
+    per_page: int = 30  # Max 100, default 30 to avoid token limits
+    page: int = 1
+    include_patch: bool = False  # Include patch data (can be large)
+
 class GitTools(str, Enum):
     STATUS = "git_status"
     DIFF_UNSTAGED = "git_diff_unstaged"
@@ -170,6 +194,9 @@ class GitTools(str, Enum):
     GITHUB_GET_FAILING_JOBS = "github_get_failing_jobs"
     GITHUB_GET_WORKFLOW_RUN = "github_get_workflow_run"
     GITHUB_GET_PR_DETAILS = "github_get_pr_details"
+    GITHUB_LIST_PULL_REQUESTS = "github_list_pull_requests"
+    GITHUB_GET_PR_STATUS = "github_get_pr_status"
+    GITHUB_GET_PR_FILES = "github_get_pr_files"
 
 def git_status(repo: git.Repo) -> str:
     return repo.git.status()
@@ -637,6 +664,174 @@ async def github_get_pr_details(repo_owner: str, repo_name: str, pr_number: int,
         
     except Exception as e:
         return f"Error getting PR details: {str(e)}"
+
+async def github_list_pull_requests(repo_owner: str, repo_name: str, state: str = "open", head: str | None = None, base: str | None = None, sort: str = "created", direction: str = "desc", per_page: int = 30, page: int = 1) -> str:
+    """List pull requests for a repository"""
+    try:
+        client = get_github_client()
+        
+        # Build query parameters
+        params = {
+            "state": state,
+            "sort": sort,
+            "direction": direction,
+            "per_page": min(per_page, 100),  # GitHub max is 100
+            "page": page
+        }
+        
+        if head:
+            params["head"] = head
+        if base:
+            params["base"] = base
+        
+        # Get pull requests
+        prs_endpoint = f"/repos/{repo_owner}/{repo_name}/pulls"
+        prs_data = await client.make_request("GET", prs_endpoint, params=params)
+        
+        if not prs_data:
+            return f"No pull requests found for {repo_owner}/{repo_name} (state: {state})"
+        
+        output = [f"Pull Requests for {repo_owner}/{repo_name} (state: {state}, page: {page}):\n"]
+        
+        for pr in prs_data:
+            state_emoji = {"open": "🟢", "closed": "🔴", "merged": "🟣"}.get(pr["state"], "❓")
+            
+            output.append(f"{state_emoji} #{pr['number']}: {pr['title']}")
+            output.append(f"   Author: {pr['user']['login']}")
+            output.append(f"   State: {pr['state']}")
+            if pr.get("merged_at"):
+                output.append(f"   Merged: {pr['merged_at']}")
+            output.append(f"   Created: {pr['created_at']}")
+            output.append(f"   Base: {pr['base']['ref']} ← Head: {pr['head']['ref']}")
+            output.append(f"   URL: {pr['html_url']}")
+            output.append("")
+        
+        if len(prs_data) == per_page:
+            output.append(f"Note: Showing page {page} with {per_page} results per page. Use page={page + 1} for more results.")
+        
+        return "\n".join(output)
+        
+    except Exception as e:
+        return f"Error listing pull requests: {str(e)}"
+
+async def github_get_pr_status(repo_owner: str, repo_name: str, pr_number: int) -> str:
+    """Get the status/checks for a pull request"""
+    try:
+        client = get_github_client()
+        
+        # Get PR details to get the head SHA
+        pr_endpoint = f"/repos/{repo_owner}/{repo_name}/pulls/{pr_number}"
+        pr_data = await client.make_request("GET", pr_endpoint)
+        head_sha = pr_data["head"]["sha"]
+        
+        # Get status for the head commit
+        status_endpoint = f"/repos/{repo_owner}/{repo_name}/commits/{head_sha}/status"
+        status_data = await client.make_request("GET", status_endpoint)
+        
+        # Get check runs for the head commit
+        checks_endpoint = f"/repos/{repo_owner}/{repo_name}/commits/{head_sha}/check-runs"
+        checks_data = await client.make_request("GET", checks_endpoint)
+        
+        output = [f"Status for PR #{pr_number} (commit {head_sha[:8]}):\n"]
+        
+        # Overall status
+        overall_state = status_data.get("state", "unknown")
+        state_emoji = {"success": "✅", "pending": "🟡", "failure": "❌", "error": "❌"}.get(overall_state, "❓")
+        output.append(f"Overall Status: {state_emoji} {overall_state}")
+        output.append(f"Total Statuses: {status_data.get('total_count', 0)}")
+        
+        # Individual statuses
+        if status_data.get("statuses"):
+            output.append("\nStatuses:")
+            for status in status_data["statuses"]:
+                status_emoji = {"success": "✅", "pending": "🟡", "failure": "❌", "error": "❌"}.get(status["state"], "❓")
+                output.append(f"  {status_emoji} {status.get('context', 'Unknown')}: {status['state']}")
+                if status.get("description"):
+                    output.append(f"     {status['description']}")
+        
+        # Check runs
+        if checks_data.get("check_runs"):
+            output.append(f"\nCheck Runs ({len(checks_data['check_runs'])}):")
+            for run in checks_data["check_runs"]:
+                status_emoji = {
+                    "completed": "✅" if run.get("conclusion") == "success" else "❌",
+                    "in_progress": "🔄",
+                    "queued": "⏳"
+                }.get(run["status"], "❓")
+                
+                output.append(f"  {status_emoji} {run['name']}: {run['status']}")
+                if run.get("conclusion"):
+                    output.append(f"     Conclusion: {run['conclusion']}")
+        
+        return "\n".join(output)
+        
+    except Exception as e:
+        return f"Error getting PR status: {str(e)}"
+
+async def github_get_pr_files(repo_owner: str, repo_name: str, pr_number: int, per_page: int = 30, page: int = 1, include_patch: bool = False) -> str:
+    """Get files changed in a pull request with pagination to handle large responses"""
+    try:
+        client = get_github_client()
+        
+        # Build query parameters for pagination
+        params = {
+            "per_page": min(per_page, 100),  # GitHub max is 100
+            "page": page
+        }
+        
+        # Get changed files
+        files_endpoint = f"/repos/{repo_owner}/{repo_name}/pulls/{pr_number}/files"
+        files_data = await client.make_request("GET", files_endpoint, params=params)
+        
+        if not files_data:
+            return f"No files found for PR #{pr_number}"
+        
+        output = [f"Files changed in PR #{pr_number} (page {page}, {len(files_data)} files):\n"]
+        
+        total_additions = 0
+        total_deletions = 0
+        
+        for file in files_data:
+            status_emoji = {
+                "added": "🟢", 
+                "modified": "🟡", 
+                "removed": "🔴", 
+                "renamed": "🔄"
+            }.get(file["status"], "❓")
+            
+            output.append(f"{status_emoji} {file['filename']}")
+            output.append(f"   Status: {file['status']}")
+            output.append(f"   Changes: +{file['additions']} -{file['deletions']}")
+            
+            total_additions += file["additions"]
+            total_deletions += file["deletions"]
+            
+            if file.get("previous_filename") and file["status"] == "renamed":
+                output.append(f"   Previous: {file['previous_filename']}")
+            
+            # Include patch data only if requested and for small files
+            if include_patch and file.get("patch") and len(file["patch"]) < 2000:
+                output.append(f"   Patch preview (first 2000 chars):")
+                output.append(f"   {file['patch'][:2000]}{'...' if len(file['patch']) > 2000 else ''}")
+            
+            output.append("")
+        
+        # Summary
+        output.append(f"Summary for page {page}:")
+        output.append(f"  Files: {len(files_data)}")
+        output.append(f"  Total additions: +{total_additions}")
+        output.append(f"  Total deletions: -{total_deletions}")
+        
+        # Pagination hint
+        if len(files_data) == per_page:
+            output.append(f"\nNote: This is page {page} with {per_page} files per page.")
+            output.append(f"Use page={page + 1} to see more files.")
+            output.append("Tip: Reduce per_page or disable include_patch to avoid token limits.")
+        
+        return "\n".join(output)
+        
+    except Exception as e:
+        return f"Error getting PR files: {str(e)}"
 
 async def serve(repository: Path | None) -> None:
     logger = logging.getLogger(__name__)
@@ -1655,6 +1850,21 @@ Provide specific, actionable recommendations for each area."""
                 name=GitTools.GITHUB_GET_PR_DETAILS,
                 description="Get comprehensive PR details",
                 inputSchema=GitHubGetPRDetails.model_json_schema(),
+            ),
+            Tool(
+                name=GitTools.GITHUB_LIST_PULL_REQUESTS,
+                description="List pull requests for a repository with filtering and pagination",
+                inputSchema=GitHubListPullRequests.model_json_schema(),
+            ),
+            Tool(
+                name=GitTools.GITHUB_GET_PR_STATUS,
+                description="Get the status and check runs for a pull request",
+                inputSchema=GitHubGetPRStatus.model_json_schema(),
+            ),
+            Tool(
+                name=GitTools.GITHUB_GET_PR_FILES,
+                description="Get files changed in a pull request with pagination support",
+                inputSchema=GitHubGetPRFiles.model_json_schema(),
             )
         ]
 
@@ -1691,7 +1901,9 @@ Provide specific, actionable recommendations for each area."""
     async def call_tool(name: str, arguments: dict) -> list[TextContent]:
         # GitHub API tools don't need repo_path
         if name in [GitTools.GITHUB_GET_PR_CHECKS, GitTools.GITHUB_GET_FAILING_JOBS, 
-                   GitTools.GITHUB_GET_WORKFLOW_RUN, GitTools.GITHUB_GET_PR_DETAILS]:
+                   GitTools.GITHUB_GET_WORKFLOW_RUN, GitTools.GITHUB_GET_PR_DETAILS,
+                   GitTools.GITHUB_LIST_PULL_REQUESTS, GitTools.GITHUB_GET_PR_STATUS,
+                   GitTools.GITHUB_GET_PR_FILES]:
             # Handle GitHub API tools that don't require repo_path
             pass
         else:
@@ -1883,6 +2095,48 @@ Provide specific, actionable recommendations for each area."""
                     arguments["pr_number"],
                     arguments.get("include_files", False),
                     arguments.get("include_reviews", False)
+                )
+                return [TextContent(
+                    type="text",
+                    text=result
+                )]
+
+            case GitTools.GITHUB_LIST_PULL_REQUESTS:
+                result = await github_list_pull_requests(
+                    arguments["repo_owner"],
+                    arguments["repo_name"],
+                    arguments.get("state", "open"),
+                    arguments.get("head"),
+                    arguments.get("base"),
+                    arguments.get("sort", "created"),
+                    arguments.get("direction", "desc"),
+                    arguments.get("per_page", 30),
+                    arguments.get("page", 1)
+                )
+                return [TextContent(
+                    type="text",
+                    text=result
+                )]
+
+            case GitTools.GITHUB_GET_PR_STATUS:
+                result = await github_get_pr_status(
+                    arguments["repo_owner"],
+                    arguments["repo_name"],
+                    arguments["pr_number"]
+                )
+                return [TextContent(
+                    type="text",
+                    text=result
+                )]
+
+            case GitTools.GITHUB_GET_PR_FILES:
+                result = await github_get_pr_files(
+                    arguments["repo_owner"],
+                    arguments["repo_name"],
+                    arguments["pr_number"],
+                    arguments.get("per_page", 30),
+                    arguments.get("page", 1),
+                    arguments.get("include_patch", False)
                 )
                 return [TextContent(
                     type="text",

@@ -40,7 +40,10 @@ def test_github_api_tools_no_repo_path_required():
         GitTools.GITHUB_GET_PR_CHECKS,
         GitTools.GITHUB_GET_FAILING_JOBS, 
         GitTools.GITHUB_GET_WORKFLOW_RUN,
-        GitTools.GITHUB_GET_PR_DETAILS
+        GitTools.GITHUB_GET_PR_DETAILS,
+        GitTools.GITHUB_LIST_PULL_REQUESTS,
+        GitTools.GITHUB_GET_PR_STATUS,
+        GitTools.GITHUB_GET_PR_FILES
     ]
     
     # Verify these are the GitHub tools that don't need repo_path
@@ -48,6 +51,9 @@ def test_github_api_tools_no_repo_path_required():
     assert GitTools.GITHUB_GET_FAILING_JOBS in github_tools
     assert GitTools.GITHUB_GET_WORKFLOW_RUN in github_tools
     assert GitTools.GITHUB_GET_PR_DETAILS in github_tools
+    assert GitTools.GITHUB_LIST_PULL_REQUESTS in github_tools
+    assert GitTools.GITHUB_GET_PR_STATUS in github_tools
+    assert GitTools.GITHUB_GET_PR_FILES in github_tools
     
     # Verify regular git tools are NOT in the GitHub tools list
     assert GitTools.STATUS not in github_tools
