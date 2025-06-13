@@ -108,6 +108,32 @@ python -m mcp_server_git
 
 ## Configuration
 
+### Environment Variables
+
+The server supports loading environment variables from `.env` files with the following precedence order:
+
+1. **Project-specific .env file** - `.env` file in the current working directory
+2. **ClaudeCode working directory .env file** - `.env` file in ClaudeCode workspace (if available)
+3. **System environment variables** - Standard environment variables
+
+#### Example .env file
+
+Create a `.env` file in your project directory or ClaudeCode workspace:
+
+```bash
+# GitHub API Token for GitHub integration features
+# Get your token from: https://github.com/settings/tokens
+GITHUB_TOKEN=your_github_token_here
+
+# Optional: Custom GitHub API base URL (for GitHub Enterprise)
+# GITHUB_API_BASE_URL=https://api.github.com
+
+# Optional: Log level for debugging
+# LOG_LEVEL=INFO
+```
+
+**Note**: The `.env` file is loaded automatically when the server starts. If no `.env` files are found, the server will use system environment variables.
+
 ### Usage with Claude Desktop
 
 Add this to your `claude_desktop_config.json`:
