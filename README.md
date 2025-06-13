@@ -113,8 +113,9 @@ python -m mcp_server_git
 The server supports loading environment variables from `.env` files with the following precedence order:
 
 1. **Project-specific .env file** - `.env` file in the current working directory
-2. **ClaudeCode working directory .env file** - `.env` file in ClaudeCode workspace (if available)
-3. **System environment variables** - Standard environment variables
+2. **Repository-specific .env file** - `.env` file in the repository directory (when using `--repository` argument)
+3. **ClaudeCode working directory .env file** - `.env` file in ClaudeCode workspace root (automatically detected)
+4. **System environment variables** - Standard environment variables
 
 #### Example .env file
 
@@ -132,7 +133,9 @@ GITHUB_TOKEN=your_github_token_here
 # LOG_LEVEL=INFO
 ```
 
-**Note**: The `.env` file is loaded automatically when the server starts. If no `.env` files are found, the server will use system environment variables.
+**Note**: The `.env` file is loaded automatically when the server starts. The server intelligently detects ClaudeCode workspace directories by traversing up from both the current working directory and the repository path (if provided via `--repository` argument). If no `.env` files are found, the server will use system environment variables.
+
+**For ClaudeCode users**: If you have your `.env` file in your ClaudeCode workspace root (e.g., `/home/memento/ClaudeCode/.env`), it will be automatically detected and loaded when running the MCP server from any subdirectory within that workspace.
 
 ### Usage with Claude Desktop
 
