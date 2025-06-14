@@ -10,6 +10,14 @@ from .server import serve
 def main(repository: Path | None, verbose: bool) -> None:
     """MCP Git Server - Git functionality for MCP"""
     import asyncio
+    
+    # Load .env file from repository if it exists
+    if repository:
+        from dotenv import load_dotenv
+        env_file = repository / ".env"
+        if env_file.exists():
+            load_dotenv(env_file)
+            logging.info(f"Loaded environment variables from {env_file}")
 
     logging_level = logging.WARN
     if verbose == 1:
