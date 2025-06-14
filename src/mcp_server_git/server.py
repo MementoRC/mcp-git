@@ -524,65 +524,81 @@ def git_add(repo: git.Repo, files: list[str]) -> str:
     Returns:
         Detailed status message about the add operation
     """
-    if not files:
-        return "⚠️ No files specified to add"
-    
-    import os
-    from pathlib import Path
-    
-    # Validate and categorize files
-    existing_files = []
-    missing_files = []
-    staged_files = []
-    failed_files = []
-    
-    repo_path = Path(repo.working_dir)
-    
-    # Check file existence and normalize paths
-    for file_path in files:
-        full_path = repo_path / file_path
-        if full_path.exists() or full_path.is_dir():
-            existing_files.append(file_path)
-        else:
-            missing_files.append(file_path)
-    
-    if missing_files:
-        missing_list = '\n  - '.join(missing_files)
-        if not existing_files:
-            return f"❌ Cannot add files - not found:\n  - {missing_list}"
-    
-    # Attempt to add existing files
-    if existing_files:
+    try:
+        if not files:
+            return "No files specified to add"
+        
+        from pathlib import Path
+        
+        # Validate and categorize files
+        existing_files = []
+        missing_files = []
+        staged_files = []
+        failed_files = []
+        
+        repo_path = Path(repo.working_dir)
+        
+        # Check file existence and normalize paths
+        for file_path in files:
+            try:
+                full_path = repo_path / file_path
+                if full_path.exists() or full_path.is_dir():
+                    existing_files.append(file_path)
+                else:
+                    missing_files.append(file_path)
+            except Exception:
+                missing_files.append(file_path)
+        
+        # Early return for all missing files
+        if missing_files and not existing_files:
+            missing_list = ', '.join(missing_files)
+            return f"Cannot add files - not found: {missing_list}"
+        
+        # Attempt to add existing files
+        if existing_files:
+            try:
+                # Try batch add first (more efficient)
+                repo.index.add(existing_files)
+                staged_files = existing_files[:]
+            except Exception:
+                # Fallback to individual file processing
+                for file_path in existing_files:
+                    try:
+                        repo.index.add([file_path])
+                        staged_files.append(file_path)
+                    except Exception as e:
+                        failed_files.append(f"{file_path}: {str(e)}")
+        
+        # Build response
+        response_parts = []
+        
+        if staged_files:
+            if len(staged_files) == 1:
+                response_parts.append(f"Successfully staged: {staged_files[0]}")
+            else:
+                staged_list = ', '.join(staged_files)
+                response_parts.append(f"Successfully staged ({len(staged_files)} files): {staged_list}")
+        
+        if missing_files:
+            missing_list = ', '.join(missing_files)
+            response_parts.append(f"Files not found: {missing_list}")
+        
+        if failed_files:
+            failed_list = ', '.join(failed_files)
+            response_parts.append(f"Failed to stage: {failed_list}")
+        
+        if not response_parts:
+            return "No files were processed"
+        
+        return '; '.join(response_parts)
+        
+    except Exception as e:
+        # Fallback to original simple behavior if anything goes wrong
         try:
-            # Add files individually to capture specific errors
-            for file_path in existing_files:
-                try:
-                    repo.index.add([file_path])
-                    staged_files.append(file_path)
-                except Exception as e:
-                    failed_files.append(f"{file_path}: {str(e)}")
-        except Exception as e:
-            return f"❌ Git add operation failed: {str(e)}"
-    
-    # Build detailed response
-    response_parts = []
-    
-    if staged_files:
-        staged_list = '\n  ✅ '.join(staged_files)
-        response_parts.append(f"✅ Successfully staged ({len(staged_files)} files):\n  ✅ {staged_list}")
-    
-    if missing_files:
-        missing_list = '\n  ⚠️ '.join(missing_files)
-        response_parts.append(f"⚠️ Files not found ({len(missing_files)} files):\n  ⚠️ {missing_list}")
-    
-    if failed_files:
-        failed_list = '\n  ❌ '.join(failed_files)
-        response_parts.append(f"❌ Failed to stage ({len(failed_files)} files):\n  ❌ {failed_list}")
-    
-    if not response_parts:
-        return "⚠️ No files were processed"
-    
-    return '\n\n'.join(response_parts)
+            repo.index.add(files)
+            return "Files staged successfully"
+        except Exception as fallback_e:
+            return f"Git add failed: {str(fallback_e)}"
 
 def git_reset(repo: git.Repo) -> str:
     repo.index.reset()
