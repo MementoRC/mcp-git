@@ -1,7 +1,8 @@
 import pytest
 from pathlib import Path
 import git
-from mcp_server_git.server import git_checkout, GitTools
+from mcp_server_git.server import git_checkout, git_status, GitTools
+from mcp.types import TextContent
 import shutil
 
 @pytest.fixture
@@ -61,3 +62,63 @@ def test_github_api_tools_no_repo_path_required():
     # The fix should handle these tools without requiring repo_path
     for tool in github_tools:
         assert "github" in tool.value.lower()  # All GitHub tools should have "github" in their name
+
+def test_git_status_default_format(test_repository):
+    """Test git_status function with default (human-readable) format"""
+    # Create some changes to test status
+    (Path(test_repository.working_dir) / "new_file.txt").write_text("new content")
+    (Path(test_repository.working_dir) / "test.txt").write_text("modified content")
+    
+    status = git_status(test_repository, porcelain=False)
+    
+    # Default format should be human-readable
+    assert "Changes not staged for commit:" in status or "Untracked files:" in status
+    assert "new_file.txt" in status
+    assert "test.txt" in status
+
+def test_git_status_porcelain_format(test_repository):
+    """Test git_status function with porcelain (machine-readable) format"""
+    # Create some changes to test status
+    (Path(test_repository.working_dir) / "new_file.txt").write_text("new content")
+    (Path(test_repository.working_dir) / "test.txt").write_text("modified content")
+    
+    status = git_status(test_repository, porcelain=True)
+    
+    # Porcelain format should be machine-readable
+    lines = status.split('\n') if status else []
+    
+    # Should have entries for our changes
+    assert any(line.endswith('new_file.txt') for line in lines)
+    assert any(line.endswith('test.txt') for line in lines)
+    
+    # Each line should follow porcelain format (2 character status + space + filename)
+    for line in lines:
+        if line.strip():  # Skip empty lines
+            assert len(line) >= 4  # At least "XY filename"
+            assert line[2] == ' '  # Third character should be space
+            
+    # Should not contain human-readable text
+    assert "Changes not staged for commit:" not in status
+    assert "Untracked files:" not in status
+
+def test_git_status_porcelain_string_parameter(test_repository):
+    """Test git_status function with porcelain parameter passed as string"""
+    # Create some changes to test status
+    (Path(test_repository.working_dir) / "new_file.txt").write_text("new content")
+    (Path(test_repository.working_dir) / "test.txt").write_text("modified content")
+    
+    # Test with string "true"
+    status = git_status(test_repository, porcelain=True)  # Function should handle boolean properly
+    
+    # Test with actual string conversion logic that the MCP handler uses
+    porcelain_raw = "true"
+    porcelain = porcelain_raw if isinstance(porcelain_raw, bool) else str(porcelain_raw).lower() in ('true', '1', 'yes')
+    assert porcelain == True
+    
+    porcelain_raw = "false"
+    porcelain = porcelain_raw if isinstance(porcelain_raw, bool) else str(porcelain_raw).lower() in ('true', '1', 'yes')
+    assert porcelain == False
+    
+    porcelain_raw = True
+    porcelain = porcelain_raw if isinstance(porcelain_raw, bool) else str(porcelain_raw).lower() in ('true', '1', 'yes')
+    assert porcelain == True

@@ -276,6 +276,7 @@ def enforce_secure_git_config(repo: git.Repo, strict_mode: bool = True) -> str:
 
 class GitStatus(BaseModel):
     repo_path: str
+    porcelain: bool = False
 
 class GitDiffUnstaged(BaseModel):
     repo_path: str
@@ -428,8 +429,20 @@ class GitTools(str, Enum):
     GIT_SECURITY_VALIDATE = "git_security_validate"
     GIT_SECURITY_ENFORCE = "git_security_enforce"
 
-def git_status(repo: git.Repo) -> str:
-    return repo.git.status()
+def git_status(repo: git.Repo, porcelain: bool = False) -> str:
+    """Get repository status in either human-readable or machine-readable format.
+    
+    Args:
+        repo: Git repository object
+        porcelain: If True, return porcelain (machine-readable) format
+        
+    Returns:
+        Status output string
+    """
+    if porcelain:
+        return repo.git.status("--porcelain")
+    else:
+        return repo.git.status()
 
 def git_diff_unstaged(repo: git.Repo) -> str:
     return repo.git.diff()
@@ -2129,7 +2142,7 @@ Provide specific, actionable recommendations for each area."""
         return [
             Tool(
                 name=GitTools.STATUS,
-                description="Shows the working tree status",
+                description="Shows the working tree status with optional porcelain (machine-readable) format",
                 inputSchema=GitStatus.model_json_schema(),
             ),
             Tool(
@@ -2306,10 +2319,14 @@ Provide specific, actionable recommendations for each area."""
 
         match name:
             case GitTools.STATUS:
-                status = git_status(repo)
+                porcelain_raw = arguments.get("porcelain", False)
+                # Handle both boolean and string values for porcelain parameter
+                porcelain = porcelain_raw if isinstance(porcelain_raw, bool) else str(porcelain_raw).lower() in ('true', '1', 'yes')
+                status = git_status(repo, porcelain)
+                prefix = "Repository status (porcelain):" if porcelain else "Repository status:"
                 return [TextContent(
                     type="text",
-                    text=f"Repository status:\n{status}"
+                    text=f"{prefix}\n{status}"
                 )]
 
             case GitTools.DIFF_UNSTAGED:
