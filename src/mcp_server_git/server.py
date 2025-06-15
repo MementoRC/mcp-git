@@ -109,19 +109,21 @@ def load_environment_variables(repository_path: Path | None = None):
 
 @dataclass
 class GitHubClient:
-    """GitHub API client for interacting with GitHub"""
+    """GitHub API client for interacting with GitHub REST API v4 (2022-11-28)"""
     token: str
     base_url: str = "https://api.github.com"
+    api_version: str = "2022-11-28"
     
     def get_headers(self) -> dict:
         return {
             "Authorization": f"token {self.token}",
-            "Accept": "application/vnd.github.v3+json",
+            "Accept": "application/vnd.github+json",  # Current stable format
+            "X-GitHub-Api-Version": self.api_version,  # Latest stable API version
             "User-Agent": "MCP-Git-Server/1.0"
         }
     
     async def make_request(self, method: str, endpoint: str, **kwargs) -> dict:
-        """Make authenticated request to GitHub API"""
+        """Make authenticated request to GitHub API with proper error handling"""
         url = f"{self.base_url}{endpoint}"
         headers = self.get_headers()
         
@@ -129,7 +131,24 @@ class GitHubClient:
             async with session.request(method, url, headers=headers, **kwargs) as response:
                 if response.status >= 400:
                     error_text = await response.text()
-                    raise Exception(f"GitHub API error {response.status}: {error_text}")
+                    
+                    # Handle specific GitHub API errors
+                    if response.status == 401:
+                        raise Exception(f"GitHub API authentication failed (401): Check GITHUB_TOKEN")
+                    elif response.status == 403:
+                        rate_limit_remaining = response.headers.get('X-RateLimit-Remaining', 'unknown')
+                        if rate_limit_remaining == '0':
+                            reset_time = response.headers.get('X-RateLimit-Reset', 'unknown')
+                            raise Exception(f"GitHub API rate limit exceeded (403). Resets at: {reset_time}")
+                        else:
+                            raise Exception(f"GitHub API forbidden (403): Insufficient permissions or secondary rate limit")
+                    elif response.status == 404:
+                        raise Exception(f"GitHub API resource not found (404): {endpoint}")
+                    elif response.status == 422:
+                        raise Exception(f"GitHub API validation failed (422): {error_text}")
+                    else:
+                        raise Exception(f"GitHub API error {response.status}: {error_text}")
+                
                 return await response.json()
 
 def get_github_client() -> GitHubClient:
@@ -1350,7 +1369,14 @@ async def github_list_pull_requests(repo_owner: str, repo_name: str, state: str 
         return f"Error listing pull requests: {str(e)}"
 
 async def github_get_pr_status(repo_owner: str, repo_name: str, pr_number: int) -> str:
-    """Get the status/checks for a pull request with proper failure detection"""
+    """Get the status/checks for a pull request with proper failure detection
+    
+    Uses GitHub REST API v4 (2022-11-28) with both:
+    - Commit Status API (legacy): /repos/{owner}/{repo}/commits/{ref}/status
+    - Check Runs API (modern): /repos/{owner}/{repo}/commits/{ref}/check-runs
+    
+    Combines results to provide accurate overall CI state for GitHub Actions workflows.
+    """
     try:
         client = get_github_client()
         
@@ -1374,35 +1400,54 @@ async def github_get_pr_status(repo_owner: str, repo_name: str, pr_number: int) 
         legacy_statuses = status_data.get("statuses", [])
         check_runs = checks_data.get("check_runs", [])
         
-        # Determine true overall state by analyzing all checks
-        failure_states = {"failure", "error", "cancelled", "timed_out", "action_required"}
-        pending_states = {"pending", "queued", "in_progress"}
+        # GitHub API v4 (2022-11-28) - Official status and conclusion values
+        
+        # Commit Status API states (legacy but still used)
+        commit_failure_states = {"error", "failure"}
+        commit_pending_states = {"pending"}
+        commit_success_states = {"success"}
+        
+        # Check Runs API status values  
+        check_run_pending_status = {"queued", "in_progress", "waiting", "requested", "pending"}
+        check_run_completed_status = {"completed"}
+        
+        # Check Runs API conclusion values (when status = "completed")
+        check_run_failure_conclusions = {"action_required", "cancelled", "failure", "timed_out"}
+        check_run_success_conclusions = {"success"}
+        check_run_neutral_conclusions = {"neutral", "skipped"}  # Not failures, but not successes
+        check_run_stale_conclusions = {"stale"}  # Outdated, treat as neutral
         
         has_failures = False
         has_pending = False
         has_success = False
         
-        # Check legacy statuses
+        # Check legacy commit statuses (Commit Status API)
         for status in legacy_statuses:
             state = status.get("state", "unknown")
-            if state in failure_states:
+            if state in commit_failure_states:
                 has_failures = True
-            elif state in pending_states:
+            elif state in commit_pending_states:
                 has_pending = True
-            elif state == "success":
+            elif state in commit_success_states:
                 has_success = True
         
-        # Check modern check runs (more important for GitHub Actions)
+        # Check modern check runs (Check Runs API - primary for GitHub Actions)
         for run in check_runs:
-            status = run.get("status", "unknown")
+            run_status = run.get("status", "unknown")
             conclusion = run.get("conclusion")
             
-            if status == "completed":
-                if conclusion in failure_states:
+            if run_status in check_run_completed_status:
+                if conclusion in check_run_failure_conclusions:
                     has_failures = True
-                elif conclusion == "success":
+                elif conclusion in check_run_success_conclusions:
                     has_success = True
-            elif status in pending_states:
+                elif conclusion in check_run_neutral_conclusions:
+                    # Neutral/skipped - not failure, but don't count as success for overall state
+                    pass  
+                elif conclusion in check_run_stale_conclusions:
+                    # Stale - treat as neutral, don't affect overall state significantly
+                    pass
+            elif run_status in check_run_pending_status:
                 has_pending = True
         
         # Determine overall state with priority: failure > pending > success
@@ -1435,28 +1480,44 @@ async def github_get_pr_status(repo_owner: str, repo_name: str, pr_number: int) 
             success_runs = []
             
             for run in check_runs:
-                status = run.get("status", "unknown")
+                run_status = run.get("status", "unknown")
                 conclusion = run.get("conclusion")
                 name = run.get("name", "Unknown")
                 
-                if status == "completed":
-                    if conclusion in failure_states:
+                if run_status in check_run_completed_status:
+                    if conclusion in check_run_failure_conclusions:
                         status_emoji = "❌"
-                        failed_runs.append(f"  {status_emoji} {name}: {status} → {conclusion}")
+                        failed_runs.append(f"  {status_emoji} {name}: {run_status} → {conclusion}")
                         if run.get("html_url"):
                             failed_runs.append(f"     🔗 {run['html_url']}")
-                    elif conclusion == "success":
+                    elif conclusion in check_run_success_conclusions:
                         status_emoji = "✅"
-                        success_runs.append(f"  {status_emoji} {name}: {status} → {conclusion}")
+                        success_runs.append(f"  {status_emoji} {name}: {run_status} → {conclusion}")
+                    elif conclusion in check_run_neutral_conclusions:
+                        status_emoji = "⚪"  # Neutral - neither success nor failure
+                        success_runs.append(f"  {status_emoji} {name}: {run_status} → {conclusion} (neutral)")
+                    elif conclusion in check_run_stale_conclusions:
+                        status_emoji = "🔸"  # Stale - outdated
+                        success_runs.append(f"  {status_emoji} {name}: {run_status} → {conclusion} (stale)")
                     else:
                         status_emoji = "❓"
-                        output.append(f"  {status_emoji} {name}: {status} → {conclusion}")
-                elif status in pending_states:
-                    status_emoji = "🔄" if status == "in_progress" else "⏳"
-                    pending_runs.append(f"  {status_emoji} {name}: {status}")
+                        output.append(f"  {status_emoji} {name}: {run_status} → {conclusion} (unknown conclusion)")
+                elif run_status in check_run_pending_status:
+                    # Use specific emojis for different pending states
+                    if run_status == "in_progress":
+                        status_emoji = "🔄"
+                    elif run_status == "queued":
+                        status_emoji = "⏳"
+                    elif run_status == "waiting":
+                        status_emoji = "⏸️"
+                    elif run_status == "requested":
+                        status_emoji = "📋"
+                    else:
+                        status_emoji = "🟡"
+                    pending_runs.append(f"  {status_emoji} {name}: {run_status}")
                 else:
                     status_emoji = "❓"
-                    output.append(f"  {status_emoji} {name}: {status}")
+                    output.append(f"  {status_emoji} {name}: {run_status} (unknown status)")
             
             # Show failures first (most important)
             if failed_runs:
@@ -1480,19 +1541,37 @@ async def github_get_pr_status(repo_owner: str, repo_name: str, pr_number: int) 
         
         # Show legacy statuses if they exist
         if legacy_statuses:
-            output.append(f"\n📊 Legacy Status Checks ({len(legacy_statuses)}):")
+            output.append(f"\n📊 Legacy Commit Status Checks ({len(legacy_statuses)}):")
             for status in legacy_statuses:
-                status_emoji = {"success": "✅", "pending": "🟡", "failure": "❌", "error": "❌"}.get(status.get("state"), "❓")
-                output.append(f"  {status_emoji} {status.get('context', 'Unknown')}: {status.get('state')}")
+                state = status.get("state", "unknown")
+                # Use official GitHub API v4 commit status states
+                if state == "success":
+                    status_emoji = "✅"
+                elif state == "failure":
+                    status_emoji = "❌"
+                elif state == "error":
+                    status_emoji = "💥"  # Different from failure
+                elif state == "pending":
+                    status_emoji = "🟡"
+                else:
+                    status_emoji = "❓"
+                
+                context = status.get('context', 'Unknown')
+                output.append(f"  {status_emoji} {context}: {state}")
                 if status.get("description"):
                     output.append(f"     {status['description']}")
+                if status.get("target_url"):
+                    output.append(f"     🔗 {status['target_url']}")
         
         # Critical summary for ClaudeCode
         output.append(f"\n" + "="*50)
         output.append(f"🎯 SUMMARY FOR AUTOMATION:")
         output.append(f"   State: {actual_overall_state}")
-        output.append(f"   Failed Checks: {len([r for r in check_runs if r.get('status') == 'completed' and r.get('conclusion') in failure_states])}")
-        output.append(f"   Pending Checks: {len([r for r in check_runs if r.get('status') in pending_states])}")
+        failed_check_count = len([r for r in check_runs if r.get('status') == 'completed' and r.get('conclusion') in check_run_failure_conclusions])
+        pending_check_count = len([r for r in check_runs if r.get('status') in check_run_pending_status])
+        
+        output.append(f"   Failed Checks: {failed_check_count}")
+        output.append(f"   Pending Checks: {pending_check_count}")
         output.append(f"   Total Checks: {len(check_runs) + len(legacy_statuses)}")
         
         if actual_overall_state == "failure":
