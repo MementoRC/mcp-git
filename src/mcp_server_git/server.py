@@ -462,6 +462,31 @@ class GitSecurityEnforce(BaseModel):
     repo_path: str
     strict_mode: bool = True
 
+# Advanced git operation models
+class GitRebase(BaseModel):
+    repo_path: str
+    target_branch: str
+    interactive: bool = False
+
+class GitMerge(BaseModel):
+    repo_path: str
+    source_branch: str
+    strategy: str = "merge"  # "merge", "squash", "rebase"
+    message: str | None = None
+
+class GitCherryPick(BaseModel):
+    repo_path: str
+    commit_hash: str
+    no_commit: bool = False
+
+class GitAbort(BaseModel):
+    repo_path: str
+    operation: str  # "rebase", "merge", "cherry-pick"
+
+class GitContinue(BaseModel):
+    repo_path: str
+    operation: str  # "rebase", "merge", "cherry-pick"
+
 class GitTools(str, Enum):
     STATUS = "git_status"
     DIFF_UNSTAGED = "git_diff_unstaged"
@@ -478,6 +503,12 @@ class GitTools(str, Enum):
     PUSH = "git_push"
     PULL = "git_pull"
     DIFF_BRANCHES = "git_diff_branches"
+    # Advanced git operations
+    REBASE = "git_rebase"
+    MERGE = "git_merge"
+    CHERRY_PICK = "git_cherry_pick"
+    ABORT = "git_abort"
+    CONTINUE = "git_continue"
     # GitHub API Tools
     GITHUB_GET_PR_CHECKS = "github_get_pr_checks"
     GITHUB_GET_FAILING_JOBS = "github_get_failing_jobs"
@@ -898,6 +929,167 @@ def git_diff_branches(repo: git.Repo, base_branch: str, compare_branch: str) -> 
         return f"Diff failed: {str(e)}"
     except Exception as e:
         return f"Diff error: {str(e)}"
+
+def git_rebase(repo: git.Repo, target_branch: str, interactive: bool = False) -> str:
+    """Rebase current branch onto target branch"""
+    try:
+        current_branch = repo.active_branch.name
+        
+        # Use subprocess for reliable rebase operation
+        import subprocess
+        cmd = ["git", "rebase"]
+        
+        if interactive:
+            cmd.append("-i")
+            
+        cmd.append(target_branch)
+        
+        result = subprocess.run(cmd, cwd=repo.working_dir, capture_output=True, text=True)
+        
+        if result.returncode == 0:
+            return f"✅ Successfully rebased {current_branch} onto {target_branch}"
+        else:
+            # Check if it's a conflict that needs resolution
+            if "CONFLICT" in result.stdout or "conflict" in result.stderr.lower():
+                return f"🔄 Rebase conflicts detected. Resolve conflicts and use git_continue to finish rebase.\n\nConflicts:\n{result.stdout}\n{result.stderr}"
+            else:
+                return f"❌ Rebase failed: {result.stderr}"
+                
+    except git.exc.GitCommandError as e:
+        return f"❌ Rebase failed: {str(e)}"
+    except Exception as e:
+        return f"❌ Rebase error: {str(e)}"
+
+def git_merge(repo: git.Repo, source_branch: str, strategy: str = "merge", message: str | None = None) -> str:
+    """Merge source branch into current branch"""
+    try:
+        current_branch = repo.active_branch.name
+        
+        # Use subprocess for reliable merge operation
+        import subprocess
+        cmd = ["git", "merge"]
+        
+        if strategy == "squash":
+            cmd.append("--squash")
+        elif strategy == "rebase":
+            # For rebase strategy, we actually do a rebase
+            return git_rebase(repo, source_branch)
+            
+        if message:
+            cmd.extend(["-m", message])
+        else:
+            cmd.extend(["-m", f"Merge {source_branch} into {current_branch}"])
+            
+        cmd.append(source_branch)
+        
+        result = subprocess.run(cmd, cwd=repo.working_dir, capture_output=True, text=True)
+        
+        if result.returncode == 0:
+            if strategy == "squash":
+                return f"✅ Successfully squashed {source_branch} into {current_branch}. Changes staged but not committed."
+            else:
+                return f"✅ Successfully merged {source_branch} into {current_branch}"
+        else:
+            # Check if it's a conflict that needs resolution
+            if "CONFLICT" in result.stdout or "conflict" in result.stderr.lower():
+                return f"🔄 Merge conflicts detected. Resolve conflicts and use git_continue to finish merge.\n\nConflicts:\n{result.stdout}\n{result.stderr}"
+            else:
+                return f"❌ Merge failed: {result.stderr}"
+                
+    except git.exc.GitCommandError as e:
+        return f"❌ Merge failed: {str(e)}"
+    except Exception as e:
+        return f"❌ Merge error: {str(e)}"
+
+def git_cherry_pick(repo: git.Repo, commit_hash: str, no_commit: bool = False) -> str:
+    """Cherry-pick a commit onto current branch"""
+    try:
+        # Use subprocess for reliable cherry-pick operation
+        import subprocess
+        cmd = ["git", "cherry-pick"]
+        
+        if no_commit:
+            cmd.append("--no-commit")
+            
+        cmd.append(commit_hash)
+        
+        result = subprocess.run(cmd, cwd=repo.working_dir, capture_output=True, text=True)
+        
+        if result.returncode == 0:
+            if no_commit:
+                return f"✅ Successfully cherry-picked {commit_hash[:8]} (changes staged but not committed)"
+            else:
+                return f"✅ Successfully cherry-picked {commit_hash[:8]}"
+        else:
+            # Check if it's a conflict that needs resolution
+            if "CONFLICT" in result.stdout or "conflict" in result.stderr.lower():
+                return f"🔄 Cherry-pick conflicts detected. Resolve conflicts and use git_continue to finish cherry-pick.\n\nConflicts:\n{result.stdout}\n{result.stderr}"
+            else:
+                return f"❌ Cherry-pick failed: {result.stderr}"
+                
+    except git.exc.GitCommandError as e:
+        return f"❌ Cherry-pick failed: {str(e)}"
+    except Exception as e:
+        return f"❌ Cherry-pick error: {str(e)}"
+
+def git_abort(repo: git.Repo, operation: str) -> str:
+    """Abort an ongoing git operation (rebase, merge, cherry-pick)"""
+    try:
+        # Use subprocess for reliable abort operation
+        import subprocess
+        
+        if operation == "rebase":
+            cmd = ["git", "rebase", "--abort"]
+        elif operation == "merge":
+            cmd = ["git", "merge", "--abort"]
+        elif operation == "cherry-pick":
+            cmd = ["git", "cherry-pick", "--abort"]
+        else:
+            return f"❌ Unknown operation '{operation}'. Supported: rebase, merge, cherry-pick"
+            
+        result = subprocess.run(cmd, cwd=repo.working_dir, capture_output=True, text=True)
+        
+        if result.returncode == 0:
+            return f"✅ Successfully aborted {operation} operation"
+        else:
+            return f"❌ Failed to abort {operation}: {result.stderr}"
+                
+    except git.exc.GitCommandError as e:
+        return f"❌ Abort failed: {str(e)}"
+    except Exception as e:
+        return f"❌ Abort error: {str(e)}"
+
+def git_continue(repo: git.Repo, operation: str) -> str:
+    """Continue an ongoing git operation after resolving conflicts"""
+    try:
+        # Use subprocess for reliable continue operation
+        import subprocess
+        
+        if operation == "rebase":
+            cmd = ["git", "rebase", "--continue"]
+        elif operation == "merge":
+            # For merge, we just need to commit (no explicit continue)
+            cmd = ["git", "commit", "--no-edit"]
+        elif operation == "cherry-pick":
+            cmd = ["git", "cherry-pick", "--continue"]
+        else:
+            return f"❌ Unknown operation '{operation}'. Supported: rebase, merge, cherry-pick"
+            
+        result = subprocess.run(cmd, cwd=repo.working_dir, capture_output=True, text=True)
+        
+        if result.returncode == 0:
+            return f"✅ Successfully continued {operation} operation"
+        else:
+            # Check if there are still unresolved conflicts
+            if "conflict" in result.stderr.lower() or "unmerged" in result.stderr.lower():
+                return f"🔄 Still have unresolved conflicts. Please resolve all conflicts before continuing.\n\nError: {result.stderr}"
+            else:
+                return f"❌ Failed to continue {operation}: {result.stderr}"
+                
+    except git.exc.GitCommandError as e:
+        return f"❌ Continue failed: {str(e)}"
+    except Exception as e:
+        return f"❌ Continue error: {str(e)}"
 
 async def github_get_pr_checks(repo_owner: str, repo_name: str, pr_number: int, status: str | None = None, conclusion: str | None = None) -> str:
     """Get check runs for a pull request"""
@@ -2276,6 +2468,32 @@ Provide specific, actionable recommendations for each area."""
                 description="Show differences between two branches",
                 inputSchema=GitDiffBranches.model_json_schema(),
             ),
+            # Advanced git operations
+            Tool(
+                name=GitTools.REBASE,
+                description="Rebase current branch onto target branch",
+                inputSchema=GitRebase.model_json_schema(),
+            ),
+            Tool(
+                name=GitTools.MERGE,
+                description="Merge source branch into current branch with strategy options",
+                inputSchema=GitMerge.model_json_schema(),
+            ),
+            Tool(
+                name=GitTools.CHERRY_PICK,
+                description="Cherry-pick a commit onto current branch",
+                inputSchema=GitCherryPick.model_json_schema(),
+            ),
+            Tool(
+                name=GitTools.ABORT,
+                description="Abort an ongoing git operation (rebase, merge, cherry-pick)",
+                inputSchema=GitAbort.model_json_schema(),
+            ),
+            Tool(
+                name=GitTools.CONTINUE,
+                description="Continue an ongoing git operation after resolving conflicts",
+                inputSchema=GitContinue.model_json_schema(),
+            ),
             # GitHub API Tools
             Tool(
                 name=GitTools.GITHUB_GET_PR_CHECKS,
@@ -2504,6 +2722,61 @@ Provide specific, actionable recommendations for each area."""
                     repo,
                     arguments["base_branch"],
                     arguments["compare_branch"]
+                )
+                return [TextContent(
+                    type="text",
+                    text=result
+                )]
+
+            # Advanced git operations
+            case GitTools.REBASE:
+                result = git_rebase(
+                    repo,
+                    arguments["target_branch"],
+                    arguments.get("interactive", False)
+                )
+                return [TextContent(
+                    type="text",
+                    text=result
+                )]
+
+            case GitTools.MERGE:
+                result = git_merge(
+                    repo,
+                    arguments["source_branch"],
+                    arguments.get("strategy", "merge"),
+                    arguments.get("message")
+                )
+                return [TextContent(
+                    type="text",
+                    text=result
+                )]
+
+            case GitTools.CHERRY_PICK:
+                result = git_cherry_pick(
+                    repo,
+                    arguments["commit_hash"],
+                    arguments.get("no_commit", False)
+                )
+                return [TextContent(
+                    type="text",
+                    text=result
+                )]
+
+            case GitTools.ABORT:
+                result = git_abort(
+                    repo,
+                    arguments["operation"]
+                )
+                return [TextContent(
+                    type="text",
+                    text=result
+                )]
+
+            case GitTools.CONTINUE:
+                result = git_continue(
+                    repo,
+                    arguments["operation"]
                 )
                 return [TextContent(
                     type="text",

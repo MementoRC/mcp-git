@@ -122,3 +122,171 @@ def test_git_status_porcelain_string_parameter(test_repository):
     porcelain_raw = True
     porcelain = porcelain_raw if isinstance(porcelain_raw, bool) else str(porcelain_raw).lower() in ('true', '1', 'yes')
     assert porcelain == True
+
+# Tests for advanced git operations
+
+def test_git_rebase_success(test_repository):
+    """Test successful rebase operation"""
+    from mcp_server_git.server import git_rebase, git_create_branch, git_checkout
+    
+    # Create and switch to feature branch
+    git_create_branch(test_repository, "feature-branch")
+    git_checkout(test_repository, "feature-branch")
+    
+    # Add commit to feature branch
+    (Path(test_repository.working_dir) / "feature.txt").write_text("feature content")
+    test_repository.index.add(["feature.txt"])
+    test_repository.index.commit("Add feature")
+    
+    # Switch back to main and add another commit
+    git_checkout(test_repository, "master")
+    (Path(test_repository.working_dir) / "main.txt").write_text("main content")
+    test_repository.index.add(["main.txt"])
+    test_repository.index.commit("Add main feature")
+    
+    # Switch back to feature branch and rebase
+    git_checkout(test_repository, "feature-branch")
+    result = git_rebase(test_repository, "master")
+    
+    assert "✅ Successfully rebased" in result or "Already up to date" in result
+
+def test_git_merge_success(test_repository):
+    """Test successful merge operation"""
+    from mcp_server_git.server import git_merge, git_create_branch, git_checkout
+    
+    # Create and switch to feature branch
+    git_create_branch(test_repository, "merge-feature")
+    git_checkout(test_repository, "merge-feature")
+    
+    # Add commit to feature branch
+    (Path(test_repository.working_dir) / "merge-feature.txt").write_text("merge feature")
+    test_repository.index.add(["merge-feature.txt"])
+    test_repository.index.commit("Add merge feature")
+    
+    # Switch back to main and merge
+    git_checkout(test_repository, "master")
+    result = git_merge(test_repository, "merge-feature")
+    
+    assert "✅ Successfully merged" in result
+
+def test_git_merge_squash(test_repository):
+    """Test squash merge strategy"""
+    from mcp_server_git.server import git_merge, git_create_branch, git_checkout
+    
+    # Create and switch to feature branch
+    git_create_branch(test_repository, "squash-feature")
+    git_checkout(test_repository, "squash-feature")
+    
+    # Add commit to feature branch
+    (Path(test_repository.working_dir) / "squash.txt").write_text("squash content")
+    test_repository.index.add(["squash.txt"])
+    test_repository.index.commit("Add squash feature")
+    
+    # Switch back to main and squash merge
+    git_checkout(test_repository, "master")
+    result = git_merge(test_repository, "squash-feature", strategy="squash")
+    
+    assert "Changes staged but not committed" in result or "✅ Successfully" in result
+
+def test_git_cherry_pick_success(test_repository):
+    """Test successful cherry-pick operation"""
+    from mcp_server_git.server import git_cherry_pick, git_create_branch, git_checkout
+    
+    # Create and switch to feature branch
+    git_create_branch(test_repository, "cherry-source")
+    git_checkout(test_repository, "cherry-source")
+    
+    # Add commit to feature branch
+    (Path(test_repository.working_dir) / "cherry.txt").write_text("cherry content")
+    test_repository.index.add(["cherry.txt"])
+    commit = test_repository.index.commit("Add cherry feature")
+    
+    # Switch back to main and cherry-pick
+    git_checkout(test_repository, "master")
+    result = git_cherry_pick(test_repository, commit.hexsha)
+    
+    assert "✅ Successfully cherry-picked" in result or "already exists" in result.lower()
+
+def test_git_cherry_pick_no_commit(test_repository):
+    """Test cherry-pick with --no-commit option"""
+    from mcp_server_git.server import git_cherry_pick, git_create_branch, git_checkout
+    
+    # Create and switch to feature branch
+    git_create_branch(test_repository, "cherry-no-commit")
+    git_checkout(test_repository, "cherry-no-commit")
+    
+    # Add commit to feature branch
+    (Path(test_repository.working_dir) / "cherry-nc.txt").write_text("cherry no commit")
+    test_repository.index.add(["cherry-nc.txt"])
+    commit = test_repository.index.commit("Add cherry no commit")
+    
+    # Switch back to main and cherry-pick with no-commit
+    git_checkout(test_repository, "master")
+    result = git_cherry_pick(test_repository, commit.hexsha, no_commit=True)
+    
+    assert "changes staged but not committed" in result or "✅ Successfully" in result
+
+def test_git_abort_rebase(test_repository):
+    """Test aborting a rebase operation"""
+    from mcp_server_git.server import git_abort
+    
+    # Note: This test assumes we're not actually in a rebase state
+    # In a real scenario, you'd start a rebase that has conflicts first
+    result = git_abort(test_repository, "rebase")
+    
+    # Should either succeed or indicate no rebase in progress
+    assert "✅ Successfully aborted" in result or "no rebase in progress" in result or "not currently rebasing" in result
+
+def test_git_abort_merge(test_repository):
+    """Test aborting a merge operation"""
+    from mcp_server_git.server import git_abort
+    
+    # Note: This test assumes we're not actually in a merge state
+    result = git_abort(test_repository, "merge")
+    
+    # Should either succeed or indicate no merge in progress
+    assert "✅ Successfully aborted" in result or "no merge to abort" in result or "MERGE_HEAD missing" in result
+
+def test_git_abort_invalid_operation(test_repository):
+    """Test aborting with invalid operation"""
+    from mcp_server_git.server import git_abort
+    
+    result = git_abort(test_repository, "invalid-operation")
+    
+    assert "❌ Unknown operation" in result
+    assert "Supported: rebase, merge, cherry-pick" in result
+
+def test_git_continue_rebase(test_repository):
+    """Test continuing a rebase operation"""
+    from mcp_server_git.server import git_continue
+    
+    # Note: This test assumes we're not actually in a rebase state
+    result = git_continue(test_repository, "rebase")
+    
+    # Should either succeed or indicate no rebase in progress
+    assert "✅ Successfully continued" in result or "no rebase in progress" in result or "not currently rebasing" in result
+
+def test_git_continue_invalid_operation(test_repository):
+    """Test continuing with invalid operation"""
+    from mcp_server_git.server import git_continue
+    
+    result = git_continue(test_repository, "invalid-operation")
+    
+    assert "❌ Unknown operation" in result
+    assert "Supported: rebase, merge, cherry-pick" in result
+
+def test_advanced_git_tools_enum():
+    """Test that new git tools are properly defined in enum"""
+    # Test that all new tools are in the enum
+    assert hasattr(GitTools, 'REBASE')
+    assert hasattr(GitTools, 'MERGE')
+    assert hasattr(GitTools, 'CHERRY_PICK')
+    assert hasattr(GitTools, 'ABORT')
+    assert hasattr(GitTools, 'CONTINUE')
+    
+    # Test enum values
+    assert GitTools.REBASE == "git_rebase"
+    assert GitTools.MERGE == "git_merge"
+    assert GitTools.CHERRY_PICK == "git_cherry_pick"
+    assert GitTools.ABORT == "git_abort"
+    assert GitTools.CONTINUE == "git_continue"
