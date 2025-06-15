@@ -2785,9 +2785,10 @@ Provide specific, actionable recommendations for each area."""
 
             # GitHub API Tools
             case GitTools.GITHUB_GET_PR_CHECKS:
-                repo_owner, repo_name, error = get_github_repo_params(repo, arguments)
-                if error:
-                    return [TextContent(type="text", text=error)]
+                repo_owner = arguments.get("repo_owner")
+                repo_name = arguments.get("repo_name")
+                if not repo_owner or not repo_name:
+                    return [TextContent(type="text", text="❌ repo_owner and repo_name parameters are required for GitHub API tools")]
                 
                 result = await github_get_pr_checks(
                     repo_owner,
@@ -2802,9 +2803,10 @@ Provide specific, actionable recommendations for each area."""
                 )]
 
             case GitTools.GITHUB_GET_FAILING_JOBS:
-                repo_owner, repo_name, error = get_github_repo_params(repo, arguments)
-                if error:
-                    return [TextContent(type="text", text=error)]
+                repo_owner = arguments.get("repo_owner")
+                repo_name = arguments.get("repo_name")
+                if not repo_owner or not repo_name:
+                    return [TextContent(type="text", text="❌ repo_owner and repo_name parameters are required for GitHub API tools")]
                 
                 result = await github_get_failing_jobs(
                     repo_owner,
@@ -2819,9 +2821,10 @@ Provide specific, actionable recommendations for each area."""
                 )]
 
             case GitTools.GITHUB_GET_WORKFLOW_RUN:
-                repo_owner, repo_name, error = get_github_repo_params(repo, arguments)
-                if error:
-                    return [TextContent(type="text", text=error)]
+                repo_owner = arguments.get("repo_owner")
+                repo_name = arguments.get("repo_name")
+                if not repo_owner or not repo_name:
+                    return [TextContent(type="text", text="❌ repo_owner and repo_name parameters are required for GitHub API tools")]
                 
                 result = await github_get_workflow_run(
                     repo_owner,
@@ -2835,9 +2838,10 @@ Provide specific, actionable recommendations for each area."""
                 )]
 
             case GitTools.GITHUB_GET_PR_DETAILS:
-                repo_owner, repo_name, error = get_github_repo_params(repo, arguments)
-                if error:
-                    return [TextContent(type="text", text=error)]
+                repo_owner = arguments.get("repo_owner")
+                repo_name = arguments.get("repo_name")
+                if not repo_owner or not repo_name:
+                    return [TextContent(type="text", text="❌ repo_owner and repo_name parameters are required for GitHub API tools")]
                 
                 result = await github_get_pr_details(
                     repo_owner,
@@ -2852,9 +2856,10 @@ Provide specific, actionable recommendations for each area."""
                 )]
 
             case GitTools.GITHUB_LIST_PULL_REQUESTS:
-                repo_owner, repo_name, error = get_github_repo_params(repo, arguments)
-                if error:
-                    return [TextContent(type="text", text=error)]
+                repo_owner = arguments.get("repo_owner")
+                repo_name = arguments.get("repo_name")
+                if not repo_owner or not repo_name:
+                    return [TextContent(type="text", text="❌ repo_owner and repo_name parameters are required for GitHub API tools")]
                 
                 result = await github_list_pull_requests(
                     repo_owner,
@@ -2873,9 +2878,10 @@ Provide specific, actionable recommendations for each area."""
                 )]
 
             case GitTools.GITHUB_GET_PR_STATUS:
-                repo_owner, repo_name, error = get_github_repo_params(repo, arguments)
-                if error:
-                    return [TextContent(type="text", text=error)]
+                repo_owner = arguments.get("repo_owner")
+                repo_name = arguments.get("repo_name")
+                if not repo_owner or not repo_name:
+                    return [TextContent(type="text", text="❌ repo_owner and repo_name parameters are required for GitHub API tools")]
                 
                 result = await github_get_pr_status(
                     repo_owner,
@@ -2888,9 +2894,10 @@ Provide specific, actionable recommendations for each area."""
                 )]
 
             case GitTools.GITHUB_GET_PR_FILES:
-                repo_owner, repo_name, error = get_github_repo_params(repo, arguments)
-                if error:
-                    return [TextContent(type="text", text=error)]
+                repo_owner = arguments.get("repo_owner")
+                repo_name = arguments.get("repo_name")
+                if not repo_owner or not repo_name:
+                    return [TextContent(type="text", text="❌ repo_owner and repo_name parameters are required for GitHub API tools")]
                 
                 result = await github_get_pr_files(
                     repo_owner,
