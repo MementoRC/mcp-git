@@ -1350,7 +1350,7 @@ async def github_list_pull_requests(repo_owner: str, repo_name: str, state: str 
         return f"Error listing pull requests: {str(e)}"
 
 async def github_get_pr_status(repo_owner: str, repo_name: str, pr_number: int) -> str:
-    """Get the status/checks for a pull request"""
+    """Get the status/checks for a pull request with proper failure detection"""
     try:
         client = get_github_client()
         
@@ -1359,44 +1359,150 @@ async def github_get_pr_status(repo_owner: str, repo_name: str, pr_number: int) 
         pr_data = await client.make_request("GET", pr_endpoint)
         head_sha = pr_data["head"]["sha"]
         
-        # Get status for the head commit
+        # Get status for the head commit (legacy API)
         status_endpoint = f"/repos/{repo_owner}/{repo_name}/commits/{head_sha}/status"
         status_data = await client.make_request("GET", status_endpoint)
         
-        # Get check runs for the head commit
+        # Get check runs for the head commit (modern GitHub Actions API)
         checks_endpoint = f"/repos/{repo_owner}/{repo_name}/commits/{head_sha}/check-runs"
         checks_data = await client.make_request("GET", checks_endpoint)
         
         output = [f"Status for PR #{pr_number} (commit {head_sha[:8]}):\n"]
         
-        # Overall status
-        overall_state = status_data.get("state", "unknown")
-        state_emoji = {"success": "✅", "pending": "🟡", "failure": "❌", "error": "❌"}.get(overall_state, "❓")
-        output.append(f"Overall Status: {state_emoji} {overall_state}")
-        output.append(f"Total Statuses: {status_data.get('total_count', 0)}")
+        # Calculate ACTUAL overall state by combining both APIs
+        legacy_state = status_data.get("state", "unknown")
+        legacy_statuses = status_data.get("statuses", [])
+        check_runs = checks_data.get("check_runs", [])
         
-        # Individual statuses
-        if status_data.get("statuses"):
-            output.append("\nStatuses:")
-            for status in status_data["statuses"]:
-                status_emoji = {"success": "✅", "pending": "🟡", "failure": "❌", "error": "❌"}.get(status["state"], "❓")
-                output.append(f"  {status_emoji} {status.get('context', 'Unknown')}: {status['state']}")
+        # Determine true overall state by analyzing all checks
+        failure_states = {"failure", "error", "cancelled", "timed_out", "action_required"}
+        pending_states = {"pending", "queued", "in_progress"}
+        
+        has_failures = False
+        has_pending = False
+        has_success = False
+        
+        # Check legacy statuses
+        for status in legacy_statuses:
+            state = status.get("state", "unknown")
+            if state in failure_states:
+                has_failures = True
+            elif state in pending_states:
+                has_pending = True
+            elif state == "success":
+                has_success = True
+        
+        # Check modern check runs (more important for GitHub Actions)
+        for run in check_runs:
+            status = run.get("status", "unknown")
+            conclusion = run.get("conclusion")
+            
+            if status == "completed":
+                if conclusion in failure_states:
+                    has_failures = True
+                elif conclusion == "success":
+                    has_success = True
+            elif status in pending_states:
+                has_pending = True
+        
+        # Determine overall state with priority: failure > pending > success
+        if has_failures:
+            actual_overall_state = "failure"
+        elif has_pending:
+            actual_overall_state = "pending"
+        elif has_success or (legacy_statuses or check_runs):  # Success if any checks passed
+            actual_overall_state = "success"
+        else:
+            actual_overall_state = "unknown"  # No checks at all
+        
+        # Display overall status (use actual state, not just legacy)
+        state_emoji = {"success": "✅", "pending": "🟡", "failure": "❌", "error": "❌", "unknown": "❓"}.get(actual_overall_state, "❓")
+        output.append(f"🚨 ACTUAL Overall State: {state_emoji} {actual_overall_state.upper()}")
+        
+        # Show legacy API results for reference
+        if legacy_statuses:
+            legacy_emoji = {"success": "✅", "pending": "🟡", "failure": "❌", "error": "❌"}.get(legacy_state, "❓")
+            output.append(f"Legacy Status API: {legacy_emoji} {legacy_state} ({len(legacy_statuses)} statuses)")
+        else:
+            output.append(f"Legacy Status API: No statuses (empty - this is common with GitHub Actions)")
+        
+        # Show check runs (the real CI status for GitHub Actions)
+        if check_runs:
+            output.append(f"\n🔍 GitHub Actions Check Runs ({len(check_runs)}):")
+            
+            failed_runs = []
+            pending_runs = []
+            success_runs = []
+            
+            for run in check_runs:
+                status = run.get("status", "unknown")
+                conclusion = run.get("conclusion")
+                name = run.get("name", "Unknown")
+                
+                if status == "completed":
+                    if conclusion in failure_states:
+                        status_emoji = "❌"
+                        failed_runs.append(f"  {status_emoji} {name}: {status} → {conclusion}")
+                        if run.get("html_url"):
+                            failed_runs.append(f"     🔗 {run['html_url']}")
+                    elif conclusion == "success":
+                        status_emoji = "✅"
+                        success_runs.append(f"  {status_emoji} {name}: {status} → {conclusion}")
+                    else:
+                        status_emoji = "❓"
+                        output.append(f"  {status_emoji} {name}: {status} → {conclusion}")
+                elif status in pending_states:
+                    status_emoji = "🔄" if status == "in_progress" else "⏳"
+                    pending_runs.append(f"  {status_emoji} {name}: {status}")
+                else:
+                    status_emoji = "❓"
+                    output.append(f"  {status_emoji} {name}: {status}")
+            
+            # Show failures first (most important)
+            if failed_runs:
+                output.append(f"\n🚨 FAILED CHECKS ({len(failed_runs)//2}):")  # Divide by 2 due to URL lines
+                output.extend(failed_runs)
+            
+            # Show pending
+            if pending_runs:
+                output.append(f"\n⏳ PENDING CHECKS ({len(pending_runs)}):")
+                output.extend(pending_runs)
+            
+            # Show successes (less important, summary only)
+            if success_runs:
+                output.append(f"\n✅ PASSED CHECKS ({len(success_runs)}):")
+                # Only show first few successes to avoid clutter
+                output.extend(success_runs[:3])
+                if len(success_runs) > 3:
+                    output.append(f"     ... and {len(success_runs) - 3} more successful checks")
+        else:
+            output.append(f"\n❓ No GitHub Actions check runs found")
+        
+        # Show legacy statuses if they exist
+        if legacy_statuses:
+            output.append(f"\n📊 Legacy Status Checks ({len(legacy_statuses)}):")
+            for status in legacy_statuses:
+                status_emoji = {"success": "✅", "pending": "🟡", "failure": "❌", "error": "❌"}.get(status.get("state"), "❓")
+                output.append(f"  {status_emoji} {status.get('context', 'Unknown')}: {status.get('state')}")
                 if status.get("description"):
                     output.append(f"     {status['description']}")
         
-        # Check runs
-        if checks_data.get("check_runs"):
-            output.append(f"\nCheck Runs ({len(checks_data['check_runs'])}):")
-            for run in checks_data["check_runs"]:
-                status_emoji = {
-                    "completed": "✅" if run.get("conclusion") == "success" else "❌",
-                    "in_progress": "🔄",
-                    "queued": "⏳"
-                }.get(run["status"], "❓")
-                
-                output.append(f"  {status_emoji} {run['name']}: {run['status']}")
-                if run.get("conclusion"):
-                    output.append(f"     Conclusion: {run['conclusion']}")
+        # Critical summary for ClaudeCode
+        output.append(f"\n" + "="*50)
+        output.append(f"🎯 SUMMARY FOR AUTOMATION:")
+        output.append(f"   State: {actual_overall_state}")
+        output.append(f"   Failed Checks: {len([r for r in check_runs if r.get('status') == 'completed' and r.get('conclusion') in failure_states])}")
+        output.append(f"   Pending Checks: {len([r for r in check_runs if r.get('status') in pending_states])}")
+        output.append(f"   Total Checks: {len(check_runs) + len(legacy_statuses)}")
+        
+        if actual_overall_state == "failure":
+            output.append(f"   🚨 ACTION REQUIRED: CI failures must be resolved!")
+        elif actual_overall_state == "pending":
+            output.append(f"   ⏳ STATUS: CI is still running, wait for completion")
+        elif actual_overall_state == "success":
+            output.append(f"   ✅ STATUS: All CI checks passing")
+        
+        output.append("="*50)
         
         return "\n".join(output)
         
