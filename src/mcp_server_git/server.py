@@ -1,9 +1,10 @@
 import logging
 import os
+import re
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Sequence
+from typing import Sequence, Tuple, Optional
 
 import aiohttp
 import git
@@ -273,6 +274,66 @@ def enforce_secure_git_config(repo: git.Repo, strict_mode: bool = True) -> str:
         messages.append(f"❌ Failed to enforce security configuration: {str(e)}")
     
     return "\n".join(messages)
+
+def extract_github_repo_info(repo: git.Repo) -> Tuple[Optional[str], Optional[str]]:
+    """Extract GitHub repository owner and name from git remotes.
+    
+    Args:
+        repo: Git repository object
+        
+    Returns:
+        Tuple of (repo_owner, repo_name) or (None, None) if not found
+    """
+    try:
+        # Try origin remote first, then any remote
+        for remote_name in ['origin'] + [r.name for r in repo.remotes if r.name != 'origin']:
+            try:
+                remote = repo.remotes[remote_name]
+                for url in remote.urls:
+                    # Parse GitHub URLs (both SSH and HTTPS)
+                    # SSH: git@github.com:owner/repo.git
+                    # HTTPS: https://github.com/owner/repo.git
+                    
+                    # SSH format
+                    ssh_match = re.match(r'git@github\.com:([^/]+)/([^/]+?)(?:\.git)?$', url)
+                    if ssh_match:
+                        return ssh_match.group(1), ssh_match.group(2)
+                    
+                    # HTTPS format
+                    https_match = re.match(r'https://github\.com/([^/]+)/([^/]+?)(?:\.git)?/?$', url)
+                    if https_match:
+                        return https_match.group(1), https_match.group(2)
+                        
+            except Exception:
+                continue
+                
+    except Exception:
+        pass
+        
+    return None, None
+
+def get_github_repo_params(repo: git.Repo, arguments: dict) -> Tuple[Optional[str], Optional[str], Optional[str]]:
+    """Get GitHub repository parameters with auto-detection fallback.
+    
+    Args:
+        repo: Git repository object
+        arguments: Arguments dictionary from MCP call
+        
+    Returns:
+        Tuple of (repo_owner, repo_name, error_message) where error_message is None if successful
+    """
+    repo_owner = arguments.get("repo_owner")
+    repo_name = arguments.get("repo_name")
+    
+    if not repo_owner or not repo_name:
+        detected_owner, detected_name = extract_github_repo_info(repo)
+        repo_owner = repo_owner or detected_owner
+        repo_name = repo_name or detected_name
+    
+    if not repo_owner or not repo_name:
+        return None, None, "❌ Could not determine GitHub repository owner/name. Please provide repo_owner and repo_name parameters or ensure git remote is configured with GitHub URL."
+    
+    return repo_owner, repo_name, None
 
 class GitStatus(BaseModel):
     repo_path: str
@@ -2451,9 +2512,13 @@ Provide specific, actionable recommendations for each area."""
 
             # GitHub API Tools
             case GitTools.GITHUB_GET_PR_CHECKS:
+                repo_owner, repo_name, error = get_github_repo_params(repo, arguments)
+                if error:
+                    return [TextContent(type="text", text=error)]
+                
                 result = await github_get_pr_checks(
-                    arguments["repo_owner"],
-                    arguments["repo_name"],
+                    repo_owner,
+                    repo_name,
                     arguments["pr_number"],
                     arguments.get("status"),
                     arguments.get("conclusion")
@@ -2464,9 +2529,13 @@ Provide specific, actionable recommendations for each area."""
                 )]
 
             case GitTools.GITHUB_GET_FAILING_JOBS:
+                repo_owner, repo_name, error = get_github_repo_params(repo, arguments)
+                if error:
+                    return [TextContent(type="text", text=error)]
+                
                 result = await github_get_failing_jobs(
-                    arguments["repo_owner"],
-                    arguments["repo_name"],
+                    repo_owner,
+                    repo_name,
                     arguments["pr_number"],
                     arguments.get("include_logs", True),
                     arguments.get("include_annotations", True)
@@ -2477,9 +2546,13 @@ Provide specific, actionable recommendations for each area."""
                 )]
 
             case GitTools.GITHUB_GET_WORKFLOW_RUN:
+                repo_owner, repo_name, error = get_github_repo_params(repo, arguments)
+                if error:
+                    return [TextContent(type="text", text=error)]
+                
                 result = await github_get_workflow_run(
-                    arguments["repo_owner"],
-                    arguments["repo_name"],
+                    repo_owner,
+                    repo_name,
                     arguments["run_id"],
                     arguments.get("include_logs", False)
                 )
@@ -2489,9 +2562,13 @@ Provide specific, actionable recommendations for each area."""
                 )]
 
             case GitTools.GITHUB_GET_PR_DETAILS:
+                repo_owner, repo_name, error = get_github_repo_params(repo, arguments)
+                if error:
+                    return [TextContent(type="text", text=error)]
+                
                 result = await github_get_pr_details(
-                    arguments["repo_owner"],
-                    arguments["repo_name"],
+                    repo_owner,
+                    repo_name,
                     arguments["pr_number"],
                     arguments.get("include_files", False),
                     arguments.get("include_reviews", False)
@@ -2502,9 +2579,13 @@ Provide specific, actionable recommendations for each area."""
                 )]
 
             case GitTools.GITHUB_LIST_PULL_REQUESTS:
+                repo_owner, repo_name, error = get_github_repo_params(repo, arguments)
+                if error:
+                    return [TextContent(type="text", text=error)]
+                
                 result = await github_list_pull_requests(
-                    arguments["repo_owner"],
-                    arguments["repo_name"],
+                    repo_owner,
+                    repo_name,
                     arguments.get("state", "open"),
                     arguments.get("head"),
                     arguments.get("base"),
@@ -2519,9 +2600,13 @@ Provide specific, actionable recommendations for each area."""
                 )]
 
             case GitTools.GITHUB_GET_PR_STATUS:
+                repo_owner, repo_name, error = get_github_repo_params(repo, arguments)
+                if error:
+                    return [TextContent(type="text", text=error)]
+                
                 result = await github_get_pr_status(
-                    arguments["repo_owner"],
-                    arguments["repo_name"],
+                    repo_owner,
+                    repo_name,
                     arguments["pr_number"]
                 )
                 return [TextContent(
@@ -2530,9 +2615,13 @@ Provide specific, actionable recommendations for each area."""
                 )]
 
             case GitTools.GITHUB_GET_PR_FILES:
+                repo_owner, repo_name, error = get_github_repo_params(repo, arguments)
+                if error:
+                    return [TextContent(type="text", text=error)]
+                
                 result = await github_get_pr_files(
-                    arguments["repo_owner"],
-                    arguments["repo_name"],
+                    repo_owner,
+                    repo_name,
                     arguments["pr_number"],
                     arguments.get("per_page", 30),
                     arguments.get("page", 1),
