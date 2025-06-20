@@ -134,14 +134,14 @@ class GitHubClient:
                     
                     # Handle specific GitHub API errors
                     if response.status == 401:
-                        raise Exception(f"GitHub API authentication failed (401): Check GITHUB_TOKEN")
+                        raise Exception("GitHub API authentication failed (401): Check GITHUB_TOKEN")
                     elif response.status == 403:
                         rate_limit_remaining = response.headers.get('X-RateLimit-Remaining', 'unknown')
                         if rate_limit_remaining == '0':
                             reset_time = response.headers.get('X-RateLimit-Reset', 'unknown')
                             raise Exception(f"GitHub API rate limit exceeded (403). Resets at: {reset_time}")
                         else:
-                            raise Exception(f"GitHub API forbidden (403): Insufficient permissions or secondary rate limit")
+                            raise Exception("GitHub API forbidden (403): Insufficient permissions or secondary rate limit")
                     elif response.status == 404:
                         raise Exception(f"GitHub API resource not found (404): {endpoint}")
                     elif response.status == 422:
@@ -716,7 +716,7 @@ def git_add(repo: git.Repo, files: list[str]) -> str:
         
         return '; '.join(response_parts)
         
-    except Exception as e:
+    except Exception:
         # Fallback to original simple behavior if anything goes wrong
         try:
             repo.index.add(files)
@@ -1469,7 +1469,7 @@ async def github_get_pr_status(repo_owner: str, repo_name: str, pr_number: int) 
             legacy_emoji = {"success": "✅", "pending": "🟡", "failure": "❌", "error": "❌"}.get(legacy_state, "❓")
             output.append(f"Legacy Status API: {legacy_emoji} {legacy_state} ({len(legacy_statuses)} statuses)")
         else:
-            output.append(f"Legacy Status API: No statuses (empty - this is common with GitHub Actions)")
+            output.append("Legacy Status API: No statuses (empty - this is common with GitHub Actions)")
         
         # Show check runs (the real CI status for GitHub Actions)
         if check_runs:
@@ -1537,7 +1537,7 @@ async def github_get_pr_status(repo_owner: str, repo_name: str, pr_number: int) 
                 if len(success_runs) > 3:
                     output.append(f"     ... and {len(success_runs) - 3} more successful checks")
         else:
-            output.append(f"\n❓ No GitHub Actions check runs found")
+            output.append("\n❓ No GitHub Actions check runs found")
         
         # Show legacy statuses if they exist
         if legacy_statuses:
@@ -1564,8 +1564,8 @@ async def github_get_pr_status(repo_owner: str, repo_name: str, pr_number: int) 
                     output.append(f"     🔗 {status['target_url']}")
         
         # Critical summary for ClaudeCode
-        output.append(f"\n" + "="*50)
-        output.append(f"🎯 SUMMARY FOR AUTOMATION:")
+        output.append("\n" + "="*50)
+        output.append("🎯 SUMMARY FOR AUTOMATION:")
         output.append(f"   State: {actual_overall_state}")
         failed_check_count = len([r for r in check_runs if r.get('status') == 'completed' and r.get('conclusion') in check_run_failure_conclusions])
         pending_check_count = len([r for r in check_runs if r.get('status') in check_run_pending_status])
@@ -1575,11 +1575,11 @@ async def github_get_pr_status(repo_owner: str, repo_name: str, pr_number: int) 
         output.append(f"   Total Checks: {len(check_runs) + len(legacy_statuses)}")
         
         if actual_overall_state == "failure":
-            output.append(f"   🚨 ACTION REQUIRED: CI failures must be resolved!")
+            output.append("   🚨 ACTION REQUIRED: CI failures must be resolved!")
         elif actual_overall_state == "pending":
-            output.append(f"   ⏳ STATUS: CI is still running, wait for completion")
+            output.append("   ⏳ STATUS: CI is still running, wait for completion")
         elif actual_overall_state == "success":
-            output.append(f"   ✅ STATUS: All CI checks passing")
+            output.append("   ✅ STATUS: All CI checks passing")
         
         output.append("="*50)
         
@@ -1654,7 +1654,24 @@ async def github_get_pr_files(repo_owner: str, repo_name: str, pr_number: int, p
         return f"Error getting PR files: {str(e)}"
 
 async def serve(repository: Path | None) -> None:
+    import time
+    import os
+    from datetime import datetime
+    
     logger = logging.getLogger(__name__)
+    start_time = time.time()
+    session_id = os.environ.get("MCP_SESSION_ID", "default")
+    
+    # Startup logging
+    logger.info(f"🚀 Starting MCP Git Server (Session: {session_id})")
+    logger.info(f"Repository: {repository or '.'}")
+    logger.info(f"Server start time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    
+    # Check if file logging is enabled
+    file_handlers = [h for h in logger.handlers if isinstance(h, logging.FileHandler)]
+    if file_handlers:
+        for handler in file_handlers:
+            logger.info(f"📝 File logging enabled: {handler.baseFilename}")
     
     # Load environment variables from .env files with proper precedence
     load_environment_variables(repository)
@@ -1662,7 +1679,7 @@ async def serve(repository: Path | None) -> None:
     if repository is not None:
         try:
             git.Repo(repository)
-            logger.info(f"Using repository at {repository}")
+            logger.info(f"✅ Using repository at {repository}")
         except git.InvalidGitRepositoryError:
             logger.error(f"{repository} is not a valid Git repository")
             return
@@ -3136,6 +3153,17 @@ Provide specific, actionable recommendations for each area."""
             case _:
                 raise ValueError(f"Unknown tool: {name}")
 
+    # Server initialization logging
+    logger.info("🎯 MCP Git Server initialized and ready to listen...")
+    
+    initialization_time = time.time() - start_time
+    logger.info(f"📡 Server listening (startup took {initialization_time:.2f}s)")
+    
     options = server.create_initialization_options()
-    async with stdio_server() as (read_stream, write_stream):
-        await server.run(read_stream, write_stream, options, raise_exceptions=True)
+    try:
+        async with stdio_server() as (read_stream, write_stream):
+            await server.run(read_stream, write_stream, options, raise_exceptions=True)
+    finally:
+        # Server shutdown logging
+        total_uptime = time.time() - start_time
+        logger.info(f"🔚 Server shutdown after {total_uptime:.1f}s uptime")
