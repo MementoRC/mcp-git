@@ -15,6 +15,8 @@ from dotenv import load_dotenv
 from mcp.server import Server
 from mcp.server.session import ServerSession
 from mcp.server.stdio import stdio_server
+# Notification middleware available but not currently integrated
+# from .models.middleware import notification_validator_middleware
 from mcp.types import (
     ClientCapabilities,
     GetPromptResult,
@@ -37,17 +39,49 @@ def load_environment_variables(repository_path: Path | None = None):
     3. ClaudeCode working directory .env file (if available)
     4. System environment variables (existing behavior)
     
+    Note: Empty or whitespace-only environment variables will be overridden by .env file values
+    to handle cases where MCP clients set empty environment variables.
+    
     Args:
         repository_path: Optional path to the repository being used
     """
     logger = logging.getLogger(__name__)
     loaded_files = []
     
+    def should_override(key: str, value: str) -> bool:
+        """Determine if an environment variable should be overridden.
+        
+        Returns True if the environment variable is empty, whitespace-only,
+        or appears to be a placeholder value that should be replaced.
+        """
+        if not value or value.isspace():
+            return True
+        # Check for common placeholder patterns
+        placeholder_patterns = ['YOUR_TOKEN_HERE', 'REPLACE_ME', 'TODO', 'CHANGEME']
+        if any(pattern.lower() in value.lower() for pattern in placeholder_patterns):
+            return True
+        return False
+    
+    def load_env_with_smart_override(env_file: Path) -> None:
+        """Load environment file with smart override logic for empty/placeholder values."""
+        # First load without override to get new variables
+        load_dotenv(env_file, override=False)
+        
+        # Then check for empty/placeholder environment variables and override them
+        from dotenv import dotenv_values
+        env_vars = dotenv_values(env_file)
+        
+        for key, value in env_vars.items():
+            existing_value = os.getenv(key, '')
+            if should_override(key, existing_value) and value:
+                os.environ[key] = value
+                logger.debug(f"Overrode empty/placeholder {key} with value from {env_file}")
+    
     # Try to load from project-specific .env file first
     project_env = Path.cwd() / ".env"
     if project_env.exists():
         try:
-            load_dotenv(project_env, override=False)  # Don't override existing env vars
+            load_env_with_smart_override(project_env)
             loaded_files.append(str(project_env))
             logger.info(f"Loaded environment variables from project .env: {project_env}")
         except Exception as e:
@@ -58,7 +92,7 @@ def load_environment_variables(repository_path: Path | None = None):
         repo_env = repository_path / ".env"
         if repo_env.exists() and str(repo_env) not in loaded_files:
             try:
-                load_dotenv(repo_env, override=False)  # Don't override existing env vars
+                load_env_with_smart_override(repo_env)
                 loaded_files.append(str(repo_env))
                 logger.info(f"Loaded environment variables from repository .env: {repo_env}")
             except Exception as e:
@@ -97,7 +131,7 @@ def load_environment_variables(repository_path: Path | None = None):
             claude_env = claude_dir / ".env"
             if claude_env.exists():
                 try:
-                    load_dotenv(claude_env, override=False)  # Don't override existing env vars
+                    load_env_with_smart_override(claude_env)
                     if str(claude_env) not in loaded_files:
                         loaded_files.append(str(claude_env))
                         logger.info(f"Loaded environment variables from ClaudeCode .env: {claude_env}")
@@ -109,6 +143,15 @@ def load_environment_variables(repository_path: Path | None = None):
         logger.info("No .env files found, using system environment variables only")
     else:
         logger.info(f"Environment variables loaded from: {', '.join(loaded_files)}")
+        
+    # Log the status of critical environment variables (for debugging)
+    critical_vars = ['GITHUB_TOKEN', 'ANTHROPIC_API_KEY', 'OPENAI_API_KEY']
+    for var in critical_vars:
+        value = os.getenv(var)
+        if value:
+            logger.debug(f"{var} is set (length: {len(value)})")
+        else:
+            logger.debug(f"{var} is not set or empty")
 
 @dataclass
 class GitHubClient:
@@ -168,6 +211,12 @@ class GitHubClient:
                 
                 result = await response.json()
                 logger.debug(f"✅ Successful request to {endpoint}")
+                
+                # Validate response structure for common API endpoints
+                if result is None:
+                    logger.warning(f"⚠️ GitHub API returned None for {endpoint}")
+                    return {}
+                
                 return result
         except asyncio.TimeoutError:
             logger.error(f"⏰ Timeout making request to {endpoint}")
@@ -184,6 +233,8 @@ def get_github_client() -> GitHubClient:
     token = os.getenv("GITHUB_TOKEN")
     if not token:
         raise Exception("GITHUB_TOKEN environment variable not set")
+    if not token.startswith(('ghp_', 'github_pat_', 'gho_', 'ghu_', 'ghs_')):
+        raise Exception("GITHUB_TOKEN appears to be invalid format")
     return GitHubClient(token=token)
 
 def validate_git_security_config(repo: git.Repo) -> dict:
@@ -880,36 +931,59 @@ def git_push(repo: git.Repo, remote: str = "origin", branch: str | None = None, 
         
         if needs_auth:
             logger.debug("🔑 Using GitHub token for HTTPS authentication")
+            logger.debug(f"🔍 Token format: {token[:4]}{'*' * 8}... (length: {len(token)})")
             
-            # Use subprocess with URL-based authentication for GitHub token
-            import subprocess
-            from urllib.parse import urlparse, urlunparse
+            # Detect token type for appropriate authentication method
+            is_classic_pat = token.startswith('ghp_')
+            is_fine_grained_pat = token.startswith('github_pat_')
+            is_app_token = token.startswith('ghs_') or token.startswith('ghu_')
+            is_github_token = token.startswith('gith')  # Your specific token format
             
-            # Parse the remote URL and inject the token
-            parsed_url = urlparse(remote_url)
+            logger.debug(f"🔍 Token type detection: classic_pat={is_classic_pat}, fine_grained={is_fine_grained_pat}, app_token={is_app_token}, github_token={is_github_token}")
             
-            # Create authenticated URL with token
-            # Format: https://x-access-token:TOKEN@github.com/user/repo.git
-            auth_netloc = f"x-access-token:{token}@{parsed_url.netloc}"
-            auth_url = urlunparse((
-                parsed_url.scheme,
-                auth_netloc,
-                parsed_url.path,
-                parsed_url.params,
-                parsed_url.query,
-                parsed_url.fragment
-            ))
-            
-            logger.debug(f"🔧 Using authenticated URL for push (token: {token[:8]}...)")
-            
-            # Temporarily set the remote URL to the authenticated version
-            original_url = remote_url
+            # Test token validity first
+            logger.debug("🔍 Testing token validity with GitHub API...")
             try:
-                # Update remote URL temporarily
-                remote_ref.set_url(auth_url)
+                import requests
+                headers = {
+                    'Authorization': f'token {token}',
+                    'Accept': 'application/vnd.github+json',
+                    'X-GitHub-Api-Version': '2022-11-28'
+                }
+                test_response = requests.get('https://api.github.com/user', headers=headers, timeout=10)
+                if test_response.status_code == 200:
+                    user_info = test_response.json()
+                    logger.debug(f"✅ Token valid - authenticated as: {user_info.get('login', 'unknown')}")
+                elif test_response.status_code == 401:
+                    logger.error("❌ Token is invalid or expired")
+                    return "Push failed: GitHub token is invalid or expired (HTTP 401)"
+                elif test_response.status_code == 403:
+                    logger.warning(f"⚠️ Token has limited permissions (HTTP 403): {test_response.text}")
+                else:
+                    logger.warning(f"⚠️ Unexpected API response (HTTP {test_response.status_code}): {test_response.text}")
+            except Exception as api_error:
+                logger.warning(f"⚠️ Could not validate token via API: {api_error}")
+                # Continue with push attempts even if API validation fails
+            
+            # Use different authentication methods based on token type
+            import subprocess
+            
+            # Set up environment with GitHub token
+            env = os.environ.copy()
+            env['GITHUB_TOKEN'] = token
+            env['GIT_ASKPASS'] = '/bin/true'  # Disable interactive prompts
+            
+            # For non-standard token formats, try direct header approach
+            if is_github_token or is_fine_grained_pat:
+                logger.debug("🔧 Using HTTP header authentication for non-standard token")
                 
-                # Build git command
-                cmd = ["git", "push"]
+                # Try using git with authorization header
+                auth_header = f"Authorization: token {token}"
+                
+                cmd = [
+                    "git", "-c", f"http.extraheader={auth_header}",
+                    "push"
+                ]
                 if force:
                     cmd.append("--force")
                 if set_upstream:
@@ -917,9 +991,9 @@ def git_push(repo: git.Repo, remote: str = "origin", branch: str | None = None, 
                 else:
                     cmd.extend([remote, f"{branch}:{branch}"])
                 
-                logger.debug(f"🔧 Running: {' '.join(cmd[:3])} [token-auth] {' '.join(cmd[3:])}")
+                logger.debug(f"🔧 Running: git push [http-header-auth] {' '.join(cmd[4:])}")
                 
-                result = subprocess.run(cmd, cwd=repo.working_dir, capture_output=True, text=True)
+                result = subprocess.run(cmd, cwd=repo.working_dir, capture_output=True, text=True, env=env)
                 
                 if result.returncode == 0:
                     success_msg = f"Successfully pushed {branch} to {remote}"
@@ -928,17 +1002,113 @@ def git_push(repo: git.Repo, remote: str = "origin", branch: str | None = None, 
                     logger.info(f"✅ {success_msg}")
                     return success_msg
                 else:
-                    error_msg = f"Push failed: {result.stderr.strip() or result.stdout.strip()}"
-                    logger.error(f"❌ {error_msg}")
-                    return error_msg
+                    error_output = result.stderr.strip() or result.stdout.strip()
+                    logger.warning(f"⚠️ HTTP header auth failed: {error_output}")
+                    # Sanitize command for logging (hide token)
+                    sanitized_cmd = []
+                    for part in cmd:
+                        if 'Authorization:' in part and 'token' in part:
+                            sanitized_cmd.append("http.extraheader=Authorization: token [REDACTED]")
+                        else:
+                            sanitized_cmd.append(part)
+                    logger.debug(f"🔍 HTTP header auth command was: {' '.join(sanitized_cmd)}")
+                    logger.debug(f"🔍 HTTP header auth full stderr: {result.stderr}")
+                    logger.debug(f"🔍 HTTP header auth full stdout: {result.stdout}")
+                    # Fall through to try other methods
+            
+            # Use GitHub CLI auth approach if available, otherwise fallback to direct token
+            try:
+                # Try using gh auth setup approach
+                setup_result = subprocess.run(['gh', 'auth', 'setup-git'], 
+                                            cwd=repo.working_dir, 
+                                            capture_output=True, 
+                                            text=True, 
+                                            env=env,
+                                            timeout=10)
+                
+                if setup_result.returncode == 0:
+                    logger.debug("🔧 GitHub CLI auth setup successful")
+                    # Now try the push with GitHub CLI authentication
+                    cmd = ["git", "push"]
+                    if force:
+                        cmd.append("--force")
+                    if set_upstream:
+                        cmd.extend(["--set-upstream", remote, branch])
+                    else:
+                        cmd.extend([remote, f"{branch}:{branch}"])
                     
-            finally:
-                # Always restore the original URL
+                    logger.debug(f"🔧 Running: git push [gh-auth] {' '.join(cmd[2:])}")
+                    
+                    result = subprocess.run(cmd, cwd=repo.working_dir, capture_output=True, text=True, env=env)
+                    
+                    if result.returncode == 0:
+                        success_msg = f"Successfully pushed {branch} to {remote}"
+                        if set_upstream:
+                            success_msg += " and set upstream tracking"
+                        logger.info(f"✅ {success_msg}")
+                        return success_msg
+                    else:
+                        error_msg = f"Push failed: {result.stderr.strip() or result.stdout.strip()}"
+                        logger.error(f"❌ {error_msg}")
+                        return error_msg
+                else:
+                    logger.debug("⚠️ GitHub CLI not available, using manual token approach")
+                    raise subprocess.CalledProcessError(1, "gh auth setup-git")
+                    
+            except (subprocess.CalledProcessError, subprocess.TimeoutExpired, FileNotFoundError):
+                # Fallback to manual token configuration
+                logger.debug("🔧 Using manual git credential configuration")
+                
+                # Configure git to use the token directly
+                git_config_cmds = [
+                    ["git", "config", "--local", "credential.https://github.com.username", "x-access-token"],
+                    ["git", "config", "--local", "credential.https://github.com.password", token],
+                    ["git", "config", "--local", "credential.helper", "store"]
+                ]
+                
                 try:
-                    remote_ref.set_url(original_url)
-                    logger.debug("🔧 Restored original remote URL")
-                except Exception as restore_error:
-                    logger.warning(f"⚠️ Failed to restore original remote URL: {restore_error}")
+                    for config_cmd in git_config_cmds:
+                        subprocess.run(config_cmd, cwd=repo.working_dir, check=True, capture_output=True)
+                    
+                    logger.debug("🔧 Git credentials configured")
+                    
+                    # Now try the push
+                    cmd = ["git", "push"]
+                    if force:
+                        cmd.append("--force")
+                    if set_upstream:
+                        cmd.extend(["--set-upstream", remote, branch])
+                    else:
+                        cmd.extend([remote, f"{branch}:{branch}"])
+                    
+                    logger.debug(f"🔧 Running: git push [manual-creds] {' '.join(cmd[2:])}")
+                    
+                    result = subprocess.run(cmd, cwd=repo.working_dir, capture_output=True, text=True, env=env)
+                    
+                    if result.returncode == 0:
+                        success_msg = f"Successfully pushed {branch} to {remote}"
+                        if set_upstream:
+                            success_msg += " and set upstream tracking"
+                        logger.info(f"✅ {success_msg}")
+                        return success_msg
+                    else:
+                        error_msg = f"Push failed: {result.stderr.strip() or result.stdout.strip()}"
+                        logger.error(f"❌ {error_msg}")
+                        return error_msg
+                        
+                finally:
+                    # Clean up the credential configuration
+                    cleanup_cmds = [
+                        ["git", "config", "--local", "--unset", "credential.https://github.com.username"],
+                        ["git", "config", "--local", "--unset", "credential.https://github.com.password"],
+                        ["git", "config", "--local", "--unset", "credential.helper"]
+                    ]
+                    for cleanup_cmd in cleanup_cmds:
+                        try:
+                            subprocess.run(cleanup_cmd, cwd=repo.working_dir, capture_output=True)
+                        except:
+                            pass
+                    logger.debug("🧹 Cleaned up git credential configuration")
                 
         else:
             # Use standard GitPython approach for non-HTTPS or when no token available
@@ -1232,7 +1402,7 @@ async def github_get_pr_checks(repo_owner: str, repo_name: str, pr_number: int, 
         checks_data = await client.make_request("GET", checks_endpoint, params=params)
         
         # Filter by conclusion if specified
-        check_runs = checks_data["check_runs"]
+        check_runs = checks_data.get("check_runs", [])
         if conclusion:
             check_runs = [run for run in check_runs if run.get("conclusion") == conclusion]
         
@@ -1280,7 +1450,7 @@ async def github_get_failing_jobs(repo_owner: str, repo_name: str, pr_number: in
         checks_data = await client.make_request("GET", checks_endpoint)
         
         failing_runs = [
-            run for run in checks_data["check_runs"]
+            run for run in checks_data.get("check_runs", [])
             if run["status"] == "completed" and run.get("conclusion") in ["failure", "cancelled", "timed_out"]
         ]
         
@@ -1420,6 +1590,8 @@ async def github_get_pr_details(repo_owner: str, repo_name: str, pr_number: int,
         return "\n".join(output)
         
     except Exception as e:
+        logger = logging.getLogger(__name__)
+        logger.error(f"❌ github_get_pr_details failed: {str(e)}", exc_info=True)
         return f"Error getting PR details: {str(e)}"
 
 async def github_list_pull_requests(repo_owner: str, repo_name: str, state: str = "open", head: str | None = None, base: str | None = None, sort: str = "created", direction: str = "desc", per_page: int = 30, page: int = 1) -> str:
@@ -1469,6 +1641,8 @@ async def github_list_pull_requests(repo_owner: str, repo_name: str, state: str 
         return "\n".join(output)
         
     except Exception as e:
+        logger = logging.getLogger(__name__)
+        logger.error(f"❌ github_list_pull_requests failed: {str(e)}", exc_info=True)
         return f"Error listing pull requests: {str(e)}"
 
 async def github_get_pr_status(repo_owner: str, repo_name: str, pr_number: int) -> str:
@@ -1480,8 +1654,12 @@ async def github_get_pr_status(repo_owner: str, repo_name: str, pr_number: int) 
     
     Combines results to provide accurate overall CI state for GitHub Actions workflows.
     """
+    logger = logging.getLogger(__name__)
+    logger.debug(f"🔍 Starting github_get_pr_status for {repo_owner}/{repo_name} PR #{pr_number}")
+    
     try:
         client = get_github_client()
+        logger.debug("✅ GitHub client created successfully")
         
         # Get PR details to get the head SHA
         pr_endpoint = f"/repos/{repo_owner}/{repo_name}/pulls/{pr_number}"
@@ -1787,6 +1965,11 @@ async def serve(repository: Path | None) -> None:
             return
 
     server = Server("mcp-git")
+    
+    # Note: Enhanced notification handling for cancelled notifications
+    # The middleware infrastructure is available in models/notifications.py and models/middleware.py
+    # but integrating it into the MCP framework requires careful session handling
+    logger.debug("🔧 Notification middleware available for cancelled notifications")
 
     @server.list_prompts()
     async def list_prompts() -> list[Prompt]:
