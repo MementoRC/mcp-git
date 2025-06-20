@@ -1,0 +1,100 @@
+# MCP Git Server Pre-commit Configuration
+# This ensures code quality and MCP behavior validation before commits
+
+repos:
+  # Python code formatting and linting
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.7.3
+    hooks:
+      # Linter
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix]
+      # Formatter
+      - id: ruff-format
+
+  # Type checking
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.11.2
+    hooks:
+      - id: mypy
+        additional_dependencies: [types-all]
+        args: [--ignore-missing-imports, --follow-imports=skip]
+
+  # General code quality
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-json
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: ['--maxkb=1000']
+      - id: debug-statements
+      - id: check-docstring-first
+
+  # Security scanning
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.7.10
+    hooks:
+      - id: bandit
+        args: ['-r', 'src/', '--skip', 'B101']
+
+  # Dependency security
+  - repo: https://github.com/Lucas-C/pre-commit-hooks-safety
+    rev: v1.3.2
+    hooks:
+      - id: python-safety-dependencies-check
+
+  # MCP-specific validation (custom)
+  - repo: local
+    hooks:
+      - id: mcp-behavior-validation
+        name: MCP Behavior Validation
+        entry: python scripts/validate_mcp_behavior.py --verbose
+        language: python
+        files: '^(src/mcp_server_git/|tests/)'
+        pass_filenames: false
+        additional_dependencies: []
+
+      - id: notification-models-check
+        name: Notification Models Check
+        entry: python -c "from mcp_server_git.models.notifications import ClientNotification; print('✅ Notification models OK')"
+        language: python
+        files: '^src/mcp_server_git/models/'
+        pass_filenames: false
+
+      - id: server-import-check
+        name: Server Import Check
+        entry: python -c "import mcp_server_git.server; print('✅ Server imports OK')"
+        language: python
+        files: '^src/mcp_server_git/'
+        pass_filenames: false
+
+      - id: test-syntax-check
+        name: Test Files Syntax Check
+        entry: python -m py_compile
+        language: python
+        files: '^tests/.*\.py$'
+
+  # Git commit message formatting
+  - repo: https://github.com/compilerla/conventional-pre-commit
+    rev: v3.4.0
+    hooks:
+      - id: conventional-pre-commit
+        stages: [commit-msg]
+        args: [--strict, --types=feat,fix,docs,style,refactor,test,chore,ci]
+
+# CI configuration for pre-commit.ci
+ci:
+  autofix_commit_msg: |
+    style: auto fixes from pre-commit hooks
+
+    [skip ci]
+  autofix_prs: true
+  autoupdate_branch: ''
+  autoupdate_commit_msg: 'chore: update pre-commit hooks'
+  autoupdate_schedule: weekly
+  skip: [mypy, mcp-behavior-validation]  # Skip heavy checks in CI

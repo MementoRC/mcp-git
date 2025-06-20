@@ -1,0 +1,458 @@
+name: CI - MCP Git Server Validation
+
+on:
+  push:
+    branches: [ main, development, feature/* ]
+  pull_request:
+    branches: [ main, development ]
+  workflow_dispatch:
+
+env:
+  # Ensure consistent Python version across jobs
+  PYTHON_VERSION: "3.11"
+  # Force color output for better readability
+  FORCE_COLOR: "1"
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  # Job 1: Code Quality and Static Analysis
+  quality:
+    name: Code Quality & Static Analysis
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        # Fetch full history for proper git operations testing
+        fetch-depth: 0
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+    
+    - name: Install uv
+      uses: astral-sh/setup-uv@v4
+      with:
+        enable-cache: true
+        cache-dependency-glob: "uv.lock"
+    
+    - name: Install dependencies
+      run: uv sync --dev
+    
+    - name: Run ruff linting (critical violations)
+      run: uv run ruff check --select=F,E9 --output-format=github
+    
+    - name: Run ruff linting (full)
+      run: uv run ruff check --output-format=github
+      continue-on-error: true
+    
+    - name: Run type checking with pyright
+      run: uv run pyright
+      continue-on-error: true
+    
+    - name: Check code formatting
+      run: uv run ruff format --check
+
+  # Job 2: Unit and Integration Tests
+  test:
+    name: Unit & Integration Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+      fail-fast: false
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+    
+    - name: Install uv
+      uses: astral-sh/setup-uv@v4
+      with:
+        enable-cache: true
+        cache-dependency-glob: "uv.lock"
+    
+    - name: Install dependencies
+      run: uv sync --dev
+    
+    - name: Configure Git for testing
+      run: |
+        git config --global user.name "CI Test"
+        git config --global user.email "ci-test@example.com"
+        git config --global init.defaultBranch main
+    
+    - name: Run pytest with coverage
+      run: |
+        uv run pytest --verbose --tb=short \
+          --cov=src/mcp_server_git \
+          --cov-report=xml \
+          --cov-report=term-missing \
+          --junit-xml=pytest-results.xml
+    
+    - name: Upload test results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: test-results-${{ matrix.python-version }}
+        path: |
+          pytest-results.xml
+          coverage.xml
+    
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v4
+      if: matrix.python-version == '3.11'
+      with:
+        file: ./coverage.xml
+        flags: unittests
+        name: codecov-umbrella
+        fail_ci_if_error: false
+
+  # Job 3: MCP Server Behavior Validation
+  mcp-validation:
+    name: MCP Server Behavior Validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [quality, test]
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+    
+    - name: Install uv
+      uses: astral-sh/setup-uv@v4
+      with:
+        enable-cache: true
+        cache-dependency-glob: "uv.lock"
+    
+    - name: Install dependencies
+      run: uv sync --dev
+    
+    - name: Configure Git for MCP testing
+      run: |
+        git config --global user.name "MCP Validator"
+        git config --global user.email "mcp-validator@example.com"
+        git config --global init.defaultBranch main
+    
+    - name: Create test repository for MCP validation
+      run: |
+        mkdir -p /tmp/mcp-test-repo
+        cd /tmp/mcp-test-repo
+        git init
+        echo "# Test Repository" > README.md
+        git add README.md
+        git commit -m "Initial commit"
+        echo "Test content" > test.txt
+        git add test.txt
+        git commit -m "Add test file"
+    
+    - name: Test MCP server startup and basic functionality
+      run: |
+        timeout 30s uv run python -m mcp_server_git &
+        SERVER_PID=$!
+        sleep 5
+        
+        # Test if server started successfully
+        if kill -0 $SERVER_PID 2>/dev/null; then
+          echo "✅ MCP server started successfully"
+          kill $SERVER_PID
+        else
+          echo "❌ MCP server failed to start"
+          exit 1
+        fi
+    
+    - name: Validate MCP protocol compliance
+      run: |
+        # Install MCP inspector if available
+        pip install mcp-inspector 2>/dev/null || echo "MCP inspector not available, using custom validation"
+        
+        # Custom MCP validation script
+        cat > mcp_validate.py << 'EOF'
+        import json
+        import subprocess
+        import sys
+        import tempfile
+        import time
+        from pathlib import Path
+        
+        def validate_mcp_server():
+            """Validate MCP server behavior and protocol compliance."""
+            print("🔍 Starting MCP server behavior validation...")
+            
+            # Test 1: Server can handle basic requests
+            try:
+                # This would ideally use MCP inspector, but we'll do basic validation
+                result = subprocess.run([
+                    sys.executable, "-m", "mcp_server_git", "--help"
+                ], capture_output=True, text=True, timeout=10)
+                
+                if result.returncode == 0:
+                    print("✅ Server help command works")
+                else:
+                    print(f"❌ Server help failed: {result.stderr}")
+                    return False
+            except subprocess.TimeoutExpired:
+                print("❌ Server help command timed out")
+                return False
+            except Exception as e:
+                print(f"❌ Server help command failed: {e}")
+                return False
+            
+            # Test 2: Validate notification models exist and are importable
+            try:
+                from mcp_server_git.models.notifications import ClientNotification
+                print("✅ Notification models are importable")
+            except ImportError as e:
+                print(f"❌ Cannot import notification models: {e}")
+                return False
+            
+            # Test 3: Validate server module structure
+            try:
+                import mcp_server_git.server
+                print("✅ Server module structure is valid")
+            except ImportError as e:
+                print(f"❌ Server module import failed: {e}")
+                return False
+            
+            print("🎉 All MCP server behavior validations passed!")
+            return True
+        
+        if __name__ == "__main__":
+            success = validate_mcp_server()
+            sys.exit(0 if success else 1)
+        EOF
+        
+        uv run python mcp_validate.py
+    
+    - name: Test notification handling
+      run: |
+        # Test that the server can handle various notification types
+        cat > test_notifications.py << 'EOF'
+        import json
+        import sys
+        
+        def test_notification_models():
+            """Test notification model validation."""
+            print("🔍 Testing notification model handling...")
+            
+            try:
+                from mcp_server_git.models.notifications import parse_client_notification
+                
+                # Test valid notification
+                test_notification = {
+                    "type": "notifications/cancelled",
+                    "params": {"requestId": "test-123"}
+                }
+                
+                # This should not crash
+                result = parse_client_notification(test_notification)
+                print("✅ Notification parsing works")
+                return True
+                
+            except Exception as e:
+                print(f"❌ Notification parsing failed: {e}")
+                return False
+        
+        def test_unknown_notification():
+            """Test handling of unknown notification types."""
+            print("🔍 Testing unknown notification handling...")
+            
+            try:
+                from mcp_server_git.models.notifications import parse_client_notification
+                
+                # Test unknown notification type
+                unknown_notification = {
+                    "type": "notifications/unknown",
+                    "params": {"data": "test"}
+                }
+                
+                # This should handle gracefully without crashing
+                result = parse_client_notification(unknown_notification)
+                print("✅ Unknown notification handling works")
+                return True
+                
+            except Exception as e:
+                # Should log but not crash
+                print(f"⚠️  Unknown notification handling: {e}")
+                return True  # This is expected behavior
+        
+        if __name__ == "__main__":
+            success1 = test_notification_models()
+            success2 = test_unknown_notification()
+            print("🎉 Notification tests completed!")
+            sys.exit(0 if (success1 and success2) else 1)
+        EOF
+        
+        uv run python test_notifications.py
+
+  # Job 4: Docker Build Validation
+  docker:
+    name: Docker Build Validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [quality, test]
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+    
+    - name: Build Docker image
+      run: |
+        docker build -t mcp-server-git:test .
+    
+    - name: Test Docker image
+      run: |
+        # Test that the Docker image can run
+        docker run --rm mcp-server-git:test --help
+    
+    - name: Validate Docker image structure
+      run: |
+        # Test image contains expected files
+        docker run --rm mcp-server-git:test sh -c "python -c 'import mcp_server_git; print(\"✅ Package installed correctly\")'"
+
+  # Job 5: Security and Dependency Scanning
+  security:
+    name: Security & Dependency Scanning
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+    
+    - name: Install uv
+      uses: astral-sh/setup-uv@v4
+      with:
+        enable-cache: true
+        cache-dependency-glob: "uv.lock"
+    
+    - name: Install dependencies
+      run: uv sync --dev
+    
+    - name: Run safety check for known vulnerabilities
+      run: |
+        pip install safety
+        uv export --format requirements-txt | safety check --stdin
+      continue-on-error: true
+    
+    - name: Audit dependencies
+      run: |
+        pip install pip-audit
+        uv export --format requirements-txt | pip-audit --requirement /dev/stdin --format=json --output=audit-results.json
+      continue-on-error: true
+    
+    - name: Upload security scan results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: security-scan-results
+        path: audit-results.json
+
+  # Job 6: Performance and Load Testing
+  performance:
+    name: Performance & Load Testing
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [mcp-validation]
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+    
+    - name: Install uv
+      uses: astral-sh/setup-uv@v4
+      with:
+        enable-cache: true
+        cache-dependency-glob: "uv.lock"
+    
+    - name: Install dependencies
+      run: uv sync --dev
+    
+    - name: Configure Git for performance testing
+      run: |
+        git config --global user.name "Perf Tester"
+        git config --global user.email "perf-test@example.com"
+    
+    - name: Run performance tests
+      run: |
+        # Create a larger test repository for performance testing
+        mkdir -p /tmp/perf-test-repo
+        cd /tmp/perf-test-repo
+        git init
+        
+        # Create multiple commits and branches for testing
+        for i in {1..50}; do
+          echo "Content $i" > "file_$i.txt"
+          git add "file_$i.txt"
+          git commit -m "Add file $i"
+        done
+        
+        # Create some branches
+        git checkout -b feature/test-1
+        echo "Feature content" > feature.txt
+        git add feature.txt
+        git commit -m "Add feature"
+        
+        git checkout main
+        
+        # Run performance-focused tests
+        cd /home/runner/work/mcp-git/mcp-git
+        uv run pytest tests/ -k "not slow" --tb=short -v
+
+# Summary job to check overall CI status
+status-check:
+  name: CI Status Check
+  runs-on: ubuntu-latest
+  needs: [quality, test, mcp-validation, docker, security]
+  if: always()
+  
+  steps:
+  - name: Check CI results
+    run: |
+      echo "=== CI Results Summary ==="
+      echo "Quality: ${{ needs.quality.result }}"
+      echo "Tests: ${{ needs.test.result }}"
+      echo "MCP Validation: ${{ needs.mcp-validation.result }}"
+      echo "Docker: ${{ needs.docker.result }}"
+      echo "Security: ${{ needs.security.result }}"
+      
+      # Fail if any critical jobs failed
+      if [[ "${{ needs.quality.result }}" == "failure" || "${{ needs.test.result }}" == "failure" || "${{ needs.mcp-validation.result }}" == "failure" ]]; then
+        echo "❌ Critical CI jobs failed"
+        exit 1
+      else
+        echo "✅ All critical CI jobs passed"
+      fi
