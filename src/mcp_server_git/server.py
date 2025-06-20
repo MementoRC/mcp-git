@@ -881,38 +881,64 @@ def git_push(repo: git.Repo, remote: str = "origin", branch: str | None = None, 
         if needs_auth:
             logger.debug("🔑 Using GitHub token for HTTPS authentication")
             
-            # Use subprocess with environment-based authentication for reliable token handling
+            # Use subprocess with URL-based authentication for GitHub token
             import subprocess
+            from urllib.parse import urlparse, urlunparse
             
-            # Prepare environment with authentication
-            env = os.environ.copy()
-            env['GIT_ASKPASS'] = 'echo'  # Disable interactive password prompts
-            env['GIT_USERNAME'] = 'x-access-token'  # GitHub token username
-            env['GIT_PASSWORD'] = token  # GitHub token as password
+            # Parse the remote URL and inject the token
+            parsed_url = urlparse(remote_url)
             
-            # Build git command
-            cmd = ["git", "push"]
-            if force:
-                cmd.append("--force")
-            if set_upstream:
-                cmd.extend(["--set-upstream", remote, branch])
-            else:
-                cmd.extend([remote, f"{branch}:{branch}"])
+            # Create authenticated URL with token
+            # Format: https://x-access-token:TOKEN@github.com/user/repo.git
+            auth_netloc = f"x-access-token:{token}@{parsed_url.netloc}"
+            auth_url = urlunparse((
+                parsed_url.scheme,
+                auth_netloc,
+                parsed_url.path,
+                parsed_url.params,
+                parsed_url.query,
+                parsed_url.fragment
+            ))
             
-            logger.debug(f"🔧 Running: {' '.join(cmd[:3])} [auth-enabled] {' '.join(cmd[3:])}")
+            logger.debug(f"🔧 Using authenticated URL for push (token: {token[:8]}...)")
             
-            result = subprocess.run(cmd, cwd=repo.working_dir, capture_output=True, text=True, env=env)
-            
-            if result.returncode == 0:
-                success_msg = f"Successfully pushed {branch} to {remote}"
+            # Temporarily set the remote URL to the authenticated version
+            original_url = remote_url
+            try:
+                # Update remote URL temporarily
+                remote_ref.set_url(auth_url)
+                
+                # Build git command
+                cmd = ["git", "push"]
+                if force:
+                    cmd.append("--force")
                 if set_upstream:
-                    success_msg += " and set upstream tracking"
-                logger.info(f"✅ {success_msg}")
-                return success_msg
-            else:
-                error_msg = f"Push failed: {result.stderr.strip() or result.stdout.strip()}"
-                logger.error(f"❌ {error_msg}")
-                return error_msg
+                    cmd.extend(["--set-upstream", remote, branch])
+                else:
+                    cmd.extend([remote, f"{branch}:{branch}"])
+                
+                logger.debug(f"🔧 Running: {' '.join(cmd[:3])} [token-auth] {' '.join(cmd[3:])}")
+                
+                result = subprocess.run(cmd, cwd=repo.working_dir, capture_output=True, text=True)
+                
+                if result.returncode == 0:
+                    success_msg = f"Successfully pushed {branch} to {remote}"
+                    if set_upstream:
+                        success_msg += " and set upstream tracking"
+                    logger.info(f"✅ {success_msg}")
+                    return success_msg
+                else:
+                    error_msg = f"Push failed: {result.stderr.strip() or result.stdout.strip()}"
+                    logger.error(f"❌ {error_msg}")
+                    return error_msg
+                    
+            finally:
+                # Always restore the original URL
+                try:
+                    remote_ref.set_url(original_url)
+                    logger.debug("🔧 Restored original remote URL")
+                except Exception as restore_error:
+                    logger.warning(f"⚠️ Failed to restore original remote URL: {restore_error}")
                 
         else:
             # Use standard GitPython approach for non-HTTPS or when no token available
