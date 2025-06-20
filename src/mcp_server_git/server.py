@@ -859,52 +859,101 @@ def git_show(repo: git.Repo, revision: str) -> str:
     return "".join(output)
 
 def git_push(repo: git.Repo, remote: str = "origin", branch: str | None = None, force: bool = False, set_upstream: bool = False) -> str:
-    """Push commits to remote repository"""
+    """Push commits to remote repository with HTTPS authentication support"""
+    logger = logging.getLogger(__name__)
+    
     try:
         remote_ref = repo.remote(remote)
+        remote_url = remote_ref.url
         
         # Determine branch to push
         if branch is None:
             branch = repo.active_branch.name
             
-        # Build the refspec
-        refspec = f"{branch}:{branch}"
+        logger.debug(f"🚀 Pushing {branch} to {remote} ({remote_url})")
         
-        # Execute push with proper GitPython approach
-        # GitPython doesn't have set_upstream parameter, we need to use git command directly for that
-        if set_upstream:
-            # Use git command directly for set-upstream functionality
+        # Check if we need to handle HTTPS authentication
+        token = os.getenv("GITHUB_TOKEN")
+        needs_auth = (remote_url.startswith('https://') and 
+                     'github.com' in remote_url and 
+                     token is not None)
+        
+        if needs_auth:
+            logger.debug("🔑 Using GitHub token for HTTPS authentication")
+            
+            # Use subprocess with environment-based authentication for reliable token handling
             import subprocess
-            cmd = ["git", "push", "--set-upstream", remote, branch]
+            
+            # Prepare environment with authentication
+            env = os.environ.copy()
+            env['GIT_ASKPASS'] = 'echo'  # Disable interactive password prompts
+            env['GIT_USERNAME'] = 'x-access-token'  # GitHub token username
+            env['GIT_PASSWORD'] = token  # GitHub token as password
+            
+            # Build git command
+            cmd = ["git", "push"]
             if force:
-                cmd.insert(2, "--force")
-            
-            result = subprocess.run(cmd, cwd=repo.working_dir, capture_output=True, text=True)
-            if result.returncode == 0:
-                return f"Successfully pushed {branch} to {remote} and set upstream tracking"
+                cmd.append("--force")
+            if set_upstream:
+                cmd.extend(["--set-upstream", remote, branch])
             else:
-                return f"Push failed: {result.stderr}"
-        else:
-            # Use GitPython for regular push
-            push_info = remote_ref.push(refspec, force=force)
+                cmd.extend([remote, f"{branch}:{branch}"])
             
-            # Process results
-            results = []
-            for info in push_info:
-                if info.flags & info.ERROR:
-                    results.append(f"Error: {info.summary}")
-                elif info.flags & info.REJECTED:
-                    results.append(f"Rejected: {info.summary}")
-                elif info.flags & info.UP_TO_DATE:
-                    results.append(f"Up to date: {info.summary}")
+            logger.debug(f"🔧 Running: {' '.join(cmd[:3])} [auth-enabled] {' '.join(cmd[3:])}")
+            
+            result = subprocess.run(cmd, cwd=repo.working_dir, capture_output=True, text=True, env=env)
+            
+            if result.returncode == 0:
+                success_msg = f"Successfully pushed {branch} to {remote}"
+                if set_upstream:
+                    success_msg += " and set upstream tracking"
+                logger.info(f"✅ {success_msg}")
+                return success_msg
+            else:
+                error_msg = f"Push failed: {result.stderr.strip() or result.stdout.strip()}"
+                logger.error(f"❌ {error_msg}")
+                return error_msg
+                
+        else:
+            # Use standard GitPython approach for non-HTTPS or when no token available
+            logger.debug("🔧 Using standard git push (no authentication needed)")
+            
+            if set_upstream:
+                # Use git command directly for set-upstream functionality
+                import subprocess
+                cmd = ["git", "push", "--set-upstream", remote, branch]
+                if force:
+                    cmd.insert(2, "--force")
+                
+                result = subprocess.run(cmd, cwd=repo.working_dir, capture_output=True, text=True)
+                if result.returncode == 0:
+                    return f"Successfully pushed {branch} to {remote} and set upstream tracking"
                 else:
-                    results.append(f"Success: {info.summary}")
-                    
-            return "\n".join(results) if results else f"Successfully pushed {branch} to {remote}"
+                    return f"Push failed: {result.stderr}"
+            else:
+                # Use GitPython for regular push
+                refspec = f"{branch}:{branch}"
+                push_info = remote_ref.push(refspec, force=force)
+                
+                # Process results
+                results = []
+                for info in push_info:
+                    if info.flags & info.ERROR:
+                        results.append(f"Error: {info.summary}")
+                    elif info.flags & info.REJECTED:
+                        results.append(f"Rejected: {info.summary}")
+                    elif info.flags & info.UP_TO_DATE:
+                        results.append(f"Up to date: {info.summary}")
+                    else:
+                        results.append(f"Success: {info.summary}")
+                        
+                return "\n".join(results) if results else f"Successfully pushed {branch} to {remote}"
         
     except git.exc.GitCommandError as e:
+        logger.error(f"❌ Git command error during push: {e}")
         return f"Push failed: {str(e)}"
     except Exception as e:
+        logger.error(f"❌ Unexpected error during push: {e}")
         return f"Push error: {str(e)}"
 
 def git_pull(repo: git.Repo, remote: str = "origin", branch: str | None = None) -> str:
