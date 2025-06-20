@@ -2,7 +2,6 @@ import pytest
 from pathlib import Path
 import git
 from mcp_server_git.server import git_checkout, git_status, GitTools
-from mcp.types import TextContent
 import shutil
 
 @pytest.fixture
@@ -108,7 +107,7 @@ def test_git_status_porcelain_string_parameter(test_repository):
     (Path(test_repository.working_dir) / "test.txt").write_text("modified content")
     
     # Test with string "true"
-    status = git_status(test_repository, porcelain=True)  # Function should handle boolean properly
+    git_status(test_repository, porcelain=True)  # Function should handle boolean properly
     
     # Test with actual string conversion logic that the MCP handler uses
     porcelain_raw = "true"

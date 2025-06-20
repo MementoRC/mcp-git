@@ -1,6 +1,6 @@
 # Task ID: 2
 # Title: Implement CancelledNotification Pydantic Model
-# Status: pending
+# Status: done
 # Dependencies: 1
 # Priority: high
 # Description: Create a Pydantic model for the notifications/cancelled message type that is currently causing validation errors.

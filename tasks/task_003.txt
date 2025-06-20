@@ -1,6 +1,6 @@
 # Task ID: 3
 # Title: Update ClientNotification Union Type
-# Status: pending
+# Status: done
 # Dependencies: 2
 # Priority: high
 # Description: Modify the existing ClientNotification union type to include the new CancelledNotification model and ensure all notification types are supported.

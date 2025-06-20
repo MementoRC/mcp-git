@@ -97,8 +97,8 @@ class MCPBehaviorValidator:
         """Test that the MCP server modules can be imported."""
         try:
             import mcp_server_git
-            import mcp_server_git.server
-            from mcp_server_git.models.notifications import ClientNotification
+            import mcp_server_git.server  # noqa: F401
+            from mcp_server_git.models.notifications import ClientNotification  # noqa: F401
             
             self.log_result("server_import", True, "All server modules imported successfully")
             return True
@@ -114,11 +114,11 @@ class MCPBehaviorValidator:
             
             # Test valid cancelled notification
             cancelled_notification = {
-                "type": "notifications/cancelled",
+                "method": "notifications/cancelled",
                 "params": {"requestId": "test-123"}
             }
             
-            result = parse_client_notification(cancelled_notification)
+            parse_client_notification(cancelled_notification)
             self.log_result("notification_models", True, "Notification models work correctly")
             return True
             
@@ -133,12 +133,12 @@ class MCPBehaviorValidator:
             
             # Test unknown notification type
             unknown_notification = {
-                "type": "notifications/unknown_type",
+                "method": "notifications/unknown_type",
                 "params": {"data": "test"}
             }
             
             # This should handle gracefully without crashing
-            result = parse_client_notification(unknown_notification)
+            parse_client_notification(unknown_notification)
             self.log_result("unknown_notification_handling", True, "Unknown notifications handled gracefully")
             return True
             
@@ -177,7 +177,7 @@ class MCPBehaviorValidator:
             # Generate many notifications
             notifications = [
                 {
-                    "type": "notifications/cancelled",
+                    "method": "notifications/cancelled",
                     "params": {"requestId": f"stress-test-{i}"}
                 }
                 for i in range(1000)
@@ -210,7 +210,7 @@ class MCPBehaviorValidator:
             # This would ideally test actual MCP tool operations
             
             # For now, we'll test that the server can handle git-related data
-            result = subprocess.run(
+            subprocess.run(
                 ["git", "status", "--porcelain"], 
                 cwd=repo_path, 
                 capture_output=True, 
@@ -266,7 +266,6 @@ class MCPBehaviorValidator:
         """Test MCP protocol compliance."""
         try:
             # Test that required protocol elements are present
-            from mcp_server_git import server
             
             # This would ideally use MCP inspector if available
             # For now, basic structural validation
@@ -320,7 +319,7 @@ class MCPBehaviorValidator:
         total = passed + failed
         success_rate = (passed / total) * 100 if total > 0 else 0
         
-        logger.info(f"\n📊 Validation Summary:")
+        logger.info("\n📊 Validation Summary:")
         logger.info(f"   Total tests: {total}")
         logger.info(f"   Passed: {passed}")
         logger.info(f"   Failed: {failed}")
