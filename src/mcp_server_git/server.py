@@ -1,6 +1,9 @@
+import asyncio
 import logging
 import os
 import re
+import signal
+import time
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
@@ -124,32 +127,57 @@ class GitHubClient:
     
     async def make_request(self, method: str, endpoint: str, **kwargs) -> dict:
         """Make authenticated request to GitHub API with proper error handling"""
+        logger = logging.getLogger(__name__)
         url = f"{self.base_url}{endpoint}"
         headers = self.get_headers()
         
-        async with aiohttp.ClientSession() as session:
-            async with session.request(method, url, headers=headers, **kwargs) as response:
+        logger.debug(f"🌐 Making {method} request to {endpoint}")
+        
+        # Configure timeout to prevent hanging
+        timeout = aiohttp.ClientTimeout(total=30, connect=10)
+        
+        try:
+            async with aiohttp.ClientSession(timeout=timeout) as session:
+                async with session.request(method, url, headers=headers, **kwargs) as response:
+                    logger.debug(f"📡 Response status: {response.status} for {endpoint}")
                 if response.status >= 400:
                     error_text = await response.text()
                     
                     # Handle specific GitHub API errors
                     if response.status == 401:
+                        logger.error(f"🔑 GitHub API authentication failed for {endpoint}")
                         raise Exception("GitHub API authentication failed (401): Check GITHUB_TOKEN")
                     elif response.status == 403:
                         rate_limit_remaining = response.headers.get('X-RateLimit-Remaining', 'unknown')
                         if rate_limit_remaining == '0':
                             reset_time = response.headers.get('X-RateLimit-Reset', 'unknown')
+                            logger.error(f"⏰ GitHub API rate limit exceeded for {endpoint}, resets at: {reset_time}")
                             raise Exception(f"GitHub API rate limit exceeded (403). Resets at: {reset_time}")
                         else:
+                            logger.error(f"🚫 GitHub API forbidden for {endpoint}")
                             raise Exception("GitHub API forbidden (403): Insufficient permissions or secondary rate limit")
                     elif response.status == 404:
+                        logger.debug(f"📡 404 Not Found for {endpoint}")
                         raise Exception(f"GitHub API resource not found (404): {endpoint}")
                     elif response.status == 422:
+                        logger.error(f"❌ GitHub API validation failed for {endpoint}: {error_text}")
                         raise Exception(f"GitHub API validation failed (422): {error_text}")
                     else:
+                        logger.error(f"❌ GitHub API error {response.status} for {endpoint}: {error_text}")
                         raise Exception(f"GitHub API error {response.status}: {error_text}")
                 
-                return await response.json()
+                result = await response.json()
+                logger.debug(f"✅ Successful request to {endpoint}")
+                return result
+        except asyncio.TimeoutError:
+            logger.error(f"⏰ Timeout making request to {endpoint}")
+            raise
+        except aiohttp.ClientError as e:
+            logger.error(f"🌐 HTTP client error for {endpoint}: {e}")
+            raise
+        except Exception as e:
+            logger.error(f"❌ Unexpected error making request to {endpoint}: {e}")
+            raise
 
 def get_github_client() -> GitHubClient:
     """Get GitHub client from environment variables"""
@@ -1654,7 +1682,6 @@ async def github_get_pr_files(repo_owner: str, repo_name: str, pr_number: int, p
         return f"Error getting PR files: {str(e)}"
 
 async def serve(repository: Path | None) -> None:
-    import time
     import os
     from datetime import datetime
     
@@ -2776,382 +2803,406 @@ Provide specific, actionable recommendations for each area."""
 
     @server.call_tool()
     async def call_tool(name: str, arguments: dict) -> list[TextContent]:
-        # GitHub API tools don't need repo_path
-        if name in [GitTools.GITHUB_GET_PR_CHECKS, GitTools.GITHUB_GET_FAILING_JOBS, 
-                   GitTools.GITHUB_GET_WORKFLOW_RUN, GitTools.GITHUB_GET_PR_DETAILS,
-                   GitTools.GITHUB_LIST_PULL_REQUESTS, GitTools.GITHUB_GET_PR_STATUS,
-                   GitTools.GITHUB_GET_PR_FILES]:
-            # Handle GitHub API tools that don't require repo_path
-            pass
-        else:
-            # All other tools require repo_path
-            repo_path = Path(arguments["repo_path"])
-            
-            # Handle git init separately since it doesn't require an existing repo
-            if name == GitTools.INIT:
-                result = git_init(str(repo_path))
-                return [TextContent(
-                    type="text",
-                    text=result
-                )]
+        # Enhanced tool call logging with request tracking
+        request_id = os.urandom(4).hex()
+        logger.info(f"🔧 [{request_id}] Tool call: {name}")
+        logger.debug(f"🔧 [{request_id}] Arguments: {arguments}")
+        
+        start_time = time.time()
+        result = None  # Initialize result variable
+        try:
+            # GitHub API tools don't need repo_path
+            if name in [GitTools.GITHUB_GET_PR_CHECKS, GitTools.GITHUB_GET_FAILING_JOBS, 
+                       GitTools.GITHUB_GET_WORKFLOW_RUN, GitTools.GITHUB_GET_PR_DETAILS,
+                       GitTools.GITHUB_LIST_PULL_REQUESTS, GitTools.GITHUB_GET_PR_STATUS,
+                       GitTools.GITHUB_GET_PR_FILES]:
+                # Handle GitHub API tools that don't require repo_path
+                pass
+            else:
+                # All other tools require repo_path
+                repo_path = Path(arguments["repo_path"])
                 
-            # For all other commands, we need an existing repo
-            repo = git.Repo(repo_path)
+                # Handle git init separately since it doesn't require an existing repo
+                if name == GitTools.INIT:
+                    result = git_init(str(repo_path))
+                    result = [TextContent(
+                        type="text",
+                        text=result
+                    )]
+                    duration = time.time() - start_time  
+                    logger.info(f"✅ [{request_id}] Tool '{name}' completed in {duration:.2f}s")
+                    return result  # Early return for INIT
+                    
+                # For all other commands, we need an existing repo
+                repo = git.Repo(repo_path)
 
-        match name:
-            case GitTools.STATUS:
-                porcelain_raw = arguments.get("porcelain", False)
-                # Handle both boolean and string values for porcelain parameter
-                porcelain = porcelain_raw if isinstance(porcelain_raw, bool) else str(porcelain_raw).lower() in ('true', '1', 'yes')
-                status = git_status(repo, porcelain)
-                prefix = "Repository status (porcelain):" if porcelain else "Repository status:"
-                return [TextContent(
-                    type="text",
-                    text=f"{prefix}\n{status}"
-                )]
+                match name:
+                    case GitTools.STATUS:
+                        porcelain_raw = arguments.get("porcelain", False)
+                        # Handle both boolean and string values for porcelain parameter
+                        porcelain = porcelain_raw if isinstance(porcelain_raw, bool) else str(porcelain_raw).lower() in ('true', '1', 'yes')
+                        status = git_status(repo, porcelain)
+                        prefix = "Repository status (porcelain):" if porcelain else "Repository status:"
+                        result = [TextContent(
+                            type="text",
+                            text=f"{prefix}\n{status}"
+                        )]
 
-            case GitTools.DIFF_UNSTAGED:
-                diff = git_diff_unstaged(repo)
-                return [TextContent(
-                    type="text",
-                    text=f"Unstaged changes:\n{diff}"
-                )]
+                    case GitTools.DIFF_UNSTAGED:
+                        diff = git_diff_unstaged(repo)
+                        result = [TextContent(
+                            type="text",
+                            text=f"Unstaged changes:\n{diff}"
+                        )]
 
-            case GitTools.DIFF_STAGED:
-                diff = git_diff_staged(repo)
-                return [TextContent(
-                    type="text",
-                    text=f"Staged changes:\n{diff}"
-                )]
+                    case GitTools.DIFF_STAGED:
+                        diff = git_diff_staged(repo)
+                        result = [TextContent(
+                            type="text",
+                            text=f"Staged changes:\n{diff}"
+                        )]
 
-            case GitTools.DIFF:
-                diff = git_diff(repo, arguments["target"])
-                return [TextContent(
-                    type="text",
-                    text=f"Diff with {arguments['target']}:\n{diff}"
-                )]
+                    case GitTools.DIFF:
+                        diff = git_diff(repo, arguments["target"])
+                        result = [TextContent(
+                            type="text",
+                            text=f"Diff with {arguments['target']}:\n{diff}"
+                        )]
 
-            case GitTools.COMMIT:
-                result = git_commit(
-                    repo, 
-                    arguments["message"],
-                    arguments.get("gpg_sign", False),
-                    arguments.get("gpg_key_id")
-                )
-                return [TextContent(
-                    type="text",
-                    text=result
-                )]
+                    case GitTools.COMMIT:
+                        commit_result = git_commit(
+                            repo, 
+                            arguments["message"],
+                            arguments.get("gpg_sign", False),
+                            arguments.get("gpg_key_id")
+                        )
+                        result = [TextContent(
+                            type="text",
+                            text=commit_result
+                        )]
 
-            case GitTools.ADD:
-                result = git_add(repo, arguments["files"])
-                return [TextContent(
-                    type="text",
-                    text=result
-                )]
+                    case GitTools.ADD:
+                        add_result = git_add(repo, arguments["files"])
+                        result = [TextContent(
+                            type="text",
+                            text=add_result
+                        )]
 
-            case GitTools.RESET:
-                result = git_reset(repo)
-                return [TextContent(
-                    type="text",
-                    text=result
-                )]
+                    case GitTools.RESET:
+                        reset_result = git_reset(repo)
+                        result = [TextContent(
+                            type="text",
+                            text=reset_result
+                        )]
 
-            case GitTools.LOG:
-                log = git_log(
-                    repo, 
-                    arguments.get("max_count", 10),
-                    arguments.get("oneline", False),
-                    arguments.get("graph", False),
-                    arguments.get("format")
-                )
-                return [TextContent(
-                    type="text",
-                    text="Commit history:\n" + "\n".join(log)
-                )]
+                    case GitTools.LOG:
+                        log = git_log(
+                            repo, 
+                            arguments.get("max_count", 10),
+                            arguments.get("oneline", False),
+                            arguments.get("graph", False),
+                            arguments.get("format")
+                        )
+                        result = [TextContent(
+                            type="text",
+                            text="Commit history:\n" + "\n".join(log)
+                        )]
 
-            case GitTools.CREATE_BRANCH:
-                result = git_create_branch(
-                    repo,
-                    arguments["branch_name"],
-                    arguments.get("base_branch")
-                )
-                return [TextContent(
-                    type="text",
-                    text=result
-                )]
+                    case GitTools.CREATE_BRANCH:
+                        branch_result = git_create_branch(
+                            repo,
+                            arguments["branch_name"],
+                            arguments.get("base_branch")
+                        )
+                        result = [TextContent(
+                            type="text",
+                            text=branch_result
+                        )]
 
-            case GitTools.CHECKOUT:
-                result = git_checkout(repo, arguments["branch_name"])
-                return [TextContent(
-                    type="text",
-                    text=result
-                )]
+                    case GitTools.CHECKOUT:
+                        checkout_result = git_checkout(repo, arguments["branch_name"])
+                        result = [TextContent(
+                            type="text",
+                            text=checkout_result
+                        )]
 
-            case GitTools.SHOW:
-                result = git_show(repo, arguments["revision"])
-                return [TextContent(
-                    type="text",
-                    text=result
-                )]
+                    case GitTools.SHOW:
+                        show_result = git_show(repo, arguments["revision"])
+                        result = [TextContent(
+                            type="text",
+                            text=show_result
+                        )]
 
-            case GitTools.PUSH:
-                result = git_push(
-                    repo,
-                    arguments.get("remote", "origin"),
-                    arguments.get("branch"),
-                    arguments.get("force", False),
-                    arguments.get("set_upstream", False)
-                )
-                return [TextContent(
-                    type="text",
-                    text=result
-                )]
+                    case GitTools.PUSH:
+                        push_result = git_push(
+                            repo,
+                            arguments.get("remote", "origin"),
+                            arguments.get("branch"),
+                            arguments.get("force", False),
+                            arguments.get("set_upstream", False)
+                        )
+                        result = [TextContent(
+                            type="text",
+                            text=push_result
+                        )]
 
-            case GitTools.PULL:
-                result = git_pull(
-                    repo,
-                    arguments.get("remote", "origin"),
-                    arguments.get("branch")
-                )
-                return [TextContent(
-                    type="text",
-                    text=result
-                )]
+                    case GitTools.PULL:
+                        pull_result = git_pull(
+                            repo,
+                            arguments.get("remote", "origin"),
+                            arguments.get("branch")
+                        )
+                        result = [TextContent(
+                            type="text",
+                            text=pull_result
+                        )]
 
-            case GitTools.DIFF_BRANCHES:
-                result = git_diff_branches(
-                    repo,
-                    arguments["base_branch"],
-                    arguments["compare_branch"]
-                )
-                return [TextContent(
-                    type="text",
-                    text=result
-                )]
+                    case GitTools.DIFF_BRANCHES:
+                        diff_branches_result = git_diff_branches(
+                            repo,
+                            arguments["base_branch"],
+                            arguments["compare_branch"]
+                        )
+                        result = [TextContent(
+                            type="text",
+                            text=diff_branches_result
+                        )]
 
-            # Advanced git operations
-            case GitTools.REBASE:
-                result = git_rebase(
-                    repo,
-                    arguments["target_branch"],
-                    arguments.get("interactive", False)
-                )
-                return [TextContent(
-                    type="text",
-                    text=result
-                )]
+                    # Advanced git operations
+                    case GitTools.REBASE:
+                        rebase_result = git_rebase(
+                            repo,
+                            arguments["target_branch"],
+                            arguments.get("interactive", False)
+                        )
+                        result = [TextContent(
+                            type="text",
+                            text=rebase_result
+                        )]
 
-            case GitTools.MERGE:
-                result = git_merge(
-                    repo,
-                    arguments["source_branch"],
-                    arguments.get("strategy", "merge"),
-                    arguments.get("message")
-                )
-                return [TextContent(
-                    type="text",
-                    text=result
-                )]
+                    case GitTools.MERGE:
+                        merge_result = git_merge(
+                            repo,
+                            arguments["source_branch"],
+                            arguments.get("strategy", "merge"),
+                            arguments.get("message")
+                        )
+                        result = [TextContent(
+                            type="text",
+                            text=merge_result
+                        )]
 
-            case GitTools.CHERRY_PICK:
-                result = git_cherry_pick(
-                    repo,
-                    arguments["commit_hash"],
-                    arguments.get("no_commit", False)
-                )
-                return [TextContent(
-                    type="text",
-                    text=result
-                )]
+                    case GitTools.CHERRY_PICK:
+                        cherry_pick_result = git_cherry_pick(
+                            repo,
+                            arguments["commit_hash"],
+                            arguments.get("no_commit", False)
+                        )
+                        result = [TextContent(
+                            type="text",
+                            text=cherry_pick_result
+                        )]
 
-            case GitTools.ABORT:
-                result = git_abort(
-                    repo,
-                    arguments["operation"]
-                )
-                return [TextContent(
-                    type="text",
-                    text=result
-                )]
+                    case GitTools.ABORT:
+                        abort_result = git_abort(
+                            repo,
+                            arguments["operation"]
+                        )
+                        result = [TextContent(
+                            type="text",
+                            text=abort_result
+                        )]
 
-            case GitTools.CONTINUE:
-                result = git_continue(
-                    repo,
-                    arguments["operation"]
-                )
-                return [TextContent(
-                    type="text",
-                    text=result
-                )]
+                    case GitTools.CONTINUE:
+                        continue_result = git_continue(
+                            repo,
+                            arguments["operation"]
+                        )
+                        result = [TextContent(
+                            type="text",
+                            text=continue_result
+                        )]
 
-            # GitHub API Tools
-            case GitTools.GITHUB_GET_PR_CHECKS:
-                repo_owner = arguments.get("repo_owner")
-                repo_name = arguments.get("repo_name")
-                if not repo_owner or not repo_name:
-                    return [TextContent(type="text", text="❌ repo_owner and repo_name parameters are required for GitHub API tools")]
-                
-                result = await github_get_pr_checks(
-                    repo_owner,
-                    repo_name,
-                    arguments["pr_number"],
-                    arguments.get("status"),
-                    arguments.get("conclusion")
-                )
-                return [TextContent(
-                    type="text",
-                    text=result
-                )]
+                    # GitHub API Tools
+                    case GitTools.GITHUB_GET_PR_CHECKS:
+                        repo_owner = arguments.get("repo_owner")
+                        repo_name = arguments.get("repo_name")
+                        if not repo_owner or not repo_name:
+                            result = [TextContent(type="text", text="❌ repo_owner and repo_name parameters are required for GitHub API tools")]
+                        else:
+                            pr_checks_result = await github_get_pr_checks(
+                                repo_owner,
+                                repo_name,
+                                arguments["pr_number"],
+                                arguments.get("status"),
+                                arguments.get("conclusion")
+                            )
+                            result = [TextContent(
+                                type="text",
+                                text=pr_checks_result
+                            )]
 
-            case GitTools.GITHUB_GET_FAILING_JOBS:
-                repo_owner = arguments.get("repo_owner")
-                repo_name = arguments.get("repo_name")
-                if not repo_owner or not repo_name:
-                    return [TextContent(type="text", text="❌ repo_owner and repo_name parameters are required for GitHub API tools")]
-                
-                result = await github_get_failing_jobs(
-                    repo_owner,
-                    repo_name,
-                    arguments["pr_number"],
-                    arguments.get("include_logs", True),
-                    arguments.get("include_annotations", True)
-                )
-                return [TextContent(
-                    type="text",
-                    text=result
-                )]
+                    case GitTools.GITHUB_GET_FAILING_JOBS:
+                        repo_owner = arguments.get("repo_owner")
+                        repo_name = arguments.get("repo_name")
+                        if not repo_owner or not repo_name:
+                            result = [TextContent(type="text", text="❌ repo_owner and repo_name parameters are required for GitHub API tools")]
+                        else:
+                            failing_jobs_result = await github_get_failing_jobs(
+                                repo_owner,
+                                repo_name,
+                                arguments["pr_number"],
+                                arguments.get("include_logs", True),
+                                arguments.get("include_annotations", True)
+                            )
+                            result = [TextContent(
+                                type="text",
+                                text=failing_jobs_result
+                            )]
 
-            case GitTools.GITHUB_GET_WORKFLOW_RUN:
-                repo_owner = arguments.get("repo_owner")
-                repo_name = arguments.get("repo_name")
-                if not repo_owner or not repo_name:
-                    return [TextContent(type="text", text="❌ repo_owner and repo_name parameters are required for GitHub API tools")]
-                
-                result = await github_get_workflow_run(
-                    repo_owner,
-                    repo_name,
-                    arguments["run_id"],
-                    arguments.get("include_logs", False)
-                )
-                return [TextContent(
-                    type="text",
-                    text=result
-                )]
+                    case GitTools.GITHUB_GET_WORKFLOW_RUN:
+                        repo_owner = arguments.get("repo_owner")
+                        repo_name = arguments.get("repo_name")
+                        if not repo_owner or not repo_name:
+                            result = [TextContent(type="text", text="❌ repo_owner and repo_name parameters are required for GitHub API tools")]
+                        else:
+                            workflow_run_result = await github_get_workflow_run(
+                                repo_owner,
+                                repo_name,
+                                arguments["run_id"],
+                                arguments.get("include_logs", False)
+                            )
+                            result = [TextContent(
+                                type="text",
+                                text=workflow_run_result
+                            )]
 
-            case GitTools.GITHUB_GET_PR_DETAILS:
-                repo_owner = arguments.get("repo_owner")
-                repo_name = arguments.get("repo_name")
-                if not repo_owner or not repo_name:
-                    return [TextContent(type="text", text="❌ repo_owner and repo_name parameters are required for GitHub API tools")]
-                
-                result = await github_get_pr_details(
-                    repo_owner,
-                    repo_name,
-                    arguments["pr_number"],
-                    arguments.get("include_files", False),
-                    arguments.get("include_reviews", False)
-                )
-                return [TextContent(
-                    type="text",
-                    text=result
-                )]
+                    case GitTools.GITHUB_GET_PR_DETAILS:
+                        repo_owner = arguments.get("repo_owner")
+                        repo_name = arguments.get("repo_name")
+                        if not repo_owner or not repo_name:
+                            result = [TextContent(type="text", text="❌ repo_owner and repo_name parameters are required for GitHub API tools")]
+                        else:
+                            pr_details_result = await github_get_pr_details(
+                                repo_owner,
+                                repo_name,
+                                arguments["pr_number"],
+                                arguments.get("include_files", False),
+                                arguments.get("include_reviews", False)
+                            )
+                            result = [TextContent(
+                                type="text",
+                                text=pr_details_result
+                            )]
 
-            case GitTools.GITHUB_LIST_PULL_REQUESTS:
-                repo_owner = arguments.get("repo_owner")
-                repo_name = arguments.get("repo_name")
-                if not repo_owner or not repo_name:
-                    return [TextContent(type="text", text="❌ repo_owner and repo_name parameters are required for GitHub API tools")]
-                
-                result = await github_list_pull_requests(
-                    repo_owner,
-                    repo_name,
-                    arguments.get("state", "open"),
-                    arguments.get("head"),
-                    arguments.get("base"),
-                    arguments.get("sort", "created"),
-                    arguments.get("direction", "desc"),
-                    arguments.get("per_page", 30),
-                    arguments.get("page", 1)
-                )
-                return [TextContent(
-                    type="text",
-                    text=result
-                )]
+                    case GitTools.GITHUB_LIST_PULL_REQUESTS:
+                        repo_owner = arguments.get("repo_owner")
+                        repo_name = arguments.get("repo_name")
+                        if not repo_owner or not repo_name:
+                            result = [TextContent(type="text", text="❌ repo_owner and repo_name parameters are required for GitHub API tools")]
+                        else:
+                            list_prs_result = await github_list_pull_requests(
+                                repo_owner,
+                                repo_name,
+                                arguments.get("state", "open"),
+                                arguments.get("head"),
+                                arguments.get("base"),
+                                arguments.get("sort", "created"),
+                                arguments.get("direction", "desc"),
+                                arguments.get("per_page", 30),
+                                arguments.get("page", 1)
+                            )
+                            result = [TextContent(
+                                type="text",
+                                text=list_prs_result
+                            )]
 
-            case GitTools.GITHUB_GET_PR_STATUS:
-                repo_owner = arguments.get("repo_owner")
-                repo_name = arguments.get("repo_name")
-                if not repo_owner or not repo_name:
-                    return [TextContent(type="text", text="❌ repo_owner and repo_name parameters are required for GitHub API tools")]
-                
-                result = await github_get_pr_status(
-                    repo_owner,
-                    repo_name,
-                    arguments["pr_number"]
-                )
-                return [TextContent(
-                    type="text",
-                    text=result
-                )]
+                    case GitTools.GITHUB_GET_PR_STATUS:
+                        repo_owner = arguments.get("repo_owner")
+                        repo_name = arguments.get("repo_name")
+                        if not repo_owner or not repo_name:
+                            result = [TextContent(type="text", text="❌ repo_owner and repo_name parameters are required for GitHub API tools")]
+                        else:
+                            pr_status_result = await github_get_pr_status(
+                                repo_owner,
+                                repo_name,
+                                arguments["pr_number"]
+                            )
+                            result = [TextContent(
+                                type="text",
+                                text=pr_status_result
+                            )]
 
-            case GitTools.GITHUB_GET_PR_FILES:
-                repo_owner = arguments.get("repo_owner")
-                repo_name = arguments.get("repo_name")
-                if not repo_owner or not repo_name:
-                    return [TextContent(type="text", text="❌ repo_owner and repo_name parameters are required for GitHub API tools")]
-                
-                result = await github_get_pr_files(
-                    repo_owner,
-                    repo_name,
-                    arguments["pr_number"],
-                    arguments.get("per_page", 30),
-                    arguments.get("page", 1),
-                    arguments.get("include_patch", False)
-                )
-                return [TextContent(
-                    type="text",
-                    text=result
-                )]
+                    case GitTools.GITHUB_GET_PR_FILES:
+                        repo_owner = arguments.get("repo_owner")
+                        repo_name = arguments.get("repo_name")
+                        if not repo_owner or not repo_name:
+                            result = [TextContent(type="text", text="❌ repo_owner and repo_name parameters are required for GitHub API tools")]
+                        else:
+                            pr_files_result = await github_get_pr_files(
+                                repo_owner,
+                                repo_name,
+                                arguments["pr_number"],
+                                arguments.get("per_page", 30),
+                                arguments.get("page", 1),
+                                arguments.get("include_patch", False)
+                            )
+                            result = [TextContent(
+                                type="text",
+                                text=pr_files_result
+                            )]
 
-            # Security tools
-            case GitTools.GIT_SECURITY_VALIDATE:
-                validation_result = validate_git_security_config(repo)
-                
-                status_emoji = "✅" if validation_result["status"] == "secure" else "⚠️"
-                result_text = f"{status_emoji} Git Security Validation Results\n\n"
-                
-                if validation_result["warnings"]:
-                    result_text += "Security Warnings:\n"
-                    for warning in validation_result["warnings"]:
-                        result_text += f"  - {warning}\n"
-                    result_text += "\n"
-                
-                if validation_result["recommendations"]:
-                    result_text += "Recommendations:\n"
-                    for rec in validation_result["recommendations"]:
-                        result_text += f"  - {rec}\n"
-                    result_text += "\n"
-                
-                result_text += "Current Configuration:\n"
-                for key, value in validation_result["config"].items():
-                    result_text += f"  - {key}: {value}\n"
-                
-                return [TextContent(
-                    type="text",
-                    text=result_text
-                )]
+                    # Security tools
+                    case GitTools.GIT_SECURITY_VALIDATE:
+                        validation_result = validate_git_security_config(repo)
+                        
+                        status_emoji = "✅" if validation_result["status"] == "secure" else "⚠️"
+                        result_text = f"{status_emoji} Git Security Validation Results\n\n"
+                        
+                        if validation_result["warnings"]:
+                            result_text += "Security Warnings:\n"
+                            for warning in validation_result["warnings"]:
+                                result_text += f"  - {warning}\n"
+                            result_text += "\n"
+                        
+                        if validation_result["recommendations"]:
+                            result_text += "Recommendations:\n"
+                            for rec in validation_result["recommendations"]:
+                                result_text += f"  - {rec}\n"
+                            result_text += "\n"
+                        
+                        result_text += "Current Configuration:\n"
+                        for key, value in validation_result["config"].items():
+                            result_text += f"  - {key}: {value}\n"
+                        
+                        result = [TextContent(
+                            type="text",
+                            text=result_text
+                        )]
 
-            case GitTools.GIT_SECURITY_ENFORCE:
-                strict_mode = arguments.get("strict_mode", True)
-                result = enforce_secure_git_config(repo, strict_mode)
-                return [TextContent(
-                    type="text",
-                    text=result
-                )]
+                    case GitTools.GIT_SECURITY_ENFORCE:
+                        strict_mode = arguments.get("strict_mode", True)
+                        enforce_result = enforce_secure_git_config(repo, strict_mode)
+                        result = [TextContent(
+                            type="text",
+                            text=enforce_result
+                        )]
 
-            case _:
-                raise ValueError(f"Unknown tool: {name}")
+                    case _:
+                        logger.error(f"❌ [{request_id}] Unknown tool: {name}")
+                        raise ValueError(f"Unknown tool: {name}")
+        
+        except Exception as e:
+            duration = time.time() - start_time
+            logger.error(f"❌ [{request_id}] Tool '{name}' failed after {duration:.2f}s: {e}", exc_info=True)
+            return [TextContent(
+                type="text", 
+                text=f"Error in {name}: {str(e)}"
+            )]
+        
+        duration = time.time() - start_time
+        logger.info(f"✅ [{request_id}] Tool '{name}' completed in {duration:.2f}s")
+        return result
 
     # Server initialization logging
     logger.info("🎯 MCP Git Server initialized and ready to listen...")
@@ -3159,11 +3210,52 @@ Provide specific, actionable recommendations for each area."""
     initialization_time = time.time() - start_time
     logger.info(f"📡 Server listening (startup took {initialization_time:.2f}s)")
     
+    # Signal handler for graceful shutdown
+    def signal_handler(signum, frame):
+        logger.info(f"📡 Received signal {signum}, initiating graceful shutdown...")
+        
+    signal.signal(signal.SIGTERM, signal_handler)
+    signal.signal(signal.SIGINT, signal_handler)
+    
+    # Add periodic health check logging
+    async def log_health():
+        """Log periodic health checks to monitor server uptime"""
+        while True:
+            try:
+                await asyncio.sleep(300)  # Every 5 minutes
+                uptime = time.time() - start_time
+                logger.info(f"💓 Server health check - uptime: {uptime:.1f}s")
+            except asyncio.CancelledError:
+                logger.debug("🔚 Health check task cancelled")
+                break
+            except Exception as e:
+                logger.error(f"❌ Health check failed: {e}")
+    
+    # Start health logging task
+    health_task = asyncio.create_task(log_health())
+    
     options = server.create_initialization_options()
     try:
         async with stdio_server() as (read_stream, write_stream):
+            logger.info("🔗 STDIO server connected, starting main loop...")
             await server.run(read_stream, write_stream, options, raise_exceptions=True)
+    except asyncio.CancelledError:
+        logger.info("🛑 Server cancelled")
+        raise
+    except KeyboardInterrupt:
+        logger.info("⌨️ Server interrupted by user")
+        raise
+    except Exception as e:
+        logger.error(f"💥 Server crashed: {e}", exc_info=True)
+        raise
     finally:
+        # Clean shutdown
+        health_task.cancel()
+        try:
+            await health_task
+        except asyncio.CancelledError:
+            pass
+        
         # Server shutdown logging
         total_uptime = time.time() - start_time
         logger.info(f"🔚 Server shutdown after {total_uptime:.1f}s uptime")
