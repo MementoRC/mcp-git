@@ -1,0 +1,169 @@
+# Task ID: 12
+# Title: Implement Comprehensive Integration Tests
+# Status: pending
+# Dependencies: 2, 3, 4, 9
+# Priority: high
+# Description: Create a suite of integration tests to verify protocol compliance and stability under various conditions.
+# Details:
+1. Create test fixtures for server and client setup
+2. Implement tests for all notification types
+3. Add tests for error scenarios and recovery
+4. Create long-running session tests
+5. Implement stress tests with high message volume
+
+```python
+# src/tests/integration/test_protocol_compliance.py
+import pytest
+import asyncio
+import uuid
+from typing import Dict, Any, List
+
+from mcp_server_git.server import MCPGitServer
+from mcp_client import MCPClient  # Mock client for testing
+
+@pytest.fixture
+async def server():
+    """Set up a test server instance."""
+    server = MCPGitServer()
+    await server.start()
+    yield server
+    await server.shutdown()
+
+@pytest.fixture
+async def client(server):
+    """Set up a test client connected to the server."""
+    client = MCPClient()
+    await client.connect()
+    yield client
+    await client.disconnect()
+
+@pytest.mark.asyncio
+async def test_cancelled_notification(server, client):
+    """Test handling of cancelled notifications."""
+    # Start a long-running operation
+    operation_id = str(uuid.uuid4())
+    await client.start_operation(operation_id)
+    
+    # Send cancellation
+    cancel_notification = {
+        "type": "notifications/cancelled",
+        "id": str(uuid.uuid4()),
+        "request_id": operation_id,
+        "reason": "Test cancellation"
+    }
+    await client.send_notification(cancel_notification)
+    
+    # Verify operation was cancelled
+    await asyncio.sleep(0.1)  # Give server time to process
+    assert operation_id not in server.active_tasks
+    
+    # Verify server is still responsive
+    response = await client.ping()
+    assert response["type"] == "pong"
+
+@pytest.mark.asyncio
+async def test_malformed_notification(server, client):
+    """Test handling of malformed notifications."""
+    # Send malformed notification
+    bad_notification = {
+        "type": "notifications/cancelled",
+        # Missing required fields
+        "id": str(uuid.uuid4())
+    }
+    await client.send_notification(bad_notification)
+    
+    # Verify server is still responsive
+    response = await client.ping()
+    assert response["type"] == "pong"
+
+@pytest.mark.asyncio
+async def test_unknown_notification_type(server, client):
+    """Test handling of unknown notification types."""
+    # Send unknown notification type
+    unknown_notification = {
+        "type": "notifications/unknown_type",
+        "id": str(uuid.uuid4()),
+        "data": {"foo": "bar"}
+    }
+    await client.send_notification(unknown_notification)
+    
+    # Verify server is still responsive
+    response = await client.ping()
+    assert response["type"] == "pong"
+
+# src/tests/integration/test_stability.py
+@pytest.mark.asyncio
+async def test_long_running_session(server):
+    """Test stability of a long-running session."""
+    client = MCPClient()
+    await client.connect()
+    
+    # Run for 5 minutes in test (would be longer in CI)
+    end_time = asyncio.get_event_loop().time() + 300
+    message_count = 0
+    
+    try:
+        while asyncio.get_event_loop().time() < end_time:
+            # Mix of different operations
+            if message_count % 5 == 0:
+                # Start and cancel an operation
+                op_id = str(uuid.uuid4())
+                await client.start_operation(op_id)
+                await client.cancel_operation(op_id)
+            else:
+                # Regular ping
+                await client.ping()
+            
+            message_count += 1
+            await asyncio.sleep(0.1)
+    finally:
+        await client.disconnect()
+    
+    # Verify server is still healthy
+    metrics = await server.metrics.get_metrics()
+    assert metrics["sessions"]["active"] == 0  # Client disconnected
+    assert metrics["messages"]["processed"] >= message_count
+    assert metrics["messages"]["errors"] == 0
+
+@pytest.mark.asyncio
+async def test_concurrent_clients(server):
+    """Test server with multiple concurrent clients."""
+    clients = []
+    client_count = 10
+    
+    # Connect multiple clients
+    for i in range(client_count):
+        client = MCPClient()
+        await client.connect()
+        clients.append(client)
+    
+    # Have all clients send messages concurrently
+    async def client_task(client, count):
+        for i in range(count):
+            await client.ping()
+            if i % 3 == 0:
+                # Mix in some cancellations
+                op_id = str(uuid.uuid4())
+                await client.start_operation(op_id)
+                await client.cancel_operation(op_id)
+    
+    tasks = [client_task(client, 50) for client in clients]
+    await asyncio.gather(*tasks)
+    
+    # Disconnect all clients
+    for client in clients:
+        await client.disconnect()
+    
+    # Verify server handled all clients
+    metrics = await server.metrics.get_metrics()
+    assert metrics["sessions"]["total_created"] >= client_count
+    assert metrics["sessions"]["active"] == 0  # All disconnected
+```
+
+# Test Strategy:
+1. Run tests in CI environment
+2. Verify all notification types are handled correctly
+3. Test with malformed and unexpected messages
+4. Run long-running tests (48+ hours in CI)
+5. Test with high message volume and concurrent clients
+6. Verify metrics and logs for test scenarios

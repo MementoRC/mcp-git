@@ -1,0 +1,100 @@
+# Task ID: 5
+# Title: Create Error Recovery Mechanism
+# Status: pending
+# Dependencies: 4
+# Priority: high
+# Description: Implement a robust error recovery system that allows the server to continue operation after encountering non-critical errors.
+# Details:
+1. Create a new error_handling.py module
+2. Implement error classification (critical vs. non-critical)
+3. Add recovery strategies for different error types
+4. Create decorators for wrapping error-prone functions
+5. Implement retry logic for transient errors
+
+```python
+# src/mcp_server_git/error_handling.py
+import logging
+import functools
+from typing import Callable, TypeVar, Any, Optional, Dict, List
+from enum import Enum
+
+logger = logging.getLogger(__name__)
+
+class ErrorSeverity(Enum):
+    CRITICAL = "critical"  # Session must terminate
+    HIGH = "high"          # Operation must abort, session can continue
+    MEDIUM = "medium"      # Operation might recover
+    LOW = "low"            # Can safely ignore
+
+class ErrorContext:
+    """Context information about an error."""
+    def __init__(self, error: Exception, severity: ErrorSeverity = ErrorSeverity.MEDIUM,
+                 operation: str = "", session_id: Optional[str] = None,
+                 recoverable: bool = True, metadata: Optional[Dict[str, Any]] = None):
+        self.error = error
+        self.severity = severity
+        self.operation = operation
+        self.session_id = session_id
+        self.recoverable = recoverable
+        self.metadata = metadata or {}
+        self.handled = False
+
+T = TypeVar('T')
+
+def recoverable(max_retries: int = 3, backoff_factor: float = 1.0):
+    """Decorator for functions that should recover from errors."""
+    def decorator(func: Callable[..., T]) -> Callable[..., T]:
+        @functools.wraps(func)
+        async def wrapper(*args: Any, **kwargs: Any) -> T:
+            retries = 0
+            last_error = None
+            
+            while retries <= max_retries:
+                try:
+                    return await func(*args, **kwargs)
+                except Exception as e:
+                    last_error = e
+                    retries += 1
+                    if retries <= max_retries:
+                        wait_time = backoff_factor * (2 ** (retries - 1))
+                        logger.warning(f"Error in {func.__name__}, retry {retries}/{max_retries} after {wait_time}s: {e}")
+                        await asyncio.sleep(wait_time)
+                    else:
+                        logger.error(f"Failed after {max_retries} retries: {e}")
+            
+            # If we get here, all retries failed
+            raise last_error
+        
+        return wrapper
+    return decorator
+
+async def handle_error(context: ErrorContext) -> bool:
+    """Central error handler that determines recovery strategy."""
+    logger.error(f"{context.severity.value.upper()} error in {context.operation}: {context.error}")
+    
+    # Record error in metrics
+    # TODO: Add metrics integration
+    
+    if context.severity == ErrorSeverity.CRITICAL:
+        logger.critical("Critical error, cannot continue session")
+        return False  # Cannot recover
+    
+    if not context.recoverable:
+        logger.error("Non-recoverable error, but session can continue")
+        context.handled = True
+        return True  # Session continues, but operation failed
+    
+    # Implement recovery strategies based on error type
+    # ...
+    
+    context.handled = True
+    return True  # Recovered successfully
+```
+
+# Test Strategy:
+1. Test recovery from different error types
+2. Verify retry logic works with transient errors
+3. Test handling of critical vs. non-critical errors
+4. Verify session continues after recoverable errors
+5. Test logging and metrics recording
+6. Simulate various error scenarios to test recovery paths

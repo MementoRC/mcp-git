@@ -1,0 +1,118 @@
+# Task ID: 8
+# Title: Implement Heartbeat Mechanism
+# Status: pending
+# Dependencies: 7
+# Priority: medium
+# Description: Add a heartbeat system to detect client disconnections and maintain session health awareness.
+# Details:
+1. Add heartbeat protocol support to session management
+2. Implement configurable heartbeat intervals
+3. Create timeout detection for missed heartbeats
+4. Add automatic session cleanup for disconnected clients
+5. Implement heartbeat response handling
+
+```python
+# Add to src/mcp_server_git/session.py
+import asyncio
+from datetime import datetime
+
+class HeartbeatManager:
+    """Manages heartbeats for session health monitoring."""
+    
+    def __init__(self, session_manager: SessionManager, 
+                 heartbeat_interval: float = 30.0,
+                 missed_heartbeat_threshold: int = 3):
+        self.session_manager = session_manager
+        self.heartbeat_interval = heartbeat_interval
+        self.missed_heartbeat_threshold = missed_heartbeat_threshold
+        self.session_heartbeats: Dict[str, datetime] = {}
+        self.running = False
+        self.task: Optional[asyncio.Task] = None
+    
+    async def start(self) -> None:
+        """Start the heartbeat monitoring task."""
+        if self.running:
+            return
+        
+        self.running = True
+        self.task = asyncio.create_task(self._heartbeat_loop())
+    
+    async def stop(self) -> None:
+        """Stop the heartbeat monitoring task."""
+        self.running = False
+        if self.task:
+            self.task.cancel()
+            try:
+                await self.task
+            except asyncio.CancelledError:
+                pass
+            self.task = None
+    
+    async def _heartbeat_loop(self) -> None:
+        """Main heartbeat monitoring loop."""
+        while self.running:
+            try:
+                await self._check_heartbeats()
+                await asyncio.sleep(self.heartbeat_interval)
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logger.error(f"Error in heartbeat loop: {e}")
+                await asyncio.sleep(5.0)  # Backoff on error
+    
+    async def _check_heartbeats(self) -> None:
+        """Check all sessions for heartbeat status."""
+        now = datetime.now()
+        sessions = await self.session_manager.get_all_sessions()
+        
+        for session in sessions:
+            # Skip sessions that aren't fully active yet
+            if session.state != SessionState.ACTIVE:
+                continue
+                
+            last_heartbeat = self.session_heartbeats.get(session.session_id)
+            if not last_heartbeat:
+                # New session, initialize heartbeat
+                self.session_heartbeats[session.session_id] = now
+                continue
+            
+            # Calculate time since last heartbeat
+            time_diff = (now - last_heartbeat).total_seconds()
+            missed_beats = int(time_diff / self.heartbeat_interval)
+            
+            if missed_beats >= self.missed_heartbeat_threshold:
+                logger.warning(f"Session {session.session_id} missed {missed_beats} heartbeats, closing")
+                await self.session_manager.close_session(session.session_id)
+                if session.session_id in self.session_heartbeats:
+                    del self.session_heartbeats[session.session_id]
+    
+    async def record_heartbeat(self, session_id: str) -> None:
+        """Record a heartbeat from a client."""
+        self.session_heartbeats[session_id] = datetime.now()
+        
+        # Update session activity
+        session = await self.session_manager.get_session(session_id)
+        if session:
+            session.update_activity()
+
+# Add heartbeat message handling to server.py
+async def handle_heartbeat(self, message: Dict[str, Any], session_id: str) -> None:
+    """Handle a heartbeat message from a client."""
+    await self.heartbeat_manager.record_heartbeat(session_id)
+    
+    # Send heartbeat response if needed
+    response = {
+        "type": "heartbeat",
+        "id": str(uuid.uuid4()),
+        "timestamp": datetime.now().isoformat(),
+    }
+    await self.send_message(response, session_id)
+```
+
+# Test Strategy:
+1. Test heartbeat message handling
+2. Verify missed heartbeat detection
+3. Test automatic session cleanup
+4. Verify heartbeat intervals are respected
+5. Test with simulated network interruptions
+6. Verify heartbeat metrics are recorded

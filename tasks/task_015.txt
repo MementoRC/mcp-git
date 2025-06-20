@@ -1,0 +1,266 @@
+# Task ID: 15
+# Title: Implement Stress Testing and Validation
+# Status: pending
+# Dependencies: 9, 10, 11, 12
+# Priority: high
+# Description: Create comprehensive stress tests to validate server stability under extreme conditions and for extended periods.
+# Details:
+1. Implement long-running stress test suite
+2. Create tests for high message volume
+3. Add tests for error injection
+4. Implement resource leak detection
+5. Create tests for concurrent client connections
+
+```python
+# src/tests/stress/test_long_running.py
+import pytest
+import asyncio
+import uuid
+import random
+import time
+from datetime import datetime, timedelta
+from typing import Dict, Any, List
+
+from mcp_server_git.server import MCPGitServer
+from mcp_client import MCPClient  # Mock client for testing
+
+@pytest.mark.stress
+async def test_48_hour_stability(server):
+    """Test server stability over a 48-hour period."""
+    # For CI, we can scale this down but log more frequently
+    test_duration_hours = 48  # Actual test duration
+    scaled_duration_minutes = 30  # Scaled duration for CI
+    
+    # Scale factor for accelerated testing
+    scale_factor = (test_duration_hours * 60) / scaled_duration_minutes
+    
+    # Connect a client
+    client = MCPClient()
+    await client.connect()
+    
+    # Track metrics
+    start_time = time.time()
+    end_time = start_time + (scaled_duration_minutes * 60)
+    message_count = 0
+    error_count = 0
+    operation_count = 0
+    cancel_count = 0
+    
+    # Log initial state
+    print(f"Starting {test_duration_hours}-hour stability test (scaled to {scaled_duration_minutes} minutes)")
+    print(f"Start time: {datetime.now().isoformat()}")
+    
+    try:
+        while time.time() < end_time:
+            # Simulate a mix of operations
+            operation_type = random.randint(1, 10)
+            
+            if operation_type <= 3:
+                # Start a long-running operation
+                op_id = str(uuid.uuid4())
+                await client.start_operation(op_id)
+                operation_count += 1
+                
+                # 50% chance to cancel it
+                if random.random() < 0.5:
+                    await asyncio.sleep(random.random() * 0.5)  # Wait a bit
+                    await client.cancel_operation(op_id)
+                    cancel_count += 1
+            
+            elif operation_type <= 6:
+                # Send a batch of messages
+                batch_size = random.randint(5, 20)
+                for _ in range(batch_size):
+                    await client.ping()
+                    message_count += 1
+            
+            elif operation_type <= 8:
+                # Simulate a client reconnection
+                await client.disconnect()
+                await asyncio.sleep(0.5)
+                await client.connect()
+            
+            elif operation_type <= 9:
+                # Send an invalid message to test error handling
+                try:
+                    await client.send_invalid_message()
+                    error_count += 1
+                except Exception:
+                    pass
+            
+            else:
+                # Just wait a bit to simulate idle time
+                await asyncio.sleep(random.random() * 2.0)
+            
+            # Log progress periodically
+            elapsed = time.time() - start_time
+            if int(elapsed) % 60 == 0:  # Log every minute
+                simulated_hours = (elapsed / 60) * scale_factor / 60
+                print(f"Progress: {simulated_hours:.2f} simulated hours")
+                print(f"Messages: {message_count}, Operations: {operation_count}, Cancellations: {cancel_count}, Errors: {error_count}")
+                
+                # Get server metrics
+                metrics = await server.metrics.get_metrics()
+                print(f"Server metrics: {metrics}")
+            
+            # Small delay between operations
+            await asyncio.sleep(0.05)
+    
+    finally:
+        # Disconnect client
+        await client.disconnect()
+    
+    # Log final state
+    print(f"Test completed at {datetime.now().isoformat()}")
+    print(f"Total messages: {message_count}")
+    print(f"Total operations: {operation_count}")
+    print(f"Total cancellations: {cancel_count}")
+    print(f"Total errors: {error_count}")
+    
+    # Get final server metrics
+    metrics = await server.metrics.get_metrics()
+    print(f"Final server metrics: {metrics}")
+    
+    # Verify server is still healthy
+    assert metrics["sessions"]["active"] == 0  # All sessions closed
+    assert metrics["operations"]["active"] == 0  # No lingering operations
+    
+    # Check error rate is within acceptable limits
+    total_messages = metrics["messages"]["processed"]
+    error_rate = metrics["messages"]["errors"] / total_messages if total_messages > 0 else 0
+    assert error_rate < 0.01, f"Error rate too high: {error_rate:.2%}"
+
+# src/tests/stress/test_error_injection.py
+@pytest.mark.stress
+async def test_error_injection(server):
+    """Test server stability with deliberate error injection."""
+    client = MCPClient()
+    await client.connect()
+    
+    # Define error scenarios to inject
+    error_scenarios = [
+        # Malformed messages
+        {"type": "malformed", "id": str(uuid.uuid4()), "missing_required_fields": True},
+        
+        # Invalid field types
+        {"type": "notifications/cancelled", "id": 12345, "request_id": 67890},  # IDs should be strings
+        
+        # Unknown message types
+        {"type": "unknown/message_type", "id": str(uuid.uuid4())},
+        
+        # Empty message
+        {},
+        
+        # Oversized message
+        {"type": "oversized", "id": str(uuid.uuid4()), "data": "x" * 1000000},
+        
+        # Nested invalid structures
+        {"type": "nested_invalid", "id": str(uuid.uuid4()), "data": {"nested": {"invalid": [1, 2, None, {"x": float('nan')}]}}},
+    ]
+    
+    # Send each error scenario
+    for scenario in error_scenarios:
+        print(f"Injecting error scenario: {scenario['type'] if 'type' in scenario else 'unknown'}")
+        
+        try:
+            await client.send_raw_message(scenario)
+        except Exception as e:
+            print(f"Client exception (expected): {e}")
+        
+        # Verify server is still responsive after each error
+        try:
+            response = await client.ping()
+            assert response["type"] == "pong", "Server failed to respond to ping"
+            print("Server still responsive ✓")
+        except Exception as e:
+            pytest.fail(f"Server became unresponsive after error injection: {e}")
+    
+    # Disconnect client
+    await client.disconnect()
+    
+    # Verify server metrics
+    metrics = await server.metrics.get_metrics()
+    print(f"Final metrics after error injection: {metrics}")
+    
+    # Server should have recorded the errors but remained stable
+    assert metrics["messages"]["errors"] >= len(error_scenarios), "Not all errors were recorded"
+    assert metrics["sessions"]["active"] == 0, "Sessions were not properly closed"
+
+# src/tests/stress/test_resource_leaks.py
+@pytest.mark.stress
+async def test_memory_leak_detection(server):
+    """Test for memory leaks during extended operation."""
+    import psutil
+    import os
+    import gc
+    
+    process = psutil.Process(os.getpid())
+    
+    # Force garbage collection to get accurate baseline
+    gc.collect()
+    initial_memory = process.memory_info().rss / 1024 / 1024  # MB
+    
+    client = MCPClient()
+    await client.connect()
+    
+    # Run a large number of operations
+    operation_count = 10000
+    memory_samples = []
+    
+    for i in range(operation_count):
+        # Mix of different operations
+        if i % 100 == 0:
+            # Log progress and take memory sample
+            current_memory = process.memory_info().rss / 1024 / 1024  # MB
+            memory_samples.append(current_memory)
+            print(f"Operation {i}/{operation_count}, Memory: {current_memory:.2f} MB")
+        
+        if i % 10 == 0:
+            # Start and cancel an operation
+            op_id = str(uuid.uuid4())
+            await client.start_operation(op_id)
+            await client.cancel_operation(op_id)
+        else:
+            # Regular ping
+            await client.ping()
+    
+    # Disconnect client
+    await client.disconnect()
+    
+    # Force garbage collection again
+    gc.collect()
+    final_memory = process.memory_info().rss / 1024 / 1024  # MB
+    
+    # Calculate memory growth
+    memory_diff = final_memory - initial_memory
+    print(f"Initial memory: {initial_memory:.2f} MB")
+    print(f"Final memory: {final_memory:.2f} MB")
+    print(f"Memory difference: {memory_diff:.2f} MB")
+    
+    # Check for memory growth trend in samples
+    if len(memory_samples) > 10:
+        # Calculate slope of memory growth
+        x = list(range(len(memory_samples)))
+        y = memory_samples
+        n = len(x)
+        
+        # Simple linear regression to detect trend
+        slope = (n * sum(x[i] * y[i] for i in range(n)) - sum(x) * sum(y)) / \
+                (n * sum(x[i]**2 for i in range(n)) - sum(x)**2)
+        
+        print(f"Memory growth slope: {slope:.6f} MB/sample")
+        
+        # A significant positive slope indicates a leak
+        assert slope < 0.01, f"Detected potential memory leak: {slope:.6f} MB/sample"
+    
+    # Check absolute growth
+    assert memory_diff < 10, f"Memory increased by {memory_diff:.2f} MB, possible leak"
+```
+
+# Test Strategy:
+1. Run long-running tests in CI environment (48+ hours)
+2. Monitor memory usage for leaks
+3. Test with high message volume (10,000+ messages)
+4. Inject various error scenarios
+5. Test with multiple concurrent clients
+6. Verify metrics and logs during stress tests

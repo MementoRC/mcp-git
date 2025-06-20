@@ -1,0 +1,153 @@
+# Task ID: 7
+# Title: Create Session Management Module
+# Status: pending
+# Dependencies: 5
+# Priority: medium
+# Description: Implement a dedicated session management module to track session lifecycle and health.
+# Details:
+1. Create a new session.py module
+2. Implement SessionManager class for tracking active sessions
+3. Add session health monitoring and metrics
+4. Create session lifecycle events (create, start, pause, resume, end)
+5. Implement session state persistence
+
+```python
+# src/mcp_server_git/session.py
+import asyncio
+import logging
+import time
+from typing import Dict, List, Optional, Any, Set
+from enum import Enum
+import uuid
+
+logger = logging.getLogger(__name__)
+
+class SessionState(Enum):
+    INITIALIZING = "initializing"
+    ACTIVE = "active"
+    PAUSED = "paused"
+    ERROR = "error"
+    CLOSING = "closing"
+    CLOSED = "closed"
+
+class Session:
+    """Represents a client session with the MCP server."""
+    
+    def __init__(self, session_id: Optional[str] = None):
+        self.session_id = session_id or str(uuid.uuid4())
+        self.state = SessionState.INITIALIZING
+        self.created_at = time.time()
+        self.last_activity = time.time()
+        self.error_count = 0
+        self.message_count = 0
+        self.client_info: Dict[str, Any] = {}
+        self.metadata: Dict[str, Any] = {}
+        self.active_operations: Set[str] = set()
+    
+    def update_activity(self) -> None:
+        """Update the last activity timestamp."""
+        self.last_activity = time.time()
+    
+    def record_message(self) -> None:
+        """Record a message processed in this session."""
+        self.message_count += 1
+        self.update_activity()
+    
+    def record_error(self) -> None:
+        """Record an error in this session."""
+        self.error_count += 1
+    
+    def add_operation(self, operation_id: str) -> None:
+        """Add an active operation to this session."""
+        self.active_operations.add(operation_id)
+    
+    def remove_operation(self, operation_id: str) -> None:
+        """Remove an operation from this session."""
+        if operation_id in self.active_operations:
+            self.active_operations.remove(operation_id)
+    
+    @property
+    def idle_time(self) -> float:
+        """Get the time since last activity in seconds."""
+        return time.time() - self.last_activity
+    
+    @property
+    def session_duration(self) -> float:
+        """Get the total session duration in seconds."""
+        return time.time() - self.created_at
+    
+    @property
+    def is_active(self) -> bool:
+        """Check if the session is in an active state."""
+        return self.state == SessionState.ACTIVE
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert session to a dictionary for serialization."""
+        return {
+            "session_id": self.session_id,
+            "state": self.state.value,
+            "created_at": self.created_at,
+            "last_activity": self.last_activity,
+            "error_count": self.error_count,
+            "message_count": self.message_count,
+            "active_operations": list(self.active_operations),
+            "client_info": self.client_info,
+            "metadata": self.metadata,
+        }
+
+class SessionManager:
+    """Manages all active sessions in the MCP server."""
+    
+    def __init__(self):
+        self.sessions: Dict[str, Session] = {}
+        self.lock = asyncio.Lock()
+    
+    async def create_session(self, session_id: Optional[str] = None) -> Session:
+        """Create a new session."""
+        async with self.lock:
+            session = Session(session_id)
+            self.sessions[session.session_id] = session
+            logger.info(f"Created session {session.session_id}")
+            return session
+    
+    async def get_session(self, session_id: str) -> Optional[Session]:
+        """Get a session by ID."""
+        async with self.lock:
+            return self.sessions.get(session_id)
+    
+    async def close_session(self, session_id: str) -> None:
+        """Close and remove a session."""
+        async with self.lock:
+            if session_id in self.sessions:
+                session = self.sessions[session_id]
+                session.state = SessionState.CLOSED
+                logger.info(f"Closed session {session_id} after {session.session_duration:.2f}s")
+                del self.sessions[session_id]
+    
+    async def get_all_sessions(self) -> List[Session]:
+        """Get all active sessions."""
+        async with self.lock:
+            return list(self.sessions.values())
+    
+    async def cleanup_idle_sessions(self, max_idle_time: float = 3600.0) -> int:
+        """Clean up sessions that have been idle for too long."""
+        to_close = []
+        
+        async with self.lock:
+            for session_id, session in self.sessions.items():
+                if session.idle_time > max_idle_time:
+                    to_close.append(session_id)
+        
+        for session_id in to_close:
+            await self.close_session(session_id)
+        
+        return len(to_close)
+```
+
+# Test Strategy:
+1. Test session creation and lifecycle
+2. Verify session state transitions
+3. Test concurrent session operations
+4. Verify idle session cleanup
+5. Test session metrics and monitoring
+6. Verify session persistence and recovery
