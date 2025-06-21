@@ -61,6 +61,39 @@ class GitHubClient:
         }
         
         return await self.session.post(url, headers=headers, **kwargs)
+    
+    async def patch(self, endpoint: str, **kwargs) -> aiohttp.ClientResponse:
+        """Make PATCH request to GitHub API"""
+        url = f"{self.base_url}/{endpoint.lstrip('/')}"
+        headers = {
+            "Authorization": f"Bearer {self.token}",
+            "Accept": "application/vnd.github.v3+json",
+            "User-Agent": "MCP-Git-Server/1.1.0"
+        }
+        
+        return await self.session.patch(url, headers=headers, **kwargs)
+    
+    async def put(self, endpoint: str, **kwargs) -> aiohttp.ClientResponse:
+        """Make PUT request to GitHub API"""
+        url = f"{self.base_url}/{endpoint.lstrip('/')}"
+        headers = {
+            "Authorization": f"Bearer {self.token}",
+            "Accept": "application/vnd.github.v3+json",
+            "User-Agent": "MCP-Git-Server/1.1.0"
+        }
+        
+        return await self.session.put(url, headers=headers, **kwargs)
+    
+    async def delete(self, endpoint: str, **kwargs) -> aiohttp.ClientResponse:
+        """Make DELETE request to GitHub API"""
+        url = f"{self.base_url}/{endpoint.lstrip('/')}"
+        headers = {
+            "Authorization": f"Bearer {self.token}",
+            "Accept": "application/vnd.github.v3+json",
+            "User-Agent": "MCP-Git-Server/1.1.0"
+        }
+        
+        return await self.session.delete(url, headers=headers, **kwargs)
 
 
 def get_github_client() -> Optional[GitHubClient]:

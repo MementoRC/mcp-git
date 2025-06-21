@@ -408,3 +408,168 @@ async def github_get_pr_files(repo_owner: str, repo_name: str, pr_number: int, p
     finally:
         if client and client.session:
             await client.session.close()
+
+
+async def github_update_pr(repo_owner: str, repo_name: str, pr_number: int, title: Optional[str] = None, body: Optional[str] = None, state: Optional[str] = None) -> str:
+    """Update a pull request's title, body, or state."""
+    logger.debug(f"🚀 Updating PR #{pr_number} in {repo_owner}/{repo_name}")
+    
+    try:
+        client = get_github_client()
+        if not client:
+            return "❌ GitHub token not configured. Set GITHUB_TOKEN environment variable."
+        
+        payload = {}
+        if title is not None:
+            payload["title"] = title
+        if body is not None:
+            payload["body"] = body
+        if state is not None:
+            if state not in ["open", "closed"]:
+                return "❌ State must be 'open' or 'closed'"
+            payload["state"] = state
+            
+        if not payload:
+            return "⚠️ No update parameters provided. Please specify title, body, or state."
+        
+        response = await client.patch(f"/repos/{repo_owner}/{repo_name}/pulls/{pr_number}", json=payload)
+        
+        if response.status != 200:
+            error_text = await response.text()
+            return f"❌ Failed to update PR #{pr_number}: {response.status} - {error_text}"
+        
+        result = await response.json()
+        logger.info(f"✅ Successfully updated PR #{pr_number}")
+        return f"✅ Successfully updated PR #{result['number']}: {result['html_url']}"
+        
+    except Exception as e:
+        logger.error(f"❌ Failed to update PR #{pr_number}: {e}", exc_info=True)
+        return f"❌ Error updating PR: {str(e)}"
+    finally:
+        if client and client.session:
+            await client.session.close()
+
+
+async def github_create_pr(repo_owner: str, repo_name: str, title: str, head: str, base: str, body: Optional[str] = None, draft: bool = False) -> str:
+    """Create a new pull request."""
+    logger.debug(f"🚀 Creating PR in {repo_owner}/{repo_name} from {head} to {base}")
+    
+    try:
+        client = get_github_client()
+        if not client:
+            return "❌ GitHub token not configured. Set GITHUB_TOKEN environment variable."
+        
+        payload = {
+            "title": title,
+            "head": head,
+            "base": base,
+            "draft": draft
+        }
+        if body is not None:
+            payload["body"] = body
+        
+        response = await client.post(f"/repos/{repo_owner}/{repo_name}/pulls", json=payload)
+        
+        if response.status != 201:
+            error_text = await response.text()
+            # Provide more helpful error for common cases
+            if "No commits between" in error_text or "A pull request already exists" in error_text:
+                return f"❌ Could not create PR. Reason: {error_text}"
+            return f"❌ Failed to create PR: {response.status} - {error_text}"
+        
+        result = await response.json()
+        logger.info(f"✅ Successfully created PR #{result['number']}")
+        return f"✅ Successfully created PR #{result['number']}: {result['html_url']}"
+        
+    except Exception as e:
+        logger.error(f"❌ Failed to create PR: {e}", exc_info=True)
+        return f"❌ Error creating PR: {str(e)}"
+    finally:
+        if client and client.session:
+            await client.session.close()
+
+
+async def github_merge_pr(repo_owner: str, repo_name: str, pr_number: int, commit_title: Optional[str] = None, commit_message: Optional[str] = None, merge_method: str = "merge") -> str:
+    """Merge a pull request."""
+    logger.debug(f"🚀 Merging PR #{pr_number} in {repo_owner}/{repo_name} using '{merge_method}' method")
+    
+    try:
+        client = get_github_client()
+        if not client:
+            return "❌ GitHub token not configured. Set GITHUB_TOKEN environment variable."
+        
+        if merge_method not in ["merge", "squash", "rebase"]:
+            return "❌ merge_method must be one of 'merge', 'squash', or 'rebase'"
+            
+        payload = {
+            "merge_method": merge_method
+        }
+        if commit_title:
+            payload["commit_title"] = commit_title
+        if commit_message:
+            payload["commit_message"] = commit_message
+        
+        response = await client.put(f"/repos/{repo_owner}/{repo_name}/pulls/{pr_number}/merge", json=payload)
+        
+        if response.status != 200:
+            error_text = await response.text()
+            if response.status in [405, 409]:
+                return f"❌ Could not merge PR. Reason: {error_text}. This may be due to merge conflicts or failing status checks."
+            return f"❌ Failed to merge PR: {response.status} - {error_text}"
+        
+        result = await response.json()
+        if result.get("merged"):
+            logger.info(f"✅ Successfully merged PR #{pr_number}")
+            return f"✅ {result['message']}"
+        else:
+            logger.warning(f"⚠️ Merge attempt for PR #{pr_number} returned 200 OK but 'merged' is false: {result.get('message')}")
+            return f"⚠️ {result.get('message', 'Merge was not successful but API returned 200 OK. Check PR status.')}"
+            
+    except Exception as e:
+        logger.error(f"❌ Failed to merge PR #{pr_number}: {e}", exc_info=True)
+        return f"❌ Error merging PR: {str(e)}"
+    finally:
+        if client and client.session:
+            await client.session.close()
+
+
+async def github_add_pr_comment(repo_owner: str, repo_name: str, pr_number: int, body: str) -> str:
+    """Add a comment to a pull request."""
+    logger.debug(f"🚀 Adding comment to PR #{pr_number} in {repo_owner}/{repo_name}")
+    
+    try:
+        client = get_github_client()
+        if not client:
+            return "❌ GitHub token not configured. Set GITHUB_TOKEN environment variable."
+        
+        # Comments are added to the corresponding issue
+        payload = {"body": body}
+        
+        response = await client.post(f"/repos/{repo_owner}/{repo_name}/issues/{pr_number}/comments", json=payload)
+        
+        if response.status != 201:
+            error_text = await response.text()
+            return f"❌ Failed to add comment: {response.status} - {error_text}"
+        
+        result = await response.json()
+        logger.info(f"✅ Successfully added comment to PR #{pr_number}")
+        return f"✅ Successfully added comment: {result['html_url']}"
+        
+    except Exception as e:
+        logger.error(f"❌ Failed to add comment to PR #{pr_number}: {e}", exc_info=True)
+        return f"❌ Error adding comment: {str(e)}"
+    finally:
+        if client and client.session:
+            await client.session.close()
+
+
+async def github_close_pr(repo_owner: str, repo_name: str, pr_number: int) -> str:
+    """Close a pull request."""
+    logger.debug(f"🚀 Closing PR #{pr_number} in {repo_owner}/{repo_name}")
+    return await github_update_pr(repo_owner, repo_name, pr_number, state="closed")
+
+
+async def github_reopen_pr(repo_owner: str, repo_name: str, pr_number: int) -> str:
+    """Reopen a closed pull request."""
+    logger.debug(f"🚀 Reopening PR #{pr_number} in {repo_owner}/{repo_name}")
+    return await github_update_pr(repo_owner, repo_name, pr_number, state="open")

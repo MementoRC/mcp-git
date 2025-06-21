@@ -89,6 +89,7 @@ from .server import (
 # Try to import modular components, fall back to original if not available
 try:
     from .github.api import (
+        # Read operations
         github_get_pr_checks as modular_github_get_pr_checks,
         github_get_pr_details as modular_github_get_pr_details,
         github_get_failing_jobs as modular_github_get_failing_jobs,
@@ -96,6 +97,13 @@ try:
         github_list_pull_requests as modular_github_list_pull_requests,
         github_get_pr_status as modular_github_get_pr_status,
         github_get_pr_files as modular_github_get_pr_files,
+        # Write operations
+        github_update_pr as modular_github_update_pr,
+        github_create_pr as modular_github_create_pr,
+        github_merge_pr as modular_github_merge_pr,
+        github_add_pr_comment as modular_github_add_pr_comment,
+        github_close_pr as modular_github_close_pr,
+        github_reopen_pr as modular_github_reopen_pr,
     )
     print("✅ Using modular GitHub API functions")
     USE_MODULAR_GITHUB = True
