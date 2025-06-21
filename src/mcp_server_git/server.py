@@ -2428,6 +2428,48 @@ async def serve(repository: Path | None) -> None:
                         required=False
                     )
                 ]
+            ),
+            # GitHub Write Prompts
+            Prompt(
+                name="github-pr-creation",
+                description="Generate optimal PR creation content (title, body, labels, reviewers)",
+                arguments=[
+                    PromptArgument(name="branch_name", description="Name of the branch with changes", required=True),
+                    PromptArgument(name="changes_summary", description="Summary of changes made in the branch", required=True),
+                    PromptArgument(name="breaking_changes", description="Description of any breaking changes", required=False),
+                    PromptArgument(name="target_audience", description="Audience for the PR (e.g., developers, QA, product)", required=False),
+                    PromptArgument(name="urgency", description="Urgency of the PR (e.g., high, medium, low)", required=False),
+                ]
+            ),
+            Prompt(
+                name="github-pr-comment-generation",
+                description="Generate meaningful PR comments for reviews",
+                arguments=[
+                    PromptArgument(name="diff_content", description="The diff or code snippet to comment on", required=True),
+                    PromptArgument(name="comment_type", description="Type of comment (review, suggestion, approval, request_changes)", required=True),
+                    PromptArgument(name="specific_focus", description="Area of focus for the comment (e.g., logic, style, security)", required=False),
+                    PromptArgument(name="tone", description="Desired tone of the comment (e.g., formal, constructive, friendly)", required=False),
+                ]
+            ),
+            Prompt(
+                name="github-merge-strategy-recommendation",
+                description="Recommend merge strategies based on PR analysis",
+                arguments=[
+                    PromptArgument(name="pr_details", description="Details of the pull request (title, description, size)", required=True),
+                    PromptArgument(name="commit_history", description="Commit history of the PR branch", required=True),
+                    PromptArgument(name="team_preferences", description="Team's preferred merge strategies (e.g., prefer squash)", required=False),
+                    PromptArgument(name="risk_level", description="Assessed risk level of the changes (e.g., low, high)", required=False),
+                ]
+            ),
+            Prompt(
+                name="github-pr-update-guidance",
+                description="Guide systematic PR updates based on feedback",
+                arguments=[
+                    PromptArgument(name="review_feedback", description="Feedback received from code reviews", required=True),
+                    PromptArgument(name="current_pr_state", description="Current state of the PR (e.g., code, tests, description)", required=True),
+                    PromptArgument(name="priority_issues", description="High-priority issues to address first", required=False),
+                    PromptArgument(name="timeline", description="Expected timeline for updates", required=False),
+                ]
             )
         ]
 
@@ -3081,6 +3123,300 @@ Provide specific, actionable recommendations for each area."""
 
                 return GetPromptResult(
                     description="PR readiness assessment",
+                    messages=[
+                        PromptMessage(
+                            role="user",
+                            content=TextContent(type="text", text=prompt_text)
+                        )
+                    ]
+                )
+            
+            case "github-pr-creation":
+                branch_name = args.get("branch_name", "")
+                changes_summary = args.get("changes_summary", "")
+                breaking_changes = args.get("breaking_changes", "")
+                target_audience = args.get("target_audience", "developers")
+                urgency = args.get("urgency", "medium")
+
+                breaking_section = f"\n**Breaking Changes:**\n{breaking_changes}\n" if breaking_changes else ""
+
+                prompt_text = f"""Generate comprehensive content for a new GitHub Pull Request.
+
+**Context:**
+- **Source Branch:** `{branch_name}`
+- **Urgency:** {urgency.capitalize()}
+- **Target Audience:** {target_audience}
+
+**Summary of Changes:**
+```
+{changes_summary}
+```
+{breaking_section}
+**Request:**
+
+Based on the provided context and changes, generate the following components for the `github_create_pr` tool:
+
+1.  **PR Title:**
+    - A concise, descriptive title following Conventional Commits format (e.g., `feat(api): Add user authentication endpoint`).
+    - The title should be clear and immediately understandable.
+
+2.  **PR Body (in Markdown):**
+    - **Description:** A detailed explanation of *what* was changed and *why*.
+    - **Changes Made:** A bulleted list of specific changes.
+    - **Testing Strategy:** How these changes have been tested (e.g., unit tests, integration tests, manual testing).
+    - **Related Issues:** A section to link any related issues (e.g., `Closes #123`).
+    - **Screenshots/GIFs:** Placeholders for visual evidence, if applicable.
+    - **Checklist:** A self-review checklist for the author.
+
+3.  **Suggested Labels (as a comma-separated list):**
+    - Suggest relevant labels from this list: `feature`, `bug`, `documentation`, `refactor`, `tests`, `ci`, `breaking-change`, `needs-review`, `wip`.
+    - Consider the changes summary and urgency.
+
+4.  **Suggested Reviewers (as a comma-separated list of GitHub usernames):**
+    - Based on the `target_audience` and type of changes, suggest 1-3 potential reviewers (use placeholder usernames like `dev-lead`, `qa-specialist`, `security-expert`).
+
+**Example Output Format:**
+
+**Title:**
+feat(auth): Implement password reset functionality
+
+**Body:**
+### Description
+This PR introduces a secure password reset flow for users who have forgotten their password. It includes API endpoints, email notifications, and a frontend interface.
+
+### Changes Made
+- Added `POST /api/auth/forgot-password` endpoint.
+- Added `POST /api/auth/reset-password` endpoint.
+- Created a new `PasswordReset` model and database table.
+- Implemented email service to send reset links.
+- Built React components for the password reset form.
+
+### Testing Strategy
+- Unit tests for all new API endpoints (100% coverage).
+- Integration tests for the full reset flow.
+- Manually tested in staging environment.
+
+### Related Issues
+- Closes #45
+
+**Labels:**
+feature, needs-review, security
+
+**Reviewers:**
+dev-lead, security-expert
+"""
+                return GetPromptResult(
+                    description="GitHub PR creation content generator",
+                    messages=[
+                        PromptMessage(
+                            role="user",
+                            content=TextContent(type="text", text=prompt_text)
+                        )
+                    ]
+                )
+
+            case "github-pr-comment-generation":
+                diff_content = args.get("diff_content", "")
+                comment_type = args.get("comment_type", "review")
+                specific_focus = args.get("specific_focus", "general")
+                tone = args.get("tone", "constructive")
+
+                prompt_text = f"""Generate a high-quality, professional comment for a GitHub Pull Request review.
+
+**Context:**
+- **Comment Type:** {comment_type}
+- **Specific Focus:** {specific_focus}
+- **Desired Tone:** {tone}
+
+**Code Snippet / Diff to Review:**
+```diff
+{diff_content}
+```
+
+**Request:**
+
+Based on the provided code and context, generate a comment for the `github_add_pr_comment` tool.
+
+**Guidelines for the comment:**
+1.  **Be Specific:** Refer to specific lines or logic in the provided diff.
+2.  **Explain the "Why":** Don't just say something is wrong; explain *why* it's a concern and what the impact is (e.g., performance, security, maintainability).
+3.  **Offer Solutions:** When possible, suggest concrete improvements or alternative approaches. Use GitHub's suggestion syntax for code changes.
+4.  **Use the Right Tone:** The comment should be `{tone}`. Frame feedback as questions or suggestions to foster collaboration (e.g., "Have you considered...?" or "What do you think about...?").
+5.  **Structure based on `comment_type`:**
+    - **review:** A general review comment pointing out a specific issue or area for improvement.
+    - **suggestion:** A direct code suggestion using GitHub's suggestion syntax (```suggestion\n...code...\n```).
+    - **approval:** A positive comment confirming that the code looks good, perhaps with minor nits.
+    - **request_changes:** A clear, non-blocking comment that explains what changes are needed before approval.
+
+**Example for a 'suggestion' comment:**
+
+This logic for fetching the user seems a bit inefficient as it could make multiple database calls in a loop.
+
+What do you think about fetching all users in a single batch request outside the loop to improve performance?
+
+```suggestion
+const userIds = items.map(item => item.userId);
+const users = await db.users.getByIds(userIds);
+const userMap = new Map(users.map(u => [u.id, u]));
+
+for (const item of items) {{
+  const user = userMap.get(item.userId);
+  // ...
+}}
+```
+This approach should be more performant, especially with a large number of items. Let me know your thoughts!
+"""
+                return GetPromptResult(
+                    description="GitHub PR comment generator",
+                    messages=[
+                        PromptMessage(
+                            role="user",
+                            content=TextContent(type="text", text=prompt_text)
+                        )
+                    ]
+                )
+
+            case "github-merge-strategy-recommendation":
+                pr_details = args.get("pr_details", "")
+                commit_history = args.get("commit_history", "")
+                team_preferences = args.get("team_preferences", "no preference")
+                risk_level = args.get("risk_level", "medium")
+
+                prompt_text = f"""Analyze the provided Pull Request information and recommend the best merge strategy.
+
+**PR Context:**
+- **PR Details:** {pr_details}
+- **Commit History:**
+```
+{commit_history}
+```
+- **Team Preferences:** {team_preferences}
+- **Risk Level:** {risk_level}
+
+**Request:**
+
+Recommend a merge strategy for the `github_merge_pr` tool. The options are `merge`, `squash`, or `rebase`.
+
+Provide a structured recommendation including:
+
+1.  **Recommended Strategy:** State the recommended strategy clearly (e.g., "Recommended Strategy: `squash`").
+2.  **Rationale:** Provide a detailed justification for your recommendation. Consider the following factors:
+    - **Commit History Clarity:** Is the commit history messy with many small, incremental, or "fixup" commits? (Favors `squash` or `rebase`).
+    - **Feature Atomicity:** Does the PR represent a single, atomic feature? (Favors `squash`).
+    - **Historical Record:** Is it important to preserve the detailed development history of this branch? (Favors `merge` or `rebase`).
+    - **Risk and Rollback:** How does the strategy affect the ease of identifying and reverting changes?
+    - **Team Workflow:** How does the recommendation align with the team's preferences?
+3.  **`github_merge_pr` Parameters:**
+    - **`merge_method`**: The recommended strategy (`merge`, `squash`, or `rebase`).
+    - **`commit_title`**: A well-crafted commit title for the merge. For `squash`, this will be the title of the squashed commit.
+    - **`commit_message`**: A detailed commit message. For `squash`, this should summarize the changes from the PR.
+
+**Example Output:**
+
+**Recommended Strategy:** `squash`
+
+**Rationale:**
+The commit history for this PR contains several small, incremental commits (e.g., "fix typo", "wip"). Squashing these into a single, atomic commit will create a cleaner and more readable history on the `main` branch. Since the PR represents a single feature ("Add User Profile Page"), a single commit accurately reflects the change. This aligns with the team's preference for a linear history.
+
+**`github_merge_pr` Parameters:**
+- **`merge_method`**: `squash`
+- **`commit_title`**: `feat(profile): Add user profile page`
+- **`commit_message`**:
+  - Implements a new user profile page accessible at `/profile/:username`.
+  - Displays user information, recent activity, and profile settings.
+  - Includes backend API endpoints to fetch user data.
+  - Closes #78.
+"""
+                return GetPromptResult(
+                    description="GitHub merge strategy recommender",
+                    messages=[
+                        PromptMessage(
+                            role="user",
+                            content=TextContent(type="text", text=prompt_text)
+                        )
+                    ]
+                )
+
+            case "github-pr-update-guidance":
+                review_feedback = args.get("review_feedback", "")
+                current_pr_state = args.get("current_pr_state", "")
+                priority_issues = args.get("priority_issues", "")
+                timeline = args.get("timeline", "not specified")
+
+                priority_section = f"\n**High-Priority Issues:**\n{priority_issues}\n" if priority_issues else ""
+                timeline_section = f"\n**Timeline:** {timeline}\n" if timeline else ""
+
+                prompt_text = f"""Generate a systematic plan to update a GitHub Pull Request based on review feedback.
+
+**Context:**
+- **Current PR State:**
+```
+{current_pr_state}
+```
+- **Review Feedback Received:**
+```
+{review_feedback}
+```
+{priority_section}{timeline_section}
+**Request:**
+
+Create a structured action plan for updating the PR. The plan should help the developer use tools like `git_add`, `git_commit`, and `git_push` effectively.
+
+The output should be a clear, actionable checklist in Markdown format.
+
+**The plan should include:**
+1.  **Feedback Triage:**
+    - Group related feedback items.
+    - Prioritize changes, starting with blocking issues or those identified as high-priority.
+    - Acknowledge all feedback points, even if no change is made (with a justification).
+
+2.  **Actionable Checklist:**
+    - Create a task list (`- [ ]`) for each required code change, test update, or documentation adjustment.
+    - For each task, specify the file(s) to be modified.
+    - Suggest logical commit points. For example, group related changes into a single commit.
+
+3.  **Communication Plan:**
+    - Suggest how to communicate progress to the reviewers.
+    - Recommend pushing changes and then re-requesting a review.
+    - Provide a template for a summary comment to post on the PR after updates are pushed, explaining what was changed.
+
+**Example Output:**
+
+### PR Update Action Plan
+
+Here is a plan to address the review feedback for your PR.
+
+#### 1. Feedback Triage & Prioritization
+- **High Priority (Blocking):**
+  - Address the security vulnerability in `auth.py`.
+  - Fix the failing unit test in `test_user_model.py`.
+- **Medium Priority:**
+  - Refactor the `calculate_stats` function for better readability.
+  - Add missing documentation for the `/api/data` endpoint.
+- **Low Priority (Nits):**
+  - Correct typos in code comments.
+
+#### 2. Implementation Checklist
+- [ ] **Security Fix:** In `src/auth.py`, replace the use of `eval()` with a safer data parsing method.
+- [ ] **Commit 1:** Create a commit for the security fix: `git commit -m "fix(auth): Remove insecure use of eval()"`
+- [ ] **Test Fix:** In `tests/test_user_model.py`, correct the assertion to match the expected output.
+- [ ] **Refactor:** In `src/utils.py`, break down the `calculate_stats` function into smaller, helper functions.
+- [ ] **Documentation:** Add OpenAPI-compliant docstrings to the `get_data` function in `src/api.py`.
+- [ ] **Commit 2:** Group the test fix, refactor, and documentation changes into a single commit: `git commit -m "refactor(stats): Improve readability and add docs"`
+- [ ] **Push Changes:** Push both new commits to your branch: `git push`
+
+#### 3. Communication with Reviewers
+After pushing your changes, post the following summary comment on the PR and re-request a review:
+
+> Thanks for the feedback! I've pushed updates to address the points raised:
+> - The security vulnerability in `auth.py` has been resolved.
+> - The failing unit test is now passing.
+> - I've refactored `calculate_stats` and added the missing API documentation.
+>
+> Ready for another look!
+"""
+                return GetPromptResult(
+                    description="GitHub PR update guidance generator",
                     messages=[
                         PromptMessage(
                             role="user",
