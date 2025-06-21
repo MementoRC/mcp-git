@@ -30,6 +30,23 @@ from mcp.types import (
 )
 from pydantic import BaseModel
 
+# Import GitHub API functions
+from .github.api import (
+    github_get_pr_checks,
+    github_get_failing_jobs,
+    github_get_workflow_run,
+    github_get_pr_details,
+    github_list_pull_requests,
+    github_get_pr_status,
+    github_get_pr_files,
+    github_update_pr,
+    github_create_pr,
+    github_merge_pr,
+    github_add_pr_comment,
+    github_close_pr,
+    github_reopen_pr
+)
+
 def load_environment_variables(repository_path: Path | None = None):
     """Load environment variables from .env files with proper precedence.
     
