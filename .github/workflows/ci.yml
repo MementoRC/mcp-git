@@ -433,7 +433,7 @@ jobs:
         uv run pytest tests/ -k "not slow" --tb=short -v
 
 # Summary job to check overall CI status
-status-check:
+status_check:
   name: CI Status Check
   runs-on: ubuntu-latest
   needs: [quality, test, mcp-validation, docker, security]
