@@ -432,27 +432,27 @@ jobs:
         cd /home/runner/work/mcp-git/mcp-git
         uv run pytest tests/ -k "not slow" --tb=short -v
 
-# Summary job to check overall CI status
-status_check:
-  name: CI Status Check
-  runs-on: ubuntu-latest
-  needs: [quality, test, mcp-validation, docker, security]
-  if: always()
-  
-  steps:
-  - name: Check CI results
-    run: |
-      echo "=== CI Results Summary ==="
-      echo "Quality: ${{ needs.quality.result }}"
-      echo "Tests: ${{ needs.test.result }}"
-      echo "MCP Validation: ${{ needs.mcp-validation.result }}"
-      echo "Docker: ${{ needs.docker.result }}"
-      echo "Security: ${{ needs.security.result }}"
-      
-      # Fail if any critical jobs failed
-      if [[ "${{ needs.quality.result }}" == "failure" || "${{ needs.test.result }}" == "failure" || "${{ needs.mcp-validation.result }}" == "failure" ]]; then
-        echo "❌ Critical CI jobs failed"
-        exit 1
-      else
-        echo "✅ All critical CI jobs passed"
-      fi
+  # Summary job to check overall CI status
+  status_check:
+    name: CI Status Check
+    runs-on: ubuntu-latest
+    needs: [quality, test, mcp-validation, docker, security]
+    if: always()
+    
+    steps:
+    - name: Check CI results
+      run: |
+        echo "=== CI Results Summary ==="
+        echo "Quality: ${{ needs.quality.result }}"
+        echo "Tests: ${{ needs.test.result }}"
+        echo "MCP Validation: ${{ needs.mcp-validation.result }}"
+        echo "Docker: ${{ needs.docker.result }}"
+        echo "Security: ${{ needs.security.result }}"
+        
+        # Fail if any critical jobs failed
+        if [[ "${{ needs.quality.result }}" == "failure" || "${{ needs.test.result }}" == "failure" || "${{ needs.mcp-validation.result }}" == "failure" ]]; then
+          echo "❌ Critical CI jobs failed"
+          exit 1
+        else
+          echo "✅ All critical CI jobs passed"
+        fi
