@@ -176,57 +176,78 @@ class GitHubClient:
         
         logger.debug(f"🌐 Making {method} request to {endpoint}")
         
-        # Configure timeout to prevent hanging
-        timeout = aiohttp.ClientTimeout(total=30, connect=10)
+        # Configure timeout and connection settings
+        timeout = aiohttp.ClientTimeout(total=60, connect=15, sock_read=30)
+        connector = aiohttp.TCPConnector(
+            limit=100,
+            limit_per_host=30,
+            keepalive_timeout=30,
+            enable_cleanup_closed=True
+        )
         
-        try:
-            async with aiohttp.ClientSession(timeout=timeout) as session:
-                async with session.request(method, url, headers=headers, **kwargs) as response:
-                    logger.debug(f"📡 Response status: {response.status} for {endpoint}")
-                if response.status >= 400:
-                    error_text = await response.text()
-                    
-                    # Handle specific GitHub API errors
-                    if response.status == 401:
-                        logger.error(f"🔑 GitHub API authentication failed for {endpoint}")
-                        raise Exception("GitHub API authentication failed (401): Check GITHUB_TOKEN")
-                    elif response.status == 403:
-                        rate_limit_remaining = response.headers.get('X-RateLimit-Remaining', 'unknown')
-                        if rate_limit_remaining == '0':
-                            reset_time = response.headers.get('X-RateLimit-Reset', 'unknown')
-                            logger.error(f"⏰ GitHub API rate limit exceeded for {endpoint}, resets at: {reset_time}")
-                            raise Exception(f"GitHub API rate limit exceeded (403). Resets at: {reset_time}")
-                        else:
-                            logger.error(f"🚫 GitHub API forbidden for {endpoint}")
-                            raise Exception("GitHub API forbidden (403): Insufficient permissions or secondary rate limit")
-                    elif response.status == 404:
-                        logger.debug(f"📡 404 Not Found for {endpoint}")
-                        raise Exception(f"GitHub API resource not found (404): {endpoint}")
-                    elif response.status == 422:
-                        logger.error(f"❌ GitHub API validation failed for {endpoint}: {error_text}")
-                        raise Exception(f"GitHub API validation failed (422): {error_text}")
-                    else:
-                        logger.error(f"❌ GitHub API error {response.status} for {endpoint}: {error_text}")
-                        raise Exception(f"GitHub API error {response.status}: {error_text}")
-                
-                result = await response.json()
-                logger.debug(f"✅ Successful request to {endpoint}")
-                
-                # Validate response structure for common API endpoints
-                if result is None:
-                    logger.warning(f"⚠️ GitHub API returned None for {endpoint}")
-                    return {}
-                
-                return result
-        except asyncio.TimeoutError:
-            logger.error(f"⏰ Timeout making request to {endpoint}")
-            raise
-        except aiohttp.ClientError as e:
-            logger.error(f"🌐 HTTP client error for {endpoint}: {e}")
-            raise
-        except Exception as e:
-            logger.error(f"❌ Unexpected error making request to {endpoint}: {e}")
-            raise
+        # Retry logic for connection issues
+        max_retries = 3
+        last_error = None
+        
+        for attempt in range(max_retries):
+            try:
+                async with aiohttp.ClientSession(timeout=timeout, connector=connector) as session:
+                    async with session.request(method, url, headers=headers, **kwargs) as response:
+                        logger.debug(f"📡 Response status: {response.status} for {endpoint}")
+                        
+                        if response.status >= 400:
+                            error_text = await response.text()
+                            
+                            # Handle specific GitHub API errors
+                            if response.status == 401:
+                                logger.error(f"🔑 GitHub API authentication failed for {endpoint}")
+                                raise Exception("GitHub API authentication failed (401): Check GITHUB_TOKEN")
+                            elif response.status == 403:
+                                rate_limit_remaining = response.headers.get('X-RateLimit-Remaining', 'unknown')
+                                if rate_limit_remaining == '0':
+                                    reset_time = response.headers.get('X-RateLimit-Reset', 'unknown')
+                                    logger.error(f"⏰ GitHub API rate limit exceeded for {endpoint}, resets at: {reset_time}")
+                                    raise Exception(f"GitHub API rate limit exceeded (403). Resets at: {reset_time}")
+                                else:
+                                    logger.error(f"🚫 GitHub API forbidden for {endpoint}")
+                                    raise Exception("GitHub API forbidden (403): Insufficient permissions or secondary rate limit")
+                            elif response.status == 404:
+                                logger.debug(f"📡 404 Not Found for {endpoint}")
+                                raise Exception(f"GitHub API resource not found (404): {endpoint}")
+                            elif response.status == 422:
+                                logger.error(f"❌ GitHub API validation failed for {endpoint}: {error_text}")
+                                raise Exception(f"GitHub API validation failed (422): {error_text}")
+                            else:
+                                logger.error(f"❌ GitHub API error {response.status} for {endpoint}: {error_text}")
+                                raise Exception(f"GitHub API error {response.status}: {error_text}")
+                        
+                        result = await response.json()
+                        logger.debug(f"✅ Successful request to {endpoint}")
+                        
+                        # Validate response structure for common API endpoints
+                        if result is None:
+                            logger.warning(f"⚠️ GitHub API returned None for {endpoint}")
+                            return {}
+                        
+                        return result
+                        
+            except (aiohttp.ClientConnectionError, asyncio.TimeoutError) as e:
+                last_error = e
+                if attempt < max_retries - 1:
+                    wait_time = 2 ** attempt  # Exponential backoff
+                    logger.warning(f"🔄 Connection failed (attempt {attempt + 1}/{max_retries}), retrying in {wait_time}s: {e}")
+                    await asyncio.sleep(wait_time)
+                    continue
+                else:
+                    logger.error(f"🌐 Max retries exceeded for {endpoint}: {e}")
+                    raise
+            except Exception as e:
+                logger.error(f"❌ Unexpected error making request to {endpoint}: {e}")
+                raise
+        
+        # This should never be reached due to the exception handling above
+        if last_error:
+            raise last_error
 
 def get_github_client() -> GitHubClient:
     """Get GitHub client from environment variables"""
@@ -1596,10 +1617,16 @@ async def github_get_pr_details(repo_owner: str, repo_name: str, pr_number: int,
 
 async def github_list_pull_requests(repo_owner: str, repo_name: str, state: str = "open", head: str | None = None, base: str | None = None, sort: str = "created", direction: str = "desc", per_page: int = 30, page: int = 1) -> str:
     """List pull requests for a repository"""
+    logger = logging.getLogger(__name__)
+    logger.debug(f"🔍 github_list_pull_requests called with: repo_owner={repo_owner}, repo_name={repo_name}, state={state}")
+    
     try:
+        logger.debug("🔍 Step 1: Getting GitHub client")
         client = get_github_client()
+        logger.debug("🔍 Step 1: ✅ GitHub client created")
         
         # Build query parameters
+        logger.debug("🔍 Step 2: Building query parameters")
         params = {
             "state": state,
             "sort": sort,
@@ -1612,17 +1639,25 @@ async def github_list_pull_requests(repo_owner: str, repo_name: str, state: str 
             params["head"] = head
         if base:
             params["base"] = base
+        logger.debug(f"🔍 Step 2: ✅ Query params: {params}")
         
         # Get pull requests
         prs_endpoint = f"/repos/{repo_owner}/{repo_name}/pulls"
+        logger.debug(f"🔍 Step 3: Making API request to {prs_endpoint}")
         prs_data = await client.make_request("GET", prs_endpoint, params=params)
+        logger.debug(f"🔍 Step 3: ✅ API response received, type: {type(prs_data)}, value: {prs_data}")
         
+        logger.debug("🔍 Step 4: Checking if prs_data is empty")
         if not prs_data:
+            logger.debug("🔍 Step 4: ✅ prs_data is empty, returning no results message")
             return f"No pull requests found for {repo_owner}/{repo_name} (state: {state})"
         
+        logger.debug(f"🔍 Step 5: Processing {len(prs_data)} PRs")
         output = [f"Pull Requests for {repo_owner}/{repo_name} (state: {state}, page: {page}):\n"]
         
-        for pr in prs_data:
+        logger.debug("🔍 Step 6: Starting PR iteration")
+        for i, pr in enumerate(prs_data):
+            logger.debug(f"🔍 Step 6.{i}: Processing PR {i+1}, type: {type(pr)}")
             state_emoji = {"open": "🟢", "closed": "🔴", "merged": "🟣"}.get(pr["state"], "❓")
             
             output.append(f"{state_emoji} #{pr['number']}: {pr['title']}")
@@ -3069,14 +3104,12 @@ Provide specific, actionable recommendations for each area."""
         start_time = time.time()
         result = None  # Initialize result variable
         try:
-            # GitHub API tools don't need repo_path
-            if name in [GitTools.GITHUB_GET_PR_CHECKS, GitTools.GITHUB_GET_FAILING_JOBS, 
-                       GitTools.GITHUB_GET_WORKFLOW_RUN, GitTools.GITHUB_GET_PR_DETAILS,
-                       GitTools.GITHUB_LIST_PULL_REQUESTS, GitTools.GITHUB_GET_PR_STATUS,
-                       GitTools.GITHUB_GET_PR_FILES]:
-                # Handle GitHub API tools that don't require repo_path
-                pass
-            else:
+            logger.debug(f"🔍 [{request_id}] Starting tool execution")
+            # GitHub API tools don't need repo_path - they're handled in the main match statement below
+            if name not in [GitTools.GITHUB_GET_PR_CHECKS, GitTools.GITHUB_GET_FAILING_JOBS, 
+                           GitTools.GITHUB_GET_WORKFLOW_RUN, GitTools.GITHUB_GET_PR_DETAILS,
+                           GitTools.GITHUB_LIST_PULL_REQUESTS, GitTools.GITHUB_GET_PR_STATUS,
+                           GitTools.GITHUB_GET_PR_FILES]:
                 # All other tools require repo_path
                 repo_path = Path(arguments["repo_path"])
                 
@@ -3281,7 +3314,68 @@ Provide specific, actionable recommendations for each area."""
                             text=continue_result
                         )]
 
-                    # GitHub API Tools
+
+                    # Security tools
+                    case GitTools.GIT_SECURITY_VALIDATE:
+                        validation_result = validate_git_security_config(repo)
+                        
+                        status_emoji = "✅" if validation_result["status"] == "secure" else "⚠️"
+                        result_text = f"{status_emoji} Git Security Validation Results\n\n"
+                        
+                        if validation_result["warnings"]:
+                            result_text += "Security Warnings:\n"
+                            for warning in validation_result["warnings"]:
+                                result_text += f"  - {warning}\n"
+                            result_text += "\n"
+                        
+                        if validation_result["recommendations"]:
+                            result_text += "Recommendations:\n"
+                            for rec in validation_result["recommendations"]:
+                                result_text += f"  - {rec}\n"
+                            result_text += "\n"
+                        
+                        result_text += "Current Configuration:\n"
+                        for key, value in validation_result["config"].items():
+                            result_text += f"  - {key}: {value}\n"
+                        
+                        result = [TextContent(
+                            type="text",
+                            text=result_text
+                        )]
+
+                    case GitTools.GIT_SECURITY_ENFORCE:
+                        strict_mode = arguments.get("strict_mode", True)
+                        enforce_result = enforce_secure_git_config(repo, strict_mode)
+                        result = [TextContent(
+                            type="text",
+                            text=enforce_result
+                        )]
+
+                    case _:
+                        logger.error(f"❌ [{request_id}] Unknown tool: {name}")
+                        raise ValueError(f"Unknown tool: {name}")
+            else:
+                # Handle GitHub API tools that don't require repo_path
+                logger.debug(f"🔍 [{request_id}] Tool is GitHub API tool, processing...")
+                match name:
+                    case GitTools.GITHUB_GET_PR_DETAILS:
+                        repo_owner = arguments.get("repo_owner")
+                        repo_name = arguments.get("repo_name")
+                        if not repo_owner or not repo_name:
+                            result = [TextContent(type="text", text="❌ repo_owner and repo_name parameters are required for GitHub API tools")]
+                        else:
+                            pr_details_result = await github_get_pr_details(
+                                repo_owner,
+                                repo_name,
+                                arguments["pr_number"],
+                                arguments.get("include_files", False),
+                                arguments.get("include_reviews", False)
+                            )
+                            result = [TextContent(
+                                type="text",
+                                text=pr_details_result
+                            )]
+
                     case GitTools.GITHUB_GET_PR_CHECKS:
                         repo_owner = arguments.get("repo_owner")
                         repo_name = arguments.get("repo_name")
@@ -3335,30 +3429,16 @@ Provide specific, actionable recommendations for each area."""
                                 text=workflow_run_result
                             )]
 
-                    case GitTools.GITHUB_GET_PR_DETAILS:
-                        repo_owner = arguments.get("repo_owner")
-                        repo_name = arguments.get("repo_name")
-                        if not repo_owner or not repo_name:
-                            result = [TextContent(type="text", text="❌ repo_owner and repo_name parameters are required for GitHub API tools")]
-                        else:
-                            pr_details_result = await github_get_pr_details(
-                                repo_owner,
-                                repo_name,
-                                arguments["pr_number"],
-                                arguments.get("include_files", False),
-                                arguments.get("include_reviews", False)
-                            )
-                            result = [TextContent(
-                                type="text",
-                                text=pr_details_result
-                            )]
-
                     case GitTools.GITHUB_LIST_PULL_REQUESTS:
+                        logger.debug(f"🔍 Tool handler: GITHUB_LIST_PULL_REQUESTS called with arguments: {arguments}")
                         repo_owner = arguments.get("repo_owner")
                         repo_name = arguments.get("repo_name")
+                        logger.debug(f"🔍 Tool handler: repo_owner={repo_owner}, repo_name={repo_name}")
                         if not repo_owner or not repo_name:
+                            logger.debug("🔍 Tool handler: Missing repo_owner or repo_name")
                             result = [TextContent(type="text", text="❌ repo_owner and repo_name parameters are required for GitHub API tools")]
                         else:
+                            logger.debug("🔍 Tool handler: Calling github_list_pull_requests function")
                             list_prs_result = await github_list_pull_requests(
                                 repo_owner,
                                 repo_name,
@@ -3370,10 +3450,12 @@ Provide specific, actionable recommendations for each area."""
                                 arguments.get("per_page", 30),
                                 arguments.get("page", 1)
                             )
+                            logger.debug(f"🔍 Tool handler: Function returned, type: {type(list_prs_result)}, value: {list_prs_result}")
                             result = [TextContent(
                                 type="text",
                                 text=list_prs_result
                             )]
+                            logger.debug(f"🔍 Tool handler: TextContent created successfully")
 
                     case GitTools.GITHUB_GET_PR_STATUS:
                         repo_owner = arguments.get("repo_owner")
@@ -3410,45 +3492,9 @@ Provide specific, actionable recommendations for each area."""
                                 text=pr_files_result
                             )]
 
-                    # Security tools
-                    case GitTools.GIT_SECURITY_VALIDATE:
-                        validation_result = validate_git_security_config(repo)
-                        
-                        status_emoji = "✅" if validation_result["status"] == "secure" else "⚠️"
-                        result_text = f"{status_emoji} Git Security Validation Results\n\n"
-                        
-                        if validation_result["warnings"]:
-                            result_text += "Security Warnings:\n"
-                            for warning in validation_result["warnings"]:
-                                result_text += f"  - {warning}\n"
-                            result_text += "\n"
-                        
-                        if validation_result["recommendations"]:
-                            result_text += "Recommendations:\n"
-                            for rec in validation_result["recommendations"]:
-                                result_text += f"  - {rec}\n"
-                            result_text += "\n"
-                        
-                        result_text += "Current Configuration:\n"
-                        for key, value in validation_result["config"].items():
-                            result_text += f"  - {key}: {value}\n"
-                        
-                        result = [TextContent(
-                            type="text",
-                            text=result_text
-                        )]
-
-                    case GitTools.GIT_SECURITY_ENFORCE:
-                        strict_mode = arguments.get("strict_mode", True)
-                        enforce_result = enforce_secure_git_config(repo, strict_mode)
-                        result = [TextContent(
-                            type="text",
-                            text=enforce_result
-                        )]
-
                     case _:
-                        logger.error(f"❌ [{request_id}] Unknown tool: {name}")
-                        raise ValueError(f"Unknown tool: {name}")
+                        logger.error(f"❌ [{request_id}] Unknown GitHub API tool: {name}")
+                        raise ValueError(f"Unknown GitHub API tool: {name}")
         
         except Exception as e:
             duration = time.time() - start_time
@@ -3459,6 +3505,9 @@ Provide specific, actionable recommendations for each area."""
             )]
         
         duration = time.time() - start_time
+        logger.debug(f"🔍 [{request_id}] Tool execution finished, result type: {type(result)}")
+        if result and len(result) > 0:
+            logger.debug(f"🔍 [{request_id}] Result[0] type: {type(result[0])}, content preview: {str(result[0])[:200]}")
         logger.info(f"✅ [{request_id}] Tool '{name}' completed in {duration:.2f}s")
         return result
 
@@ -3496,7 +3545,7 @@ Provide specific, actionable recommendations for each area."""
     try:
         async with stdio_server() as (read_stream, write_stream):
             logger.info("🔗 STDIO server connected, starting main loop...")
-            await server.run(read_stream, write_stream, options, raise_exceptions=True)
+            await server.run(read_stream, write_stream, options, raise_exceptions=False)
     except asyncio.CancelledError:
         logger.info("🛑 Server cancelled")
         raise
@@ -3504,8 +3553,13 @@ Provide specific, actionable recommendations for each area."""
         logger.info("⌨️ Server interrupted by user")
         raise
     except Exception as e:
-        logger.error(f"💥 Server crashed: {e}", exc_info=True)
-        raise
+        error_msg = str(e)
+        if "notifications/cancelled" in error_msg and "ValidationError" in error_msg:
+            logger.warning(f"🔔 Ignoring notification validation error: {e}")
+            # Don't crash the server for notification validation errors
+        else:
+            logger.error(f"💥 Server crashed: {e}", exc_info=True)
+            raise
     finally:
         # Clean shutdown
         health_task.cancel()
