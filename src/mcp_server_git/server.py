@@ -573,6 +573,47 @@ class GitHubGetPRFiles(BaseModel):
     page: int = 1
     include_patch: bool = False  # Include patch data (can be large)
 
+class GitHubUpdatePR(BaseModel):
+    repo_owner: str
+    repo_name: str
+    pr_number: int
+    title: str | None = None
+    body: str | None = None
+    state: str | None = None  # "open" or "closed"
+
+class GitHubCreatePR(BaseModel):
+    repo_owner: str
+    repo_name: str
+    title: str
+    head: str  # The name of the branch where your changes are implemented.
+    base: str  # The name of the branch you want the changes pulled into.
+    body: str | None = None
+    draft: bool = False
+
+class GitHubMergePR(BaseModel):
+    repo_owner: str
+    repo_name: str
+    pr_number: int
+    commit_title: str | None = None
+    commit_message: str | None = None
+    merge_method: str = "merge"  # "merge", "squash", or "rebase"
+
+class GitHubAddPRComment(BaseModel):
+    repo_owner: str
+    repo_name: str
+    pr_number: int
+    body: str
+
+class GitHubClosePR(BaseModel):
+    repo_owner: str
+    repo_name: str
+    pr_number: int
+
+class GitHubReopenPR(BaseModel):
+    repo_owner: str
+    repo_name: str
+    pr_number: int
+
 # Security validation models
 class GitSecurityValidate(BaseModel):
     repo_path: str
@@ -636,6 +677,12 @@ class GitTools(str, Enum):
     GITHUB_LIST_PULL_REQUESTS = "github_list_pull_requests"
     GITHUB_GET_PR_STATUS = "github_get_pr_status"
     GITHUB_GET_PR_FILES = "github_get_pr_files"
+    GITHUB_UPDATE_PR = "github_update_pr"
+    GITHUB_CREATE_PR = "github_create_pr"
+    GITHUB_MERGE_PR = "github_merge_pr"
+    GITHUB_ADD_PR_COMMENT = "github_add_pr_comment"
+    GITHUB_CLOSE_PR = "github_close_pr"
+    GITHUB_REOPEN_PR = "github_reopen_pr"
     # Security tools
     GIT_SECURITY_VALIDATE = "git_security_validate"
     GIT_SECURITY_ENFORCE = "git_security_enforce"
@@ -1969,6 +2016,139 @@ async def github_get_pr_files(repo_owner: str, repo_name: str, pr_number: int, p
     except Exception as e:
         return f"Error getting PR files: {str(e)}"
 
+async def github_update_pr(repo_owner: str, repo_name: str, pr_number: int, title: str | None = None, body: str | None = None, state: str | None = None) -> str:
+    """Update a pull request's title, body, or state."""
+    logger = logging.getLogger(__name__)
+    logger.debug(f"🚀 Updating PR #{pr_number} in {repo_owner}/{repo_name}")
+    
+    try:
+        client = get_github_client()
+        endpoint = f"/repos/{repo_owner}/{repo_name}/pulls/{pr_number}"
+        
+        payload = {}
+        if title is not None:
+            payload["title"] = title
+        if body is not None:
+            payload["body"] = body
+        if state is not None:
+            if state not in ["open", "closed"]:
+                raise ValueError("State must be 'open' or 'closed'")
+            payload["state"] = state
+            
+        if not payload:
+            return "⚠️ No update parameters provided. Please specify title, body, or state."
+            
+        response = await client.make_request("PATCH", endpoint, json=payload)
+        
+        logger.info(f"✅ Successfully updated PR #{pr_number}")
+        return f"✅ Successfully updated PR #{response['number']}: {response['html_url']}"
+        
+    except Exception as e:
+        logger.error(f"❌ Failed to update PR #{pr_number}: {e}", exc_info=True)
+        return f"Error updating PR: {str(e)}"
+
+async def github_create_pr(repo_owner: str, repo_name: str, title: str, head: str, base: str, body: str | None = None, draft: bool = False) -> str:
+    """Create a new pull request."""
+    logger = logging.getLogger(__name__)
+    logger.debug(f"🚀 Creating PR in {repo_owner}/{repo_name} from {head} to {base}")
+    
+    try:
+        client = get_github_client()
+        endpoint = f"/repos/{repo_owner}/{repo_name}/pulls"
+        
+        payload = {
+            "title": title,
+            "head": head,
+            "base": base,
+            "draft": draft
+        }
+        if body is not None:
+            payload["body"] = body
+            
+        response = await client.make_request("POST", endpoint, json=payload)
+        
+        logger.info(f"✅ Successfully created PR #{response['number']}")
+        return f"✅ Successfully created PR #{response['number']}: {response['html_url']}"
+        
+    except Exception as e:
+        logger.error(f"❌ Failed to create PR: {e}", exc_info=True)
+        # Provide more helpful error for common case
+        if "No commits between" in str(e) or "A pull request already exists" in str(e):
+            return f"❌ Could not create PR. Reason: {str(e)}"
+        return f"Error creating PR: {str(e)}"
+
+async def github_merge_pr(repo_owner: str, repo_name: str, pr_number: int, commit_title: str | None = None, commit_message: str | None = None, merge_method: str = "merge") -> str:
+    """Merge a pull request."""
+    logger = logging.getLogger(__name__)
+    logger.debug(f"🚀 Merging PR #{pr_number} in {repo_owner}/{repo_name} using '{merge_method}' method")
+    
+    try:
+        client = get_github_client()
+        endpoint = f"/repos/{repo_owner}/{repo_name}/pulls/{pr_number}/merge"
+        
+        if merge_method not in ["merge", "squash", "rebase"]:
+            raise ValueError("merge_method must be one of 'merge', 'squash', or 'rebase'")
+            
+        payload = {
+            "merge_method": merge_method
+        }
+        if commit_title:
+            payload["commit_title"] = commit_title
+        if commit_message:
+            payload["commit_message"] = commit_message
+            
+        # This endpoint uses PUT
+        response = await client.make_request("PUT", endpoint, json=payload)
+        
+        # A successful merge returns a 200 OK. Unsuccessful merges (405, 409) are raised as exceptions.
+        if response.get("merged"):
+            logger.info(f"✅ Successfully merged PR #{pr_number}")
+            return f"✅ {response['message']}"
+        else:
+            # This case might occur if the API behavior changes or for unexpected 200 responses.
+            logger.warning(f"⚠️ Merge attempt for PR #{pr_number} returned 200 OK but 'merged' is false: {response.get('message')}")
+            return f"⚠️ {response.get('message', 'Merge was not successful but API returned 200 OK. Check PR status.')}"
+            
+    except Exception as e:
+        logger.error(f"❌ Failed to merge PR #{pr_number}: {e}", exc_info=True)
+        # Provide more helpful error for common cases
+        if "405" in str(e) or "409" in str(e):
+             return f"❌ Could not merge PR. Reason: {str(e)}. This may be due to merge conflicts or failing status checks."
+        return f"Error merging PR: {str(e)}"
+
+async def github_add_pr_comment(repo_owner: str, repo_name: str, pr_number: int, body: str) -> str:
+    """Add a comment to a pull request."""
+    logger = logging.getLogger(__name__)
+    logger.debug(f"🚀 Adding comment to PR #{pr_number} in {repo_owner}/{repo_name}")
+    
+    try:
+        client = get_github_client()
+        # Comments are added to the corresponding issue
+        endpoint = f"/repos/{repo_owner}/{repo_name}/issues/{pr_number}/comments"
+        
+        payload = {"body": body}
+        
+        response = await client.make_request("POST", endpoint, json=payload)
+        
+        logger.info(f"✅ Successfully added comment to PR #{pr_number}")
+        return f"✅ Successfully added comment: {response['html_url']}"
+        
+    except Exception as e:
+        logger.error(f"❌ Failed to add comment to PR #{pr_number}: {e}", exc_info=True)
+        return f"Error adding comment: {str(e)}"
+
+async def github_close_pr(repo_owner: str, repo_name: str, pr_number: int) -> str:
+    """Close a pull request."""
+    logger = logging.getLogger(__name__)
+    logger.debug(f"🚀 Closing PR #{pr_number} in {repo_owner}/{repo_name}")
+    return await github_update_pr(repo_owner, repo_name, pr_number, state="closed")
+
+async def github_reopen_pr(repo_owner: str, repo_name: str, pr_number: int) -> str:
+    """Reopen a closed pull request."""
+    logger = logging.getLogger(__name__)
+    logger.debug(f"🚀 Reopening PR #{pr_number} in {repo_owner}/{repo_name}")
+    return await github_update_pr(repo_owner, repo_name, pr_number, state="open")
+
 async def serve(repository: Path | None) -> None:
     import os
     from datetime import datetime
@@ -3052,6 +3232,36 @@ Provide specific, actionable recommendations for each area."""
                 description="Get files changed in a pull request with pagination support",
                 inputSchema=GitHubGetPRFiles.model_json_schema(),
             ),
+            Tool(
+                name=GitTools.GITHUB_CREATE_PR,
+                description="Create a new pull request",
+                inputSchema=GitHubCreatePR.model_json_schema(),
+            ),
+            Tool(
+                name=GitTools.GITHUB_UPDATE_PR,
+                description="Update a pull request's title, body, or state",
+                inputSchema=GitHubUpdatePR.model_json_schema(),
+            ),
+            Tool(
+                name=GitTools.GITHUB_MERGE_PR,
+                description="Merge a pull request with a specified method (merge, squash, rebase)",
+                inputSchema=GitHubMergePR.model_json_schema(),
+            ),
+            Tool(
+                name=GitTools.GITHUB_ADD_PR_COMMENT,
+                description="Add a comment to a pull request",
+                inputSchema=GitHubAddPRComment.model_json_schema(),
+            ),
+            Tool(
+                name=GitTools.GITHUB_CLOSE_PR,
+                description="Close a pull request",
+                inputSchema=GitHubClosePR.model_json_schema(),
+            ),
+            Tool(
+                name=GitTools.GITHUB_REOPEN_PR,
+                description="Reopen a closed pull request",
+                inputSchema=GitHubReopenPR.model_json_schema(),
+            ),
             # Security tools
             Tool(
                 name=GitTools.GIT_SECURITY_VALIDATE,
@@ -3109,7 +3319,10 @@ Provide specific, actionable recommendations for each area."""
             if name not in [GitTools.GITHUB_GET_PR_CHECKS, GitTools.GITHUB_GET_FAILING_JOBS, 
                            GitTools.GITHUB_GET_WORKFLOW_RUN, GitTools.GITHUB_GET_PR_DETAILS,
                            GitTools.GITHUB_LIST_PULL_REQUESTS, GitTools.GITHUB_GET_PR_STATUS,
-                           GitTools.GITHUB_GET_PR_FILES]:
+                           GitTools.GITHUB_GET_PR_FILES, GitTools.GITHUB_CREATE_PR,
+                           GitTools.GITHUB_UPDATE_PR, GitTools.GITHUB_MERGE_PR,
+                           GitTools.GITHUB_ADD_PR_COMMENT, GitTools.GITHUB_CLOSE_PR,
+                           GitTools.GITHUB_REOPEN_PR]:
                 # All other tools require repo_path
                 repo_path = Path(arguments["repo_path"])
                 
@@ -3455,7 +3668,7 @@ Provide specific, actionable recommendations for each area."""
                                 type="text",
                                 text=list_prs_result
                             )]
-                            logger.debug(f"🔍 Tool handler: TextContent created successfully")
+                            logger.debug("🔍 Tool handler: TextContent created successfully")
 
                     case GitTools.GITHUB_GET_PR_STATUS:
                         repo_owner = arguments.get("repo_owner")
@@ -3490,6 +3703,113 @@ Provide specific, actionable recommendations for each area."""
                             result = [TextContent(
                                 type="text",
                                 text=pr_files_result
+                            )]
+                    
+                    case GitTools.GITHUB_CREATE_PR:
+                        repo_owner = arguments.get("repo_owner")
+                        repo_name = arguments.get("repo_name")
+                        if not repo_owner or not repo_name:
+                            result = [TextContent(type="text", text="❌ repo_owner and repo_name parameters are required for GitHub API tools")]
+                        else:
+                            create_pr_result = await github_create_pr(
+                                repo_owner,
+                                repo_name,
+                                arguments["title"],
+                                arguments["head"],
+                                arguments["base"],
+                                arguments.get("body"),
+                                arguments.get("draft", False)
+                            )
+                            result = [TextContent(
+                                type="text",
+                                text=create_pr_result
+                            )]
+
+                    case GitTools.GITHUB_UPDATE_PR:
+                        repo_owner = arguments.get("repo_owner")
+                        repo_name = arguments.get("repo_name")
+                        if not repo_owner or not repo_name:
+                            result = [TextContent(type="text", text="❌ repo_owner and repo_name parameters are required for GitHub API tools")]
+                        else:
+                            update_pr_result = await github_update_pr(
+                                repo_owner,
+                                repo_name,
+                                arguments["pr_number"],
+                                arguments.get("title"),
+                                arguments.get("body"),
+                                arguments.get("state")
+                            )
+                            result = [TextContent(
+                                type="text",
+                                text=update_pr_result
+                            )]
+
+                    case GitTools.GITHUB_MERGE_PR:
+                        repo_owner = arguments.get("repo_owner")
+                        repo_name = arguments.get("repo_name")
+                        if not repo_owner or not repo_name:
+                            result = [TextContent(type="text", text="❌ repo_owner and repo_name parameters are required for GitHub API tools")]
+                        else:
+                            merge_pr_result = await github_merge_pr(
+                                repo_owner,
+                                repo_name,
+                                arguments["pr_number"],
+                                arguments.get("commit_title"),
+                                arguments.get("commit_message"),
+                                arguments.get("merge_method", "merge")
+                            )
+                            result = [TextContent(
+                                type="text",
+                                text=merge_pr_result
+                            )]
+
+                    case GitTools.GITHUB_ADD_PR_COMMENT:
+                        repo_owner = arguments.get("repo_owner")
+                        repo_name = arguments.get("repo_name")
+                        if not repo_owner or not repo_name:
+                            result = [TextContent(type="text", text="❌ repo_owner and repo_name parameters are required for GitHub API tools")]
+                        else:
+                            add_comment_result = await github_add_pr_comment(
+                                repo_owner,
+                                repo_name,
+                                arguments["pr_number"],
+                                arguments["body"]
+                            )
+                            result = [TextContent(
+                                type="text",
+                                text=add_comment_result
+                            )]
+
+                    case GitTools.GITHUB_CLOSE_PR:
+                        repo_owner = arguments.get("repo_owner")
+                        repo_name = arguments.get("repo_name")
+                        if not repo_owner or not repo_name:
+                            result = [TextContent(type="text", text="❌ repo_owner and repo_name parameters are required for GitHub API tools")]
+                        else:
+                            close_pr_result = await github_close_pr(
+                                repo_owner,
+                                repo_name,
+                                arguments["pr_number"]
+                            )
+                            result = [TextContent(
+                                type="text",
+                                text=close_pr_result
+                            )]
+
+                    case GitTools.GITHUB_REOPEN_PR:
+                        repo_owner = arguments.get("repo_owner")
+                        repo_name = arguments.get("repo_name")
+                        if not repo_owner or not repo_name:
+                            result = [TextContent(type="text", text="❌ repo_owner and repo_name parameters are required for GitHub API tools")]
+                        else:
+                            reopen_pr_result = await github_reopen_pr(
+                                repo_owner,
+                                repo_name,
+                                arguments["pr_number"]
+                            )
+                            result = [TextContent(
+                                type="text",
+                                text=reopen_pr_result
                             )]
 
                     case _:
