@@ -8,7 +8,7 @@ from mcp.types import GetPromptResult, PromptMessage, TextContent
 
 def get_prompt(name: str, args: dict) -> GetPromptResult:
     """Get an intelligent prompt by name with provided arguments"""
-    
+
     match name:
         case "commit-message":
             changes = args.get("changes", "")
@@ -18,7 +18,7 @@ def get_prompt(name: str, args: dict) -> GetPromptResult:
 
             scope_section = f"({scope})" if scope else ""
             changes_section = f"\n\n**Changes:**\n{changes}" if changes else ""
-            
+
             prompt_text = f"""Generate a conventional commit message based on the provided information.
 
 **Commit Type:** {type_}
@@ -44,10 +44,9 @@ Provide just the commit message, ready to use."""
                 description="Conventional commit message generator",
                 messages=[
                     PromptMessage(
-                        role="user",
-                        content=TextContent(type="text", text=prompt_text)
+                        role="user", content=TextContent(type="text", text=prompt_text)
                     )
-                ]
+                ],
             )
 
         case "pr-description":
@@ -55,7 +54,9 @@ Provide just the commit message, ready to use."""
             changes = args.get("changes", "")
             breaking = args.get("breaking", "")
 
-            breaking_section = f"\n\n## ⚠️ Breaking Changes\n{breaking}" if breaking else ""
+            breaking_section = (
+                f"\n\n## ⚠️ Breaking Changes\n{breaking}" if breaking else ""
+            )
 
             prompt_text = f"""Generate a comprehensive GitHub Pull Request description.
 
@@ -101,10 +102,9 @@ Make it professional, clear, and comprehensive."""
                 description="GitHub PR description generator",
                 messages=[
                     PromptMessage(
-                        role="user",
-                        content=TextContent(type="text", text=prompt_text)
+                        role="user", content=TextContent(type="text", text=prompt_text)
                     )
-                ]
+                ],
             )
 
         case "code-review":
@@ -152,17 +152,18 @@ Provide constructive feedback with specific suggestions for improvement. Format 
                 description="Code review assistant",
                 messages=[
                     PromptMessage(
-                        role="user",
-                        content=TextContent(type="text", text=prompt_text)
+                        role="user", content=TextContent(type="text", text=prompt_text)
                     )
-                ]
+                ],
             )
 
         case "merge-conflict-resolution":
             conflicts = args.get("conflicts", "")
             branch_info = args.get("branch_info", "")
 
-            branch_section = f"\n**Branch Information:**\n{branch_info}" if branch_info else ""
+            branch_section = (
+                f"\n**Branch Information:**\n{branch_info}" if branch_info else ""
+            )
 
             prompt_text = f"""Help resolve Git merge conflicts systematically.
 
@@ -199,10 +200,9 @@ Focus on preserving the intent of both branches while ensuring functionality."""
                 description="Merge conflict resolution guide",
                 messages=[
                     PromptMessage(
-                        role="user",
-                        content=TextContent(type="text", text=prompt_text)
+                        role="user", content=TextContent(type="text", text=prompt_text)
                     )
-                ]
+                ],
             )
 
         case "git-workflow-guide":
@@ -251,10 +251,9 @@ Tailor recommendations to the specified team size and workflow type."""
                 description="Git workflow guide generator",
                 messages=[
                     PromptMessage(
-                        role="user",
-                        content=TextContent(type="text", text=prompt_text)
+                        role="user", content=TextContent(type="text", text=prompt_text)
                     )
-                ]
+                ],
             )
 
         case "branch-strategy":
@@ -304,17 +303,18 @@ Provide specific, actionable recommendations based on the project characteristic
                 description="Git branching strategy advisor",
                 messages=[
                     PromptMessage(
-                        role="user",
-                        content=TextContent(type="text", text=prompt_text)
+                        role="user", content=TextContent(type="text", text=prompt_text)
                     )
-                ]
+                ],
             )
 
         case "git-troubleshooting":
             issue = args.get("issue", "")
             git_status = args.get("git_status", "")
 
-            status_section = f"\n**Git Status:**\n```\n{git_status}\n```" if git_status else ""
+            status_section = (
+                f"\n**Git Status:**\n```\n{git_status}\n```" if git_status else ""
+            )
 
             prompt_text = f"""Help troubleshoot a Git issue.
 
@@ -355,10 +355,9 @@ Include exact Git commands and explain what each command does."""
                 description="Git troubleshooting assistant",
                 messages=[
                     PromptMessage(
-                        role="user",
-                        content=TextContent(type="text", text=prompt_text)
+                        role="user", content=TextContent(type="text", text=prompt_text)
                     )
-                ]
+                ],
             )
 
         case "rebase-interactive":
@@ -407,10 +406,9 @@ Include the interactive rebase script with explanations."""
                 description="Interactive rebase guide",
                 messages=[
                     PromptMessage(
-                        role="user",
-                        content=TextContent(type="text", text=prompt_text)
+                        role="user", content=TextContent(type="text", text=prompt_text)
                     )
-                ]
+                ],
             )
 
         case "release-notes":
@@ -465,10 +463,9 @@ Format for user consumption, highlighting impact and benefits."""
                 description="Release notes generator",
                 messages=[
                     PromptMessage(
-                        role="user",
-                        content=TextContent(type="text", text=prompt_text)
+                        role="user", content=TextContent(type="text", text=prompt_text)
                     )
-                ]
+                ],
             )
 
         case "changelog-generation":
@@ -512,20 +509,25 @@ Provide a well-structured changelog ready for publication."""
                 description="Changelog generator",
                 messages=[
                     PromptMessage(
-                        role="user",
-                        content=TextContent(type="text", text=prompt_text)
+                        role="user", content=TextContent(type="text", text=prompt_text)
                     )
-                ]
+                ],
             )
 
         case "github-actions-failure-analysis":
             failure_logs = args.get("failure_logs", "")
             workflow_file = args.get("workflow_file", "")
             changed_files = args.get("changed_files", "")
-            
-            workflow_section = f"\n**Workflow File:**\n```yaml\n{workflow_file}\n```\n" if workflow_file else ""
-            files_section = f"\n**Changed Files:**\n{changed_files}\n" if changed_files else ""
-            
+
+            workflow_section = (
+                f"\n**Workflow File:**\n```yaml\n{workflow_file}\n```\n"
+                if workflow_file
+                else ""
+            )
+            files_section = (
+                f"\n**Changed Files:**\n{changed_files}\n" if changed_files else ""
+            )
+
             prompt_text = f"""Analyze GitHub Actions failure and provide solutions.
 
 **Failure Logs:**
@@ -566,20 +568,23 @@ Focus on actionable, specific solutions with code examples where applicable."""
                 description="GitHub Actions failure analysis",
                 messages=[
                     PromptMessage(
-                        role="user",
-                        content=TextContent(type="text", text=prompt_text)
+                        role="user", content=TextContent(type="text", text=prompt_text)
                     )
-                ]
+                ],
             )
-        
+
         case "ci-failure-root-cause":
             error_message = args.get("error_message", "")
             stack_trace = args.get("stack_trace", "")
             environment_info = args.get("environment_info", "")
-            
-            stack_section = f"\n**Stack Trace:**\n```\n{stack_trace}\n```\n" if stack_trace else ""
-            env_section = f"\n**Environment:**\n{environment_info}\n" if environment_info else ""
-            
+
+            stack_section = (
+                f"\n**Stack Trace:**\n```\n{stack_trace}\n```\n" if stack_trace else ""
+            )
+            env_section = (
+                f"\n**Environment:**\n{environment_info}\n" if environment_info else ""
+            )
+
             prompt_text = f"""Identify the root cause of this CI failure and provide solutions:
 
 **Error Message:**
@@ -625,20 +630,23 @@ Be specific about technical solutions and include code examples."""
                 description="CI failure root cause analysis",
                 messages=[
                     PromptMessage(
-                        role="user",
-                        content=TextContent(type="text", text=prompt_text)
+                        role="user", content=TextContent(type="text", text=prompt_text)
                     )
-                ]
+                ],
             )
-        
+
         case "pr-readiness-assessment":
             pr_details = args.get("pr_details", "")
             ci_status = args.get("ci_status", "")
             review_comments = args.get("review_comments", "")
-            
+
             ci_section = f"\n**CI Status:**\n{ci_status}\n" if ci_status else ""
-            reviews_section = f"\n**Review Comments:**\n{review_comments}\n" if review_comments else ""
-            
+            reviews_section = (
+                f"\n**Review Comments:**\n{review_comments}\n"
+                if review_comments
+                else ""
+            )
+
             prompt_text = f"""Assess this pull request's readiness for review and merge:
 
 **PR Details:**
@@ -693,12 +701,11 @@ Provide specific, actionable recommendations for each area."""
                 description="PR readiness assessment",
                 messages=[
                     PromptMessage(
-                        role="user",
-                        content=TextContent(type="text", text=prompt_text)
+                        role="user", content=TextContent(type="text", text=prompt_text)
                     )
-                ]
+                ],
             )
-        
+
         case "github-pr-creation":
             branch_name = args.get("branch_name", "")
             changes_summary = args.get("changes_summary", "")
@@ -706,7 +713,11 @@ Provide specific, actionable recommendations for each area."""
             target_audience = args.get("target_audience", "developers")
             urgency = args.get("urgency", "medium")
 
-            breaking_section = f"\n**Breaking Changes:**\n{breaking_changes}\n" if breaking_changes else ""
+            breaking_section = (
+                f"\n**Breaking Changes:**\n{breaking_changes}\n"
+                if breaking_changes
+                else ""
+            )
 
             prompt_text = f"""Generate comprehensive content for a new GitHub Pull Request.
 
@@ -784,10 +795,9 @@ Generate content in this format, tailored to the provided changes and context.""
                 description="GitHub PR creation content generator",
                 messages=[
                     PromptMessage(
-                        role="user",
-                        content=TextContent(type="text", text=prompt_text)
+                        role="user", content=TextContent(type="text", text=prompt_text)
                     )
-                ]
+                ],
             )
 
         case "github-pr-comment-generation":
@@ -847,10 +857,9 @@ Generate a comment following these guidelines and tailored to the specific code 
                 description="GitHub PR comment generator",
                 messages=[
                     PromptMessage(
-                        role="user",
-                        content=TextContent(type="text", text=prompt_text)
+                        role="user", content=TextContent(type="text", text=prompt_text)
                     )
-                ]
+                ],
             )
 
         case "github-merge-strategy-recommendation":
@@ -910,10 +919,9 @@ Generate a recommendation following this structure, tailored to the specific PR 
                 description="GitHub merge strategy recommendation",
                 messages=[
                     PromptMessage(
-                        role="user",
-                        content=TextContent(type="text", text=prompt_text)
+                        role="user", content=TextContent(type="text", text=prompt_text)
                     )
-                ]
+                ],
             )
 
         case "github-pr-update-guidance":
@@ -922,7 +930,11 @@ Generate a recommendation following this structure, tailored to the specific PR 
             priority_issues = args.get("priority_issues", "")
             timeline = args.get("timeline", "not specified")
 
-            priority_section = f"\n**High-Priority Issues:**\n{priority_issues}\n" if priority_issues else ""
+            priority_section = (
+                f"\n**High-Priority Issues:**\n{priority_issues}\n"
+                if priority_issues
+                else ""
+            )
             timeline_section = f"\n**Timeline:** {timeline}\n" if timeline else ""
 
             prompt_text = f"""Generate a systematic plan to update a GitHub Pull Request based on review feedback.
@@ -1004,11 +1016,10 @@ Generate a plan following this structure, tailored to the specific feedback and 
                 description="GitHub PR update guidance generator",
                 messages=[
                     PromptMessage(
-                        role="user",
-                        content=TextContent(type="text", text=prompt_text)
+                        role="user", content=TextContent(type="text", text=prompt_text)
                     )
-                ]
+                ],
             )
-        
+
         case _:
             raise ValueError(f"Unknown prompt: {name}")

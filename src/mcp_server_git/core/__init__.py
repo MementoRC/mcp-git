@@ -6,7 +6,7 @@ from .prompts import get_prompt
 
 __all__ = [
     "ToolRegistry",
-    "GitToolRouter", 
+    "GitToolRouter",
     "CallToolHandler",
     "get_prompt",
 ]

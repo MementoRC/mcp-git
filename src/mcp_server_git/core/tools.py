@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 
 class GitTools(str, Enum):
     """Enumeration of all available Git tools"""
+
     # Git operations
     STATUS = "git_status"
     DIFF_UNSTAGED = "git_diff_unstaged"
@@ -34,7 +35,7 @@ class GitTools(str, Enum):
     CHERRY_PICK = "git_cherry_pick"
     ABORT = "git_abort"
     CONTINUE = "git_continue"
-    
+
     # GitHub API tools
     GITHUB_GET_PR_CHECKS = "github_get_pr_checks"
     GITHUB_GET_FAILING_JOBS = "github_get_failing_jobs"
@@ -43,7 +44,7 @@ class GitTools(str, Enum):
     GITHUB_LIST_PULL_REQUESTS = "github_list_pull_requests"
     GITHUB_GET_PR_STATUS = "github_get_pr_status"
     GITHUB_GET_PR_FILES = "github_get_pr_files"
-    
+
     # Security tools
     GIT_SECURITY_VALIDATE = "git_security_validate"
     GIT_SECURITY_ENFORCE = "git_security_enforce"
@@ -51,6 +52,7 @@ class GitTools(str, Enum):
 
 class ToolCategory(str, Enum):
     """Tool categories for organization and routing"""
+
     GIT = "git"
     GITHUB = "github"
     SECURITY = "security"
@@ -59,6 +61,7 @@ class ToolCategory(str, Enum):
 @dataclass
 class ToolDefinition:
     """Complete tool definition with metadata"""
+
     name: str
     category: ToolCategory
     description: str
@@ -70,61 +73,83 @@ class ToolDefinition:
 
 class ToolRegistry:
     """Central registry for all MCP Git Server tools"""
-    
+
     def __init__(self):
         self.tools: Dict[str, ToolDefinition] = {}
         self._initialized = False
-    
+
     def register(self, tool_def: ToolDefinition):
         """Register a tool in the registry"""
         self.tools[tool_def.name] = tool_def
         logger.debug(f"Registered tool: {tool_def.name} ({tool_def.category})")
-    
+
     def get_tool(self, name: str) -> Optional[ToolDefinition]:
         """Get tool definition by name"""
         return self.tools.get(name)
-    
+
     def list_tools(self) -> List[Tool]:
         """Get all tools as MCP Tool objects"""
         return [
             Tool(
                 name=tool_def.name,
                 description=tool_def.description,
-                inputSchema=tool_def.schema.model_json_schema()
+                inputSchema=tool_def.schema.model_json_schema(),
             )
             for tool_def in self.tools.values()
         ]
-    
+
     def get_tools_by_category(self, category: ToolCategory) -> List[ToolDefinition]:
         """Get all tools in a specific category"""
         return [
-            tool_def for tool_def in self.tools.values()
+            tool_def
+            for tool_def in self.tools.values()
             if tool_def.category == category
         ]
-    
+
     def initialize_default_tools(self):
         """Initialize registry with default Git server tools"""
         if self._initialized:
             return
-        
+
         # Import models and handlers
         from ..git.models import (
-            GitStatus, GitDiffUnstaged, GitDiffStaged, GitDiff, GitCommit,
-            GitAdd, GitReset, GitLog, GitCreateBranch, GitCheckout, GitShow,
-            GitInit, GitPush, GitPull, GitDiffBranches, GitRebase, GitMerge,
-            GitCherryPick, GitAbort, GitContinue, GitSecurityValidate,
-            GitSecurityEnforce
+            GitStatus,
+            GitDiffUnstaged,
+            GitDiffStaged,
+            GitDiff,
+            GitCommit,
+            GitAdd,
+            GitReset,
+            GitLog,
+            GitCreateBranch,
+            GitCheckout,
+            GitShow,
+            GitInit,
+            GitPush,
+            GitPull,
+            GitDiffBranches,
+            GitRebase,
+            GitMerge,
+            GitCherryPick,
+            GitAbort,
+            GitContinue,
+            GitSecurityValidate,
+            GitSecurityEnforce,
         )
         from ..github.models import (
-            GitHubGetPRChecks, GitHubGetFailingJobs, GitHubGetWorkflowRun,
-            GitHubGetPRDetails, GitHubListPullRequests, GitHubGetPRStatus,
-            GitHubGetPRFiles
+            GitHubGetPRChecks,
+            GitHubGetFailingJobs,
+            GitHubGetWorkflowRun,
+            GitHubGetPRDetails,
+            GitHubListPullRequests,
+            GitHubGetPRStatus,
+            GitHubGetPRFiles,
         )
-        
+
         # Import handlers (will be set by the router)
         def placeholder_handler(*args, **kwargs):
             return "Handler not set"
-        
+
         # Register Git tools
         git_tools = [
             ToolDefinition(
@@ -133,7 +158,7 @@ class ToolRegistry:
                 description="Show the working tree status",
                 schema=GitStatus,
                 handler=placeholder_handler,
-                requires_repo=True
+                requires_repo=True,
             ),
             ToolDefinition(
                 name=GitTools.DIFF_UNSTAGED,
@@ -141,7 +166,7 @@ class ToolRegistry:
                 description="Show changes in the working directory that are not yet staged",
                 schema=GitDiffUnstaged,
                 handler=placeholder_handler,
-                requires_repo=True
+                requires_repo=True,
             ),
             ToolDefinition(
                 name=GitTools.DIFF_STAGED,
@@ -149,7 +174,7 @@ class ToolRegistry:
                 description="Show changes that are staged for commit",
                 schema=GitDiffStaged,
                 handler=placeholder_handler,
-                requires_repo=True
+                requires_repo=True,
             ),
             ToolDefinition(
                 name=GitTools.DIFF,
@@ -157,7 +182,7 @@ class ToolRegistry:
                 description="Show differences between branches or commits",
                 schema=GitDiff,
                 handler=placeholder_handler,
-                requires_repo=True
+                requires_repo=True,
             ),
             ToolDefinition(
                 name=GitTools.COMMIT,
@@ -165,7 +190,7 @@ class ToolRegistry:
                 description="Record changes to the repository",
                 schema=GitCommit,
                 handler=placeholder_handler,
-                requires_repo=True
+                requires_repo=True,
             ),
             ToolDefinition(
                 name=GitTools.ADD,
@@ -173,7 +198,7 @@ class ToolRegistry:
                 description="Add file contents to the staging area",
                 schema=GitAdd,
                 handler=placeholder_handler,
-                requires_repo=True
+                requires_repo=True,
             ),
             ToolDefinition(
                 name=GitTools.RESET,
@@ -181,7 +206,7 @@ class ToolRegistry:
                 description="Unstage all staged changes",
                 schema=GitReset,
                 handler=placeholder_handler,
-                requires_repo=True
+                requires_repo=True,
             ),
             ToolDefinition(
                 name=GitTools.LOG,
@@ -189,7 +214,7 @@ class ToolRegistry:
                 description="Show the commit logs",
                 schema=GitLog,
                 handler=placeholder_handler,
-                requires_repo=True
+                requires_repo=True,
             ),
             ToolDefinition(
                 name=GitTools.CREATE_BRANCH,
@@ -197,7 +222,7 @@ class ToolRegistry:
                 description="Create a new branch from an optional base branch",
                 schema=GitCreateBranch,
                 handler=placeholder_handler,
-                requires_repo=True
+                requires_repo=True,
             ),
             ToolDefinition(
                 name=GitTools.CHECKOUT,
@@ -205,7 +230,7 @@ class ToolRegistry:
                 description="Switch branches",
                 schema=GitCheckout,
                 handler=placeholder_handler,
-                requires_repo=True
+                requires_repo=True,
             ),
             ToolDefinition(
                 name=GitTools.SHOW,
@@ -213,7 +238,7 @@ class ToolRegistry:
                 description="Show the contents of a commit",
                 schema=GitShow,
                 handler=placeholder_handler,
-                requires_repo=True
+                requires_repo=True,
             ),
             ToolDefinition(
                 name=GitTools.INIT,
@@ -221,7 +246,7 @@ class ToolRegistry:
                 description="Initialize a new Git repository",
                 schema=GitInit,
                 handler=placeholder_handler,
-                requires_repo=False  # Special case
+                requires_repo=False,  # Special case
             ),
             ToolDefinition(
                 name=GitTools.PUSH,
@@ -229,7 +254,7 @@ class ToolRegistry:
                 description="Push commits to remote repository",
                 schema=GitPush,
                 handler=placeholder_handler,
-                requires_repo=True
+                requires_repo=True,
             ),
             ToolDefinition(
                 name=GitTools.PULL,
@@ -237,7 +262,7 @@ class ToolRegistry:
                 description="Pull changes from remote repository",
                 schema=GitPull,
                 handler=placeholder_handler,
-                requires_repo=True
+                requires_repo=True,
             ),
             ToolDefinition(
                 name=GitTools.DIFF_BRANCHES,
@@ -245,7 +270,7 @@ class ToolRegistry:
                 description="Show differences between two branches",
                 schema=GitDiffBranches,
                 handler=placeholder_handler,
-                requires_repo=True
+                requires_repo=True,
             ),
             ToolDefinition(
                 name=GitTools.REBASE,
@@ -253,7 +278,7 @@ class ToolRegistry:
                 description="Rebase current branch onto target branch",
                 schema=GitRebase,
                 handler=placeholder_handler,
-                requires_repo=True
+                requires_repo=True,
             ),
             ToolDefinition(
                 name=GitTools.MERGE,
@@ -261,7 +286,7 @@ class ToolRegistry:
                 description="Merge source branch into current branch",
                 schema=GitMerge,
                 handler=placeholder_handler,
-                requires_repo=True
+                requires_repo=True,
             ),
             ToolDefinition(
                 name=GitTools.CHERRY_PICK,
@@ -269,7 +294,7 @@ class ToolRegistry:
                 description="Cherry-pick a commit onto current branch",
                 schema=GitCherryPick,
                 handler=placeholder_handler,
-                requires_repo=True
+                requires_repo=True,
             ),
             ToolDefinition(
                 name=GitTools.ABORT,
@@ -277,7 +302,7 @@ class ToolRegistry:
                 description="Abort an ongoing git operation",
                 schema=GitAbort,
                 handler=placeholder_handler,
-                requires_repo=True
+                requires_repo=True,
             ),
             ToolDefinition(
                 name=GitTools.CONTINUE,
@@ -285,10 +310,10 @@ class ToolRegistry:
                 description="Continue an ongoing git operation after resolving conflicts",
                 schema=GitContinue,
                 handler=placeholder_handler,
-                requires_repo=True
+                requires_repo=True,
             ),
         ]
-        
+
         # Register GitHub API tools
         github_tools = [
             ToolDefinition(
@@ -298,7 +323,7 @@ class ToolRegistry:
                 schema=GitHubGetPRChecks,
                 handler=placeholder_handler,
                 requires_repo=False,
-                requires_github_token=True
+                requires_github_token=True,
             ),
             ToolDefinition(
                 name=GitTools.GITHUB_GET_FAILING_JOBS,
@@ -307,7 +332,7 @@ class ToolRegistry:
                 schema=GitHubGetFailingJobs,
                 handler=placeholder_handler,
                 requires_repo=False,
-                requires_github_token=True
+                requires_github_token=True,
             ),
             ToolDefinition(
                 name=GitTools.GITHUB_GET_WORKFLOW_RUN,
@@ -316,7 +341,7 @@ class ToolRegistry:
                 schema=GitHubGetWorkflowRun,
                 handler=placeholder_handler,
                 requires_repo=False,
-                requires_github_token=True
+                requires_github_token=True,
             ),
             ToolDefinition(
                 name=GitTools.GITHUB_GET_PR_DETAILS,
@@ -325,7 +350,7 @@ class ToolRegistry:
                 schema=GitHubGetPRDetails,
                 handler=placeholder_handler,
                 requires_repo=False,
-                requires_github_token=True
+                requires_github_token=True,
             ),
             ToolDefinition(
                 name=GitTools.GITHUB_LIST_PULL_REQUESTS,
@@ -334,7 +359,7 @@ class ToolRegistry:
                 schema=GitHubListPullRequests,
                 handler=placeholder_handler,
                 requires_repo=False,
-                requires_github_token=True
+                requires_github_token=True,
             ),
             ToolDefinition(
                 name=GitTools.GITHUB_GET_PR_STATUS,
@@ -343,7 +368,7 @@ class ToolRegistry:
                 schema=GitHubGetPRStatus,
                 handler=placeholder_handler,
                 requires_repo=False,
-                requires_github_token=True
+                requires_github_token=True,
             ),
             ToolDefinition(
                 name=GitTools.GITHUB_GET_PR_FILES,
@@ -352,10 +377,10 @@ class ToolRegistry:
                 schema=GitHubGetPRFiles,
                 handler=placeholder_handler,
                 requires_repo=False,
-                requires_github_token=True
+                requires_github_token=True,
             ),
         ]
-        
+
         # Register Security tools
         security_tools = [
             ToolDefinition(
@@ -364,7 +389,7 @@ class ToolRegistry:
                 description="Validate Git security configuration for the repository",
                 schema=GitSecurityValidate,
                 handler=placeholder_handler,
-                requires_repo=True
+                requires_repo=True,
             ),
             ToolDefinition(
                 name=GitTools.GIT_SECURITY_ENFORCE,
@@ -372,65 +397,82 @@ class ToolRegistry:
                 description="Enforce secure Git configuration",
                 schema=GitSecurityEnforce,
                 handler=placeholder_handler,
-                requires_repo=True
+                requires_repo=True,
             ),
         ]
-        
+
         # Register all tools
         for tool in git_tools + github_tools + security_tools:
             self.register(tool)
-        
+
         self._initialized = True
         logger.info(f"Initialized tool registry with {len(self.tools)} tools")
 
 
 class GitToolRouter:
     """Router for dispatching tool calls to appropriate handlers"""
-    
+
     def __init__(self, registry: ToolRegistry):
         self.registry = registry
         self._handlers_initialized = False
-    
-    def set_handlers(self, git_handlers: Dict[str, Callable], github_handlers: Dict[str, Callable], security_handlers: Dict[str, Callable]):
+
+    def set_handlers(
+        self,
+        git_handlers: Dict[str, Callable],
+        github_handlers: Dict[str, Callable],
+        security_handlers: Dict[str, Callable],
+    ):
         """Set up actual tool handlers"""
-        
+
         # Update Git tool handlers
         for tool_name, handler in git_handlers.items():
             if tool_name in self.registry.tools:
                 self.registry.tools[tool_name].handler = handler
-        
-        # Update GitHub tool handlers  
+
+        # Update GitHub tool handlers
         for tool_name, handler in github_handlers.items():
             if tool_name in self.registry.tools:
                 self.registry.tools[tool_name].handler = handler
-        
+
         # Update Security tool handlers
         for tool_name, handler in security_handlers.items():
             if tool_name in self.registry.tools:
                 self.registry.tools[tool_name].handler = handler
-        
+
         self._handlers_initialized = True
         logger.info("Tool handlers initialized")
-    
-    async def route_tool_call(self, name: str, arguments: Dict[str, Any]) -> List[TextContent]:
+
+    async def route_tool_call(
+        self, name: str, arguments: Dict[str, Any]
+    ) -> List[TextContent]:
         """Route a tool call to the appropriate handler"""
-        
+
         if not self._handlers_initialized:
             return [TextContent(type="text", text="❌ Tool handlers not initialized")]
-        
+
         tool_def = self.registry.get_tool(name)
         if not tool_def:
             return [TextContent(type="text", text=f"❌ Unknown tool: {name}")]
-        
+
         try:
             # Validate required parameters
             if tool_def.requires_repo and "repo_path" not in arguments:
-                return [TextContent(type="text", text="❌ repo_path parameter required for this tool")]
-            
+                return [
+                    TextContent(
+                        type="text",
+                        text="❌ repo_path parameter required for this tool",
+                    )
+                ]
+
             if tool_def.requires_github_token:
                 if not arguments.get("repo_owner") or not arguments.get("repo_name"):
-                    return [TextContent(type="text", text="❌ repo_owner and repo_name parameters required for GitHub API tools")]
-            
+                    return [
+                        TextContent(
+                            type="text",
+                            text="❌ repo_owner and repo_name parameters required for GitHub API tools",
+                        )
+                    ]
+
             # Call the handler
             if tool_def.category == ToolCategory.GITHUB:
                 # GitHub tools are async
@@ -438,9 +480,11 @@ class GitToolRouter:
             else:
                 # Git and security tools are sync
                 result = tool_def.handler(**arguments)
-            
+
             return [TextContent(type="text", text=result)]
-            
+
         except Exception as e:
             logger.error(f"Tool call failed for {name}: {e}", exc_info=True)
-            return [TextContent(type="text", text=f"❌ Tool execution failed: {str(e)}")]
+            return [
+                TextContent(type="text", text=f"❌ Tool execution failed: {str(e)}")
+            ]

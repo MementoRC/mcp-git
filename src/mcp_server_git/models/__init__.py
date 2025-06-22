@@ -11,7 +11,7 @@ from .middleware import notification_validator_middleware
 
 __all__ = [
     "CancelledNotification",
-    "CancelledParams", 
+    "CancelledParams",
     "validate_cancelled_notification",
     "validate_notification",
     "notification_validator_middleware",

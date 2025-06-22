@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 
 
 def notification_validator_middleware(
-    message: Dict[str, Any]
+    message: Dict[str, Any],
 ) -> Optional[CancelledNotification]:
     """
     A middleware that validates incoming notifications.

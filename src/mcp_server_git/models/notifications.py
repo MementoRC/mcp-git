@@ -34,18 +34,18 @@ ClientNotification = Union[
 def parse_client_notification(data: Dict[str, Any]) -> ClientNotification:
     """
     Parse a client notification from raw data based on its type field.
-    
+
     Args:
         data: Raw notification data containing 'method' field
-        
+
     Returns:
         Parsed notification instance
-        
+
     Raises:
         ValidationError: If the notification cannot be parsed
     """
     notification_method = data.get("method", "")
-    
+
     if notification_method == "notifications/cancelled":
         return CancelledNotification.model_validate(data)
     else:
@@ -58,6 +58,4 @@ def parse_client_notification(data: Dict[str, Any]) -> ClientNotification:
         except ValidationError:
             # If all else fails, create a minimal cancelled notification
             logger.error(f"Failed to parse notification: {data}")
-            return CancelledNotification(
-                params=CancelledParams(requestId="unknown")
-            )
+            return CancelledNotification(params=CancelledParams(requestId="unknown"))
