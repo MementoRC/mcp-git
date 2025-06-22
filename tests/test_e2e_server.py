@@ -217,30 +217,3 @@ async def test_tool_separation(mcp_server):
     print("✅ Tool separation working correctly")
 
 
-async def main():
-    """Run tests manually if called directly"""
-    print("🚀 Starting E2E MCP Server Tests...")
-    
-    # Simple manual test runner
-    test_functions = [
-        test_server_startup_and_initialization,
-        test_github_api_tools_routing, 
-        test_git_tools_still_work,
-        test_tool_separation
-    ]
-    
-    async with mcp_server() as client:
-        for test_func in test_functions:
-            try:
-                print(f"\n📋 Running {test_func.__name__}...")
-                await test_func(client)
-                print(f"✅ {test_func.__name__} PASSED")
-            except Exception as e:
-                print(f"❌ {test_func.__name__} FAILED: {e}")
-                raise
-    
-    print("\n🎉 All E2E tests passed!")
-
-
-if __name__ == "__main__":
-    asyncio.run(main())
