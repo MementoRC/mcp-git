@@ -122,7 +122,8 @@ class ToolRegistry:
         )
         
         # Import handlers (will be set by the router)
-        placeholder_handler = lambda *args, **kwargs: "Handler not set"
+        def placeholder_handler(*args, **kwargs):
+            return "Handler not set"
         
         # Register Git tools
         git_tools = [
