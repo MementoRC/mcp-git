@@ -240,7 +240,7 @@ def git_checkout(repo: git.Repo, branch_name: str) -> str:
                     return f"✅ Created and switched to branch '{branch_name}' (tracking origin/{branch_name})"
                 else:
                     return f"❌ Branch '{branch_name}' not found locally or on remote"
-            except:
+            except Exception:
                 return f"❌ Branch '{branch_name}' not found"
                 
     except git.exc.GitCommandError as e:
@@ -301,7 +301,7 @@ def git_push(repo: git.Repo, remote: str = "origin", branch: Optional[str] = Non
         try:
             remote_url = repo.remote(remote).url
             is_github = "github.com" in remote_url
-        except:
+        except Exception:
             is_github = False
         
         # GitHub HTTPS authentication handling

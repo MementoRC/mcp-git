@@ -1191,7 +1191,7 @@ def git_push(repo: git.Repo, remote: str = "origin", branch: str | None = None, 
                     for cleanup_cmd in cleanup_cmds:
                         try:
                             subprocess.run(cleanup_cmd, cwd=repo.working_dir, capture_output=True)
-                        except:
+                        except Exception:
                             pass
                     logger.debug("🧹 Cleaned up git credential configuration")
                 
