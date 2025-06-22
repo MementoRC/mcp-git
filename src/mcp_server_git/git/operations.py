@@ -3,7 +3,6 @@
 import logging
 import os
 import subprocess
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -209,9 +208,9 @@ def git_create_branch(repo: git.Repo, branch_name: str, base_branch: Optional[st
             if base_branch not in existing_branches and base_branch not in [branch.name for branch in repo.remote().refs]:
                 return f"❌ Base branch '{base_branch}' not found"
             
-            new_branch = repo.create_head(branch_name, base_branch)
+            repo.create_head(branch_name, base_branch)
         else:
-            new_branch = repo.create_head(branch_name)
+            repo.create_head(branch_name)
         
         return f"✅ Created branch '{branch_name}'"
         
@@ -320,11 +319,11 @@ def git_push(repo: git.Repo, remote: str = "origin", branch: Optional[str] = Non
                     
                     try:
                         # Attempt push with authenticated URL
-                        result = repo.git.push(*push_args)
+                        repo.git.push(*push_args)
                         success_msg = f"✅ Successfully pushed {branch} to {remote}"
                         if set_upstream:
-                            success_msg += f" (set upstream tracking)"
-                        success_msg += f"\n🔐 Used GitHub token authentication"
+                            success_msg += " (set upstream tracking)"
+                        success_msg += "\n🔐 Used GitHub token authentication"
                         return success_msg
                     finally:
                         # Restore original URL
@@ -333,19 +332,19 @@ def git_push(repo: git.Repo, remote: str = "origin", branch: Optional[str] = Non
                 return "❌ GitHub HTTPS push requires GITHUB_TOKEN environment variable"
         
         # Regular push (SSH or authenticated HTTPS)
-        result = repo.git.push(*push_args)
+        repo.git.push(*push_args)
         success_msg = f"✅ Successfully pushed {branch} to {remote}"
         if set_upstream:
-            success_msg += f" (set upstream tracking)"
+            success_msg += " (set upstream tracking)"
         return success_msg
         
     except git.exc.GitCommandError as e:
         if "Authentication failed" in str(e) or "401" in str(e):
-            return f"❌ Authentication failed. For GitHub HTTPS, set GITHUB_TOKEN environment variable"
+            return "❌ Authentication failed. For GitHub HTTPS, set GITHUB_TOKEN environment variable"
         elif "403" in str(e):
-            return f"❌ Permission denied. Check repository access permissions"
+            return "❌ Permission denied. Check repository access permissions"
         elif "non-fast-forward" in str(e):
-            return f"❌ Push rejected (non-fast-forward). Use --force flag if needed"
+            return "❌ Push rejected (non-fast-forward). Use --force flag if needed"
         else:
             return f"❌ Push failed: {str(e)}"
     except Exception as e:
@@ -374,7 +373,7 @@ def git_pull(repo: git.Repo, remote: str = "origin", branch: Optional[str] = Non
         if "Authentication failed" in str(e):
             return f"❌ Authentication failed. Check credentials for {remote}"
         elif "merge conflict" in str(e).lower():
-            return f"❌ Pull failed due to merge conflicts. Resolve conflicts and retry"
+            return "❌ Pull failed due to merge conflicts. Resolve conflicts and retry"
         else:
             return f"❌ Pull failed: {str(e)}"
     except Exception as e:
@@ -429,7 +428,7 @@ def git_rebase(repo: git.Repo, target_branch: str, interactive: bool = False) ->
         
     except git.exc.GitCommandError as e:
         if "conflict" in str(e).lower():
-            return f"❌ Rebase failed due to conflicts. Resolve conflicts and run 'git rebase --continue'"
+            return "❌ Rebase failed due to conflicts. Resolve conflicts and run 'git rebase --continue'"
         else:
             return f"❌ Rebase failed: {str(e)}"
     except Exception as e:
@@ -459,7 +458,7 @@ def git_merge(repo: git.Repo, source_branch: str, strategy: str = "merge", messa
         
     except git.exc.GitCommandError as e:
         if "conflict" in str(e).lower():
-            return f"❌ Merge failed due to conflicts. Resolve conflicts and commit"
+            return "❌ Merge failed due to conflicts. Resolve conflicts and commit"
         else:
             return f"❌ Merge failed: {str(e)}"
     except Exception as e:
@@ -482,7 +481,7 @@ def git_cherry_pick(repo: git.Repo, commit_hash: str, no_commit: bool = False) -
         
     except git.exc.GitCommandError as e:
         if "conflict" in str(e).lower():
-            return f"❌ Cherry-pick failed due to conflicts. Resolve conflicts and continue"
+            return "❌ Cherry-pick failed due to conflicts. Resolve conflicts and continue"
         else:
             return f"❌ Cherry-pick failed: {str(e)}"
     except Exception as e:
@@ -497,7 +496,7 @@ def git_abort(repo: git.Repo, operation: str) -> str:
             return f"❌ Invalid operation '{operation}'. Valid operations: {', '.join(valid_operations)}"
         
         # Perform abort
-        result = repo.git.execute([f"git", f"{operation}", "--abort"])
+        repo.git.execute(["git", f"{operation}", "--abort"])
         
         return f"✅ Successfully aborted {operation}"
         
@@ -515,7 +514,7 @@ def git_continue(repo: git.Repo, operation: str) -> str:
             return f"❌ Invalid operation '{operation}'. Valid operations: {', '.join(valid_operations)}"
         
         # Perform continue
-        result = repo.git.execute([f"git", f"{operation}", "--continue"])
+        repo.git.execute(["git", f"{operation}", "--continue"])
         
         return f"✅ Successfully continued {operation}"
         

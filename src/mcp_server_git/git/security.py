@@ -3,7 +3,7 @@
 import logging
 import os
 import subprocess
-from typing import Dict, List
+from typing import Dict
 
 import git
 
@@ -49,8 +49,6 @@ def validate_git_security_config(repo: git.Repo) -> Dict[str, any]:
         
         # Check if repository has commits
         try:
-            latest_commit = repo.head.commit
-            
             # Check if latest commit is signed
             try:
                 verify_result = subprocess.run(
