@@ -112,15 +112,15 @@ def test_git_status_porcelain_string_parameter(test_repository):
     # Test with actual string conversion logic that the MCP handler uses
     porcelain_raw = "true"
     porcelain = porcelain_raw if isinstance(porcelain_raw, bool) else str(porcelain_raw).lower() in ('true', '1', 'yes')
-    assert porcelain == True
+    assert porcelain
     
     porcelain_raw = "false"
     porcelain = porcelain_raw if isinstance(porcelain_raw, bool) else str(porcelain_raw).lower() in ('true', '1', 'yes')
-    assert porcelain == False
+    assert not porcelain
     
     porcelain_raw = True
     porcelain = porcelain_raw if isinstance(porcelain_raw, bool) else str(porcelain_raw).lower() in ('true', '1', 'yes')
-    assert porcelain == True
+    assert porcelain
 
 # Tests for advanced git operations
 

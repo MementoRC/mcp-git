@@ -84,7 +84,7 @@ async def mcp_server():
     
     # Start server process
     server_cmd = [
-        sys.executable, "-m", "uv", "run", 
+        "uv", "run", 
         "python", "-m", "mcp_server_git"
     ]
     
