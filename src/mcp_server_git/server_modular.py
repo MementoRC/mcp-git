@@ -87,13 +87,6 @@ try:
         github_list_pull_requests as modular_github_list_pull_requests,
         github_get_pr_status as modular_github_get_pr_status,
         github_get_pr_files as modular_github_get_pr_files,
-        # Write operations
-        github_update_pr as modular_github_update_pr,
-        github_create_pr as modular_github_create_pr,
-        github_merge_pr as modular_github_merge_pr,
-        github_add_pr_comment as modular_github_add_pr_comment,
-        github_close_pr as modular_github_close_pr,
-        github_reopen_pr as modular_github_reopen_pr,
     )
     print("✅ Using modular GitHub API functions")
     USE_MODULAR_GITHUB = True
@@ -110,23 +103,7 @@ try:
         git_commit as modular_git_commit,
         git_add as modular_git_add,
         git_reset as modular_git_reset,
-        git_log as modular_git_log,
-        git_create_branch as modular_git_create_branch,
-        git_checkout as modular_git_checkout,
-        git_show as modular_git_show,
         git_init as modular_git_init,
-        git_push as modular_git_push,
-        git_pull as modular_git_pull,
-        git_diff_branches as modular_git_diff_branches,
-        git_rebase as modular_git_rebase,
-        git_merge as modular_git_merge,
-        git_cherry_pick as modular_git_cherry_pick,
-        git_abort as modular_git_abort,
-        git_continue as modular_git_continue,
-    )
-    from .git.security import (
-        validate_git_security_config as modular_validate_git_security_config,
-        enforce_secure_git_config as modular_enforce_secure_git_config,
     )
     print("✅ Using modular Git operations")
     USE_MODULAR_GIT = True

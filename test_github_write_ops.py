@@ -16,11 +16,7 @@ from src.mcp_server_git.server import (
 try:
     from src.mcp_server_git.github.api import (
         github_update_pr as modular_github_update_pr,
-        github_create_pr as modular_github_create_pr,
         github_add_pr_comment as modular_github_add_pr_comment,
-        github_close_pr as modular_github_close_pr,
-        github_reopen_pr as modular_github_reopen_pr,
-        github_merge_pr as modular_github_merge_pr
     )
     HAS_MODULAR = True
     print("✅ Modular GitHub API functions available for testing")
