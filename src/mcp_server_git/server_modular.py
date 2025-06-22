@@ -3,7 +3,6 @@ Modular MCP Git Server - New structure that imports from existing server.py
 This allows us to refactor incrementally while keeping the original working
 """
 
-import asyncio
 import logging
 import time
 from pathlib import Path
@@ -18,16 +17,7 @@ from .server import (
     load_environment_variables,
     
     # GitHub functionality - will be replaced with modular imports
-    get_github_client,
-    github_get_pr_checks,
     github_get_pr_details,
-    github_get_failing_jobs,
-    github_get_workflow_run,
-    github_list_pull_requests,
-    github_get_pr_status,
-    github_get_pr_files,
-    
-    # Git functionality - will be replaced with modular imports
     git_status,
     git_diff_unstaged,
     git_diff_staged,

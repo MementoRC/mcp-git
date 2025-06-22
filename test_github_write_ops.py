@@ -10,11 +10,7 @@ import logging
 # Test both monolithic and modular versions
 from src.mcp_server_git.server import (
     github_update_pr as monolithic_github_update_pr,
-    github_create_pr as monolithic_github_create_pr, 
-    github_add_pr_comment as monolithic_github_add_pr_comment,
-    github_close_pr as monolithic_github_close_pr,
-    github_reopen_pr as monolithic_github_reopen_pr,
-    github_merge_pr as monolithic_github_merge_pr
+    github_add_pr_comment as monolithic_github_add_pr_comment
 )
 
 try:

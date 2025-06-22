@@ -10,7 +10,6 @@ import os
 import subprocess
 import sys
 import tempfile
-import time
 from pathlib import Path
 from typing import Any, Dict
 
@@ -189,7 +188,7 @@ async def test_git_tools_still_work(mcp_server):
         result_text = response["result"]["content"][0]["text"]
         assert "Repository status" in result_text, f"Unexpected git status response: {result_text}"
         
-        print(f"✅ Git tools still work correctly")
+        print("✅ Git tools still work correctly")
 
 
 @pytest.mark.asyncio 
@@ -216,7 +215,7 @@ async def test_tool_separation(mcp_server):
         
         assert "result" in git_response, f"Git tool with repo_path failed: {git_response}"
     
-    print(f"✅ Tool separation working correctly")
+    print("✅ Tool separation working correctly")
 
 
 async def main():

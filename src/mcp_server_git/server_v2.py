@@ -3,7 +3,6 @@ MCP Git Server v2 - Clean modular architecture
 Uses tool registry and routing system for better maintainability
 """
 
-import asyncio
 import logging
 import time
 from pathlib import Path
