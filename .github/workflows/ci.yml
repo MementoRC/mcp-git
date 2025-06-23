@@ -93,7 +93,11 @@ jobs:
     
     - name: Run pytest with coverage
       run: |
-        uv run pytest --verbose --tb=short \
+        # Install pytest dependencies in CI environment to avoid uv hanging
+        pip install pytest pytest-cov pytest-asyncio pytest-timeout
+        
+        # Run tests with direct python execution (avoiding uv run hanging issue)
+        PYTHONPATH=src python -m pytest --verbose --tb=short \
           --timeout=300 \
           --cov=src/mcp_server_git \
           --cov-report=xml \
