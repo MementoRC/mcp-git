@@ -4,7 +4,7 @@ import logging
 import sys
 import os
 from datetime import datetime
-from .server import serve
+from .server import main as serve
 
 
 @click.command()

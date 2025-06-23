@@ -1758,7 +1758,7 @@ def git_continue(repo: git.Repo, operation: str) -> str:
         return f"❌ Continue error: {str(e)}"
 
 
-async def serve(repository: Path | None) -> None:
+async def main(repository: Path | None) -> None:
     import os
     from datetime import datetime
 
@@ -2566,7 +2566,7 @@ Requirements:
    - Security (security improvements)
 
 3. **Content Guidelines:**
-   - Write for end users, not developers
+   - Write for end users, not for developers
    - Focus on impact and benefits
    - Group related changes together
    - Use clear, non-technical language where possible
@@ -3952,3 +3952,42 @@ After pushing your changes, post the following summary comment on the PR and re-
         # Server shutdown logging
         total_uptime = time.time() - start_time
         logger.info(f"🔚 Server shutdown after {total_uptime:.1f}s uptime")
+
+
+if __name__ == "__main__":
+    # This guard prevents the server from running when the module is imported,
+    # for example by pytest. The server should only run when this script is
+    # executed directly.
+
+    # To run this script, we need to handle command-line arguments and logging.
+    import argparse
+
+    # Set up basic logging to see server output when run directly.
+    # The main application entry point might have more sophisticated logging setup.
+    logging.basicConfig(
+        level=os.environ.get("LOG_LEVEL", "INFO").upper(),
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    )
+    logger = logging.getLogger(__name__)
+
+    parser = argparse.ArgumentParser(
+        description="Run the MCP Git Server. This is typically started by the main application, but can be run directly for development."
+    )
+    parser.add_argument(
+        "repository",
+        nargs="?",
+        default=None,
+        help="The path to the git repository to serve. If not provided, the server will wait for the client to specify workspace roots.",
+    )
+    args = parser.parse_args()
+
+    repo_path = Path(args.repository) if args.repository else None
+
+    try:
+        # Run the main async function of the server.
+        logger.info(f"Starting server directly for repository: {repo_path or 'Not specified'}")
+        asyncio.run(main(repository=repo_path))
+    except KeyboardInterrupt:
+        logger.info("⌨️ Server process interrupted by user.")
+    except Exception as e:
+        logger.critical(f"💥 Server failed to run: {e}", exc_info=True)
