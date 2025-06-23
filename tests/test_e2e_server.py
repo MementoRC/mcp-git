@@ -73,7 +73,8 @@ class MCPTestClient:
 
 
 @pytest.fixture
-@pytest.mark.skip(reason="Temporarily disabled due to CI hanging issues")
+@pytest.mark.e2e
+@pytest.mark.ci_skip
 async def mcp_server():
     """Start MCP server as subprocess and return test client"""
     # Set up environment with a test GitHub token if available
@@ -111,6 +112,8 @@ async def mcp_server():
 
 
 @pytest.mark.asyncio
+@pytest.mark.e2e
+@pytest.mark.ci_skip
 async def test_server_startup_and_initialization(mcp_server):
     """Test that server starts up and initializes properly"""
     client = mcp_server
@@ -141,6 +144,8 @@ async def test_server_startup_and_initialization(mcp_server):
 
 
 @pytest.mark.asyncio
+@pytest.mark.e2e
+@pytest.mark.ci_skip
 async def test_github_api_tools_routing(mcp_server):
     """Test that GitHub API tools are properly routed (not returning 'not implemented')"""
     client = mcp_server
@@ -164,6 +169,8 @@ async def test_github_api_tools_routing(mcp_server):
 
 
 @pytest.mark.asyncio
+@pytest.mark.e2e
+@pytest.mark.ci_skip
 async def test_git_tools_still_work(mcp_server):
     """Test that regular git tools still work after our changes"""
     client = mcp_server
@@ -196,6 +203,8 @@ async def test_git_tools_still_work(mcp_server):
 
 
 @pytest.mark.asyncio
+@pytest.mark.e2e
+@pytest.mark.ci_skip
 async def test_tool_separation(mcp_server):
     """Test that GitHub API tools and Git tools are properly separated"""
     client = mcp_server
