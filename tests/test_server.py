@@ -8,7 +8,7 @@ import shutil
 @pytest.fixture
 def test_repository(tmp_path: Path):
     repo_path = tmp_path / "temp_test_repo"
-    test_repo = git.Repo.init(repo_path)
+    test_repo = git.Repo.init(repo_path, initial_branch="master")
 
     Path(repo_path / "test.txt").write_text("test")
     test_repo.index.add(["test.txt"])
