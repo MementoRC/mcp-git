@@ -4026,7 +4026,6 @@ if __name__ == "__main__":
         # Run the main async function of the server.
         logger.info(
             f"Starting server directly for repository: {repo_path or 'Not specified'}"
-
         )
         asyncio.run(main(repository=repo_path))
     except KeyboardInterrupt:
