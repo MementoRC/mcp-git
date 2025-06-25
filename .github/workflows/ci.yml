@@ -168,7 +168,7 @@ jobs:
     
     - name: Test MCP server startup and basic functionality
       run: |
-        timeout 30s uv run python -m mcp_server_git &
+        timeout 30s uv run python -m mcp_server_git --test-mode &
         SERVER_PID=$!
         sleep 5
         

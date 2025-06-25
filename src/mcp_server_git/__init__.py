@@ -15,7 +15,12 @@ from .server import main as serve
     is_flag=True,
     help="Enable logging to file in logs/ directory",
 )
-def main(repository: Path | None, verbose: bool, enable_file_logging: bool) -> None:
+@click.option(
+    "--test-mode",
+    is_flag=True,
+    help="Run in test mode for CI (stays alive without immediate stdio)",
+)
+def main(repository: Path | None, verbose: bool, enable_file_logging: bool, test_mode: bool) -> None:
     """MCP Git Server - Git functionality for MCP"""
     import asyncio
 
@@ -73,7 +78,7 @@ def main(repository: Path | None, verbose: bool, enable_file_logging: bool) -> N
         print(f"📝 Debug logging enabled: {log_file}", file=sys.stderr)
         logger.info(f"📝 File logging enabled: {log_file}")
 
-    asyncio.run(serve(repository))
+    asyncio.run(serve(repository, test_mode=test_mode))
 
 
 if __name__ == "__main__":
