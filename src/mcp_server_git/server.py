@@ -15,8 +15,8 @@ from dotenv import load_dotenv
 from mcp.server import Server
 from mcp.server.session import ServerSession
 
-# Notification middleware available but not currently integrated
-# from .models.middleware import notification_validator_middleware
+# Notification middleware for handling cancelled notifications
+from .core.notification_interceptor import wrap_read_stream, log_interception_stats
 from mcp.server.stdio import stdio_server
 from mcp.types import (
     ClientCapabilities,
@@ -3942,7 +3942,16 @@ After pushing your changes, post the following summary comment on the PR and re-
     try:
         async with stdio_server() as (read_stream, write_stream):
             logger.info("🔗 STDIO server connected, starting main loop...")
-            await server.run(read_stream, write_stream, options, raise_exceptions=False)
+
+            # Wrap the read stream with notification interception
+            intercepted_read_stream = wrap_read_stream(read_stream)
+            logger.debug(
+                "🔔 Notification interception enabled for cancelled notifications"
+            )
+
+            await server.run(
+                intercepted_read_stream, write_stream, options, raise_exceptions=False
+            )
     except asyncio.CancelledError:
         logger.info("🛑 Server cancelled")
         raise
@@ -3952,12 +3961,16 @@ After pushing your changes, post the following summary comment on the PR and re-
     except Exception as e:
         error_msg = str(e)
         if "notifications/cancelled" in error_msg and "ValidationError" in error_msg:
-            logger.warning(f"🔔 Ignoring notification validation error: {e}")
+            logger.warning(f"🔔 Caught notification validation error: {e}")
+            logger.info("🔔 This should now be handled by the notification interceptor")
             # Don't crash the server for notification validation errors
         else:
             logger.error(f"💥 Server crashed: {e}", exc_info=True)
             raise
     finally:
+        # Log interception statistics before shutdown
+        log_interception_stats()
+
         # Clean shutdown
         health_task.cancel()
         try:
