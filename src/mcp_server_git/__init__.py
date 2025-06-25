@@ -20,7 +20,9 @@ from .server import main as serve
     is_flag=True,
     help="Run in test mode for CI (stays alive without immediate stdio)",
 )
-def main(repository: Path | None, verbose: bool, enable_file_logging: bool, test_mode: bool) -> None:
+def main(
+    repository: Path | None, verbose: bool, enable_file_logging: bool, test_mode: bool
+) -> None:
     """MCP Git Server - Git functionality for MCP"""
     import asyncio
 
