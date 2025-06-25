@@ -1,13 +1,13 @@
 import logging
 from typing import Any, Dict, Type, TypeVar
 
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 
 from .notifications import CancelledNotification
 
 logger = logging.getLogger(__name__)
 
-T = TypeVar("T")
+T = TypeVar("T", bound=BaseModel)
 
 
 def validate_notification(data: Dict[str, Any], model: Type[T]) -> T:

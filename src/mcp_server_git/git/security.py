@@ -5,12 +5,12 @@ import os
 import subprocess
 from typing import Dict
 
-import git
+from git import Repo  # Added GitCommandError, InvalidGitRepositoryError
 
 logger = logging.getLogger(__name__)
 
 
-def validate_git_security_config(repo: git.Repo) -> Dict[str, any]:
+def validate_git_security_config(repo: Repo) -> Dict[str, any]:
     """Validate Git security configuration for the repository"""
 
     warnings = []
@@ -19,12 +19,14 @@ def validate_git_security_config(repo: git.Repo) -> Dict[str, any]:
     try:
         # Check GPG signing configuration
         try:
-            signing_key = repo.config_reader().get_value(
-                "user", "signingkey", fallback=None
-            )
-            gpg_sign = repo.config_reader().get_value(
-                "commit", "gpgsign", fallback="false"
-            )
+            try:
+                signing_key = repo.config_reader().get_value("user", "signingkey")
+            except Exception:
+                signing_key = None
+            try:
+                gpg_sign = repo.config_reader().get_value("commit", "gpgsign")
+            except Exception:
+                gpg_sign = "false"
 
             if not signing_key:
                 warnings.append("No GPG signing key configured (user.signingkey)")
@@ -42,8 +44,14 @@ def validate_git_security_config(repo: git.Repo) -> Dict[str, any]:
 
         # Check user configuration
         try:
-            user_name = repo.config_reader().get_value("user", "name", fallback=None)
-            user_email = repo.config_reader().get_value("user", "email", fallback=None)
+            try:
+                user_name = repo.config_reader().get_value("user", "name")
+            except Exception:
+                user_name = None
+            try:
+                user_email = repo.config_reader().get_value("user", "email")
+            except Exception:
+                user_email = None
 
             if not user_name:
                 warnings.append("No user name configured (user.name)")
@@ -108,7 +116,7 @@ def validate_git_security_config(repo: git.Repo) -> Dict[str, any]:
         }
 
 
-def enforce_secure_git_config(repo: git.Repo, strict_mode: bool = True) -> str:
+def enforce_secure_git_config(repo: Repo, strict_mode: bool = True) -> str:
     """Enforce secure Git configuration (GPG signing, proper user config)"""
 
     try:
@@ -117,14 +125,22 @@ def enforce_secure_git_config(repo: git.Repo, strict_mode: bool = True) -> str:
 
         # Get current configuration
         try:
-            user_name = repo.config_reader().get_value("user", "name", fallback=None)
-            user_email = repo.config_reader().get_value("user", "email", fallback=None)
-            signing_key = repo.config_reader().get_value(
-                "user", "signingkey", fallback=None
-            )
-            gpg_sign = repo.config_reader().get_value(
-                "commit", "gpgsign", fallback="false"
-            )
+            try:
+                user_name = repo.config_reader().get_value("user", "name")
+            except Exception:
+                user_name = None
+            try:
+                user_email = repo.config_reader().get_value("user", "email")
+            except Exception:
+                user_email = None
+            try:
+                signing_key = repo.config_reader().get_value("user", "signingkey")
+            except Exception:
+                signing_key = None
+            try:
+                gpg_sign = repo.config_reader().get_value("commit", "gpgsign")
+            except Exception:
+                gpg_sign = "false"
         except Exception as e:
             return f"❌ Could not read git configuration: {e}"
 

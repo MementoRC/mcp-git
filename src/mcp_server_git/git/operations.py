@@ -6,12 +6,15 @@ import subprocess
 from pathlib import Path
 from typing import Optional
 
-import git
+from git import (
+    Repo,
+    GitCommandError,
+)  # Added Repo, GitCommandError, InvalidGitRepositoryError
 
 logger = logging.getLogger(__name__)
 
 
-def git_status(repo: git.Repo, porcelain: bool = False) -> str:
+def git_status(repo: Repo, porcelain: bool = False) -> str:
     """Get repository status in either human-readable or machine-readable format.
 
     Args:
@@ -27,23 +30,23 @@ def git_status(repo: git.Repo, porcelain: bool = False) -> str:
         return repo.git.status()
 
 
-def git_diff_unstaged(repo: git.Repo) -> str:
+def git_diff_unstaged(repo: Repo) -> str:
     """Get unstaged changes diff"""
     return repo.git.diff()
 
 
-def git_diff_staged(repo: git.Repo) -> str:
+def git_diff_staged(repo: Repo) -> str:
     """Get staged changes diff"""
     return repo.git.diff("--cached")
 
 
-def git_diff(repo: git.Repo, target: str) -> str:
+def git_diff(repo: Repo, target: str) -> str:
     """Get diff against target ref"""
     return repo.git.diff(target)
 
 
 def git_commit(
-    repo: git.Repo,
+    repo: Repo,
     message: str,
     gpg_sign: bool = False,
     gpg_key_id: Optional[str] = None,
@@ -73,13 +76,8 @@ def git_commit(
             else:
                 # Fall back to git config
                 try:
-                    config_key = repo.config_reader().get_value(
-                        "user", "signingkey", fallback=None
-                    )
-                    if config_key:
-                        force_key_id = config_key
-                    else:
-                        return "❌ No GPG signing key configured. Set GPG_SIGNING_KEY env var or git config user.signingkey"
+                    config_key = repo.config_reader().get_value("user", "signingkey")
+                    force_key_id = config_key
                 except Exception:
                     return "❌ Could not determine GPG signing key. Please configure GPG_SIGNING_KEY env var"
 
@@ -125,13 +123,13 @@ def git_commit(
             # This path should never be reached due to force_gpg=True
             return "❌ SECURITY VIOLATION: Unsigned commits are not allowed by MCP Git Server"
 
-    except git.exc.GitCommandError as e:
+    except GitCommandError as e:
         return f"❌ Commit failed: {str(e)}\n🔒 Security enforcement may have prevented insecure operation"
     except Exception as e:
         return f"❌ Commit error: {str(e)}\n🔒 Verify repository security configuration"
 
 
-def git_add(repo: git.Repo, files: list[str]) -> str:
+def git_add(repo: Repo, files: list[str]) -> str:
     """Add files to git staging area with robust error handling"""
     try:
         # Validate files exist
@@ -157,13 +155,13 @@ def git_add(repo: git.Repo, files: list[str]) -> str:
         else:
             return "⚠️ No changes detected in specified files"
 
-    except git.exc.GitCommandError as e:
+    except GitCommandError as e:
         return f"❌ Git add failed: {str(e)}"
     except Exception as e:
         return f"❌ Add error: {str(e)}"
 
 
-def git_reset(repo: git.Repo) -> str:
+def git_reset(repo: Repo) -> str:
     """Reset all staged changes"""
     try:
         # Get list of staged files before reset
@@ -177,18 +175,18 @@ def git_reset(repo: git.Repo) -> str:
 
         return f"✅ Reset {len(staged_files)} staged file(s): {', '.join(staged_files)}"
 
-    except git.exc.GitCommandError as e:
+    except GitCommandError as e:
         return f"❌ Reset failed: {str(e)}"
     except Exception as e:
         return f"❌ Reset error: {str(e)}"
 
 
 def git_log(
-    repo: git.Repo,
+    repo: Repo,
     max_count: int = 10,
     oneline: bool = False,
     graph: bool = False,
-    format_str: Optional[str] = None,
+    format_str: Optional[str] = None,  # Renamed from 'format'
 ) -> str:
     """Get commit history with formatting options"""
     try:
@@ -199,7 +197,7 @@ def git_log(
 
         if oneline:
             args.append("--oneline")
-        elif format_str:
+        elif format_str:  # Use format_str
             args.extend(["--pretty=format:" + format_str])
 
         if graph:
@@ -213,14 +211,14 @@ def git_log(
 
         return log_output
 
-    except git.exc.GitCommandError as e:
+    except GitCommandError as e:
         return f"❌ Log failed: {str(e)}"
     except Exception as e:
         return f"❌ Log error: {str(e)}"
 
 
 def git_create_branch(
-    repo: git.Repo, branch_name: str, base_branch: Optional[str] = None
+    repo: Repo, branch_name: str, base_branch: Optional[str] = None
 ) -> str:
     """Create new branch from base"""
     try:
@@ -243,13 +241,13 @@ def git_create_branch(
 
         return f"✅ Created branch '{branch_name}'"
 
-    except git.exc.GitCommandError as e:
+    except GitCommandError as e:
         return f"❌ Branch creation failed: {str(e)}"
     except Exception as e:
         return f"❌ Branch creation error: {str(e)}"
 
 
-def git_checkout(repo: git.Repo, branch_name: str) -> str:
+def git_checkout(repo: Repo, branch_name: str) -> str:
     """Switch to a branch"""
     try:
         # Check if branch exists locally
@@ -274,20 +272,20 @@ def git_checkout(repo: git.Repo, branch_name: str) -> str:
             except Exception:
                 return f"❌ Branch '{branch_name}' not found"
 
-    except git.exc.GitCommandError as e:
+    except GitCommandError as e:
         return f"❌ Checkout failed: {str(e)}"
     except Exception as e:
         return f"❌ Checkout error: {str(e)}"
 
 
-def git_show(repo: git.Repo, revision: str) -> str:
+def git_show(repo: Repo, revision: str) -> str:
     """Show commit details with diff"""
     try:
         # Get commit details
         show_output = repo.git.show(revision)
         return show_output
 
-    except git.exc.GitCommandError as e:
+    except GitCommandError as e:
         return f"❌ Show failed: {str(e)}"
     except Exception as e:
         return f"❌ Show error: {str(e)}"
@@ -300,7 +298,7 @@ def git_init(repo_path: str) -> str:
         path.mkdir(parents=True, exist_ok=True)
 
         # Initialize repository
-        git.Repo.init(path)
+        Repo.init(path)
 
         return f"✅ Initialized empty Git repository in {repo_path}"
 
@@ -309,7 +307,7 @@ def git_init(repo_path: str) -> str:
 
 
 def git_push(
-    repo: git.Repo,
+    repo: Repo,
     remote: str = "origin",
     branch: Optional[str] = None,
     set_upstream: bool = False,
@@ -321,7 +319,7 @@ def git_push(
         if not branch:
             try:
                 branch = repo.active_branch.name
-            except TypeError:
+            except TypeError:  # Detached HEAD or no commits
                 return "❌ No active branch found and no branch specified"
 
         # Build push arguments
@@ -377,7 +375,7 @@ def git_push(
             success_msg += " (set upstream tracking)"
         return success_msg
 
-    except git.exc.GitCommandError as e:
+    except GitCommandError as e:
         if "Authentication failed" in str(e) or "401" in str(e):
             return "❌ Authentication failed. For GitHub HTTPS, set GITHUB_TOKEN environment variable"
         elif "403" in str(e):
@@ -390,16 +388,14 @@ def git_push(
         return f"❌ Push error: {str(e)}"
 
 
-def git_pull(
-    repo: git.Repo, remote: str = "origin", branch: Optional[str] = None
-) -> str:
+def git_pull(repo: Repo, remote: str = "origin", branch: Optional[str] = None) -> str:
     """Pull changes from remote repository"""
     try:
         # Get current branch if not specified
         if not branch:
             try:
                 branch = repo.active_branch.name
-            except TypeError:
+            except TypeError:  # Detached HEAD or no commits
                 return "❌ No active branch found and no branch specified"
 
         # Perform pull
@@ -410,7 +406,7 @@ def git_pull(
 
         return f"✅ Successfully pulled from {remote}/{branch}\n{result}"
 
-    except git.exc.GitCommandError as e:
+    except GitCommandError as e:
         if "Authentication failed" in str(e):
             return f"❌ Authentication failed. Check credentials for {remote}"
         elif "merge conflict" in str(e).lower():
@@ -421,7 +417,7 @@ def git_pull(
         return f"❌ Pull error: {str(e)}"
 
 
-def git_diff_branches(repo: git.Repo, base_branch: str, compare_branch: str) -> str:
+def git_diff_branches(repo: Repo, base_branch: str, compare_branch: str) -> str:
     """Show differences between two branches"""
     try:
         # Verify branches exist
@@ -442,13 +438,13 @@ def git_diff_branches(repo: git.Repo, base_branch: str, compare_branch: str) -> 
 
         return diff_output
 
-    except git.exc.GitCommandError as e:
+    except GitCommandError as e:
         return f"❌ Diff failed: {str(e)}"
     except Exception as e:
         return f"❌ Diff error: {str(e)}"
 
 
-def git_rebase(repo: git.Repo, target_branch: str, interactive: bool = False) -> str:
+def git_rebase(repo: Repo, target_branch: str, interactive: bool = False) -> str:
     """Rebase current branch onto target branch"""
     try:
         # Get current branch
@@ -473,7 +469,7 @@ def git_rebase(repo: git.Repo, target_branch: str, interactive: bool = False) ->
             f"✅ Successfully rebased {current_branch} onto {target_branch}\n{result}"
         )
 
-    except git.exc.GitCommandError as e:
+    except GitCommandError as e:
         if "conflict" in str(e).lower():
             return "❌ Rebase failed due to conflicts. Resolve conflicts and run 'git rebase --continue'"
         else:
@@ -483,7 +479,7 @@ def git_rebase(repo: git.Repo, target_branch: str, interactive: bool = False) ->
 
 
 def git_merge(
-    repo: git.Repo,
+    repo: Repo,
     source_branch: str,
     strategy: str = "merge",
     message: Optional[str] = None,
@@ -510,7 +506,7 @@ def git_merge(
 
         return f"✅ Successfully merged {source_branch} into {current_branch}\n{result}"
 
-    except git.exc.GitCommandError as e:
+    except GitCommandError as e:
         if "conflict" in str(e).lower():
             return "❌ Merge failed due to conflicts. Resolve conflicts and commit"
         else:
@@ -519,7 +515,7 @@ def git_merge(
         return f"❌ Merge error: {str(e)}"
 
 
-def git_cherry_pick(repo: git.Repo, commit_hash: str, no_commit: bool = False) -> str:
+def git_cherry_pick(repo: Repo, commit_hash: str, no_commit: bool = False) -> str:
     """Cherry-pick commits"""
     try:
         # Build cherry-pick command
@@ -533,7 +529,7 @@ def git_cherry_pick(repo: git.Repo, commit_hash: str, no_commit: bool = False) -
         action = "staged" if no_commit else "cherry-picked"
         return f"✅ Successfully {action} commit {commit_hash[:8]}\n{result}"
 
-    except git.exc.GitCommandError as e:
+    except GitCommandError as e:
         if "conflict" in str(e).lower():
             return (
                 "❌ Cherry-pick failed due to conflicts. Resolve conflicts and continue"
@@ -544,7 +540,7 @@ def git_cherry_pick(repo: git.Repo, commit_hash: str, no_commit: bool = False) -
         return f"❌ Cherry-pick error: {str(e)}"
 
 
-def git_abort(repo: git.Repo, operation: str) -> str:
+def git_abort(repo: Repo, operation: str) -> str:
     """Abort ongoing operations (rebase, merge, cherry-pick)"""
     try:
         valid_operations = ["rebase", "merge", "cherry-pick"]
@@ -556,13 +552,13 @@ def git_abort(repo: git.Repo, operation: str) -> str:
 
         return f"✅ Successfully aborted {operation}"
 
-    except git.exc.GitCommandError as e:
+    except GitCommandError as e:
         return f"❌ Abort {operation} failed: {str(e)}"
     except Exception as e:
         return f"❌ Abort error: {str(e)}"
 
 
-def git_continue(repo: git.Repo, operation: str) -> str:
+def git_continue(repo: Repo, operation: str) -> str:
     """Continue operations after resolving conflicts"""
     try:
         valid_operations = ["rebase", "merge", "cherry-pick"]
@@ -574,7 +570,7 @@ def git_continue(repo: git.Repo, operation: str) -> str:
 
         return f"✅ Successfully continued {operation}"
 
-    except git.exc.GitCommandError as e:
+    except GitCommandError as e:
         return f"❌ Continue {operation} failed: {str(e)}"
     except Exception as e:
         return f"❌ Continue error: {str(e)}"

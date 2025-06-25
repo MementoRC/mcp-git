@@ -10,14 +10,14 @@ from pathlib import Path
 from typing import Sequence, Tuple, Optional
 
 import aiohttp
-import git
+from git import Repo, GitCommandError, InvalidGitRepositoryError
 from dotenv import load_dotenv
 from mcp.server import Server
 from mcp.server.session import ServerSession
-from mcp.server.stdio import stdio_server
 
 # Notification middleware available but not currently integrated
 # from .models.middleware import notification_validator_middleware
+from mcp.server.stdio import stdio_server
 from mcp.types import (
     ClientCapabilities,
     GetPromptResult,
@@ -328,7 +328,7 @@ def get_github_client() -> GitHubClient:
     return GitHubClient(token=token)
 
 
-def validate_git_security_config(repo: git.Repo) -> dict:
+def validate_git_security_config(repo: Repo) -> dict:
     """Validate Git security configuration for the repository.
 
     Returns:
@@ -340,10 +340,14 @@ def validate_git_security_config(repo: git.Repo) -> dict:
 
     try:
         # Check GPG signing configuration
-        gpg_sign = repo.config_reader().get_value("commit", "gpgsign", fallback=None)
-        signing_key = repo.config_reader().get_value(
-            "user", "signingkey", fallback=None
-        )
+        try:
+            gpg_sign = repo.config_reader().get_value("commit", "gpgsign")
+        except Exception:
+            gpg_sign = None
+        try:
+            signing_key = repo.config_reader().get_value("user", "signingkey")
+        except Exception:
+            signing_key = None
 
         config_status["gpg_signing_enabled"] = gpg_sign == "true"
         config_status["signing_key_configured"] = signing_key is not None
@@ -365,8 +369,14 @@ def validate_git_security_config(repo: git.Repo) -> dict:
         # Allow any valid GPG key to be used
 
         # Check user configuration
-        user_name = repo.config_reader().get_value("user", "name", fallback=None)
-        user_email = repo.config_reader().get_value("user", "email", fallback=None)
+        try:
+            user_name = repo.config_reader().get_value("user", "name")
+        except Exception:
+            user_name = None
+        try:
+            user_email = repo.config_reader().get_value("user", "email")
+        except Exception:
+            user_email = None
 
         config_status["user_name"] = user_name
         config_status["user_email"] = user_email
@@ -394,7 +404,7 @@ def validate_git_security_config(repo: git.Repo) -> dict:
     }
 
 
-def enforce_secure_git_config(repo: git.Repo, strict_mode: bool = True) -> str:
+def enforce_secure_git_config(repo: Repo, strict_mode: bool = True) -> str:
     """Enforce secure Git configuration for the repository.
 
     Args:
@@ -430,7 +440,7 @@ def enforce_secure_git_config(repo: git.Repo, strict_mode: bool = True) -> str:
             # Set signing key from environment or detect available key
             current_key = validation["config"]["signing_key"]
             if not current_key:
-                # Try to get from environment variable
+                # Try environment variable first
                 env_key = os.getenv("GPG_SIGNING_KEY")
                 if env_key:
                     config.set_value("user", "signingkey", env_key)
@@ -485,7 +495,7 @@ def enforce_secure_git_config(repo: git.Repo, strict_mode: bool = True) -> str:
     return "\n".join(messages)
 
 
-def extract_github_repo_info(repo: git.Repo) -> Tuple[Optional[str], Optional[str]]:
+def extract_github_repo_info(repo: Repo) -> Tuple[Optional[str], Optional[str]]:
     """Extract GitHub repository owner and name from git remotes.
 
     Args:
@@ -530,7 +540,7 @@ def extract_github_repo_info(repo: git.Repo) -> Tuple[Optional[str], Optional[st
 
 
 def get_github_repo_params(
-    repo: git.Repo, arguments: dict
+    repo: Repo, arguments: dict
 ) -> Tuple[Optional[str], Optional[str], Optional[str]]:
     """Get GitHub repository parameters with auto-detection fallback.
 
@@ -598,7 +608,7 @@ class GitLog(BaseModel):
     max_count: int = 10
     oneline: bool = False
     graph: bool = False
-    format: str | None = None
+    format_str: str | None = None  # Renamed from 'format'
 
 
 class GitCreateBranch(BaseModel):
@@ -737,8 +747,7 @@ class GitHubAddPRComment(BaseModel):
 
 class GitHubClosePR(BaseModel):
     repo_owner: str
-    repo_name: str
-    pr_number: int
+    repo_name: int
 
 
 class GitHubReopenPR(BaseModel):
@@ -828,7 +837,7 @@ class GitTools(str, Enum):
     GIT_SECURITY_ENFORCE = "git_security_enforce"
 
 
-def git_status(repo: git.Repo, porcelain: bool = False) -> str:
+def git_status(repo: Repo, porcelain: bool = False) -> str:
     """Get repository status in either human-readable or machine-readable format.
 
     Args:
@@ -844,20 +853,20 @@ def git_status(repo: git.Repo, porcelain: bool = False) -> str:
         return repo.git.status()
 
 
-def git_diff_unstaged(repo: git.Repo) -> str:
+def git_diff_unstaged(repo: Repo) -> str:
     return repo.git.diff()
 
 
-def git_diff_staged(repo: git.Repo) -> str:
+def git_diff_staged(repo: Repo) -> str:
     return repo.git.diff("--cached")
 
 
-def git_diff(repo: git.Repo, target: str) -> str:
+def git_diff(repo: Repo, target: str) -> str:
     return repo.git.diff(target)
 
 
 def git_commit(
-    repo: git.Repo, message: str, gpg_sign: bool = False, gpg_key_id: str | None = None
+    repo: Repo, message: str, gpg_sign: bool = False, gpg_key_id: str | None = None
 ) -> str:
     """Commit staged changes with optional GPG signing and automatic security enforcement"""
     try:
@@ -881,15 +890,10 @@ def git_commit(
             else:
                 # Fall back to git config
                 try:
-                    config_key = repo.config_reader().get_value(
-                        "user", "signingkey", fallback=None
-                    )
-                    if config_key:
-                        force_key_id = config_key
-                    else:
-                        return "❌ No GPG signing key configured. Set GPG_SIGNING_KEY env var or git config user.signingkey"
+                    config_key = repo.config_reader().get_value("user", "signingkey")
+                    force_key_id = config_key
                 except Exception:
-                    return "❌ Could not determine GPG signing key. Please configure GPG_SIGNING_KEY env var"
+                    return "❌ No GPG signing key configured. Set GPG_SIGNING_KEY env var or git config user.signingkey"
 
         if force_gpg:
             # Use git command directly for GPG signing
@@ -941,13 +945,13 @@ def git_commit(
             # This path should never be reached due to force_gpg=True
             return "❌ SECURITY VIOLATION: Unsigned commits are not allowed by MCP Git Server"
 
-    except git.exc.GitCommandError as e:
+    except GitCommandError as e:
         return f"❌ Commit failed: {str(e)}\n🔒 Security enforcement may have prevented insecure operation"
     except Exception as e:
         return f"❌ Commit error: {str(e)}\n🔒 Verify repository security configuration"
 
 
-def git_add(repo: git.Repo, files: list[str]) -> str:
+def git_add(repo: Repo, files: list[str]) -> str:
     """
     Add files to git staging area with robust error handling
 
@@ -1037,17 +1041,17 @@ def git_add(repo: git.Repo, files: list[str]) -> str:
             return f"Git add failed: {str(fallback_e)}"
 
 
-def git_reset(repo: git.Repo) -> str:
+def git_reset(repo: Repo) -> str:
     repo.index.reset()
     return "All staged changes reset"
 
 
 def git_log(
-    repo: git.Repo,
+    repo: Repo,
     max_count: int = 10,
     oneline: bool = False,
     graph: bool = False,
-    format: str | None = None,
+    format_str: str | None = None,  # Renamed from 'format'
 ) -> list[str]:
     """Get commit history with formatting options"""
     try:
@@ -1060,10 +1064,10 @@ def git_log(
                 short_hash = commit.hexsha[:8]
                 subject = commit.message.split("\n")[0]
                 log.append(f"{short_hash} {subject}")
-        elif format:
+        elif format_str:  # Use format_str
             # Custom format
             for commit in commits:
-                formatted = format.replace("%H", commit.hexsha)
+                formatted = format_str.replace("%H", commit.hexsha)  # Use format_str
                 formatted = formatted.replace("%h", commit.hexsha[:8])
                 formatted = formatted.replace("%s", commit.message.split("\n")[0])
                 formatted = formatted.replace("%an", str(commit.author.name))
@@ -1118,10 +1122,13 @@ def _relative_time(dt) -> str:
 
 
 def git_create_branch(
-    repo: git.Repo, branch_name: str, base_branch: str | None = None
+    repo: Repo, branch_name: str, base_branch: str | None = None
 ) -> str:
     if base_branch:
-        base = repo.refs[base_branch]
+        try:
+            base = repo.refs[base_branch]
+        except IndexError:
+            return f"❌ Base branch '{base_branch}' not found."
     else:
         base = repo.active_branch
 
@@ -1129,20 +1136,20 @@ def git_create_branch(
     return f"Created branch '{branch_name}' from '{base.name}'"
 
 
-def git_checkout(repo: git.Repo, branch_name: str) -> str:
+def git_checkout(repo: Repo, branch_name: str) -> str:
     repo.git.checkout(branch_name)
     return f"Switched to branch '{branch_name}'"
 
 
 def git_init(repo_path: str) -> str:
     try:
-        repo = git.Repo.init(path=repo_path, mkdir=True)
+        repo = Repo.init(path=repo_path, mkdir=True)
         return f"Initialized empty Git repository in {repo.git_dir}"
     except Exception as e:
         return f"Error initializing repository: {str(e)}"
 
 
-def git_show(repo: git.Repo, revision: str) -> str:
+def git_show(repo: Repo, revision: str) -> str:
     commit = repo.commit(revision)
     output = [
         f"Commit: {commit.hexsha}\n"
@@ -1150,11 +1157,11 @@ def git_show(repo: git.Repo, revision: str) -> str:
         f"Date: {commit.authored_datetime}\n"
         f"Message: {commit.message}\n"
     ]
-    if commit.parents:
+    if commit.parents:  # Check if parents exist
         parent = commit.parents[0]
         diff = parent.diff(commit, create_patch=True)
     else:
-        diff = commit.diff(git.NULL_TREE, create_patch=True)
+        diff = commit.diff(Repo.NULL_TREE, create_patch=True)  # Use Repo.NULL_TREE
     for d in diff:
         output.append(f"\n--- {d.a_path}\n+++ {d.b_path}\n")
         output.append(d.diff.decode("utf-8"))
@@ -1162,7 +1169,7 @@ def git_show(repo: git.Repo, revision: str) -> str:
 
 
 def git_push(
-    repo: git.Repo,
+    repo: Repo,
     remote: str = "origin",
     branch: str | None = None,
     force: bool = False,
@@ -1172,12 +1179,18 @@ def git_push(
     logger = logging.getLogger(__name__)
 
     try:
-        remote_ref = repo.remote(remote)
-        remote_url = remote_ref.url
+        try:
+            remote_ref = repo.remote(remote)
+            remote_url = remote_ref.url
+        except ValueError:
+            return f"❌ Remote '{remote}' not found."
 
         # Determine branch to push
         if branch is None:
-            branch = repo.active_branch.name
+            try:
+                branch = repo.active_branch.name
+            except TypeError:  # Detached HEAD or no commits
+                return "❌ No active branch found. Please specify a branch to push."
 
         logger.debug(f"🚀 Pushing {branch} to {remote} ({remote_url})")
 
@@ -1485,7 +1498,7 @@ def git_push(
                     else f"Successfully pushed {branch} to {remote}"
                 )
 
-    except git.exc.GitCommandError as e:
+    except GitCommandError as e:
         logger.error(f"❌ Git command error during push: {e}")
         return f"Push failed: {str(e)}"
     except Exception as e:
@@ -1493,14 +1506,17 @@ def git_push(
         return f"Push error: {str(e)}"
 
 
-def git_pull(repo: git.Repo, remote: str = "origin", branch: str | None = None) -> str:
+def git_pull(repo: Repo, remote: str = "origin", branch: str | None = None) -> str:
     """Pull changes from remote repository"""
     try:
         remote_ref = repo.remote(remote)
 
         # Determine branch to pull
         if branch is None:
-            branch = repo.active_branch.name
+            try:
+                branch = repo.active_branch.name
+            except TypeError:  # Detached HEAD or no commits
+                return "❌ No active branch found. Please specify a branch to pull."
 
         # Execute pull
         pull_info = remote_ref.pull(branch)
@@ -1529,13 +1545,13 @@ def git_pull(repo: git.Repo, remote: str = "origin", branch: str | None = None) 
             else f"Successfully pulled from {remote}/{branch}"
         )
 
-    except git.exc.GitCommandError as e:
+    except GitCommandError as e:
         return f"Pull failed: {str(e)}"
     except Exception as e:
         return f"Pull error: {str(e)}"
 
 
-def git_diff_branches(repo: git.Repo, base_branch: str, compare_branch: str) -> str:
+def git_diff_branches(repo: Repo, base_branch: str, compare_branch: str) -> str:
     """Show differences between two branches"""
     try:
         # Get the commits for both branches
@@ -1565,13 +1581,13 @@ def git_diff_branches(repo: git.Repo, base_branch: str, compare_branch: str) -> 
 
         return "".join(output)
 
-    except git.exc.GitCommandError as e:
+    except GitCommandError as e:
         return f"Diff failed: {str(e)}"
     except Exception as e:
         return f"Diff error: {str(e)}"
 
 
-def git_rebase(repo: git.Repo, target_branch: str, interactive: bool = False) -> str:
+def git_rebase(repo: Repo, target_branch: str, interactive: bool = False) -> str:
     """Rebase current branch onto target branch"""
     try:
         current_branch = repo.active_branch.name
@@ -1599,14 +1615,14 @@ def git_rebase(repo: git.Repo, target_branch: str, interactive: bool = False) ->
             else:
                 return f"❌ Rebase failed: {result.stderr}"
 
-    except git.exc.GitCommandError as e:
+    except GitCommandError as e:
         return f"❌ Rebase failed: {str(e)}"
     except Exception as e:
         return f"❌ Rebase error: {str(e)}"
 
 
 def git_merge(
-    repo: git.Repo,
+    repo: Repo,
     source_branch: str,
     strategy: str = "merge",
     message: str | None = None,
@@ -1649,13 +1665,13 @@ def git_merge(
             else:
                 return f"❌ Merge failed: {result.stderr}"
 
-    except git.exc.GitCommandError as e:
+    except GitCommandError as e:
         return f"❌ Merge failed: {str(e)}"
     except Exception as e:
         return f"❌ Merge error: {str(e)}"
 
 
-def git_cherry_pick(repo: git.Repo, commit_hash: str, no_commit: bool = False) -> str:
+def git_cherry_pick(repo: Repo, commit_hash: str, no_commit: bool = False) -> str:
     """Cherry-pick a commit onto current branch"""
     try:
         # Use subprocess for reliable cherry-pick operation
@@ -1684,13 +1700,13 @@ def git_cherry_pick(repo: git.Repo, commit_hash: str, no_commit: bool = False) -
             else:
                 return f"❌ Cherry-pick failed: {result.stderr}"
 
-    except git.exc.GitCommandError as e:
+    except GitCommandError as e:
         return f"❌ Cherry-pick failed: {str(e)}"
     except Exception as e:
         return f"❌ Cherry-pick error: {str(e)}"
 
 
-def git_abort(repo: git.Repo, operation: str) -> str:
+def git_abort(repo: Repo, operation: str) -> str:
     """Abort an ongoing git operation (rebase, merge, cherry-pick)"""
     try:
         # Use subprocess for reliable abort operation
@@ -1714,13 +1730,13 @@ def git_abort(repo: git.Repo, operation: str) -> str:
         else:
             return f"❌ Failed to abort {operation}: {result.stderr}"
 
-    except git.exc.GitCommandError as e:
+    except GitCommandError as e:
         return f"❌ Abort failed: {str(e)}"
     except Exception as e:
         return f"❌ Abort error: {str(e)}"
 
 
-def git_continue(repo: git.Repo, operation: str) -> str:
+def git_continue(repo: Repo, operation: str) -> str:
     """Continue an ongoing git operation after resolving conflicts"""
     try:
         # Use subprocess for reliable continue operation
@@ -1752,7 +1768,7 @@ def git_continue(repo: git.Repo, operation: str) -> str:
             else:
                 return f"❌ Failed to continue {operation}: {result.stderr}"
 
-    except git.exc.GitCommandError as e:
+    except GitCommandError as e:
         return f"❌ Continue failed: {str(e)}"
     except Exception as e:
         return f"❌ Continue error: {str(e)}"
@@ -1782,9 +1798,9 @@ async def main(repository: Path | None) -> None:
 
     if repository is not None:
         try:
-            git.Repo(repository)
+            Repo(repository)
             logger.info(f"✅ Using repository at {repository}")
-        except git.InvalidGitRepositoryError:
+        except InvalidGitRepositoryError:
             logger.error(f"{repository} is not a valid Git repository")
             return
 
@@ -3350,9 +3366,9 @@ After pushing your changes, post the following summary comment on the PR and re-
             for root in roots_result.roots:
                 path = root.uri.path
                 try:
-                    git.Repo(path)
+                    Repo(path)
                     repo_paths.append(str(path))
-                except git.InvalidGitRepositoryError:
+                except InvalidGitRepositoryError:
                     pass
             return repo_paths
 
@@ -3404,7 +3420,7 @@ After pushing your changes, post the following summary comment on the PR and re-
                     return result  # Early return for INIT
 
                 # For all other commands, we need an existing repo
-                repo = git.Repo(repo_path)
+                repo = Repo(repo_path)
 
                 match name:
                     case GitTools.STATUS:
@@ -3467,7 +3483,7 @@ After pushing your changes, post the following summary comment on the PR and re-
                             arguments.get("max_count", 10),
                             arguments.get("oneline", False),
                             arguments.get("graph", False),
-                            arguments.get("format"),
+                            arguments.get("format_str"),  # Use format_str
                         )
                         result = [
                             TextContent(
@@ -3985,7 +4001,9 @@ if __name__ == "__main__":
 
     try:
         # Run the main async function of the server.
-        logger.info(f"Starting server directly for repository: {repo_path or 'Not specified'}")
+        logger.info(
+            f"Starting server directly for repository: {repo_path or 'Not specified'}"
+        )
         asyncio.run(main(repository=repo_path))
     except KeyboardInterrupt:
         logger.info("⌨️ Server process interrupted by user.")
