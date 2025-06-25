@@ -117,6 +117,8 @@ class InterceptingReadStream:
     """
     A wrapper around read streams that intercepts and preprocesses messages
     before they reach the MCP framework.
+
+    This properly delegates all async context manager methods to the original stream.
     """
 
     def __init__(self, original_stream):
@@ -153,6 +155,19 @@ class InterceptingReadStream:
             logger.error(f"Error in stream interception: {e}")
             # On error, return original line to avoid breaking protocol
             return line
+
+    # Delegate async context manager methods
+    async def __aenter__(self):
+        """Delegate async context manager entry to original stream."""
+        if hasattr(self.original_stream, "__aenter__"):
+            return await self.original_stream.__aenter__()
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        """Delegate async context manager exit to original stream."""
+        if hasattr(self.original_stream, "__aexit__"):
+            return await self.original_stream.__aexit__(exc_type, exc_val, exc_tb)
+        return None
 
     def __getattr__(self, name):
         """Delegate all other attributes to the original stream."""
