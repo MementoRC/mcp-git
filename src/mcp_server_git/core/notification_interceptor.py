@@ -169,6 +169,48 @@ class InterceptingReadStream:
             return await self.original_stream.__aexit__(exc_type, exc_val, exc_tb)
         return None
 
+    # Implement async iterator protocol
+    def __aiter__(self):
+        """Return self as async iterator."""
+        return self
+
+    async def __anext__(self):
+        """Get next message from the stream with interception."""
+        # This method makes the stream work with 'async for'
+        if hasattr(self.original_stream, "__anext__"):
+            # If original stream is an async iterator, delegate to it
+            try:
+                message = await self.original_stream.__anext__()
+                # Process the message if it's a string/bytes
+                if isinstance(message, (str, bytes)):
+                    if isinstance(message, bytes):
+                        raw_message = message.decode("utf-8").strip()
+                    else:
+                        raw_message = message.strip()
+
+                    if raw_message:
+                        processed = await self.interceptor.preprocess_message(
+                            raw_message
+                        )
+                        if processed is None:
+                            # Message was dropped, get next one
+                            return await self.__anext__()
+                        return (
+                            processed.encode("utf-8")
+                            if isinstance(message, bytes)
+                            else processed
+                        )
+
+                return message
+            except StopAsyncIteration:
+                raise
+        else:
+            # Fallback to readline for streams that don't support async iteration
+            line = await self.readline()
+            if not line:
+                raise StopAsyncIteration
+            return line
+
     def __getattr__(self, name):
         """Delegate all other attributes to the original stream."""
         return getattr(self.original_stream, name)
