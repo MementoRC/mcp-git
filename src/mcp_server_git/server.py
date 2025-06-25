@@ -3942,7 +3942,7 @@ After pushing your changes, post the following summary comment on the PR and re-
 
     try:
         if test_mode:
-            logger.info("🧪 Running in test mode - staying alive for CI testing...")
+            logger.info("🧪 Running in test mode - staying alive for CI testing.")
             # In test mode, just stay alive for a reasonable time for CI testing
             await asyncio.sleep(10)  # Stay alive for 10 seconds for CI test
             logger.info("🧪 Test mode completed successfully")
@@ -4026,6 +4026,7 @@ if __name__ == "__main__":
         # Run the main async function of the server.
         logger.info(
             f"Starting server directly for repository: {repo_path or 'Not specified'}"
+
         )
         asyncio.run(main(repository=repo_path))
     except KeyboardInterrupt:
