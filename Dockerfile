@@ -1,7 +1,8 @@
 FROM python:3.12-slim-bookworm
 
 # Install git and essential build tools, which are runtime and build dependencies for the server
-RUN apt-get update && apt-get install -y --no-install-recommends git build-essential pkg-config libssl-dev && rm -rf /var/lib/apt/lists/*
+# Also install curl for downloading uv
+RUN apt-get update && apt-get install -y --no-install-recommends git build-essential pkg-config libssl-dev curl && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
@@ -9,9 +10,18 @@ WORKDIR /app
 # This includes pyproject.toml, src/, tests/, etc.
 COPY . /app
 
-# Install the project and its dependencies
-# pip will read pyproject.toml to determine dependencies and the project itself
-RUN pip install .
+# Install uv
+# Pin a specific uv version for reproducibility.
+# As of this Dockerfile update, 0.1.37 is a recent stable version.
+ENV UV_VERSION 0.1.37
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh \
+    && mv /root/.cargo/bin/uv /usr/local/bin/uv \
+    && rm -rf /root/.cargo
+
+# Install the project and its dependencies using uv
+# uv pip install . will install the local project and its dependencies,
+# respecting uv.lock if present, similar to pip install .
+RUN uv pip install .
 
 # Set the entrypoint for the container
 # This uses the script defined in pyproject.toml under [project.scripts]

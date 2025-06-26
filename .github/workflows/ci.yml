@@ -432,6 +432,10 @@ jobs:
             sleep 10
           fi
         done
+        # The above steps (including 'Install uv fallback' and this retry loop)
+        # already provide significant resilience against cache failures by
+        # ensuring uv is installed and then retrying uv sync while clearing
+        # uv's local cache on each failure.
     
     - name: Configure Git for performance testing
       run: |
