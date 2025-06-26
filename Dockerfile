@@ -19,9 +19,8 @@ RUN curl -LsSf https://astral.sh/uv/install.sh | sh \
     && rm -rf $HOME/.local
 
 # Install the project and its dependencies using uv
-# uv pip install . will install the local project and its dependencies,
-# respecting uv.lock if present, similar to pip install .
-RUN uv pip install .
+# Use --system flag to install into the system Python environment in Docker
+RUN uv pip install --system .
 
 # Set the entrypoint for the container
 # This uses the script defined in pyproject.toml under [project.scripts]
