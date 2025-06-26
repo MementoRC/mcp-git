@@ -324,13 +324,10 @@ jobs:
     
     - name: Build Docker image with CI optimizations
       run: |
-        # CI-optimized Docker build with caching and resource limits
+        # CI-optimized Docker build without resource limits for reliability
         docker build \
           --progress=plain \
           --no-cache=false \
-          --build-arg BUILDKIT_INLINE_CACHE=1 \
-          --memory=2g \
-          --cpu-shares=1024 \
           -t mcp-server-git:test .
     
     - name: Test Docker image
@@ -405,14 +402,36 @@ jobs:
       with:
         python-version: ${{ env.PYTHON_VERSION }}
     
-    - name: Install uv
+    - name: Install uv with cache
       uses: astral-sh/setup-uv@v4
       with:
         enable-cache: true
         cache-dependency-glob: "uv.lock"
+      continue-on-error: true
     
-    - name: Install dependencies
-      run: uv sync --dev
+    - name: Install uv fallback (if cache failed)
+      if: failure()
+      uses: astral-sh/setup-uv@v4
+      with:
+        enable-cache: false
+    
+    - name: Install dependencies with retry
+      run: |
+        # Try with cache first, fallback without cache if it fails
+        for i in {1..3}; do
+          if uv sync --dev; then
+            echo "✅ Dependencies installed successfully"
+            break
+          else
+            echo "⚠️ Attempt $i failed, retrying without cache..."
+            uv cache clean
+            if [ $i -eq 3 ]; then
+              echo "❌ Failed to install dependencies after 3 attempts"
+              exit 1
+            fi
+            sleep 10
+          fi
+        done
     
     - name: Configure Git for performance testing
       run: |
