@@ -318,10 +318,20 @@ jobs:
     
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
+      with:
+        driver-opts: |
+          network=host
     
-    - name: Build Docker image
+    - name: Build Docker image with CI optimizations
       run: |
-        docker build -t mcp-server-git:test .
+        # CI-optimized Docker build with caching and resource limits
+        docker build \
+          --progress=plain \
+          --no-cache=false \
+          --build-arg BUILDKIT_INLINE_CACHE=1 \
+          --memory=2g \
+          --cpu-shares=1024 \
+          -t mcp-server-git:test .
     
     - name: Test Docker image
       run: |
