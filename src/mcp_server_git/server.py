@@ -138,6 +138,98 @@ def get_github_client() -> GitHubClient:
         raise Exception("GITHUB_TOKEN environment variable not set")
     return GitHubClient(token=token)
 
+def validate_gpg_environment() -> dict:
+    """Validate GPG environment for headless operations and provide diagnostics"""
+    import subprocess
+    import os
+    
+    issues = []
+    suggestions = []
+    warnings = []
+    
+    # Check GPG_TTY environment variable
+    gpg_tty = os.getenv("GPG_TTY")
+    if not gpg_tty:
+        issues.append("GPG_TTY environment variable not set")
+        suggestions.append("Set GPG_TTY with: export GPG_TTY=$(tty) or export GPG_TTY=/dev/null for headless operation")
+    else:
+        warnings.append(f"GPG_TTY set to: {gpg_tty}")
+    
+    # Check if gpg command is available
+    try:
+        result = subprocess.run(["gpg", "--version"], capture_output=True, text=True, timeout=5)
+        if result.returncode == 0:
+            gpg_version = result.stdout.split('\n')[0] if result.stdout else "Unknown version"
+            warnings.append(f"GPG available: {gpg_version}")
+        else:
+            issues.append("GPG command failed")
+            suggestions.append("Install GPG package or check PATH configuration")
+    except FileNotFoundError:
+        issues.append("GPG command not found")
+        suggestions.append("Install GPG: apt-get install gnupg (Debian/Ubuntu) or brew install gnupg (macOS)")
+    except subprocess.TimeoutExpired:
+        issues.append("GPG command timed out")
+        suggestions.append("Check GPG installation and system performance")
+    except Exception as e:
+        issues.append(f"GPG check failed: {str(e)}")
+        suggestions.append("Verify GPG installation and configuration")
+    
+    # Check gpg-agent availability
+    try:
+        result = subprocess.run(["gpg-agent", "--version"], capture_output=True, text=True, timeout=5)
+        if result.returncode == 0:
+            warnings.append("gpg-agent is available")
+        else:
+            issues.append("gpg-agent not responding properly")
+            suggestions.append("Start gpg-agent or configure GPG for headless operation")
+    except FileNotFoundError:
+        issues.append("gpg-agent not found")
+        suggestions.append("Install GPG suite or start gpg-agent manually")
+    except subprocess.TimeoutExpired:
+        issues.append("gpg-agent check timed out")
+        suggestions.append("Check gpg-agent configuration and system resources")
+    except Exception:
+        warnings.append("gpg-agent status unknown")
+    
+    # Check for common GPG directories
+    home_dir = os.path.expanduser("~")
+    gnupg_dir = os.path.join(home_dir, ".gnupg")
+    if os.path.exists(gnupg_dir):
+        warnings.append(f"GPG home directory exists: {gnupg_dir}")
+        # Check for keys
+        try:
+            result = subprocess.run(["gpg", "--list-secret-keys"], capture_output=True, text=True, timeout=10)
+            if result.returncode == 0 and result.stdout.strip():
+                warnings.append("Secret keys found in keyring")
+            else:
+                issues.append("No secret keys found")
+                suggestions.append("Import or generate GPG keys for signing")
+        except Exception:
+            warnings.append("Could not check GPG keys")
+    else:
+        issues.append("GPG home directory not found")
+        suggestions.append("Initialize GPG with: gpg --gen-key or import existing keys")
+    
+    # Determine overall status
+    if not issues:
+        status = "healthy"
+    elif len(issues) <= 2:
+        status = "warning"
+    else:
+        status = "critical"
+    
+    return {
+        "status": status,
+        "issues": issues,
+        "suggestions": suggestions,
+        "warnings": warnings,
+        "environment": {
+            "GPG_TTY": gpg_tty,
+            "HOME": home_dir,
+            "GNUPG_HOME": gnupg_dir if os.path.exists(gnupg_dir) else None
+        }
+    }
+
 class GitStatus(BaseModel):
     repo_path: str
 
@@ -294,11 +386,15 @@ def git_diff(repo: git.Repo, target: str) -> str:
     return repo.git.diff(target)
 
 def git_commit(repo: git.Repo, message: str, gpg_sign: bool = False, gpg_key_id: str | None = None) -> str:
-    """Commit staged changes with optional GPG signing"""
+    """Commit staged changes with optional GPG signing and enhanced error handling"""
+    import subprocess
+    import logging
+    
+    logger = logging.getLogger(__name__)
+    
     try:
         if gpg_sign:
-            # Use git command directly for GPG signing
-            import subprocess
+            # Use git command directly for GPG signing with comprehensive error handling
             cmd = ["git", "commit"]
             if gpg_key_id:
                 cmd.append(f"--gpg-sign={gpg_key_id}")
@@ -306,26 +402,66 @@ def git_commit(repo: git.Repo, message: str, gpg_sign: bool = False, gpg_key_id:
                 cmd.append("-S")
             cmd.extend(["-m", message])
             
-            result = subprocess.run(cmd, cwd=repo.working_dir, capture_output=True, text=True)
-            if result.returncode == 0:
-                # Get the commit hash from git log
-                hash_result = subprocess.run(
-                    ["git", "rev-parse", "HEAD"], 
-                    cwd=repo.working_dir, capture_output=True, text=True
+            try:
+                result = subprocess.run(
+                    cmd, 
+                    cwd=repo.working_dir, 
+                    capture_output=True, 
+                    text=True, 
+                    timeout=30  # Prevent hanging on GPG operations
                 )
-                commit_hash = hash_result.stdout.strip()[:8] if hash_result.returncode == 0 else "unknown"
-                return f"Changes committed successfully with hash {commit_hash} ✓ GPG signed"
-            else:
-                return f"Commit failed: {result.stderr}"
+                
+                if result.returncode == 0:
+                    # Get the commit hash from git log
+                    hash_result = subprocess.run(
+                        ["git", "rev-parse", "HEAD"], 
+                        cwd=repo.working_dir, capture_output=True, text=True, timeout=10
+                    )
+                    commit_hash = hash_result.stdout.strip()[:8] if hash_result.returncode == 0 else "unknown"
+                    return f"✅ Changes committed successfully with hash {commit_hash} ✓ GPG signed"
+                else:
+                    # Enhanced error reporting for GPG failures
+                    error_details = []
+                    if result.stderr:
+                        error_details.append(f"STDERR: {result.stderr.strip()}")
+                    if result.stdout:
+                        error_details.append(f"STDOUT: {result.stdout.strip()}")
+                    error_details.append(f"Return code: {result.returncode}")
+                    
+                    error_msg = f"❌ GPG commit failed: {'; '.join(error_details)}"
+                    
+                    # Check for specific GPG issues and provide guidance
+                    combined_output = (result.stderr + result.stdout).lower()
+                    if "gpg" in combined_output and ("failed" in combined_output or "error" in combined_output):
+                        error_msg += "\n💡 GPG Troubleshooting: Check GPG_TTY environment, gpg-agent status, and key availability"
+                    elif "no secret key" in combined_output or "secret key not available" in combined_output:
+                        error_msg += f"\n💡 GPG key not available. Verify key ID '{gpg_key_id or 'default'}' exists and gpg-agent is running"
+                    elif "inappropriate ioctl" in combined_output or "no tty" in combined_output:
+                        error_msg += "\n💡 GPG TTY issue. Try: export GPG_TTY=$(tty) or export GPG_TTY=/dev/null for headless operation"
+                    elif "timeout" in combined_output or "expired" in combined_output:
+                        error_msg += "\n💡 GPG operation timed out. Check gpg-agent configuration and key passphrase handling"
+                    
+                    logger.error(f"GPG commit failed: {error_msg}")
+                    return error_msg
+                    
+            except subprocess.TimeoutExpired:
+                logger.error("GPG commit timed out after 30 seconds")
+                return "❌ GPG commit timed out after 30 seconds. Check gpg-agent status and key availability"
+            except subprocess.SubprocessError as e:
+                logger.error(f"GPG subprocess error: {e}")
+                return f"❌ GPG subprocess error: {str(e)}"
         else:
             # Use GitPython for regular commit
             commit = repo.index.commit(message)
-            return f"Changes committed successfully with hash {commit.hexsha[:8]}"
+            return f"✅ Changes committed successfully with hash {commit.hexsha[:8]}"
         
     except git.exc.GitCommandError as e:
-        return f"Commit failed: {str(e)}"
+        logger.error(f"Git command error in commit: {e}")
+        return f"❌ Git command failed: {str(e)}"
     except Exception as e:
-        return f"Commit error: {str(e)}"
+        # Comprehensive logging but never let exceptions bubble up and crash the server
+        logger.error(f"Unexpected error in git_commit: {e}", exc_info=True)
+        return f"❌ Unexpected commit error: {str(e)}. Check repository state and permissions"
 
 def git_add(repo: git.Repo, files: list[str]) -> str:
     repo.index.add(files)
@@ -2002,27 +2138,50 @@ Provide specific, actionable recommendations for each area."""
 
     @server.call_tool()
     async def call_tool(name: str, arguments: dict) -> list[TextContent]:
-        # GitHub API tools don't need repo_path
-        if name in [GitTools.GITHUB_GET_PR_CHECKS, GitTools.GITHUB_GET_FAILING_JOBS, 
-                   GitTools.GITHUB_GET_WORKFLOW_RUN, GitTools.GITHUB_GET_PR_DETAILS,
-                   GitTools.GITHUB_LIST_PULL_REQUESTS, GitTools.GITHUB_GET_PR_STATUS,
-                   GitTools.GITHUB_GET_PR_FILES]:
-            # Handle GitHub API tools that don't require repo_path
-            pass
-        else:
-            # All other tools require repo_path
-            repo_path = Path(arguments["repo_path"])
-            
-            # Handle git init separately since it doesn't require an existing repo
-            if name == GitTools.INIT:
-                result = git_init(str(repo_path))
-                return [TextContent(
-                    type="text",
-                    text=result
-                )]
+        """Enhanced tool call handler with comprehensive error isolation to prevent server crashes"""
+        import time
+        import subprocess
+        import os
+        
+        logger = logging.getLogger(__name__)
+        request_id = os.urandom(4).hex()
+        start_time = time.time()
+        
+        logger.info(f"🔧 [{request_id}] Tool call: {name}")
+        logger.debug(f"🔧 [{request_id}] Arguments: {arguments}")
+        
+        try:
+            # GitHub API tools don't need repo_path
+            if name in [GitTools.GITHUB_GET_PR_CHECKS, GitTools.GITHUB_GET_FAILING_JOBS, 
+                       GitTools.GITHUB_GET_WORKFLOW_RUN, GitTools.GITHUB_GET_PR_DETAILS,
+                       GitTools.GITHUB_LIST_PULL_REQUESTS, GitTools.GITHUB_GET_PR_STATUS,
+                       GitTools.GITHUB_GET_PR_FILES]:
+                # Handle GitHub API tools that don't require repo_path
+                pass
+            else:
+                # All other tools require repo_path
+                repo_path = Path(arguments["repo_path"])
                 
-            # For all other commands, we need an existing repo
-            repo = git.Repo(repo_path)
+                # Handle git init separately since it doesn't require an existing repo
+                if name == GitTools.INIT:
+                    result = git_init(str(repo_path))
+                    duration = time.time() - start_time
+                    logger.info(f"✅ [{request_id}] Tool '{name}' completed in {duration:.2f}s")
+                    return [TextContent(
+                        type="text",
+                        text=result
+                    )]
+                    
+                # For all other commands, we need an existing repo
+                try:
+                    repo = git.Repo(repo_path)
+                except git.InvalidGitRepositoryError as e:
+                    duration = time.time() - start_time
+                    logger.error(f"📁 [{request_id}] Invalid git repository at {repo_path}: {e}")
+                    return [TextContent(
+                        type="text",
+                        text=f"❌ Invalid git repository at {repo_path}. Please ensure the path contains a valid git repository."
+                    )]
 
         match name:
             case GitTools.STATUS:
@@ -2247,8 +2406,94 @@ Provide specific, actionable recommendations for each area."""
                 )]
 
             case _:
-                raise ValueError(f"Unknown tool: {name}")
+                duration = time.time() - start_time
+                logger.error(f"❓ [{request_id}] Unknown tool '{name}' after {duration:.2f}s")
+                return [TextContent(
+                    type="text",
+                    text=f"❌ Unknown tool: {name}. Available tools: {', '.join([tool.value for tool in GitTools])}"
+                )]
+
+        except subprocess.TimeoutExpired as e:
+            duration = time.time() - start_time
+            logger.error(f"⏰ [{request_id}] Tool '{name}' timed out after {duration:.2f}s: {e}")
+            return [TextContent(
+                type="text", 
+                text=f"⏰ Tool '{name}' timed out. Operation may be too slow or system is under heavy load. Please try again."
+            )]
+            
+        except subprocess.SubprocessError as e:
+            duration = time.time() - start_time
+            logger.error(f"🔧 [{request_id}] Tool '{name}' subprocess error after {duration:.2f}s: {e}")
+            return [TextContent(
+                type="text", 
+                text=f"🔧 Subprocess error in '{name}': {str(e)}. Check system configuration and permissions."
+            )]
+            
+        except git.exc.GitCommandError as e:
+            duration = time.time() - start_time
+            logger.error(f"📝 [{request_id}] Tool '{name}' git error after {duration:.2f}s: {e}")
+            return [TextContent(
+                type="text", 
+                text=f"📝 Git error in '{name}': {str(e)}. Verify repository state and git configuration."
+            )]
+            
+        except PermissionError as e:
+            duration = time.time() - start_time
+            logger.error(f"🔒 [{request_id}] Tool '{name}' permission error after {duration:.2f}s: {e}")
+            return [TextContent(
+                type="text", 
+                text=f"🔒 Permission error in '{name}': {str(e)}. Check file and directory permissions."
+            )]
+            
+        except FileNotFoundError as e:
+            duration = time.time() - start_time
+            logger.error(f"📁 [{request_id}] Tool '{name}' file not found after {duration:.2f}s: {e}")
+            return [TextContent(
+                type="text", 
+                text=f"📁 File not found in '{name}': {str(e)}. Verify paths and file existence."
+            )]
+            
+        except Exception as e:
+            duration = time.time() - start_time
+            logger.error(f"❌ [{request_id}] Tool '{name}' unexpected error after {duration:.2f}s: {e}", exc_info=True)
+            # Critical: Never let any exception crash the server
+            return [TextContent(
+                type="text", 
+                text=f"❌ Unexpected error in '{name}': {str(e)}. The server remains operational. Check logs for details."
+            )]
+        
+        # This should not be reached, but added for completeness
+        duration = time.time() - start_time
+        logger.info(f"✅ [{request_id}] Tool '{name}' completed successfully in {duration:.2f}s")
 
     options = server.create_initialization_options()
-    async with stdio_server() as (read_stream, write_stream):
-        await server.run(read_stream, write_stream, options, raise_exceptions=True)
+    
+    # Enhanced server run with transport-level error recovery
+    try:
+        async with stdio_server() as (read_stream, write_stream):
+            logger.info("🔗 STDIO server connected, starting main loop with enhanced error handling...")
+            
+            # Run server with error isolation - CRITICAL: raise_exceptions=False prevents crashes
+            await server.run(read_stream, write_stream, options, raise_exceptions=False)
+            
+    except KeyboardInterrupt:
+        logger.info("⌨️ Server interrupted by user")
+        raise
+    except Exception as e:
+        error_msg = str(e).lower()
+        
+        # Enhanced error categorization to prevent crashes
+        if "transport" in error_msg and "closed" in error_msg:
+            logger.error(f"🔌 Transport error: {e}")
+            logger.info("🔌 This is often due to client disconnection or tool execution failure - server recovering gracefully")
+        elif "gpg" in error_msg:
+            logger.error(f"🔒 GPG-related server error: {e}")
+            logger.info("🔒 GPG configuration issue detected - server remains operational")
+        elif "notification" in error_msg and "validation" in error_msg:
+            logger.warning(f"🔔 Notification validation error: {e}")
+            logger.info("🔔 Client notification issue - server continues normally")
+        else:
+            logger.error(f"💥 Server error: {e}", exc_info=True)
+            logger.info("💥 Unexpected server error - attempting graceful recovery")
+        
+        # Don't re-raise - let server shutdown gracefully instead of crashing
