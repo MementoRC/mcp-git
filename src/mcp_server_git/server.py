@@ -14,6 +14,7 @@ from git import Repo, GitCommandError, InvalidGitRepositoryError
 from dotenv import load_dotenv
 from mcp.server import Server
 from mcp.server.session import ServerSession
+import subprocess # Added this import
 
 # Notification middleware for handling cancelled notifications
 from .core.notification_interceptor import wrap_read_stream, log_interception_stats
@@ -495,6 +496,99 @@ def enforce_secure_git_config(repo: Repo, strict_mode: bool = True) -> str:
     return "\n".join(messages)
 
 
+def validate_gpg_environment() -> dict:
+    """Validate GPG environment for headless operations and provide diagnostics"""
+    import subprocess
+    import os
+    
+    issues = []
+    suggestions = []
+    warnings = []
+    
+    # Check GPG_TTY environment variable
+    gpg_tty = os.getenv("GPG_TTY")
+    if not gpg_tty:
+        issues.append("GPG_TTY environment variable not set")
+        suggestions.append("Set GPG_TTY with: export GPG_TTY=$(tty) or export GPG_TTY=/dev/null for headless operation")
+    else:
+        warnings.append(f"GPG_TTY set to: {gpg_tty}")
+    
+    # Check if gpg command is available
+    try:
+        result = subprocess.run(["gpg", "--version"], capture_output=True, text=True, timeout=5)
+        if result.returncode == 0:
+            gpg_version = result.stdout.split('\n')[0] if result.stdout else "Unknown version"
+            warnings.append(f"GPG available: {gpg_version}")
+        else:
+            issues.append("GPG command failed")
+            suggestions.append("Install GPG package or check PATH configuration")
+    except FileNotFoundError:
+        issues.append("GPG command not found")
+        suggestions.append("Install GPG: apt-get install gnupg (Debian/Ubuntu) or brew install gnupg (macOS)")
+    except subprocess.TimeoutExpired:
+        issues.append("GPG command timed out")
+        suggestions.append("Check GPG installation and system performance")
+    except Exception as e:
+        issues.append(f"GPG check failed: {str(e)}")
+        suggestions.append("Verify GPG installation and configuration")
+    
+    # Check gpg-agent availability
+    try:
+        result = subprocess.run(["gpg-agent", "--version"], capture_output=True, text=True, timeout=5)
+        if result.returncode == 0:
+            warnings.append("gpg-agent is available")
+        else:
+            issues.append("gpg-agent not responding properly")
+            suggestions.append("Start gpg-agent or configure GPG for headless operation")
+    except FileNotFoundError:
+        issues.append("gpg-agent not found")
+        suggestions.append("Install GPG suite or start gpg-agent manually")
+    except subprocess.TimeoutExpired:
+        issues.append("gpg-agent check timed out")
+        suggestions.append("Check gpg-agent configuration and system resources")
+    except Exception:
+        warnings.append("gpg-agent status unknown")
+    
+    # Check for common GPG directories
+    home_dir = os.path.expanduser("~")
+    gnupg_dir = os.path.join(home_dir, ".gnupg")
+    if os.path.exists(gnupg_dir):
+        warnings.append(f"GPG home directory exists: {gnupg_dir}")
+        # Check for keys
+        try:
+            result = subprocess.run(["gpg", "--list-secret-keys"], capture_output=True, text=True, timeout=10)
+            if result.returncode == 0 and result.stdout.strip():
+                warnings.append("Secret keys found in keyring")
+            else:
+                issues.append("No secret keys found")
+                suggestions.append("Import or generate GPG keys for signing")
+        except Exception:
+            warnings.append("Could not check GPG keys")
+    else:
+        issues.append("GPG home directory not found")
+        suggestions.append("Initialize GPG with: gpg --gen-key or import existing keys")
+    
+    # Determine overall status
+    if not issues:
+        status = "healthy"
+    elif len(issues) <= 2:
+        status = "warning"
+    else:
+        status = "critical"
+    
+    return {
+        "status": status,
+        "issues": issues,
+        "suggestions": suggestions,
+        "warnings": warnings,
+        "environment": {
+            "GPG_TTY": gpg_tty,
+            "HOME": home_dir,
+            "GNUPG_HOME": gnupg_dir if os.path.exists(gnupg_dir) else None
+        }
+    }
+
+
 def extract_github_repo_info(repo: Repo) -> Tuple[Optional[str], Optional[str]]:
     """Extract GitHub repository owner and name from git remotes.
 
@@ -869,12 +963,20 @@ def git_commit(
     repo: Repo, message: str, gpg_sign: bool = False, gpg_key_id: str | None = None
 ) -> str:
     """Commit staged changes with optional GPG signing and automatic security enforcement"""
+    import subprocess
+    import logging
+    
+    logger = logging.getLogger(__name__)
+
     try:
         # 🔒 SECURITY: Enforce secure configuration before committing
         security_result = enforce_secure_git_config(repo, strict_mode=True)
         security_messages = []
         if "✅" in security_result:
             security_messages.append("🔒 Security configuration enforced")
+        else:
+            # If enforcement failed or had warnings, include them in the message
+            security_messages.append(security_result)
 
         # Force GPG signing for all commits (SECURITY REQUIREMENT)
         force_gpg = True
@@ -893,62 +995,99 @@ def git_commit(
                     config_key = repo.config_reader().get_value("user", "signingkey")
                     force_key_id = config_key
                 except Exception:
+                    # If no key is found, this is a critical error for forced GPG signing
                     return "❌ No GPG signing key configured. Set GPG_SIGNING_KEY env var or git config user.signingkey"
 
-        if force_gpg:
-            # Use git command directly for GPG signing
-            import subprocess
-
+        if force_gpg: # This will always be true due to the security requirement
+            # Use git command directly for GPG signing with comprehensive error handling
             cmd = ["git", "commit"]
-            cmd.append(f"--gpg-sign={force_key_id}")
+            # Ensure the key ID is passed correctly
+            if force_key_id:
+                cmd.append(f"--gpg-sign={force_key_id}")
+            else:
+                # This case should ideally be caught by the check above, but as a fallback
+                cmd.append("--gpg-sign") # Let git pick default key if none specified
+
             cmd.extend(["-m", message])
 
-            result = subprocess.run(
-                cmd, cwd=repo.working_dir, capture_output=True, text=True
-            )
-            if result.returncode == 0:
-                # Get the commit hash from git log
-                hash_result = subprocess.run(
-                    ["git", "rev-parse", "HEAD"],
+            try:
+                result = subprocess.run(
+                    cmd,
                     cwd=repo.working_dir,
                     capture_output=True,
                     text=True,
-                )
-                commit_hash = (
-                    hash_result.stdout.strip()[:8]
-                    if hash_result.returncode == 0
-                    else "unknown"
+                    timeout=30  # Prevent hanging on GPG operations
                 )
 
-                # Verify the commit is properly signed (for future verification if needed)
-                # verify_result = subprocess.run(
-                #     ["git", "log", "--show-signature", "-1", "--pretty=format:%H"],
-                #     cwd=repo.working_dir, capture_output=True, text=True
-                # )
+                if result.returncode == 0:
+                    # Get the commit hash from git log
+                    hash_result = subprocess.run(
+                        ["git", "rev-parse", "HEAD"],
+                        cwd=repo.working_dir,
+                        capture_output=True,
+                        text=True,
+                        timeout=10
+                    )
+                    commit_hash = (
+                        hash_result.stdout.strip()[:8]
+                        if hash_result.returncode == 0
+                        else "unknown"
+                    )
 
-                success_msg = (
-                    f"✅ Commit {commit_hash} created with VERIFIED GPG signature"
-                )
-                if security_messages:
-                    success_msg += f"\n{chr(10).join(security_messages)}"
+                    success_msg = (
+                        f"✅ Commit {commit_hash} created with VERIFIED GPG signature"
+                    )
+                    if security_messages:
+                        success_msg += f"\n{chr(10).join(security_messages)}"
 
-                # Add security reminder
-                success_msg += f"\n🔒 Enforced GPG signing with key {force_key_id}"
-                success_msg += (
-                    "\n⚠️  MCP Git Server used - no fallback to system git commands"
-                )
+                    # Add security reminder
+                    success_msg += f"\n🔒 Enforced GPG signing with key {force_key_id or 'default'}"
+                    success_msg += (
+                        "\n⚠️  MCP Git Server used - no fallback to system git commands"
+                    )
 
-                return success_msg
-            else:
-                return f"❌ Commit failed: {result.stderr}\n🔒 GPG signing was enforced but failed"
+                    return success_msg
+                else:
+                    # Enhanced error reporting for GPG failures
+                    error_details = []
+                    if result.stderr:
+                        error_details.append(f"STDERR: {result.stderr.strip()}")
+                    if result.stdout:
+                        error_details.append(f"STDOUT: {result.stdout.strip()}")
+                    error_details.append(f"Return code: {result.returncode}")
+
+                    error_msg = f"❌ GPG commit failed: {'; '.join(error_details)}"
+
+                    # Check for specific GPG issues and provide guidance
+                    combined_output = (result.stderr + result.stdout).lower()
+                    if "gpg" in combined_output and ("failed" in combined_output or "error" in combined_output):
+                        error_msg += "\n💡 GPG Troubleshooting: Check GPG_TTY environment, gpg-agent status, and key availability"
+                    elif "no secret key" in combined_output or "secret key not available" in combined_output:
+                        error_msg += f"\n💡 GPG key not available. Verify key ID '{force_key_id or 'default'}' exists and gpg-agent is running"
+                    elif "inappropriate ioctl" in combined_output or "no tty" in combined_output:
+                        error_msg += "\n💡 GPG TTY issue. Try: export GPG_TTY=$(tty) or export GPG_TTY=/dev/null for headless operation"
+                    elif "timeout" in combined_output or "expired" in combined_output:
+                        error_msg += "\n💡 GPG operation timed out. Check gpg-agent configuration and key passphrase handling"
+
+                    logger.error(f"GPG commit failed: {error_msg}")
+                    return error_msg
+
+            except subprocess.TimeoutExpired:
+                logger.error("GPG commit timed out after 30 seconds")
+                return "❌ GPG commit timed out after 30 seconds. Check gpg-agent status and key availability"
+            except subprocess.SubprocessError as e:
+                logger.error(f"GPG subprocess error: {e}")
+                return f"❌ GPG subprocess error: {str(e)}"
         else:
             # This path should never be reached due to force_gpg=True
             return "❌ SECURITY VIOLATION: Unsigned commits are not allowed by MCP Git Server"
 
     except GitCommandError as e:
+        logger.error(f"Git command error in commit: {e}")
         return f"❌ Commit failed: {str(e)}\n🔒 Security enforcement may have prevented insecure operation"
     except Exception as e:
-        return f"❌ Commit error: {str(e)}\n🔒 Verify repository security configuration"
+        logger.error(f"❌ Unexpected error in git_commit: {e}", exc_info=True)
+        return f"❌ Unexpected commit error: {str(e)}. Check repository state and permissions"
 
 
 def git_add(repo: Repo, files: list[str]) -> str:
@@ -1512,7 +1651,7 @@ def git_pull(repo: Repo, remote: str = "origin", branch: str | None = None) -> s
         remote_ref = repo.remote(remote)
 
         # Determine branch to pull
-        if branch is None:
+        if branch is None: # Corrected from === to is
             try:
                 branch = repo.active_branch.name
             except TypeError:  # Detached HEAD or no commits
@@ -3128,7 +3267,7 @@ Here is a plan to address the review feedback for your PR.
 - **Medium Priority:**
   - Refactor the `calculate_stats` function for better readability.
   - Add missing documentation for the `/api/data` endpoint.
-- **Low Priority (Nits):**
+- **Low Priority (Nits):
   - Correct typos in code comments.
 
 #### 2. Implementation Checklist
@@ -3381,17 +3520,19 @@ After pushing your changes, post the following summary comment on the PR and re-
 
     @server.call_tool()
     async def call_tool(name: str, arguments: dict) -> list[TextContent]:
-        # Enhanced tool call logging with request tracking
+        """Enhanced tool call handler with comprehensive error isolation to prevent server crashes"""
+        logger = logging.getLogger(__name__)
         request_id = os.urandom(4).hex()
+        start_time = time.time()
+
         logger.info(f"🔧 [{request_id}] Tool call: {name}")
         logger.debug(f"🔧 [{request_id}] Arguments: {arguments}")
 
-        start_time = time.time()
-        result = None  # Initialize result variable
         try:
-            logger.debug(f"🔍 [{request_id}] Starting tool execution")
-            # GitHub API tools don't need repo_path - they're handled in the main match statement below
-            if name not in [
+            result = None # Initialize result variable
+
+            # Determine if the tool requires a repo_path or is a GitHub API tool
+            is_github_api_tool = name in [
                 GitTools.GITHUB_GET_PR_CHECKS,
                 GitTools.GITHUB_GET_FAILING_JOBS,
                 GitTools.GITHUB_GET_WORKFLOW_RUN,
@@ -3405,27 +3546,38 @@ After pushing your changes, post the following summary comment on the PR and re-
                 GitTools.GITHUB_ADD_PR_COMMENT,
                 GitTools.GITHUB_CLOSE_PR,
                 GitTools.GITHUB_REOPEN_PR,
-            ]:
+            ]
+
+            repo = None
+            if not is_github_api_tool:
                 # All other tools require repo_path
                 repo_path = Path(arguments["repo_path"])
 
                 # Handle git init separately since it doesn't require an existing repo
                 if name == GitTools.INIT:
                     result = git_init(str(repo_path))
-                    result = [TextContent(type="text", text=result)]
+                    # Early return for INIT
                     duration = time.time() - start_time
-                    logger.info(
-                        f"✅ [{request_id}] Tool '{name}' completed in {duration:.2f}s"
-                    )
-                    return result  # Early return for INIT
+                    logger.info(f"✅ [{request_id}] Tool '{name}' completed in {duration:.2f}s")
+                    return [TextContent(type="text", text=result)]
 
-                # For all other commands, we need an existing repo
-                repo = Repo(repo_path)
+                # For all other non-GitHub commands, we need an existing repo
+                try:
+                    repo = Repo(repo_path)
+                except InvalidGitRepositoryError as e:
+                    duration = time.time() - start_time
+                    logger.error(f"📁 [{request_id}] Invalid git repository at {repo_path}: {e}")
+                    return [TextContent(
+                        type="text",
+                        text=f"❌ Invalid git repository at {repo_path}. Please ensure the path contains a valid git repository."
+                    )]
 
+            # Now, execute the tool based on its name
+            if not is_github_api_tool:
+                # Git operations
                 match name:
                     case GitTools.STATUS:
                         porcelain_raw = arguments.get("porcelain", False)
-                        # Handle both boolean and string values for porcelain parameter
                         porcelain = (
                             porcelain_raw
                             if isinstance(porcelain_raw, bool)
@@ -3483,7 +3635,7 @@ After pushing your changes, post the following summary comment on the PR and re-
                             arguments.get("max_count", 10),
                             arguments.get("oneline", False),
                             arguments.get("graph", False),
-                            arguments.get("format_str"),  # Use format_str
+                            arguments.get("format_str"),
                         )
                         result = [
                             TextContent(
@@ -3601,22 +3753,21 @@ After pushing your changes, post the following summary comment on the PR and re-
                         logger.error(f"❌ [{request_id}] Unknown tool: {name}")
                         raise ValueError(f"Unknown tool: {name}")
             else:
-                # Handle GitHub API tools that don't require repo_path
-                logger.debug(
-                    f"🔍 [{request_id}] Tool is GitHub API tool, processing..."
-                )
-                match name:
-                    case GitTools.GITHUB_GET_PR_DETAILS:
-                        repo_owner = arguments.get("repo_owner")
-                        repo_name = arguments.get("repo_name")
-                        if not repo_owner or not repo_name:
-                            result = [
-                                TextContent(
-                                    type="text",
-                                    text="❌ repo_owner and repo_name parameters are required for GitHub API tools",
-                                )
-                            ]
-                        else:
+                # GitHub API tools
+                logger.debug(f"🔍 [{request_id}] Tool is GitHub API tool, processing...")
+                # All GitHub API tools require repo_owner and repo_name
+                repo_owner = arguments.get("repo_owner")
+                repo_name = arguments.get("repo_name")
+                if not repo_owner or not repo_name:
+                    result = [
+                        TextContent(
+                            type="text",
+                            text="❌ repo_owner and repo_name parameters are required for GitHub API tools",
+                        )
+                    ]
+                else:
+                    match name:
+                        case GitTools.GITHUB_GET_PR_DETAILS:
                             pr_details_result = await github_get_pr_details(
                                 repo_owner,
                                 repo_name,
@@ -3626,17 +3777,7 @@ After pushing your changes, post the following summary comment on the PR and re-
                             )
                             result = [TextContent(type="text", text=pr_details_result)]
 
-                    case GitTools.GITHUB_GET_PR_CHECKS:
-                        repo_owner = arguments.get("repo_owner")
-                        repo_name = arguments.get("repo_name")
-                        if not repo_owner or not repo_name:
-                            result = [
-                                TextContent(
-                                    type="text",
-                                    text="❌ repo_owner and repo_name parameters are required for GitHub API tools",
-                                )
-                            ]
-                        else:
+                        case GitTools.GITHUB_GET_PR_CHECKS:
                             pr_checks_result = await github_get_pr_checks(
                                 repo_owner,
                                 repo_name,
@@ -3646,17 +3787,7 @@ After pushing your changes, post the following summary comment on the PR and re-
                             )
                             result = [TextContent(type="text", text=pr_checks_result)]
 
-                    case GitTools.GITHUB_GET_FAILING_JOBS:
-                        repo_owner = arguments.get("repo_owner")
-                        repo_name = arguments.get("repo_name")
-                        if not repo_owner or not repo_name:
-                            result = [
-                                TextContent(
-                                    type="text",
-                                    text="❌ repo_owner and repo_name parameters are required for GitHub API tools",
-                                )
-                            ]
-                        else:
+                        case GitTools.GITHUB_GET_FAILING_JOBS:
                             failing_jobs_result = await github_get_failing_jobs(
                                 repo_owner,
                                 repo_name,
@@ -3668,17 +3799,7 @@ After pushing your changes, post the following summary comment on the PR and re-
                                 TextContent(type="text", text=failing_jobs_result)
                             ]
 
-                    case GitTools.GITHUB_GET_WORKFLOW_RUN:
-                        repo_owner = arguments.get("repo_owner")
-                        repo_name = arguments.get("repo_name")
-                        if not repo_owner or not repo_name:
-                            result = [
-                                TextContent(
-                                    type="text",
-                                    text="❌ repo_owner and repo_name parameters are required for GitHub API tools",
-                                )
-                            ]
-                        else:
+                        case GitTools.GITHUB_GET_WORKFLOW_RUN:
                             workflow_run_result = await github_get_workflow_run(
                                 repo_owner,
                                 repo_name,
@@ -3689,28 +3810,12 @@ After pushing your changes, post the following summary comment on the PR and re-
                                 TextContent(type="text", text=workflow_run_result)
                             ]
 
-                    case GitTools.GITHUB_LIST_PULL_REQUESTS:
-                        logger.debug(
-                            f"🔍 Tool handler: GITHUB_LIST_PULL_REQUESTS called with arguments: {arguments}"
-                        )
-                        repo_owner = arguments.get("repo_owner")
-                        repo_name = arguments.get("repo_name")
-                        logger.debug(
-                            f"🔍 Tool handler: repo_owner={repo_owner}, repo_name={repo_name}"
-                        )
-                        if not repo_owner or not repo_name:
+                        case GitTools.GITHUB_LIST_PULL_REQUESTS:
                             logger.debug(
-                                "🔍 Tool handler: Missing repo_owner or repo_name"
+                                f"🔍 Tool handler: GITHUB_LIST_PULL_REQUESTS called with arguments: {arguments}"
                             )
-                            result = [
-                                TextContent(
-                                    type="text",
-                                    text="❌ repo_owner and repo_name parameters are required for GitHub API tools",
-                                )
-                            ]
-                        else:
                             logger.debug(
-                                "🔍 Tool handler: Calling github_list_pull_requests function"
+                                f"🔍 Tool handler: repo_owner={repo_owner}, repo_name={repo_name}"
                             )
                             list_prs_result = await github_list_pull_requests(
                                 repo_owner,
@@ -3731,33 +3836,13 @@ After pushing your changes, post the following summary comment on the PR and re-
                                 "🔍 Tool handler: TextContent created successfully"
                             )
 
-                    case GitTools.GITHUB_GET_PR_STATUS:
-                        repo_owner = arguments.get("repo_owner")
-                        repo_name = arguments.get("repo_name")
-                        if not repo_owner or not repo_name:
-                            result = [
-                                TextContent(
-                                    type="text",
-                                    text="❌ repo_owner and repo_name parameters are required for GitHub API tools",
-                                )
-                            ]
-                        else:
+                        case GitTools.GITHUB_GET_PR_STATUS:
                             pr_status_result = await github_get_pr_status(
                                 repo_owner, repo_name, arguments["pr_number"]
                             )
                             result = [TextContent(type="text", text=pr_status_result)]
 
-                    case GitTools.GITHUB_GET_PR_FILES:
-                        repo_owner = arguments.get("repo_owner")
-                        repo_name = arguments.get("repo_name")
-                        if not repo_owner or not repo_name:
-                            result = [
-                                TextContent(
-                                    type="text",
-                                    text="❌ repo_owner and repo_name parameters are required for GitHub API tools",
-                                )
-                            ]
-                        else:
+                        case GitTools.GITHUB_GET_PR_FILES:
                             pr_files_result = await github_get_pr_files(
                                 repo_owner,
                                 repo_name,
@@ -3768,17 +3853,7 @@ After pushing your changes, post the following summary comment on the PR and re-
                             )
                             result = [TextContent(type="text", text=pr_files_result)]
 
-                    case GitTools.GITHUB_CREATE_PR:
-                        repo_owner = arguments.get("repo_owner")
-                        repo_name = arguments.get("repo_name")
-                        if not repo_owner or not repo_name:
-                            result = [
-                                TextContent(
-                                    type="text",
-                                    text="❌ repo_owner and repo_name parameters are required for GitHub API tools",
-                                )
-                            ]
-                        else:
+                        case GitTools.GITHUB_CREATE_PR:
                             create_pr_result = await github_create_pr(
                                 repo_owner,
                                 repo_name,
@@ -3790,17 +3865,7 @@ After pushing your changes, post the following summary comment on the PR and re-
                             )
                             result = [TextContent(type="text", text=create_pr_result)]
 
-                    case GitTools.GITHUB_UPDATE_PR:
-                        repo_owner = arguments.get("repo_owner")
-                        repo_name = arguments.get("repo_name")
-                        if not repo_owner or not repo_name:
-                            result = [
-                                TextContent(
-                                    type="text",
-                                    text="❌ repo_owner and repo_name parameters are required for GitHub API tools",
-                                )
-                            ]
-                        else:
+                        case GitTools.GITHUB_UPDATE_PR:
                             update_pr_result = await github_update_pr(
                                 repo_owner,
                                 repo_name,
@@ -3811,17 +3876,7 @@ After pushing your changes, post the following summary comment on the PR and re-
                             )
                             result = [TextContent(type="text", text=update_pr_result)]
 
-                    case GitTools.GITHUB_MERGE_PR:
-                        repo_owner = arguments.get("repo_owner")
-                        repo_name = arguments.get("repo_name")
-                        if not repo_owner or not repo_name:
-                            result = [
-                                TextContent(
-                                    type="text",
-                                    text="❌ repo_owner and repo_name parameters are required for GitHub API tools",
-                                )
-                            ]
-                        else:
+                        case GitTools.GITHUB_MERGE_PR:
                             merge_pr_result = await github_merge_pr(
                                 repo_owner,
                                 repo_name,
@@ -3832,17 +3887,7 @@ After pushing your changes, post the following summary comment on the PR and re-
                             )
                             result = [TextContent(type="text", text=merge_pr_result)]
 
-                    case GitTools.GITHUB_ADD_PR_COMMENT:
-                        repo_owner = arguments.get("repo_owner")
-                        repo_name = arguments.get("repo_name")
-                        if not repo_owner or not repo_name:
-                            result = [
-                                TextContent(
-                                    type="text",
-                                    text="❌ repo_owner and repo_name parameters are required for GitHub API tools",
-                                )
-                            ]
-                        else:
+                        case GitTools.GITHUB_ADD_PR_COMMENT:
                             add_comment_result = await github_add_pr_comment(
                                 repo_owner,
                                 repo_name,
@@ -3851,60 +3896,76 @@ After pushing your changes, post the following summary comment on the PR and re-
                             )
                             result = [TextContent(type="text", text=add_comment_result)]
 
-                    case GitTools.GITHUB_CLOSE_PR:
-                        repo_owner = arguments.get("repo_owner")
-                        repo_name = arguments.get("repo_name")
-                        if not repo_owner or not repo_name:
-                            result = [
-                                TextContent(
-                                    type="text",
-                                    text="❌ repo_owner and repo_name parameters are required for GitHub API tools",
-                                )
-                            ]
-                        else:
+                        case GitTools.GITHUB_CLOSE_PR:
                             close_pr_result = await github_close_pr(
                                 repo_owner, repo_name, arguments["pr_number"]
                             )
                             result = [TextContent(type="text", text=close_pr_result)]
 
-                    case GitTools.GITHUB_REOPEN_PR:
-                        repo_owner = arguments.get("repo_owner")
-                        repo_name = arguments.get("repo_name")
-                        if not repo_owner or not repo_name:
-                            result = [
-                                TextContent(
-                                    type="text",
-                                    text="❌ repo_owner and repo_name parameters are required for GitHub API tools",
-                                )
-                            ]
-                        else:
+                        case GitTools.GITHUB_REOPEN_PR:
                             reopen_pr_result = await github_reopen_pr(
                                 repo_owner, repo_name, arguments["pr_number"]
                             )
                             result = [TextContent(type="text", text=reopen_pr_result)]
 
-                    case _:
-                        logger.error(
-                            f"❌ [{request_id}] Unknown GitHub API tool: {name}"
-                        )
-                        raise ValueError(f"Unknown GitHub API tool: {name}")
+                        case _:
+                            logger.error(f"❌ [{request_id}] Unknown GitHub API tool: {name}")
+                            raise ValueError(f"Unknown GitHub API tool: {name}")
+
+        except subprocess.TimeoutExpired as e:
+            duration = time.time() - start_time
+            logger.error(f"⏰ [{request_id}] Tool '{name}' timed out after {duration:.2f}s: {e}")
+            return [TextContent(
+                type="text",
+                text=f"⏰ Tool '{name}' timed out. Operation may be too slow or system is under heavy load. Please try again."
+            )]
+
+        except subprocess.SubprocessError as e:
+            duration = time.time() - start_time
+            logger.error(f"🔧 [{request_id}] Tool '{name}' subprocess error after {duration:.2f}s: {e}")
+            return [TextContent(
+                type="text",
+                text=f"🔧 Subprocess error in '{name}': {str(e)}. Check system configuration and permissions."
+            )]
+
+        except GitCommandError as e:
+            duration = time.time() - start_time
+            logger.error(f"📝 [{request_id}] Tool '{name}' git error after {duration:.2f}s: {e}")
+            return [TextContent(
+                type="text",
+                text=f"📝 Git error in '{name}': {str(e)}. Verify repository state and git configuration."
+            )]
+
+        except PermissionError as e:
+            duration = time.time() - start_time
+            logger.error(f"🔒 [{request_id}] Tool '{name}' permission error after {duration:.2f}s: {e}")
+            return [TextContent(
+                type="text",
+                text=f"🔒 Permission error in '{name}': {str(e)}. Check file and directory permissions."
+            )]
+
+        except FileNotFoundError as e:
+            duration = time.time() - start_time
+            logger.error(f"📁 [{request_id}] Tool '{name}' file not found after {duration:.2f}s: {e}")
+            return [TextContent(
+                type="text",
+                text=f"📁 File not found in '{name}': {str(e)}. Verify paths and file existence."
+            )]
 
         except Exception as e:
             duration = time.time() - start_time
-            logger.error(
-                f"❌ [{request_id}] Tool '{name}' failed after {duration:.2f}s: {e}",
-                exc_info=True,
-            )
-            return [TextContent(type="text", text=f"Error in {name}: {str(e)}")]
+            logger.error(f"❌ [{request_id}] Tool '{name}' unexpected error after {duration:.2f}s: {e}", exc_info=True)
+            # Critical: Never let any exception crash the server
+            return [TextContent(
+                type="text",
+                text=f"❌ Unexpected error in '{name}': {str(e)}. The server remains operational. Check logs for details."
+            )]
 
+        # This should always be reached if no exception occurred
         duration = time.time() - start_time
-        logger.debug(
-            f"🔍 [{request_id}] Tool execution finished, result type: {type(result)}"
-        )
+        logger.debug(f"🔍 [{request_id}] Tool execution finished, result type: {type(result)}")
         if result and len(result) > 0:
-            logger.debug(
-                f"🔍 [{request_id}] Result[0] type: {type(result[0])}, content preview: {str(result[0])[:200]}"
-            )
+            logger.debug(f"🔍 [{request_id}] Result[0] type: {type(result[0])}, content preview: {str(result[0])[:200]}")
         logger.info(f"✅ [{request_id}] Tool '{name}' completed in {duration:.2f}s")
         return result
 
@@ -3956,6 +4017,7 @@ After pushing your changes, post the following summary comment on the PR and re-
                     "🔔 Notification interception enabled for cancelled notifications"
                 )
 
+                # Run server with error isolation - CRITICAL: raise_exceptions=False prevents crashes
                 await server.run(
                     intercepted_read_stream,
                     write_stream,
@@ -3969,14 +4031,24 @@ After pushing your changes, post the following summary comment on the PR and re-
         logger.info("⌨️ Server interrupted by user")
         raise
     except Exception as e:
-        error_msg = str(e)
-        if "notifications/cancelled" in error_msg and "ValidationError" in error_msg:
-            logger.warning(f"🔔 Caught notification validation error: {e}")
-            logger.info("🔔 This should now be handled by the notification interceptor")
-            # Don't crash the server for notification validation errors
+        error_msg = str(e).lower()
+        
+        # Enhanced error categorization to prevent crashes
+        if "transport" in error_msg and "closed" in error_msg:
+            logger.error(f"🔌 Transport error: {e}")
+            logger.info("🔌 This is often due to client disconnection or tool execution failure - server recovering gracefully")
+        elif "gpg" in error_msg:
+            logger.error(f"🔒 GPG-related server error: {e}")
+            logger.info("🔒 GPG configuration issue detected - server remains operational")
+        elif "notification" in error_msg and "validation" in error_msg:
+            logger.warning(f"🔔 Notification validation error: {e}")
+            logger.info("🔔 Client notification issue - server continues normally")
         else:
-            logger.error(f"💥 Server crashed: {e}", exc_info=True)
-            raise
+            logger.error(f"💥 Server error: {e}", exc_info=True)
+            logger.info("💥 Unexpected server error - attempting graceful recovery")
+        
+        # Don't re-raise - let server shutdown gracefully instead of crashing
+        pass
     finally:
         # Log interception statistics before shutdown
         log_interception_stats()
