@@ -1,7 +1,7 @@
 FROM python:3.12-slim-bookworm
 
-# Install git, which is a runtime dependency for the server
-RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
+# Install git and essential build tools, which are runtime and build dependencies for the server
+RUN apt-get update && apt-get install -y --no-install-recommends git build-essential pkg-config libssl-dev && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 

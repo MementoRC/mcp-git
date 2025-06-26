@@ -442,8 +442,8 @@ jobs:
         git checkout main
         
         # Run performance-focused tests
-        cd /home/runner/work/mcp-git/mcp-git
-        uv run pytest tests/ -k "not slow" --tb=short -v
+        cd "$GITHUB_WORKSPACE"
+        uv run pytest tests/ -k "not slow" --tb=short -v --timeout=600
 
   # Summary job to check overall CI status
   status_check:
