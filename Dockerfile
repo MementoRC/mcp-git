@@ -12,11 +12,11 @@ COPY . /app
 
 # Install uv
 # Pin a specific uv version for reproducibility.
-# As of this Dockerfile update, 0.1.37 is a recent stable version.
-ENV UV_VERSION 0.1.37
+ENV UV_VERSION=0.1.37
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh \
-    && mv /root/.cargo/bin/uv /usr/local/bin/uv \
-    && rm -rf /root/.cargo
+    && . $HOME/.local/bin/env \
+    && mv $HOME/.local/bin/uv /usr/local/bin/uv \
+    && rm -rf $HOME/.local
 
 # Install the project and its dependencies using uv
 # uv pip install . will install the local project and its dependencies,
