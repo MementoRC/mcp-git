@@ -337,8 +337,8 @@ jobs:
     
     - name: Validate Docker image structure
       run: |
-        # Test image contains expected files
-        docker run --rm mcp-server-git:test sh -c "python -c 'import mcp_server_git; print(\"✅ Package installed correctly\")'"
+        # Test image contains expected files by overriding the entrypoint
+        docker run --rm --entrypoint python mcp-server-git:test -c "import mcp_server_git; print('✅ Package installed correctly')"
 
   # Job 5: Security and Dependency Scanning
   security:
