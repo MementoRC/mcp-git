@@ -11,7 +11,7 @@ import time
 from unittest.mock import patch
 from pathlib import Path
 
-from src.mcp_server_git.session import (
+from mcp_server_git.session import (
     Session,
     SessionManager,
     SessionState,
