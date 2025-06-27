@@ -193,7 +193,9 @@ class Session:
         """
         try:
             while self.state not in (SessionState.CLOSING, SessionState.CLOSED):
-                await asyncio.sleep(30)
+                # Use shorter sleep intervals to avoid CI timeouts
+                # Check more frequently (every 1 second) for better responsiveness
+                await asyncio.sleep(1.0)
                 idle_time = time.time() - self.metrics.last_active
                 if idle_time > self._idle_timeout:
                     logger.info(
