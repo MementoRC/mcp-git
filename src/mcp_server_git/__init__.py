@@ -5,6 +5,9 @@ import sys
 import os
 from datetime import datetime
 from .server import main as serve
+from .session import Session, SessionManager
+
+__all__ = ["Session", "SessionManager", "main"]
 
 
 @click.command()
