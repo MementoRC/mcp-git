@@ -16,9 +16,15 @@ from dataclasses import dataclass, field
 
 from mcp.server.session import ServerSession
 
-from .error_handling import ErrorContext, classify_error, CircuitBreaker, get_circuit_breaker
+from .error_handling import (
+    ErrorContext,
+    classify_error,
+    CircuitBreaker,
+    get_circuit_breaker,
+)
 
 logger = logging.getLogger(__name__)
+
 
 class SessionState(Enum):
     CREATED = auto()
@@ -27,6 +33,7 @@ class SessionState(Enum):
     ERROR = auto()
     CLOSING = auto()
     CLOSED = auto()
+
 
 @dataclass
 class SessionMetrics:
@@ -48,6 +55,7 @@ class SessionMetrics:
             "uptime": time.time() - self.start_time,
             "idle_time": time.time() - self.last_active,
         }
+
 
 class Session:
     """
@@ -90,7 +98,9 @@ class Session:
     async def start(self):
         async with self._lock:
             if self.state in (SessionState.CLOSED, SessionState.CLOSING):
-                logger.warning(f"Session {self.session_id} cannot be started (already closed)")
+                logger.warning(
+                    f"Session {self.session_id} cannot be started (already closed)"
+                )
                 return
             self.state = SessionState.ACTIVE
             self.metrics.state_transitions += 1
@@ -102,7 +112,9 @@ class Session:
     async def pause(self):
         async with self._lock:
             if self.state != SessionState.ACTIVE:
-                logger.warning(f"Session {self.session_id} cannot be paused (not active)")
+                logger.warning(
+                    f"Session {self.session_id} cannot be paused (not active)"
+                )
                 return
             self.state = SessionState.PAUSED
             self.metrics.state_transitions += 1
@@ -111,7 +123,9 @@ class Session:
     async def resume(self):
         async with self._lock:
             if self.state != SessionState.PAUSED:
-                logger.warning(f"Session {self.session_id} cannot be resumed (not paused)")
+                logger.warning(
+                    f"Session {self.session_id} cannot be resumed (not paused)"
+                )
                 return
             self.state = SessionState.ACTIVE
             self.metrics.state_transitions += 1
@@ -145,13 +159,17 @@ class Session:
         """
         async with self._lock:
             if self.state != SessionState.ACTIVE:
-                logger.warning(f"Session {self.session_id} is not active (state={self.state})")
+                logger.warning(
+                    f"Session {self.session_id} is not active (state={self.state})"
+                )
                 raise RuntimeError("Session is not active")
             self.metrics.command_count += 1
             self.metrics.last_active = time.time()
         try:
             if not self._circuit.allow_request():
-                raise RuntimeError(f"Session circuit breaker is open for {self.session_id}")
+                raise RuntimeError(
+                    f"Session circuit breaker is open for {self.session_id}"
+                )
             # Placeholder: actual command handling logic should be injected/called here
             logger.debug(f"Session {self.session_id} handling command: {command_name}")
             # Simulate command execution
@@ -161,7 +179,9 @@ class Session:
             error_ctx = classify_error(e, operation=command_name)
             self._error_context = error_ctx
             self._circuit.record_failure()
-            logger.error(f"Session {self.session_id} error in command '{command_name}': {e}")
+            logger.error(
+                f"Session {self.session_id} error in command '{command_name}': {e}"
+            )
             # Optionally: escalate or handle error context
             raise
         else:
@@ -176,7 +196,9 @@ class Session:
                 await asyncio.sleep(30)
                 idle_time = time.time() - self.metrics.last_active
                 if idle_time > self._idle_timeout:
-                    logger.info(f"Session {self.session_id} idle for {idle_time:.1f}s, closing due to timeout")
+                    logger.info(
+                        f"Session {self.session_id} idle for {idle_time:.1f}s, closing due to timeout"
+                    )
                     self.metrics.idle_timeouts += 1
                     await self.close()
                     break
@@ -198,7 +220,10 @@ class Session:
         return self._circuit.get_stats()
 
     def __repr__(self):
-        return f"<Session id={self.session_id} state={self.state.name} user={self.user}>"
+        return (
+            f"<Session id={self.session_id} state={self.state.name} user={self.user}>"
+        )
+
 
 class SessionManager:
     """
@@ -212,13 +237,23 @@ class SessionManager:
         self._idle_timeout = idle_timeout
 
     async def create_session(
-        self, session_id: str, user: Optional[str] = None, repository: Optional[Path] = None
+        self,
+        session_id: str,
+        user: Optional[str] = None,
+        repository: Optional[Path] = None,
     ) -> Session:
         async with self._lock:
             if session_id in self._sessions:
-                logger.warning(f"Session {session_id} already exists, returning existing session")
+                logger.warning(
+                    f"Session {session_id} already exists, returning existing session"
+                )
                 return self._sessions[session_id]
-            session = Session(session_id, user=user, repository=repository, idle_timeout=self._idle_timeout)
+            session = Session(
+                session_id,
+                user=user,
+                repository=repository,
+                idle_timeout=self._idle_timeout,
+            )
             self._sessions[session_id] = session
             await session.start()
             logger.info(f"SessionManager: Created and started session {session_id}")
@@ -245,7 +280,10 @@ class SessionManager:
             now = time.time()
             for session_id, session in self._sessions.items():
                 idle_time = now - session.metrics.last_active
-                if session.state == SessionState.ACTIVE and idle_time > self._idle_timeout:
+                if (
+                    session.state == SessionState.ACTIVE
+                    and idle_time > self._idle_timeout
+                ):
                     to_close.append(session_id)
             for session_id in to_close:
                 logger.info(f"SessionManager: Cleaning up idle session {session_id}")
@@ -258,7 +296,9 @@ class SessionManager:
 
     async def get_metrics(self) -> Dict[str, Any]:
         async with self._lock:
-            return {sid: session.get_metrics() for sid, session in self._sessions.items()}
+            return {
+                sid: session.get_metrics() for sid, session in self._sessions.items()
+            }
 
     async def shutdown(self):
         """
