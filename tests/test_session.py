@@ -20,6 +20,29 @@ from mcp_server_git.session import (
 # Import error handling for integration testing if needed in future
 
 
+@pytest.fixture(autouse=True)
+async def cleanup_sessions():
+    """Automatically cleanup any running sessions after each test to prevent hanging."""
+    yield
+    # After each test, ensure all sessions are properly closed
+    try:
+        # Get all running tasks
+        tasks = [task for task in asyncio.all_tasks() if not task.done()]
+        
+        # Cancel session-related tasks
+        for task in tasks:
+            task_name = str(task)
+            if any(keyword in task_name.lower() for keyword in ['session', 'idle', 'cleanup', '_cleanup_loop']):
+                task.cancel()
+        
+        # Wait for cancellation with timeout
+        if tasks:
+            await asyncio.wait(tasks, timeout=0.1, return_when=asyncio.ALL_COMPLETED)
+            
+    except Exception:
+        pass  # Ignore cleanup errors to prevent test failures
+
+
 class TestSessionMetrics:
     """Test SessionMetrics functionality."""
 
@@ -68,31 +91,36 @@ class TestSession:
     async def test_session_lifecycle(self):
         """Test complete session lifecycle: start -> pause -> resume -> close."""
         session = Session("lifecycle-test", idle_timeout=60)
+        
+        try:
+            # Test start
+            await session.start()
+            assert session.state == SessionState.ACTIVE
+            assert session.is_active
+            assert session.metrics.state_transitions == 1
 
-        # Test start
-        await session.start()
-        assert session.state == SessionState.ACTIVE
-        assert session.is_active
-        assert session.metrics.state_transitions == 1
+            # Test pause
+            await session.pause()
+            assert session.state == SessionState.PAUSED
+            assert not session.is_active
+            assert session.metrics.state_transitions == 2
 
-        # Test pause
-        await session.pause()
-        assert session.state == SessionState.PAUSED
-        assert not session.is_active
-        assert session.metrics.state_transitions == 2
+            # Test resume
+            await session.resume()
+            assert session.state == SessionState.ACTIVE
+            assert session.is_active
+            assert session.metrics.state_transitions == 3
 
-        # Test resume
-        await session.resume()
-        assert session.state == SessionState.ACTIVE
-        assert session.is_active
-        assert session.metrics.state_transitions == 3
-
-        # Test close
-        await session.close()
-        assert session.state == SessionState.CLOSED
-        assert not session.is_active
-        assert session.is_closed
-        assert session.metrics.state_transitions == 5  # ACTIVE -> CLOSING -> CLOSED
+            # Test close
+            await session.close()
+            assert session.state == SessionState.CLOSED
+            assert not session.is_active
+            assert session.is_closed
+            assert session.metrics.state_transitions == 5  # ACTIVE -> CLOSING -> CLOSED
+        finally:
+            # Ensure session is always closed
+            if not session.is_closed:
+                await session.close()
 
     @pytest.mark.asyncio
     async def test_session_invalid_state_transitions(self):
@@ -331,16 +359,20 @@ class TestSessionManager:
         """Test SessionManager shutdown functionality."""
         manager = SessionManager()
 
-        # Create multiple sessions
-        await manager.create_session("shutdown1")
-        await manager.create_session("shutdown2")
-        await manager.create_session("shutdown3")
+        try:
+            # Create multiple sessions
+            await manager.create_session("shutdown1")
+            await manager.create_session("shutdown2")
+            await manager.create_session("shutdown3")
 
-        # Shutdown manager
-        await manager.shutdown()
+            # Shutdown manager
+            await manager.shutdown()
 
-        # All sessions should be closed and removed
-        assert len(manager._sessions) == 0
+            # All sessions should be closed and removed
+            assert len(manager._sessions) == 0
+        finally:
+            # Ensure manager is always shut down
+            await manager.shutdown()
 
     @pytest.mark.asyncio
     async def test_concurrent_session_operations(self):
