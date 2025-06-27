@@ -39,21 +39,28 @@ class SessionState(Enum):
 class SessionMetrics:
     start_time: float = field(default_factory=time.time)
     last_active: float = field(default_factory=time.time)
+    last_heartbeat: float = field(default_factory=time.time)
     error_count: int = 0
     command_count: int = 0
     idle_timeouts: int = 0
+    heartbeat_timeouts: int = 0
+    heartbeat_count: int = 0
     state_transitions: int = 0
 
     def as_dict(self) -> Dict[str, Any]:
         return {
             "start_time": self.start_time,
             "last_active": self.last_active,
+            "last_heartbeat": self.last_heartbeat,
             "error_count": self.error_count,
             "command_count": self.command_count,
             "idle_timeouts": self.idle_timeouts,
+            "heartbeat_timeouts": self.heartbeat_timeouts,
+            "heartbeat_count": self.heartbeat_count,
             "state_transitions": self.state_transitions,
             "uptime": time.time() - self.start_time,
             "idle_time": time.time() - self.last_active,
+            "heartbeat_age": time.time() - self.last_heartbeat,
         }
 
 
@@ -69,6 +76,7 @@ class Session:
         user: Optional[str] = None,
         repository: Optional[Path] = None,
         idle_timeout: float = 900.0,  # 15 minutes default
+        heartbeat_timeout: float = 60.0,  # 1 minute default
     ):
         self.session_id = session_id
         self.user = user
@@ -79,6 +87,7 @@ class Session:
         self._error_context: Optional[ErrorContext] = None
         self._circuit: CircuitBreaker = get_circuit_breaker(f"session-{session_id}")
         self._idle_timeout = idle_timeout
+        self._heartbeat_timeout = heartbeat_timeout
         self._cleanup_task: Optional[asyncio.Task] = None
         self._server_session: Optional[ServerSession] = None
         self._closed_event = asyncio.Event()
@@ -104,7 +113,9 @@ class Session:
                 return
             self.state = SessionState.ACTIVE
             self.metrics.state_transitions += 1
-            self.metrics.last_active = time.time()
+            now = time.time()
+            self.metrics.last_active = now
+            self.metrics.last_heartbeat = now
             logger.info(f"Session {self.session_id} started")
             if not self._cleanup_task:
                 self._cleanup_task = asyncio.create_task(self._idle_cleanup_loop())
@@ -132,13 +143,13 @@ class Session:
             self.metrics.last_active = time.time()
             logger.info(f"Session {self.session_id} resumed")
 
-    async def close(self):
+    async def close(self, reason: Optional[str] = None):
         async with self._lock:
             if self.state in (SessionState.CLOSING, SessionState.CLOSED):
                 return
             self.state = SessionState.CLOSING
             self.metrics.state_transitions += 1
-            logger.info(f"Session {self.session_id} closing...")
+            logger.info(f"Session {self.session_id} closing..." + (f" Reason: {reason}" if reason else ""))
             if self._cleanup_task:
                 self._cleanup_task.cancel()
                 try:
@@ -189,25 +200,46 @@ class Session:
 
     async def _idle_cleanup_loop(self):
         """
-        Periodically checks for idle timeout and closes the session if idle.
+        Periodically checks for idle and heartbeat timeouts and closes the session if needed.
         """
         try:
             while self.state not in (SessionState.CLOSING, SessionState.CLOSED):
-                # Use shorter sleep intervals to avoid CI timeouts
-                # Check more frequently (every 1 second) for better responsiveness
                 await asyncio.sleep(1.0)
-                idle_time = time.time() - self.metrics.last_active
+                now = time.time()
+                idle_time = now - self.metrics.last_active
+                heartbeat_age = now - self.metrics.last_heartbeat
                 if idle_time > self._idle_timeout:
                     logger.info(
-                        f"Session {self.session_id} idle for {idle_time:.1f}s, closing due to timeout"
+                        f"Session {self.session_id} idle for {idle_time:.1f}s, closing due to idle timeout"
                     )
                     self.metrics.idle_timeouts += 1
-                    await self.close()
+                    await self.close(reason="idle timeout")
+                    break
+                if self._heartbeat_timeout > 0 and heartbeat_age > self._heartbeat_timeout:
+                    logger.info(
+                        f"Session {self.session_id} heartbeat timeout ({heartbeat_age:.1f}s > {self._heartbeat_timeout:.1f}s), closing"
+                    )
+                    self.metrics.heartbeat_timeouts += 1
+                    await self.close(reason="heartbeat timeout")
                     break
         except asyncio.CancelledError:
             logger.debug(f"Session {self.session_id} idle cleanup task cancelled")
         except Exception as e:
             logger.error(f"Session {self.session_id} idle cleanup error: {e}")
+
+    async def handle_heartbeat(self):
+        """
+        Handle a heartbeat signal for this session.
+        Updates heartbeat metrics and last_heartbeat timestamp.
+        """
+        async with self._lock:
+            if self.state in (SessionState.CLOSING, SessionState.CLOSED):
+                logger.warning(f"Session {self.session_id} received heartbeat but is closed")
+                return
+            now = time.time()
+            self.metrics.last_heartbeat = now
+            self.metrics.heartbeat_count += 1
+            logger.debug(f"Session {self.session_id} heartbeat received at {now}")
 
     def get_metrics(self) -> Dict[str, Any]:
         return self.metrics.as_dict()
@@ -233,10 +265,11 @@ class SessionManager:
     Provides session creation, lookup, cleanup, and metrics.
     """
 
-    def __init__(self, idle_timeout: float = 900.0):
+    def __init__(self, idle_timeout: float = 900.0, heartbeat_timeout: float = 60.0):
         self._sessions: Dict[str, Session] = {}
         self._lock = asyncio.Lock()
         self._idle_timeout = idle_timeout
+        self._heartbeat_timeout = heartbeat_timeout
 
     async def create_session(
         self,
@@ -255,6 +288,7 @@ class SessionManager:
                 user=user,
                 repository=repository,
                 idle_timeout=self._idle_timeout,
+                heartbeat_timeout=self._heartbeat_timeout,
             )
             self._sessions[session_id] = session
             await session.start()
