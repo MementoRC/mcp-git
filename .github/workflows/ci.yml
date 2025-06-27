@@ -462,7 +462,7 @@ jobs:
         git add feature.txt
         git commit -m "Add feature"
         
-        git checkout main
+        git checkout master
         
         # Run performance-focused tests
         cd "$GITHUB_WORKSPACE"
