@@ -326,3 +326,245 @@ def reset_error_stats() -> None:
         "recovered_errors": 0,
         "critical_errors": 0,
     }
+
+
+# Circuit Breaker Pattern Implementation
+
+
+class CircuitState(Enum):
+    """States of a circuit breaker."""
+
+    CLOSED = "closed"  # Normal operation, allowing requests
+    OPEN = "open"  # Failing fast, not allowing requests
+    HALF_OPEN = "half_open"  # Testing if system has recovered
+
+
+class CircuitOpenError(Exception):
+    """Error raised when a circuit is open and rejects a request."""
+
+    pass
+
+
+class CircuitBreaker:
+    """
+    Implements the circuit breaker pattern to prevent cascading failures.
+
+    The circuit breaker has three states:
+    - CLOSED: Normal operation, requests are allowed
+    - OPEN: Circuit is tripped, requests fail fast
+    - HALF_OPEN: Testing recovery, limited requests allowed
+    """
+
+    def __init__(
+        self,
+        name: str,
+        failure_threshold: int = 5,
+        recovery_timeout: float = 30.0,
+        half_open_max_calls: int = 1,
+    ):
+        self.name = name
+        self.failure_threshold = failure_threshold
+        self.recovery_timeout = recovery_timeout
+        self.half_open_max_calls = half_open_max_calls
+
+        self.state = CircuitState.CLOSED
+        self.failure_count = 0
+        self.last_failure_time = 0.0
+        self.half_open_calls = 0
+
+        # Metrics
+        self._total_requests = 0
+        self._successful_requests = 0
+        self._failed_requests = 0
+        self._rejected_requests = 0
+
+    def reset(self) -> None:
+        """Reset the circuit breaker to closed state."""
+        self.state = CircuitState.CLOSED
+        self.failure_count = 0
+        self.last_failure_time = 0.0
+        self.half_open_calls = 0
+        logger.info(f"Circuit {self.name} reset to CLOSED state")
+
+    def record_failure(self) -> None:
+        """Record a failure and potentially trip the circuit."""
+        self.failure_count += 1
+        self.last_failure_time = time.time()
+        self._failed_requests += 1
+
+        if (
+            self.state == CircuitState.CLOSED
+            and self.failure_count >= self.failure_threshold
+        ):
+            logger.warning(
+                f"Circuit {self.name} tripped after {self.failure_count} failures"
+            )
+            self.state = CircuitState.OPEN
+        elif self.state == CircuitState.HALF_OPEN:
+            logger.warning(f"Circuit {self.name} reopened after test failure")
+            self.state = CircuitState.OPEN
+            self.half_open_calls = 0
+
+    def record_success(self) -> None:
+        """Record a success and potentially reset the circuit."""
+        self._successful_requests += 1
+
+        if self.state == CircuitState.HALF_OPEN:
+            self.reset()
+            logger.info(f"Circuit {self.name} closed after successful test")
+        elif self.state == CircuitState.CLOSED:
+            # Reset failure count on successful operation in CLOSED state
+            self.failure_count = 0
+
+    def allow_request(self) -> bool:
+        """Check if a request should be allowed based on circuit state."""
+        self._total_requests += 1
+
+        if self.state == CircuitState.CLOSED:
+            return True
+
+        if self.state == CircuitState.OPEN:
+            # Check if recovery timeout has elapsed
+            if time.time() - self.last_failure_time >= self.recovery_timeout:
+                logger.info(f"Circuit {self.name} entering half-open state for testing")
+                self.state = CircuitState.HALF_OPEN
+                self.half_open_calls = 0
+            else:
+                self._rejected_requests += 1
+                return False  # Still open, fail fast
+
+        if self.state == CircuitState.HALF_OPEN:
+            if self.half_open_calls < self.half_open_max_calls:
+                self.half_open_calls += 1
+                return True
+            else:
+                self._rejected_requests += 1
+                return False
+
+        return True
+
+    @property
+    def failure_rate(self) -> float:
+        """Calculate the current failure rate."""
+        if self._total_requests == 0:
+            return 0.0
+        return self._failed_requests / self._total_requests
+
+    @property
+    def success_rate(self) -> float:
+        """Calculate the current success rate."""
+        if self._total_requests == 0:
+            return 0.0
+        return self._successful_requests / self._total_requests
+
+    def get_stats(self) -> Dict[str, Any]:
+        """Get circuit breaker statistics."""
+        return {
+            "name": self.name,
+            "state": self.state.value,
+            "failure_count": self.failure_count,
+            "failure_threshold": self.failure_threshold,
+            "recovery_timeout": self.recovery_timeout,
+            "total_requests": self._total_requests,
+            "successful_requests": self._successful_requests,
+            "failed_requests": self._failed_requests,
+            "rejected_requests": self._rejected_requests,
+            "failure_rate": self.failure_rate,
+            "success_rate": self.success_rate,
+            "time_since_last_failure": time.time() - self.last_failure_time
+            if self.last_failure_time > 0
+            else 0,
+        }
+
+
+def with_circuit_breaker(circuit: CircuitBreaker):
+    """Decorator to apply circuit breaker to a function."""
+
+    def decorator(func: Callable[..., T]) -> Callable[..., T]:
+        @functools.wraps(func)
+        async def async_wrapper(*args: Any, **kwargs: Any) -> T:
+            if not circuit.allow_request():
+                raise CircuitOpenError(f"Circuit {circuit.name} is open")
+
+            try:
+                result = await func(*args, **kwargs)
+                circuit.record_success()
+                return result
+            except Exception:
+                circuit.record_failure()
+                raise
+
+        @functools.wraps(func)
+        def sync_wrapper(*args: Any, **kwargs: Any) -> T:
+            if not circuit.allow_request():
+                raise CircuitOpenError(f"Circuit {circuit.name} is open")
+
+            try:
+                result = func(*args, **kwargs)
+                circuit.record_success()
+                return result
+            except Exception:
+                circuit.record_failure()
+                raise
+
+        # Return appropriate wrapper based on whether function is async
+        if asyncio.iscoroutinefunction(func):
+            return async_wrapper
+        else:
+            return sync_wrapper
+
+    return decorator
+
+
+# Global circuit breaker registry
+_circuit_breakers: Dict[str, CircuitBreaker] = {}
+
+
+def get_circuit_breaker(
+    name: str,
+    failure_threshold: int = 5,
+    recovery_timeout: float = 30.0,
+    half_open_max_calls: int = 1,
+) -> CircuitBreaker:
+    """Get or create a circuit breaker by name."""
+    if name not in _circuit_breakers:
+        _circuit_breakers[name] = CircuitBreaker(
+            name=name,
+            failure_threshold=failure_threshold,
+            recovery_timeout=recovery_timeout,
+            half_open_max_calls=half_open_max_calls,
+        )
+    return _circuit_breakers[name]
+
+
+def get_all_circuit_breakers() -> Dict[str, CircuitBreaker]:
+    """Get all registered circuit breakers."""
+    return _circuit_breakers.copy()
+
+
+def reset_circuit_breaker(name: str) -> bool:
+    """Reset a specific circuit breaker by name."""
+    if name in _circuit_breakers:
+        _circuit_breakers[name].reset()
+        return True
+    return False
+
+
+def reset_all_circuit_breakers() -> None:
+    """Reset all circuit breakers (useful for testing)."""
+    for circuit in _circuit_breakers.values():
+        circuit.reset()
+
+
+def remove_circuit_breaker(name: str) -> bool:
+    """Remove a circuit breaker from the registry."""
+    if name in _circuit_breakers:
+        del _circuit_breakers[name]
+        return True
+    return False
+
+
+def clear_circuit_breakers() -> None:
+    """Clear all circuit breakers (useful for testing)."""
+    global _circuit_breakers
+    _circuit_breakers = {}
