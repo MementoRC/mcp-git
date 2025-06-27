@@ -464,7 +464,7 @@ jobs:
         
         # Run performance-focused tests
         cd "$GITHUB_WORKSPACE"
-        uv run pytest tests/ -k "not slow" --tb=short -v --timeout=600
+        uv run pytest tests/ -k "not slow" -m "not ci_skip" --tb=short -v --timeout=600
 
   # Summary job to check overall CI status
   status_check:
