@@ -456,13 +456,11 @@ jobs:
           git commit -m "Add file $i"
         done
         
-        # Create some branches
+        # Create some branches for performance testing
         git checkout -b feature/test-1
         echo "Feature content" > feature.txt
         git add feature.txt
         git commit -m "Add feature"
-        
-        git checkout development
         
         # Run performance-focused tests
         cd "$GITHUB_WORKSPACE"
