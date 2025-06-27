@@ -28,17 +28,20 @@ async def cleanup_sessions():
     try:
         # Get all running tasks
         tasks = [task for task in asyncio.all_tasks() if not task.done()]
-        
+
         # Cancel session-related tasks
         for task in tasks:
             task_name = str(task)
-            if any(keyword in task_name.lower() for keyword in ['session', 'idle', 'cleanup', '_cleanup_loop']):
+            if any(
+                keyword in task_name.lower()
+                for keyword in ["session", "idle", "cleanup", "_cleanup_loop"]
+            ):
                 task.cancel()
-        
+
         # Wait for cancellation with timeout
         if tasks:
             await asyncio.wait(tasks, timeout=0.1, return_when=asyncio.ALL_COMPLETED)
-            
+
     except Exception:
         pass  # Ignore cleanup errors to prevent test failures
 
@@ -91,7 +94,7 @@ class TestSession:
     async def test_session_lifecycle(self):
         """Test complete session lifecycle: start -> pause -> resume -> close."""
         session = Session("lifecycle-test", idle_timeout=60)
-        
+
         try:
             # Test start
             await session.start()
