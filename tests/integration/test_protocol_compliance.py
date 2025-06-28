@@ -161,7 +161,7 @@ async def test_message_processing_loop_cancellation():
                 
             try:
                 message = json.loads(raw_message.decode())
-            except:
+            except (json.JSONDecodeError, UnicodeDecodeError):
                 continue
                 
             # Handle cancellation
@@ -173,7 +173,7 @@ async def test_message_processing_loop_cancellation():
                     if op and not op.done():
                         op.cancel()
                     continue
-            except:
+            except (ValueError, KeyError, TypeError):
                 pass
                 
             # Handle regular message
