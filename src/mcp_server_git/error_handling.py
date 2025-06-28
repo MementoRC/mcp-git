@@ -5,7 +5,7 @@ import functools
 import logging
 import time
 from enum import Enum
-from typing import Any, Callable, Dict, Optional, TypeVar
+from typing import Any, Callable, Dict, Optional, TypeVar, cast
 
 logger = logging.getLogger(__name__)
 
@@ -69,8 +69,6 @@ class ErrorRecoveryStrategy:
 # Global error recovery strategy
 _default_strategy = ErrorRecoveryStrategy()
 
-
-from typing import cast
 
 def recoverable(max_retries: int = 3, backoff_factor: float = 1.0):
     """Decorator for functions that should recover from errors with retry logic."""
