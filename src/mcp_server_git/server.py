@@ -181,7 +181,7 @@ def load_environment_variables(repository_path: Path | None = None):
     critical_vars = ["GITHUB_TOKEN", "ANTHROPIC_API_KEY", "OPENAI_API_KEY"]
     for var in critical_vars:
         value = os.getenv(var)
-        if value:
+        if value is not None:
             logger.debug(f"{var} is set (length: {len(value)})")
         else:
             logger.debug(f"{var} is not set or empty")
@@ -1226,14 +1226,14 @@ def git_log(
             # One line format: hash subject
             for commit in commits:
                 short_hash = commit.hexsha[:8]
-                subject = commit.message.split("\n")[0]
+                subject = str(commit.message).split("\n")[0]
                 log.append(f"{short_hash} {subject}")
         elif format_str:  # Use format_str
             # Custom format
             for commit in commits:
                 formatted = format_str.replace("%H", commit.hexsha)  # Use format_str
                 formatted = formatted.replace("%h", commit.hexsha[:8])
-                formatted = formatted.replace("%s", commit.message.split("\n")[0])
+                formatted = formatted.replace("%s", str(commit.message).split("\n")[0])
                 formatted = formatted.replace("%an", str(commit.author.name))
                 formatted = formatted.replace("%ae", str(commit.author.email))
                 formatted = formatted.replace("%ad", str(commit.authored_datetime))
@@ -1328,7 +1328,11 @@ def git_show(repo: Repo, revision: str) -> str:
         diff = commit.diff(Repo.NULL_TREE, create_patch=True)  # Use Repo.NULL_TREE
     for d in diff:
         output.append(f"\n--- {d.a_path}\n+++ {d.b_path}\n")
-        output.append(d.diff.decode("utf-8"))
+        diff_bytes = d.diff
+        if isinstance(diff_bytes, bytes):
+            output.append(diff_bytes.decode("utf-8", errors="replace"))
+        else:
+            output.append(str(diff_bytes))
     return "".join(output)
 
 
@@ -3554,7 +3558,7 @@ After pushing your changes, post the following summary comment on the PR and re-
         logger.debug(f"🔧 [{request_id}] Arguments: {arguments}")
 
         try:
-            result = None  # Initialize result variable
+            result: list[TextContent] | None = None  # Initialize result variable
 
             # Determine if the tool requires a repo_path or is a GitHub API tool
             is_github_api_tool = name in [
@@ -3580,13 +3584,13 @@ After pushing your changes, post the following summary comment on the PR and re-
 
                 # Handle git init separately since it doesn't require an existing repo
                 if name == GitTools.INIT:
-                    result = git_init(str(repo_path))
+                    result = [TextContent(type="text", text=git_init(str(repo_path)))]
                     # Early return for INIT
                     duration = time.time() - start_time
                     logger.info(
                         f"✅ [{request_id}] Tool '{name}' completed in {duration:.2f}s"
                     )
-                    return [TextContent(type="text", text=result)]
+                    return result
 
                 # For all other non-GitHub commands, we need an existing repo
                 try:
@@ -4026,12 +4030,12 @@ After pushing your changes, post the following summary comment on the PR and re-
         logger.debug(
             f"🔍 [{request_id}] Tool execution finished, result type: {type(result)}"
         )
-        if result and len(result) > 0:
+        if result is not None and len(result) > 0:
             logger.debug(
                 f"🔍 [{request_id}] Result[0] type: {type(result[0])}, content preview: {str(result[0])[:200]}"
             )
         logger.info(f"✅ [{request_id}] Tool '{name}' completed in {duration:.2f}s")
-        return result
+        return result if result is not None else []
 
     # Server initialization logging
     logger.info("🎯 MCP Git Server initialized and ready to listen...")

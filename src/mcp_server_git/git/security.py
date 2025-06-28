@@ -10,7 +10,7 @@ from git import Repo  # Added GitCommandError, InvalidGitRepositoryError
 logger = logging.getLogger(__name__)
 
 
-def validate_git_security_config(repo: Repo) -> Dict[str, any]:
+def validate_git_security_config(repo: Repo) -> Dict[str, Any]:
     """Validate Git security configuration for the repository"""
 
     warnings = []
@@ -34,7 +34,7 @@ def validate_git_security_config(repo: Repo) -> Dict[str, any]:
                     "Set up GPG signing: git config user.signingkey <key-id>"
                 )
 
-            if gpg_sign.lower() != "true":
+            if str(gpg_sign).lower() != "true":
                 warnings.append("GPG signing not enabled by default (commit.gpgsign)")
                 recommendations.append(
                     "Enable GPG signing: git config commit.gpgsign true"
@@ -166,7 +166,7 @@ def enforce_secure_git_config(repo: Repo, strict_mode: bool = True) -> str:
                 return "❌ No user email configured. Set GIT_AUTHOR_EMAIL env var or git config user.email"
 
         # Enforce GPG signing
-        if gpg_sign.lower() != "true":
+        if str(gpg_sign).lower() != "true":
             config_writer.set_value("commit", "gpgsign", "true")
             changes_made.append("Enabled GPG signing for commits (commit.gpgsign=true)")
 

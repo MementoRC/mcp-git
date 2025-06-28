@@ -70,6 +70,8 @@ class ErrorRecoveryStrategy:
 _default_strategy = ErrorRecoveryStrategy()
 
 
+from typing import cast
+
 def recoverable(max_retries: int = 3, backoff_factor: float = 1.0):
     """Decorator for functions that should recover from errors with retry logic."""
 
@@ -80,7 +82,11 @@ def recoverable(max_retries: int = 3, backoff_factor: float = 1.0):
 
             while True:
                 try:
-                    return await func(*args, **kwargs)
+                    if asyncio.iscoroutinefunction(func):
+                        result = await func(*args, **kwargs)
+                    else:
+                        result = func(*args, **kwargs)
+                    return cast(T, result)
                 except Exception as e:
                     if context is None:
                         context = ErrorContext(
@@ -114,7 +120,8 @@ def recoverable(max_retries: int = 3, backoff_factor: float = 1.0):
 
             while True:
                 try:
-                    return func(*args, **kwargs)
+                    result = func(*args, **kwargs)
+                    return cast(T, result)
                 except Exception as e:
                     if context is None:
                         context = ErrorContext(
@@ -144,9 +151,9 @@ def recoverable(max_retries: int = 3, backoff_factor: float = 1.0):
 
         # Return appropriate wrapper based on whether function is async
         if asyncio.iscoroutinefunction(func):
-            return async_wrapper
+            return async_wrapper  # type: ignore
         else:
-            return sync_wrapper
+            return sync_wrapper  # type: ignore
 
     return decorator
 
