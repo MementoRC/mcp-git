@@ -172,7 +172,9 @@ class TestSession:
                 # Force an error in command handling
                 with patch("asyncio.sleep", side_effect=Exception("Test error")):
                     with pytest.raises(Exception, match="Test error"):
-                        await session.handle_command("git_status") # Changed from "failing_command"
+                        await session.handle_command(
+                            "git_status"
+                        )  # Changed from "failing_command"
 
                 assert session.metrics.error_count == 1
                 mock_failure.assert_called_once()

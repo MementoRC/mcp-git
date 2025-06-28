@@ -93,7 +93,13 @@ class Session:
         self._closed_event = asyncio.Event()
         # Define a set of valid commands for demonstration/testing purposes
         # In a real application, these would likely be dynamically loaded or more extensive.
-        self._valid_commands: Set[str] = {"git_status", "git_commit", "git_push", "git_pull", "git_clone"}
+        self._valid_commands: Set[str] = {
+            "git_status",
+            "git_commit",
+            "git_push",
+            "git_pull",
+            "git_clone",
+        }
         logger.info(f"Session {self.session_id} created")
 
     @property
