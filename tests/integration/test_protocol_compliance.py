@@ -122,48 +122,49 @@ async def test_protocol_compliance_with_non_notification():
 
 # Enhanced Task 9 Integration Tests for Message Processing
 
+
 @pytest.mark.asyncio
 async def test_message_processing_loop_cancellation():
     """Test the new message processing loop handles cancellation properly."""
     # Mock streams
     read_stream = AsyncMock()
-    
+
     # Setup test messages
     request_id = str(uuid.uuid4())
     start_message = {
         "jsonrpc": "2.0",
         "id": request_id,
         "method": "test_operation",
-        "params": {"data": "test"}
+        "params": {"data": "test"},
     }
     cancel_message = {
         "jsonrpc": "2.0",
         "method": "notifications/cancelled",
-        "params": {"requestId": request_id, "reason": "Test cancellation"}
+        "params": {"requestId": request_id, "reason": "Test cancellation"},
     }
-    
+
     # Setup read stream to return messages then EOF
     read_stream.readline.side_effect = [
-        json.dumps(start_message).encode() + b'\n',
-        json.dumps(cancel_message).encode() + b'\n',
-        b''  # EOF
+        json.dumps(start_message).encode() + b"\n",
+        json.dumps(cancel_message).encode() + b"\n",
+        b"",  # EOF
     ]
-    
+
     # Track active operations (simulating server state)
     active_operations = {}
-    
+
     # Simulate the message processing loop logic
     async def mock_process_message_loop():
         while True:
             raw_message = await read_stream.readline()
             if not raw_message:
                 break
-                
+
             try:
                 message = json.loads(raw_message.decode())
             except (json.JSONDecodeError, UnicodeDecodeError):
                 continue
-                
+
             # Handle cancellation
             try:
                 notification = parse_client_notification(message)
@@ -175,56 +176,56 @@ async def test_message_processing_loop_cancellation():
                     continue
             except (ValueError, KeyError, TypeError):
                 pass
-                
+
             # Handle regular message
             req_id = message.get("id") or str(uuid.uuid4())
-            
+
             async def handle_message_task():
                 await asyncio.sleep(0.1)  # Simulate work
-                
+
             op_task = asyncio.create_task(handle_message_task())
             active_operations[req_id] = op_task
-            
+
             try:
                 await op_task
             except asyncio.CancelledError:
                 pass
             finally:
                 active_operations.pop(req_id, None)
-    
+
     # Run the mock processing loop
     await mock_process_message_loop()
-    
+
     # Verify cancellation was handled
     assert len(active_operations) == 0  # All operations cleaned up
-    
+
 
 @pytest.mark.asyncio
 async def test_active_operation_tracking():
     """Test that active operations are properly tracked and cleaned up."""
     active_operations = {}
-    
+
     # Create a mock operation
     operation_id = "test-op-123"
-    
+
     async def mock_operation():
         await asyncio.sleep(0.1)
         return "completed"
-    
+
     # Track operation
     task = asyncio.create_task(mock_operation())
     active_operations[operation_id] = task
-    
+
     # Verify it's tracked
     assert operation_id in active_operations
     assert not active_operations[operation_id].done()
-    
+
     # Wait for completion
     await task
-    
+
     # Verify completion
     assert active_operations[operation_id].done()
-    
+
     # Clean up
     active_operations.pop(operation_id, None)
     assert operation_id not in active_operations
@@ -235,31 +236,31 @@ async def test_operation_cancellation_during_execution():
     """Test cancelling an operation while it's running."""
     active_operations = {}
     operation_id = "cancel-test-456"
-    
+
     async def long_running_operation():
         try:
             await asyncio.sleep(1.0)  # Long operation
             return "completed"
         except asyncio.CancelledError:
             return "cancelled"
-    
+
     # Start operation
     task = asyncio.create_task(long_running_operation())
     active_operations[operation_id] = task
-    
+
     # Let it start
     await asyncio.sleep(0.1)
-    
+
     # Cancel it
     task.cancel()
-    
+
     # Wait for cancellation
     try:
         result = await task
         assert result == "cancelled"
     except asyncio.CancelledError:
         pass  # Expected
-    
+
     # Clean up
     active_operations.pop(operation_id, None)
     assert operation_id not in active_operations
@@ -269,14 +270,14 @@ async def test_operation_cancellation_during_execution():
 async def test_message_error_recovery():
     """Test error recovery during message processing."""
     error_count = 0
-    
+
     async def failing_message_handler():
         nonlocal error_count
         error_count += 1
         if error_count <= 2:
             raise ValueError("Test error")
         return "success"
-    
+
     # Simulate error handling
     for attempt in range(5):
         try:
@@ -288,43 +289,43 @@ async def test_message_error_recovery():
             error_ctx = classify_error(e, operation="test_message")
             await handle_error(error_ctx)
             continue
-    
+
     # Should eventually succeed
     assert error_count == 3  # Failed twice, succeeded on third
 
 
-@pytest.mark.asyncio  
+@pytest.mark.asyncio
 async def test_concurrent_message_processing():
     """Test processing multiple messages concurrently."""
     active_operations = {}
     completed_operations = []
-    
+
     async def process_message(msg_id):
         operation_id = f"op-{msg_id}"
-        
+
         async def operation():
             await asyncio.sleep(0.1)
             completed_operations.append(operation_id)
             return f"result-{msg_id}"
-        
+
         task = asyncio.create_task(operation())
         active_operations[operation_id] = task
-        
+
         try:
             result = await task
             return result
         finally:
             active_operations.pop(operation_id, None)
-    
+
     # Process multiple messages concurrently
     tasks = [process_message(i) for i in range(10)]
     results = await asyncio.gather(*tasks)
-    
+
     # Verify all completed
     assert len(results) == 10
     assert len(completed_operations) == 10
     assert len(active_operations) == 0
-    
+
     # Verify results
     for i, result in enumerate(results):
         assert result == f"result-{i}"
@@ -334,15 +335,15 @@ async def test_concurrent_message_processing():
 async def test_malformed_message_resilience():
     """Test that malformed messages don't crash the processing loop."""
     processed_count = 0
-    
+
     test_messages = [
         "{invalid json",  # Invalid JSON
-        "{}",  # Empty object  
+        "{}",  # Empty object
         '{"method": "test"}',  # Valid message
         '{"invalid": true}',  # Missing required fields
         '{"method": "test2", "id": "valid"}',  # Another valid message
     ]
-    
+
     for raw_message in test_messages:
         try:
             message = json.loads(raw_message)
@@ -356,6 +357,6 @@ async def test_malformed_message_resilience():
             # Handle other errors gracefully
             error_ctx = classify_error(e, operation="message_parse")
             await handle_error(error_ctx)
-    
+
     # Should have processed 2 valid messages
     assert processed_count == 2
