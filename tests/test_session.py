@@ -151,14 +151,14 @@ class TestSession:
         await session.start()
 
         # Test successful command
-        await session.handle_command("test_command")
+        await session.handle_command("git_status")
         assert session.metrics.command_count == 1
         assert session.metrics.error_count == 0
 
         # Test command on inactive session
         await session.pause()
         with pytest.raises(RuntimeError, match="Session is not active"):
-            await session.handle_command("test_command")
+            await session.handle_command("git_status")
 
     @pytest.mark.asyncio
     async def test_session_error_handling(self):
@@ -172,7 +172,7 @@ class TestSession:
                 # Force an error in command handling
                 with patch("asyncio.sleep", side_effect=Exception("Test error")):
                     with pytest.raises(Exception, match="Test error"):
-                        await session.handle_command("failing_command")
+                        await session.handle_command("git_status") # Changed from "failing_command"
 
                 assert session.metrics.error_count == 1
                 mock_failure.assert_called_once()
@@ -187,7 +187,7 @@ class TestSession:
         # Mock circuit breaker to reject requests
         with patch.object(session._circuit, "allow_request", return_value=False):
             with pytest.raises(RuntimeError, match="Session circuit breaker is open"):
-                await session.handle_command("blocked_command")
+                await session.handle_command("git_status")
 
     @pytest.mark.asyncio
     async def test_session_idle_timeout(self):
@@ -346,8 +346,8 @@ class TestSessionManager:
         session2 = await manager.create_session("metrics2")
 
         # Add some activity
-        await session1.handle_command("test")
-        await session2.handle_command("test")
+        await session1.handle_command("git_status")
+        await session2.handle_command("git_status")
 
         metrics = await manager.get_metrics()
 
@@ -409,7 +409,7 @@ class TestSessionIntegration:
         with patch.object(session._circuit, "allow_request", return_value=True):
             with patch("asyncio.sleep", side_effect=Exception("Simulated error")):
                 with pytest.raises(Exception):
-                    await session.handle_command("failing_command")
+                    await session.handle_command("git_status")
 
         # Session should still exist and be manageable
         retrieved_session = await manager.get_session("error-recovery-test")
@@ -424,7 +424,7 @@ class TestSessionIntegration:
 
         # Start a short operation that simulates work
         async def long_operation():
-            await session.handle_command("long_command")
+            await session.handle_command("git_status")
             await asyncio.sleep(0.01)  # Much shorter for CI performance
 
         operation_task = asyncio.create_task(long_operation())
@@ -449,10 +449,10 @@ class TestSessionIntegration:
         session = await manager.create_session("consistency-test")
 
         # Perform multiple operations
-        await session.handle_command("cmd1")
+        await session.handle_command("git_status")
         await session.pause()
         await session.resume()
-        await session.handle_command("cmd2")
+        await session.handle_command("git_commit")
 
         # Verify state consistency
         assert session.state == SessionState.ACTIVE
