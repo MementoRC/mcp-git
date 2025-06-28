@@ -4169,6 +4169,7 @@ After pushing your changes, post the following summary comment on the PR and re-
     # Signal handler for graceful shutdown
     def signal_handler(signum, frame):
         logger.info(f"📡 Received signal {signum}, initiating graceful shutdown...")
+        return None
 
     signal.signal(signal.SIGTERM, signal_handler)
     signal.signal(signal.SIGINT, signal_handler)
@@ -4269,7 +4270,7 @@ After pushing your changes, post the following summary comment on the PR and re-
             logger.info("💥 Unexpected server error - attempting graceful recovery")
 
         # Don't re-raise - let server shutdown gracefully instead of crashing
-        pass
+        return None
     finally:
         # Log interception statistics before shutdown
         log_interception_stats()
