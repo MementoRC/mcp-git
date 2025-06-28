@@ -16,6 +16,10 @@ from mcp.server import Server
 from mcp.server.session import ServerSession
 import subprocess  # Added this import
 
+# Logging and metrics
+from .logging_config import configure_logging
+from .metrics import global_metrics_collector
+
 # Notification middleware for handling cancelled notifications
 from .core.notification_interceptor import wrap_read_stream, log_interception_stats
 from mcp.server.stdio import stdio_server
@@ -1949,20 +1953,22 @@ async def main(repository: Path | None, test_mode: bool = False) -> None:
     import os
     from datetime import datetime
 
+    # Centralized logging configuration
+    configure_logging(os.environ.get("LOG_LEVEL", "INFO"))
     logger = logging.getLogger(__name__)
     start_time = time.time()
     session_id = os.environ.get("MCP_SESSION_ID", "default")
 
     # Startup logging
-    logger.info(f"🚀 Starting MCP Git Server (Session: {session_id})")
-    logger.info(f"Repository: {repository or '.'}")
-    logger.info(f"Server start time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-
-    # Check if file logging is enabled
-    file_handlers = [h for h in logger.handlers if isinstance(h, logging.FileHandler)]
-    if file_handlers:
-        for handler in file_handlers:
-            logger.info(f"📝 File logging enabled: {handler.baseFilename}")
+    logger.info(
+        f"🚀 Starting MCP Git Server (Session: {session_id})",
+        extra={"session_id": session_id},
+    )
+    logger.info(f"Repository: {repository or '.'}", extra={"session_id": session_id})
+    logger.info(
+        f"Server start time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+        extra={"session_id": session_id},
+    )
 
     # Load environment variables from .env files with proper precedence
     load_environment_variables(repository)
@@ -1982,6 +1988,9 @@ async def main(repository: Path | None, test_mode: bool = False) -> None:
     heartbeat_manager = HeartbeatManager(session_manager)
     session_manager.heartbeat_manager = heartbeat_manager
     await heartbeat_manager.start()
+
+    # Metrics: record server startup
+    await global_metrics_collector.record_session_event("server_started")
 
     # Note: Enhanced notification handling for cancelled notifications
     # The middleware infrastructure is available in models/notifications.py and models/middleware.py
@@ -3562,15 +3571,25 @@ After pushing your changes, post the following summary comment on the PR and re-
         logger = logging.getLogger(__name__)
         request_id = os.urandom(4).hex()
         start_time = time.time()
+        session_id = arguments.get("session_id") or os.environ.get(
+            "MCP_SESSION_ID", "default"
+        )
 
-        logger.info(f"🔧 [{request_id}] Tool call: {name}")
-        logger.debug(f"🔧 [{request_id}] Arguments: {arguments}")
+        logger.info(
+            f"🔧 [{request_id}] Tool call: {name}",
+            extra={"request_id": request_id, "session_id": session_id},
+        )
+        logger.debug(
+            f"🔧 [{request_id}] Arguments: {arguments}",
+            extra={"request_id": request_id, "session_id": session_id},
+        )
 
         # Heartbeat tool: allow explicit heartbeat calls (optional, for test/monitoring)
         if name == "heartbeat":
             session_id = arguments.get("session_id")
             if session_id:
                 await heartbeat_manager.record_heartbeat(session_id)
+                await global_metrics_collector.record_message("heartbeat", 0)
                 return [
                     TextContent(
                         type="text", text=f"Heartbeat received for session {session_id}"
@@ -3610,10 +3629,15 @@ After pushing your changes, post the following summary comment on the PR and re-
                 # Handle git init separately since it doesn't require an existing repo
                 if name == GitTools.INIT:
                     result = [TextContent(type="text", text=git_init(str(repo_path)))]
-                    # Early return for INIT
                     duration = time.time() - start_time
+                    await global_metrics_collector.record_message(name, duration * 1000)
                     logger.info(
-                        f"✅ [{request_id}] Tool '{name}' completed in {duration:.2f}s"
+                        f"✅ [{request_id}] Tool '{name}' completed in {duration:.2f}s",
+                        extra={
+                            "request_id": request_id,
+                            "session_id": session_id,
+                            "duration_ms": int(duration * 1000),
+                        },
                     )
                     return result
 
@@ -3622,8 +3646,16 @@ After pushing your changes, post the following summary comment on the PR and re-
                     repo = Repo(repo_path)
                 except InvalidGitRepositoryError as e:
                     duration = time.time() - start_time
+                    await global_metrics_collector.record_operation(
+                        name, False, duration * 1000
+                    )
                     logger.error(
-                        f"📁 [{request_id}] Invalid git repository at {repo_path}: {e}"
+                        f"📁 [{request_id}] Invalid git repository at {repo_path}: {e}",
+                        extra={
+                            "request_id": request_id,
+                            "session_id": session_id,
+                            "duration_ms": int(duration * 1000),
+                        },
                     )
                     return [
                         TextContent(
@@ -3978,8 +4010,16 @@ After pushing your changes, post the following summary comment on the PR and re-
 
         except subprocess.TimeoutExpired as e:
             duration = time.time() - start_time
+            await global_metrics_collector.record_operation(
+                name, False, duration * 1000
+            )
             logger.error(
-                f"⏰ [{request_id}] Tool '{name}' timed out after {duration:.2f}s: {e}"
+                f"⏰ [{request_id}] Tool '{name}' timed out after {duration:.2f}s: {e}",
+                extra={
+                    "request_id": request_id,
+                    "session_id": session_id,
+                    "duration_ms": int(duration * 1000),
+                },
             )
             return [
                 TextContent(
@@ -3990,8 +4030,16 @@ After pushing your changes, post the following summary comment on the PR and re-
 
         except subprocess.SubprocessError as e:
             duration = time.time() - start_time
+            await global_metrics_collector.record_operation(
+                name, False, duration * 1000
+            )
             logger.error(
-                f"🔧 [{request_id}] Tool '{name}' subprocess error after {duration:.2f}s: {e}"
+                f"🔧 [{request_id}] Tool '{name}' subprocess error after {duration:.2f}s: {e}",
+                extra={
+                    "request_id": request_id,
+                    "session_id": session_id,
+                    "duration_ms": int(duration * 1000),
+                },
             )
             return [
                 TextContent(
@@ -4002,8 +4050,16 @@ After pushing your changes, post the following summary comment on the PR and re-
 
         except GitCommandError as e:
             duration = time.time() - start_time
+            await global_metrics_collector.record_operation(
+                name, False, duration * 1000
+            )
             logger.error(
-                f"📝 [{request_id}] Tool '{name}' git error after {duration:.2f}s: {e}"
+                f"📝 [{request_id}] Tool '{name}' git error after {duration:.2f}s: {e}",
+                extra={
+                    "request_id": request_id,
+                    "session_id": session_id,
+                    "duration_ms": int(duration * 1000),
+                },
             )
             return [
                 TextContent(
@@ -4014,8 +4070,16 @@ After pushing your changes, post the following summary comment on the PR and re-
 
         except PermissionError as e:
             duration = time.time() - start_time
+            await global_metrics_collector.record_operation(
+                name, False, duration * 1000
+            )
             logger.error(
-                f"🔒 [{request_id}] Tool '{name}' permission error after {duration:.2f}s: {e}"
+                f"🔒 [{request_id}] Tool '{name}' permission error after {duration:.2f}s: {e}",
+                extra={
+                    "request_id": request_id,
+                    "session_id": session_id,
+                    "duration_ms": int(duration * 1000),
+                },
             )
             return [
                 TextContent(
@@ -4026,8 +4090,16 @@ After pushing your changes, post the following summary comment on the PR and re-
 
         except FileNotFoundError as e:
             duration = time.time() - start_time
+            await global_metrics_collector.record_operation(
+                name, False, duration * 1000
+            )
             logger.error(
-                f"📁 [{request_id}] Tool '{name}' file not found after {duration:.2f}s: {e}"
+                f"📁 [{request_id}] Tool '{name}' file not found after {duration:.2f}s: {e}",
+                extra={
+                    "request_id": request_id,
+                    "session_id": session_id,
+                    "duration_ms": int(duration * 1000),
+                },
             )
             return [
                 TextContent(
@@ -4038,9 +4110,17 @@ After pushing your changes, post the following summary comment on the PR and re-
 
         except Exception as e:
             duration = time.time() - start_time
+            await global_metrics_collector.record_operation(
+                name, False, duration * 1000
+            )
             logger.error(
                 f"❌ [{request_id}] Tool '{name}' unexpected error after {duration:.2f}s: {e}",
                 exc_info=True,
+                extra={
+                    "request_id": request_id,
+                    "session_id": session_id,
+                    "duration_ms": int(duration * 1000),
+                },
             )
             # Critical: Never let any exception crash the server
             return [
@@ -4052,14 +4132,32 @@ After pushing your changes, post the following summary comment on the PR and re-
 
         # This should always be reached if no exception occurred
         duration = time.time() - start_time
+        await global_metrics_collector.record_message(name, duration * 1000)
         logger.debug(
-            f"🔍 [{request_id}] Tool execution finished, result type: {type(result)}"
+            f"🔍 [{request_id}] Tool execution finished, result type: {type(result)}",
+            extra={
+                "request_id": request_id,
+                "session_id": session_id,
+                "duration_ms": int(duration * 1000),
+            },
         )
         if result is not None and len(result) > 0:
             logger.debug(
-                f"🔍 [{request_id}] Result[0] type: {type(result[0])}, content preview: {str(result[0])[:200]}"
+                f"🔍 [{request_id}] Result[0] type: {type(result[0])}, content preview: {str(result[0])[:200]}",
+                extra={
+                    "request_id": request_id,
+                    "session_id": session_id,
+                    "duration_ms": int(duration * 1000),
+                },
             )
-        logger.info(f"✅ [{request_id}] Tool '{name}' completed in {duration:.2f}s")
+        logger.info(
+            f"✅ [{request_id}] Tool '{name}' completed in {duration:.2f}s",
+            extra={
+                "request_id": request_id,
+                "session_id": session_id,
+                "duration_ms": int(duration * 1000),
+            },
+        )
         return result if result is not None else []
 
     # Server initialization logging
@@ -4077,12 +4175,21 @@ After pushing your changes, post the following summary comment on the PR and re-
 
     # Add periodic health check logging
     async def log_health():
-        """Log periodic health checks to monitor server uptime"""
+        """Log periodic health checks to monitor server uptime and metrics"""
         while True:
             try:
                 await asyncio.sleep(300)  # Every 5 minutes
                 uptime = time.time() - start_time
-                logger.info(f"💓 Server health check - uptime: {uptime:.1f}s")
+                metrics = await global_metrics_collector.get_health_status()
+                logger.info(
+                    f"💓 Server health check - uptime: {uptime:.1f}s, active_sessions: {metrics['active_sessions']}, messages_processed: {metrics['messages_processed']}, error_count: {metrics['error_count']}",
+                    extra={
+                        "uptime_sec": uptime,
+                        "active_sessions": metrics["active_sessions"],
+                        "messages_processed": metrics["messages_processed"],
+                        "error_count": metrics["error_count"],
+                    },
+                )
             except asyncio.CancelledError:
                 logger.debug("🔚 Health check task cancelled")
                 break
