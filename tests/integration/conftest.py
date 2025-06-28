@@ -21,10 +21,14 @@ async def mock_server(monkeypatch):
     Fixture to mock the MCP Git Server process and its async I/O.
     """
     # Patch out actual GitHub and git calls
-    with patch(
-        "src.mcp_server_git.github.client.GitHubClient", autospec=True
-    ) as mock_gh_client, patch(
-        "src.mcp_server_git.git.security.enforce_secure_git_config", return_value="OK"
+    with (
+        patch(
+            "src.mcp_server_git.github.client.GitHubClient", autospec=True
+        ) as mock_gh_client,
+        patch(
+            "src.mcp_server_git.git.security.enforce_secure_git_config",
+            return_value="OK",
+        ),
     ):
         # Mock GitHubClient methods
         instance = mock_gh_client.return_value
