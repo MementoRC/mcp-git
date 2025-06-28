@@ -17,7 +17,7 @@ repos:
     rev: v1.11.2
     hooks:
       - id: mypy
-        additional_dependencies: [types-all]
+        additional_dependencies: [types-click, types-aiohttp, types-python-dotenv]
         args: [--ignore-missing-imports, --follow-imports=skip]
 
   # General code quality
