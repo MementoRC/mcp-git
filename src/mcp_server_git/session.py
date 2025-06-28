@@ -281,6 +281,90 @@ class Session:
         )
 
 
+class HeartbeatManager:
+    """
+    Centralized manager for heartbeats across all sessions.
+    - Tracks last heartbeat per session
+    - Detects missed heartbeats and triggers cleanup
+    - Runs a background monitoring loop
+    """
+
+    def __init__(
+        self,
+        session_manager: "SessionManager",
+        heartbeat_interval: float = 30.0,
+        missed_threshold: int = 3,
+    ):
+        self._session_manager = session_manager
+        self._heartbeat_interval = heartbeat_interval
+        self._missed_threshold = missed_threshold
+        self._last_heartbeats: Dict[str, float] = {}
+        self._lock = asyncio.Lock()
+        self._task: Optional[asyncio.Task] = None
+        self._running = False
+        self._logger = logging.getLogger(__name__)
+
+    async def start(self) -> None:
+        async with self._lock:
+            if self._running:
+                return
+            self._running = True
+            self._task = asyncio.create_task(self._heartbeat_loop())
+            self._logger.info("HeartbeatManager started")
+
+    async def stop(self) -> None:
+        async with self._lock:
+            self._running = False
+            if self._task:
+                self._task.cancel()
+                try:
+                    await self._task
+                except asyncio.CancelledError:
+                    pass
+                self._task = None
+            self._logger.info("HeartbeatManager stopped")
+
+    async def record_heartbeat(self, session_id: str) -> None:
+        async with self._lock:
+            self._last_heartbeats[session_id] = time.time()
+            self._logger.debug(f"Heartbeat recorded for session {session_id}")
+
+    async def _heartbeat_loop(self) -> None:
+        try:
+            while self._running:
+                await asyncio.sleep(self._heartbeat_interval)
+                await self._check_heartbeats()
+        except asyncio.CancelledError:
+            self._logger.debug("HeartbeatManager loop cancelled")
+        except Exception as e:
+            self._logger.error(f"HeartbeatManager loop error: {e}")
+
+    async def _check_heartbeats(self) -> None:
+        now = time.time()
+        async with self._lock:
+            sessions = await self._session_manager.get_all_sessions()
+            to_cleanup = []
+            for session_id, session in sessions.items():
+                last = self._last_heartbeats.get(
+                    session_id, session.metrics.last_heartbeat
+                )
+                missed = (now - last) / self._heartbeat_interval
+                if missed > self._missed_threshold:
+                    self._logger.warning(
+                        f"Session {session_id} missed {missed:.1f} heartbeats, closing session"
+                    )
+                    to_cleanup.append(session_id)
+            for session_id in to_cleanup:
+                await self._session_manager.close_session(session_id)
+                self._last_heartbeats.pop(session_id, None)
+
+    def get_last_heartbeat(self, session_id: str) -> Optional[float]:
+        return self._last_heartbeats.get(session_id)
+
+    def get_all_heartbeats(self) -> Dict[str, float]:
+        return dict(self._last_heartbeats)
+
+
 class SessionManager:
     """
     Manages all active MCP Git Server sessions.
@@ -292,6 +376,7 @@ class SessionManager:
         self._lock = asyncio.Lock()
         self._idle_timeout = idle_timeout
         self._heartbeat_timeout = heartbeat_timeout
+        self.heartbeat_manager: Optional[HeartbeatManager] = None
 
     async def create_session(
         self,
@@ -360,7 +445,7 @@ class SessionManager:
 
     async def shutdown(self):
         """
-        Gracefully close all sessions.
+        Gracefully close all sessions and stop heartbeat manager.
         """
         async with self._lock:
             logger.info("SessionManager: Shutting down all sessions")
@@ -368,3 +453,5 @@ class SessionManager:
                 await session.close()
             self._sessions.clear()
             logger.info("SessionManager: All sessions closed")
+        if self.heartbeat_manager:
+            await self.heartbeat_manager.stop()

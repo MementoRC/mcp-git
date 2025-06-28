@@ -32,6 +32,9 @@ from mcp.types import (
 )
 from pydantic import BaseModel
 
+# Heartbeat/session management
+from .session import HeartbeatManager, SessionManager
+
 # Import GitHub API functions
 from .github.api import (
     github_get_pr_checks,
@@ -1974,6 +1977,12 @@ async def main(repository: Path | None, test_mode: bool = False) -> None:
 
     server = Server("mcp-git")
 
+    # Heartbeat/session manager setup
+    session_manager = SessionManager()
+    heartbeat_manager = HeartbeatManager(session_manager)
+    session_manager.heartbeat_manager = heartbeat_manager
+    await heartbeat_manager.start()
+
     # Note: Enhanced notification handling for cancelled notifications
     # The middleware infrastructure is available in models/notifications.py and models/middleware.py
     # but integrating it into the MCP framework requires careful session handling
@@ -3557,6 +3566,22 @@ After pushing your changes, post the following summary comment on the PR and re-
         logger.info(f"🔧 [{request_id}] Tool call: {name}")
         logger.debug(f"🔧 [{request_id}] Arguments: {arguments}")
 
+        # Heartbeat tool: allow explicit heartbeat calls (optional, for test/monitoring)
+        if name == "heartbeat":
+            session_id = arguments.get("session_id")
+            if session_id:
+                await heartbeat_manager.record_heartbeat(session_id)
+                return [
+                    TextContent(
+                        type="text", text=f"Heartbeat received for session {session_id}"
+                    )
+                ]
+            else:
+                return [
+                    TextContent(
+                        type="text", text="No session_id provided for heartbeat"
+                    )
+                ]
         try:
             result: list[TextContent] | None = None  # Initialize result variable
 
@@ -4085,6 +4110,23 @@ After pushing your changes, post the following summary comment on the PR and re-
                     "🔔 Notification interception enabled for cancelled notifications"
                 )
 
+                # Heartbeat notification handler
+                async def handle_heartbeat_notification(message, session_id):
+                    logger.debug(
+                        f"Received heartbeat notification for session {session_id}"
+                    )
+                    await heartbeat_manager.record_heartbeat(session_id)
+                    session = await session_manager.get_session(session_id)
+                    if session:
+                        await session.handle_heartbeat()
+                        logger.info(f"Heartbeat processed for session {session_id}")
+                    else:
+                        logger.warning(f"Heartbeat for unknown session {session_id}")
+
+                # Patch server to handle heartbeat notifications (example: via notification hook)
+                # This is a placeholder for integration with the actual MCP notification system.
+                # In a real implementation, you would register this handler with the server's notification router.
+
                 # Run server with error isolation - CRITICAL: raise_exceptions=False prevents crashes
                 await server.run(
                     intercepted_read_stream,
@@ -4131,6 +4173,9 @@ After pushing your changes, post the following summary comment on the PR and re-
             await health_task
         except asyncio.CancelledError:
             pass
+
+        # Stop heartbeat manager
+        await heartbeat_manager.stop()
 
         # Server shutdown logging
         total_uptime = time.time() - start_time
