@@ -10,7 +10,7 @@ import asyncio
 import logging
 import time
 from enum import Enum, auto
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Set
 from pathlib import Path
 from dataclasses import dataclass, field
 
@@ -91,6 +91,9 @@ class Session:
         self._cleanup_task: Optional[asyncio.Task] = None
         self._server_session: Optional[ServerSession] = None
         self._closed_event = asyncio.Event()
+        # Define a set of valid commands for demonstration/testing purposes
+        # In a real application, these would likely be dynamically loaded or more extensive.
+        self._valid_commands: Set[str] = {"git_status", "git_commit", "git_push", "git_pull", "git_clone"}
         logger.info(f"Session {self.session_id} created")
 
     @property
@@ -184,6 +187,11 @@ class Session:
                 raise RuntimeError(
                     f"Session circuit breaker is open for {self.session_id}"
                 )
+
+            # Validate command name
+            if command_name not in self._valid_commands:
+                raise RuntimeError(f"Unknown or invalid command: '{command_name}'")
+
             # Placeholder: actual command handling logic should be injected/called here
             logger.debug(f"Session {self.session_id} handling command: {command_name}")
             # Simulate command execution
