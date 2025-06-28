@@ -4067,7 +4067,7 @@ After pushing your changes, post the following summary comment on the PR and re-
     # Start health logging task
     health_task = asyncio.create_task(log_health())
 
-    options = server.create_initialization_options()
+    # options = server.create_initialization_options()  # Removed unused variable
 
     try:
         if test_mode:
@@ -4089,7 +4089,7 @@ After pushing your changes, post the following summary comment on the PR and re-
                 await server.run(
                     intercepted_read_stream,
                     write_stream,
-                    options,
+                    server.create_initialization_options(),
                     raise_exceptions=False,
                 )
     except asyncio.CancelledError:
