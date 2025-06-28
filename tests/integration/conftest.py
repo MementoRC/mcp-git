@@ -1,12 +1,11 @@
 import asyncio
-import json
-import os
 import tempfile
 from pathlib import Path
 
 import pytest
 
 from unittest.mock import AsyncMock, patch
+
 
 @pytest.fixture(scope="session")
 def event_loop():
@@ -15,14 +14,18 @@ def event_loop():
     yield loop
     loop.close()
 
+
 @pytest.fixture
 async def mock_server(monkeypatch):
     """
     Fixture to mock the MCP Git Server process and its async I/O.
     """
     # Patch out actual GitHub and git calls
-    with patch("src.mcp_server_git.github.client.GitHubClient", autospec=True) as mock_gh_client, \
-         patch("src.mcp_server_git.git.security.enforce_secure_git_config", return_value="OK"):
+    with patch(
+        "src.mcp_server_git.github.client.GitHubClient", autospec=True
+    ) as mock_gh_client, patch(
+        "src.mcp_server_git.git.security.enforce_secure_git_config", return_value="OK"
+    ):
         # Mock GitHubClient methods
         instance = mock_gh_client.return_value
         instance.get.return_value = AsyncMock()
@@ -32,6 +35,7 @@ async def mock_server(monkeypatch):
         yield {
             "github_client": instance,
         }
+
 
 @pytest.fixture
 async def temp_git_repo():
@@ -43,6 +47,7 @@ async def temp_git_repo():
         # Optionally, initialize a git repo here if needed
         yield repo_path
 
+
 @pytest.fixture
 def sample_cancelled_notification():
     return {
@@ -50,6 +55,7 @@ def sample_cancelled_notification():
         "method": "notifications/cancelled",
         "params": {"requestId": "test-req-1", "reason": "User cancelled"},
     }
+
 
 @pytest.fixture
 def malformed_notification():

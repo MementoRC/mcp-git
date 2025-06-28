@@ -1,10 +1,10 @@
 import asyncio
 import json
 import pytest
-import time
 
 from src.mcp_server_git.session import SessionManager, SessionState
 from src.mcp_server_git.core.notification_interceptor import NotificationInterceptor
+
 
 @pytest.mark.asyncio
 async def test_long_running_session_lifecycle():
@@ -15,6 +15,7 @@ async def test_long_running_session_lifecycle():
     # Wait for idle timeout to trigger
     await asyncio.sleep(2.0)
     assert session.state == SessionState.CLOSED
+
 
 @pytest.mark.asyncio
 async def test_heartbeat_prevents_idle_timeout():
@@ -28,6 +29,7 @@ async def test_heartbeat_prevents_idle_timeout():
     assert session.state == SessionState.ACTIVE
     await session.close()
 
+
 @pytest.mark.asyncio
 async def test_stress_many_notifications(sample_cancelled_notification):
     """Stress test: send many notifications through the interceptor."""
@@ -40,6 +42,7 @@ async def test_stress_many_notifications(sample_cancelled_notification):
         if result is None:
             dropped += 1
     assert dropped == count
+
 
 @pytest.mark.asyncio
 async def test_concurrent_sessions_and_notifications(sample_cancelled_notification):
@@ -63,6 +66,7 @@ async def test_concurrent_sessions_and_notifications(sample_cancelled_notificati
     ] + [asyncio.create_task(send_notifications()) for _ in range(5)]
 
     await asyncio.gather(*tasks)
+
 
 @pytest.mark.asyncio
 async def test_malformed_message_handling(malformed_notification):
