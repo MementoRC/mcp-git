@@ -1,14 +1,14 @@
 import json
 import pytest
 
-from src.mcp_server_git.models.notifications import (
+from mcp_server_git.models.notifications import (
     CancelledNotification,
     parse_client_notification,
 )
-from src.mcp_server_git.models.validation import validate_cancelled_notification
-from src.mcp_server_git.core.notification_interceptor import NotificationInterceptor
-from src.mcp_server_git.session import SessionManager, SessionState
-from src.mcp_server_git.error_handling import ErrorContext
+from mcp_server_git.models.validation import validate_cancelled_notification
+from mcp_server_git.core.notification_interceptor import NotificationInterceptor
+from mcp_server_git.session import SessionManager, SessionState
+from mcp_server_git.error_handling import ErrorContext
 
 
 @pytest.mark.asyncio

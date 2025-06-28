@@ -2,8 +2,8 @@ import asyncio
 import json
 import pytest
 
-from src.mcp_server_git.session import SessionManager, SessionState
-from src.mcp_server_git.core.notification_interceptor import NotificationInterceptor
+from mcp_server_git.session import SessionManager, SessionState
+from mcp_server_git.core.notification_interceptor import NotificationInterceptor
 
 
 @pytest.mark.asyncio
