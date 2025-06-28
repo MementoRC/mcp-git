@@ -149,7 +149,10 @@ class Session:
                 return
             self.state = SessionState.CLOSING
             self.metrics.state_transitions += 1
-            logger.info(f"Session {self.session_id} closing..." + (f" Reason: {reason}" if reason else ""))
+            logger.info(
+                f"Session {self.session_id} closing..."
+                + (f" Reason: {reason}" if reason else "")
+            )
             if self._cleanup_task:
                 self._cleanup_task.cancel()
                 try:
@@ -215,7 +218,10 @@ class Session:
                     self.metrics.idle_timeouts += 1
                     await self.close(reason="idle timeout")
                     break
-                if self._heartbeat_timeout > 0 and heartbeat_age > self._heartbeat_timeout:
+                if (
+                    self._heartbeat_timeout > 0
+                    and heartbeat_age > self._heartbeat_timeout
+                ):
                     logger.info(
                         f"Session {self.session_id} heartbeat timeout ({heartbeat_age:.1f}s > {self._heartbeat_timeout:.1f}s), closing"
                     )
@@ -234,7 +240,9 @@ class Session:
         """
         async with self._lock:
             if self.state in (SessionState.CLOSING, SessionState.CLOSED):
-                logger.warning(f"Session {self.session_id} received heartbeat but is closed")
+                logger.warning(
+                    f"Session {self.session_id} received heartbeat but is closed"
+                )
                 return
             now = time.time()
             self.metrics.last_heartbeat = now
