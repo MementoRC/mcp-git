@@ -2485,7 +2485,7 @@ Please review for:
    - Consistent coding style and conventions
    - Appropriate abstractions and patterns
 
-2. **Functionality**  
+2. **Functionality**
    - Logic correctness
    - Edge cases handling
    - Performance implications

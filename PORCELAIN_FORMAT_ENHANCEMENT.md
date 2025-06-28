@@ -24,11 +24,11 @@ Modified the `git_status` function to handle the porcelain parameter:
 ```python
 def git_status(repo: git.Repo, porcelain: bool = False) -> str:
     """Get repository status in either human-readable or machine-readable format.
-    
+
     Args:
         repo: Git repository object
         porcelain: If True, return porcelain (machine-readable) format
-        
+
     Returns:
         Status output string
     """

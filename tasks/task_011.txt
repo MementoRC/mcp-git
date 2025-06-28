@@ -21,36 +21,36 @@ from typing import Dict, Any, Optional, List, Set
 
 class MCPGitServer:
     # ... existing initialization code ...
-    
+
     async def start(self) -> None:
         """Start the server with signal handling."""
         # Register signal handlers
         for sig in (signal.SIGINT, signal.SIGTERM):
             asyncio.get_event_loop().add_signal_handler(
                 sig, lambda: asyncio.create_task(self.shutdown()))
-        
+
         # Start session manager and heartbeat
         await self.session_manager.start()
         await self.heartbeat_manager.start()
-        
+
         # Restore any saved sessions
         await self.restore_sessions()
-        
+
         logger.info("MCP Git Server started successfully")
-    
+
     async def shutdown(self) -> None:
         """Gracefully shut down the server."""
         logger.info("Shutting down MCP Git Server...")
-        
+
         # Set shutting down flag
         self.shutting_down = True
-        
+
         # Save session state
         await self.save_sessions()
-        
+
         # Stop accepting new connections
         # ... code to stop server ...
-        
+
         # Give active operations time to complete
         if self.active_tasks:
             logger.info(f"Waiting for {len(self.active_tasks)} active tasks to complete")
@@ -60,34 +60,34 @@ class MCPGitServer:
                 await asyncio.wait(pending_tasks, timeout=5.0)
             except asyncio.TimeoutError:
                 logger.warning("Some tasks did not complete in time")
-        
+
         # Cancel any remaining tasks
         for task_id, task in self.active_tasks.items():
             if not task.done():
                 logger.info(f"Cancelling task {task_id}")
                 task.cancel()
-        
+
         # Close all sessions
         sessions = await self.session_manager.get_all_sessions()
         for session in sessions:
             await self.session_manager.close_session(session.session_id)
-        
+
         # Stop heartbeat manager
         await self.heartbeat_manager.stop()
-        
+
         # Stop session manager
         await self.session_manager.stop()
-        
+
         logger.info("MCP Git Server shutdown complete")
-    
+
     async def save_sessions(self) -> None:
         """Save session state to disk for recovery."""
         sessions = await self.session_manager.get_all_sessions()
         if not sessions:
             return
-        
+
         session_data = [session.to_dict() for session in sessions]
-        
+
         try:
             os.makedirs("./data", exist_ok=True)
             with open("./data/sessions.json", "w") as f:
@@ -95,20 +95,20 @@ class MCPGitServer:
             logger.info(f"Saved {len(sessions)} sessions to disk")
         except Exception as e:
             logger.error(f"Failed to save sessions: {e}")
-    
+
     async def restore_sessions(self) -> None:
         """Restore sessions from disk after restart."""
         try:
             if not os.path.exists("./data/sessions.json"):
                 return
-            
+
             with open("./data/sessions.json", "r") as f:
                 session_data = json.load(f)
-            
+
             for data in session_data:
                 # Create new session with saved ID
                 session = await self.session_manager.create_session(data["session_id"])
-                
+
                 # Restore session properties
                 session.state = SessionState(data["state"])
                 session.created_at = data["created_at"]
@@ -118,12 +118,12 @@ class MCPGitServer:
                 session.client_info = data["client_info"]
                 session.metadata = data["metadata"]
                 session.active_operations = set(data["active_operations"])
-            
+
             logger.info(f"Restored {len(session_data)} sessions from disk")
-            
+
             # Clean up the file after successful restore
             os.remove("./data/sessions.json")
-            
+
         except Exception as e:
             logger.error(f"Failed to restore sessions: {e}")
 ```

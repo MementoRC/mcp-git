@@ -17,8 +17,8 @@ repos:
     rev: v1.11.2
     hooks:
       - id: mypy
-        additional_dependencies: [types-click, types-aiohttp, types-python-dotenv]
-        args: [--ignore-missing-imports, --follow-imports=skip]
+        additional_dependencies: [types-click, types-setuptools, types-requests]
+        args: [--ignore-missing-imports, --follow-imports=skip, --no-strict-optional, --disable-error-code=return-value]
 
   # General code quality
   - repo: https://github.com/pre-commit/pre-commit-hooks

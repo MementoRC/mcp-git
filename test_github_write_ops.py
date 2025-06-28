@@ -77,7 +77,7 @@ This PR now includes **complete GitHub API coverage** with both read and write o
 
 ### New GitHub Write Operations ✅
 - **github_update_pr**: Update PR title, description, and state
-- **github_create_pr**: Create new pull requests with draft support  
+- **github_create_pr**: Create new pull requests with draft support
 - **github_merge_pr**: Merge PRs with squash/merge/rebase methods
 - **github_add_pr_comment**: Add comments to pull requests
 - **github_close_pr**: Close pull requests
@@ -94,7 +94,7 @@ This PR now includes **complete GitHub API coverage** with both read and write o
 # ❌ Bash(gh pr edit ...)
 # ✅ mcp__git__github_update_pr(...)
 
-# ❌ Bash(gh pr create ...)  
+# ❌ Bash(gh pr create ...)
 # ✅ mcp__git__github_create_pr(...)
 
 # ❌ Bash(gh pr merge ...)
@@ -109,7 +109,7 @@ This PR now includes **complete GitHub API coverage** with both read and write o
 
 ### New GitHub Write Operations ✅
 - **github_update_pr**: Update PR title, description, and state
-- **github_create_pr**: Create new pull requests with draft support  
+- **github_create_pr**: Create new pull requests with draft support
 - **github_merge_pr**: Merge PRs with squash/merge/rebase methods
 - **github_add_pr_comment**: Add comments to pull requests
 - **github_close_pr**: Close pull requests
@@ -121,7 +121,7 @@ This PR now includes **complete GitHub API coverage** with both read and write o
 # ❌ Bash(gh pr edit ...)
 # ✅ mcp__git__github_update_pr(...)
 
-# ❌ Bash(gh pr create ...)  
+# ❌ Bash(gh pr create ...)
 # ✅ mcp__git__github_create_pr(...)
 
 # ❌ Bash(gh pr merge ...)
@@ -132,7 +132,7 @@ This PR now includes **complete GitHub API coverage** with both read and write o
 
 ### 🏗️ **Modular Architecture Implementation**
 - **✅ Core Module** (`src/mcp_server_git/core/`): Centralized tools and handlers
-- **✅ Git Module** (`src/mcp_server_git/git/`): Git operations, models, and security  
+- **✅ Git Module** (`src/mcp_server_git/git/`): Git operations, models, and security
 - **✅ GitHub Module** (`src/mcp_server_git/github/`): GitHub API client and models
 - **✅ Alternate Servers**: `server_modular.py` and `server_v2.py` for different use cases
 
@@ -145,7 +145,7 @@ This PR now includes **complete GitHub API coverage** with both read and write o
 
 ### 🛡️ **Robust Error Handling**
 - **Authentication Errors**: Clear GITHUB_TOKEN validation messages
-- **Rate Limiting**: Detailed rate limit status and reset time reporting  
+- **Rate Limiting**: Detailed rate limit status and reset time reporting
 - **Network Failures**: Graceful handling of connection timeouts and retries
 - **API Validation**: Comprehensive 422 validation error reporting
 - **Resource Management**: Proper cleanup of connections and sessions
