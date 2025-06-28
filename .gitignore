@@ -33,3 +33,4 @@ wheels/
 .mcp.json
 .mcp.json.backup
 .taskmaster/
+tasks/
