@@ -3,7 +3,7 @@
 import logging
 import os
 import subprocess
-from typing import Dict
+from typing import Dict, Any
 
 from git import Repo  # Added GitCommandError, InvalidGitRepositoryError
 
