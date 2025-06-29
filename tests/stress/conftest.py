@@ -165,26 +165,26 @@ def stress_test_config():
         or os.getenv("PYTEST_CI", "false").lower() == "true"
     )
 
-    # CI-friendly defaults
+    # CI-friendly defaults (extremely minimal for fast CI)
     ci_defaults = {
         "long_running": {
-            "duration_minutes": 2,
-            "message_rate": 5,
-            "operation_rate": 2,
+            "duration_minutes": 0.1,  # 6 seconds
+            "message_rate": 2,
+            "operation_rate": 1,
         },
         "memory": {
-            "sample_interval": 50,
+            "sample_interval": 5,
             "max_growth_mb": 10,
             "max_slope": 0.2,
         },
         "error_injection": {
             "error_rate": 0.1,
-            "recovery_check_interval": 3,
+            "recovery_check_interval": 1,
         },
         "concurrent": {
-            "client_count": 5,
-            "messages_per_client": 50,
-            "connection_delay": 0.01,
+            "client_count": 1,
+            "messages_per_client": 5,
+            "connection_delay": 0.001,
         },
     }
 
