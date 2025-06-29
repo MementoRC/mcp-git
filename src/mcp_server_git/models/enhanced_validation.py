@@ -15,6 +15,14 @@ from .validation import ValidationResult, safe_parse_notification
 
 logger = logging.getLogger(__name__)
 
+# Import caching functionality
+try:
+    from ..optimizations import apply_validation_cache, get_validation_cache_stats
+    _caching_available = True
+except ImportError:
+    _caching_available = False
+    logger.warning("Caching optimization not available")
+
 
 @dataclass
 class NotificationInfo:
@@ -77,8 +85,8 @@ class RobustNotificationHandler:
                 f"Processing notification: {info.method} (request_id: {info.request_id})"
             )
 
-            # Attempt to parse the notification
-            result = safe_parse_notification(data)
+            # Attempt to parse the notification using cached version
+            result = _cached_safe_parse_notification(data)
 
             if result.is_valid:
                 self.processed_count += 1
@@ -174,6 +182,18 @@ class RobustNotificationHandler:
 notification_handler = RobustNotificationHandler()
 
 
+# Create cached version if caching is available
+if _caching_available:
+    @apply_validation_cache
+    def _cached_safe_parse_notification(data: Dict[str, Any]) -> ValidationResult:
+        """Cached version of safe notification processing."""
+        return safe_parse_notification(data)
+else:
+    def _cached_safe_parse_notification(data: Dict[str, Any]) -> ValidationResult:
+        """Non-cached fallback version."""
+        return safe_parse_notification(data)
+
+
 def process_notification_safely(data: Dict[str, Any]) -> ValidationResult:
     """
     Main entry point for safe notification processing.
@@ -188,3 +208,7 @@ def log_notification_stats() -> None:
     """Log current notification processing statistics."""
     stats = notification_handler.get_stats()
     logger.info(f"Notification stats: {stats}")
+    
+    if _caching_available:
+        cache_stats = get_validation_cache_stats()
+        logger.info(f"Validation cache stats: {cache_stats}")
