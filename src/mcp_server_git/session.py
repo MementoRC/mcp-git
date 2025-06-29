@@ -7,7 +7,9 @@ Session management module for MCP Git Server.
 """
 
 import asyncio
+import json
 import logging
+import os
 import time
 from enum import Enum, auto
 from typing import Optional, Dict, Any, Set
@@ -275,6 +277,48 @@ class Session:
     def get_circuit_stats(self) -> Dict[str, Any]:
         return self._circuit.get_stats()
 
+    def to_dict(self) -> Dict[str, Any]:
+        """Serialize session state for persistence."""
+        return {
+            "session_id": self.session_id,
+            "user": self.user,
+            "repository": str(self.repository) if self.repository else None,
+            "state": self.state.name,
+            "metrics": self.metrics.as_dict(),
+            "idle_timeout": self._idle_timeout,
+            "heartbeat_timeout": self._heartbeat_timeout,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "Session":
+        """Restore session from serialized state."""
+        session = cls(
+            session_id=data["session_id"],
+            user=data.get("user"),
+            repository=Path(data["repository"]) if data.get("repository") else None,
+            idle_timeout=data.get("idle_timeout", 900.0),
+            heartbeat_timeout=data.get("heartbeat_timeout", 60.0),
+        )
+        # Restore state
+        session.state = SessionState[data["state"]]
+        # Restore metrics if available
+        if "metrics" in data:
+            metrics_data = data["metrics"]
+            session.metrics.start_time = metrics_data.get("start_time", time.time())
+            session.metrics.last_active = metrics_data.get("last_active", time.time())
+            session.metrics.last_heartbeat = metrics_data.get(
+                "last_heartbeat", time.time()
+            )
+            session.metrics.error_count = metrics_data.get("error_count", 0)
+            session.metrics.command_count = metrics_data.get("command_count", 0)
+            session.metrics.idle_timeouts = metrics_data.get("idle_timeouts", 0)
+            session.metrics.heartbeat_timeouts = metrics_data.get(
+                "heartbeat_timeouts", 0
+            )
+            session.metrics.heartbeat_count = metrics_data.get("heartbeat_count", 0)
+            session.metrics.state_transitions = metrics_data.get("state_transitions", 0)
+        return session
+
     def __repr__(self):
         return (
             f"<Session id={self.session_id} state={self.state.name} user={self.user}>"
@@ -443,10 +487,97 @@ class SessionManager:
                 sid: session.get_metrics() for sid, session in self._sessions.items()
             }
 
+    async def save_sessions(self, data_dir: str = "./data") -> None:
+        """Save session state to disk for recovery."""
+        sessions = await self.get_all_sessions()
+        if not sessions:
+            logger.debug("No sessions to save")
+            return
+
+        # Only save active and paused sessions
+        session_data = []
+        for session in sessions.values():
+            if session.state in (SessionState.ACTIVE, SessionState.PAUSED):
+                session_data.append(session.to_dict())
+
+        if not session_data:
+            logger.debug("No active/paused sessions to save")
+            return
+
+        try:
+            os.makedirs(data_dir, exist_ok=True)
+            sessions_file = os.path.join(data_dir, "sessions.json")
+            with open(sessions_file, "w") as f:
+                json.dump(session_data, f, indent=2)
+            logger.info(f"Saved {len(session_data)} sessions to {sessions_file}")
+        except Exception as e:
+            logger.error(f"Failed to save sessions: {e}")
+
+    async def restore_sessions(self, data_dir: str = "./data") -> None:
+        """Restore sessions from disk after restart."""
+        sessions_file = os.path.join(data_dir, "sessions.json")
+
+        try:
+            if not os.path.exists(sessions_file):
+                logger.debug("No session file to restore from")
+                return
+
+            with open(sessions_file, "r") as f:
+                session_data = json.load(f)
+
+            if not session_data:
+                logger.debug("No sessions to restore")
+                return
+
+            restored_count = 0
+            for data in session_data:
+                try:
+                    # Restore session from saved data
+                    session = Session.from_dict(data)
+
+                    async with self._lock:
+                        if session.session_id not in self._sessions:
+                            self._sessions[session.session_id] = session
+                            # Start the session if it was active
+                            if session.state == SessionState.ACTIVE:
+                                await session.start()
+                            restored_count += 1
+                        else:
+                            logger.warning(
+                                f"Session {session.session_id} already exists, skipping restore"
+                            )
+
+                except Exception as e:
+                    logger.error(
+                        f"Failed to restore session {data.get('session_id', 'unknown')}: {e}"
+                    )
+
+            logger.info(f"Restored {restored_count} sessions from {sessions_file}")
+
+            # Clean up the file after successful restore
+            try:
+                os.remove(sessions_file)
+                logger.debug(f"Cleaned up session file {sessions_file}")
+            except Exception as e:
+                logger.warning(f"Failed to clean up session file: {e}")
+
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse session file {sessions_file}: {e}")
+        except Exception as e:
+            logger.error(f"Failed to restore sessions: {e}")
+
     async def shutdown(self):
         """
         Gracefully close all sessions and stop heartbeat manager.
         """
+        logger.info("SessionManager: Starting graceful shutdown")
+
+        # Save sessions before shutdown
+        try:
+            await self.save_sessions()
+        except Exception as e:
+            logger.error(f"Failed to save sessions during shutdown: {e}")
+
         async with self._lock:
             logger.info("SessionManager: Shutting down all sessions")
             for session in list(self._sessions.values()):

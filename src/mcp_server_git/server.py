@@ -1978,6 +1978,9 @@ async def main(repository: Path | None, test_mode: bool = False) -> None:
     start_time = time.time()
     session_id = os.environ.get("MCP_SESSION_ID", "default")
 
+    # Create shutdown event for graceful shutdown
+    shutdown_event = asyncio.Event()
+
     # Startup logging
     logger.info(
         f"🚀 Starting MCP Git Server (Session: {session_id})",
@@ -2002,11 +2005,30 @@ async def main(repository: Path | None, test_mode: bool = False) -> None:
 
     server = Server("mcp-git")
 
+    # Signal handler for graceful shutdown
+    def signal_handler(signum, frame):
+        signal_name = signal.Signals(signum).name
+        logger.info(f"🛑 Received {signal_name}, initiating graceful shutdown")
+        shutdown_event.set()
+
+    # Register signal handlers for graceful shutdown
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+
     # Heartbeat/session manager setup
     session_manager = SessionManager()
     heartbeat_manager = HeartbeatManager(session_manager)
     session_manager.heartbeat_manager = heartbeat_manager
     await heartbeat_manager.start()
+
+    # Restore any saved sessions from previous runs
+    try:
+        await session_manager.restore_sessions()
+    except Exception as e:
+        logger.error(f"Failed to restore sessions: {e}")
+
+    # Track active tasks for graceful shutdown
+    active_tasks = set()
 
     # Metrics: record server startup
     await global_metrics_collector.record_session_event("server_started")
@@ -4185,13 +4207,6 @@ After pushing your changes, post the following summary comment on the PR and re-
     initialization_time = time.time() - start_time
     logger.info(f"📡 Server listening (startup took {initialization_time:.2f}s)")
 
-    # Signal handler for graceful shutdown
-    def signal_handler(signum, frame):
-        logger.info(f"📡 Received signal {signum}, initiating graceful shutdown...")
-        return None
-
-    signal.signal(signal.SIGTERM, signal_handler)
-    signal.signal(signal.SIGINT, signal_handler)
 
     # Add periodic health check logging
     async def log_health():
@@ -4254,13 +4269,74 @@ After pushing your changes, post the following summary comment on the PR and re-
                 # This is a placeholder for integration with the actual MCP notification system.
                 # In a real implementation, you would register this handler with the server's notification router.
 
-                # Run server with error isolation - CRITICAL: raise_exceptions=False prevents crashes
-                await server.run(
-                    intercepted_read_stream,
-                    write_stream,
-                    server.create_initialization_options(),
-                    raise_exceptions=False,
+                # Run server with graceful shutdown support
+                # Create a task to run the server
+                server_task = asyncio.create_task(
+                    server.run(
+                        intercepted_read_stream,
+                        write_stream,
+                        server.create_initialization_options(),
+                        raise_exceptions=False,
+                    )
                 )
+                active_tasks.add(server_task)
+
+                # Wait for either server completion or shutdown signal
+                try:
+                    done, pending = await asyncio.wait(
+                        [server_task, asyncio.create_task(shutdown_event.wait())],
+                        return_when=asyncio.FIRST_COMPLETED,
+                    )
+
+                    # Cancel any remaining tasks
+                    for task in pending:
+                        task.cancel()
+                        try:
+                            await task
+                        except asyncio.CancelledError:
+                            pass
+
+                    # If shutdown was triggered, perform graceful shutdown
+                    if shutdown_event.is_set():
+                        logger.info("🔄 Initiating graceful shutdown sequence...")
+
+                        # Give active tasks time to complete (with timeout)
+                        if active_tasks:
+                            logger.info(
+                                f"⏳ Waiting for {len(active_tasks)} active tasks to complete..."
+                            )
+                            try:
+                                await asyncio.wait_for(
+                                    asyncio.gather(
+                                        *[
+                                            task
+                                            for task in active_tasks
+                                            if not task.done()
+                                        ],
+                                        return_exceptions=True,
+                                    ),
+                                    timeout=5.0,
+                                )
+                            except asyncio.TimeoutError:
+                                logger.warning(
+                                    "⚠️ Some tasks did not complete within 5 seconds"
+                                )
+
+                        # Cancel any remaining tasks
+                        for task in active_tasks:
+                            if not task.done():
+                                logger.debug(f"🚫 Cancelling task: {task}")
+                                task.cancel()
+
+                        # Wait for cancellations to complete
+                        if active_tasks:
+                            await asyncio.gather(*active_tasks, return_exceptions=True)
+
+                        logger.info("✅ Graceful shutdown sequence completed")
+
+                except Exception as e:
+                    logger.error(f"Error during server operation: {e}")
+                    raise
     except asyncio.CancelledError:
         logger.info("🛑 Server cancelled")
         raise
@@ -4294,19 +4370,25 @@ After pushing your changes, post the following summary comment on the PR and re-
         # Log interception statistics before shutdown
         log_interception_stats()
 
-        # Clean shutdown
+        # Perform graceful shutdown of all components
+        logger.info("🔚 Starting final cleanup sequence...")
+
+        # Clean shutdown of health monitoring
         health_task.cancel()
         try:
             await health_task
         except asyncio.CancelledError:
             pass
 
-        # Stop heartbeat manager
-        await heartbeat_manager.stop()
+        # Shutdown session manager (this will save sessions and close them)
+        try:
+            await session_manager.shutdown()
+        except Exception as e:
+            logger.error(f"Error during session manager shutdown: {e}")
 
         # Server shutdown logging
         total_uptime = time.time() - start_time
-        logger.info(f"🔚 Server shutdown after {total_uptime:.1f}s uptime")
+        logger.info(f"🔚 Server shutdown complete after {total_uptime:.1f}s uptime")
 
 
 if __name__ == "__main__":
