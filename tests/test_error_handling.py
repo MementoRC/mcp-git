@@ -423,7 +423,7 @@ class TestErrorMetrics:
 
         stats = get_error_stats()
         assert stats["total_errors"] == 1
-        assert stats["errors_by_type"]["SystemExit"] == 1
+        assert stats["errors_by_type"]["RuntimeError"] == 1
         assert stats["errors_by_severity"]["critical"] == 1
         assert stats["recovered_errors"] == 0
         assert stats["critical_errors"] == 1
