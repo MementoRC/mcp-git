@@ -26,11 +26,14 @@ from mcp.server.stdio import stdio_server
 from mcp.types import (
     ClientCapabilities,
     GetPromptResult,
+    Implementation,  # Added
+    InitializeResult,  # Added for initialize handler
     ListRootsResult,
     Prompt,
     PromptArgument,
     PromptMessage,
     RootsCapability,
+    ServerCapabilities,  # Added
     TextContent,
     Tool,
 )
@@ -1949,6 +1952,25 @@ def git_continue(repo: Repo, operation: str) -> str:
         return f"❌ Continue error: {str(e)}"
 
 
+def get_server_version() -> str:
+    """Reads the server version from pyproject.toml."""
+    try:
+        # Assuming pyproject.toml is in the project root, two levels up from this file
+        pyproject_path = Path(__file__).resolve().parents[2] / "pyproject.toml"
+        with open(pyproject_path, "r") as f:
+            for line in f:
+                if line.strip().startswith("version ="):
+                    version_match = re.search(r'version = "(.*?)"', line)
+                    if version_match:
+                        return version_match.group(1)
+        return "unknown"
+    except Exception as e:
+        logging.getLogger(__name__).warning(
+            f"Could not read version from pyproject.toml: {e}"
+        )
+        return "unknown"
+
+
 async def main(repository: Path | None, test_mode: bool = False) -> None:
     import os
     from datetime import datetime
@@ -1996,6 +2018,36 @@ async def main(repository: Path | None, test_mode: bool = False) -> None:
     # The middleware infrastructure is available in models/notifications.py and models/middleware.py
     # but integrating it into the MCP framework requires careful session handling
     logger.debug("🔧 Notification middleware available for cancelled notifications")
+
+    @server.initialize()
+    async def initialize(
+        client_capabilities: ClientCapabilities,
+        client_info: Optional[dict] = None,
+        protocol_version: Optional[str] = None,
+    ) -> InitializeResult:
+        """
+        Handles the 'initialize' request from the client, providing server capabilities and info.
+        """
+        logger.info(
+            f"✨ Initializing MCP Git Server for client: {client_info.get('name', 'unknown') if client_info else 'unknown'}"
+        )
+        logger.debug(
+            f"Client capabilities: {client_capabilities.model_dump_json(indent=2)}"
+        )
+
+        server_version = get_server_version()
+
+        return InitializeResult(
+            protocolVersion="2024-11-05",
+            capabilities=ServerCapabilities(
+                tools={},
+                prompts={},
+            ),
+            serverInfo=Implementation(
+                name="mcp-git",
+                version=server_version,
+            ),
+        )
 
     @server.list_prompts()
     async def list_prompts() -> list[Prompt]:
