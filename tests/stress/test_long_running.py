@@ -236,13 +236,16 @@ async def test_continuous_operation_under_load(
 
     config = stress_test_config["long_running"]
     import os
+
     is_ci = (
         os.getenv("CI", "false").lower() == "true"
         or os.getenv("GITHUB_ACTIONS", "false").lower() == "true"
         or os.getenv("PYTEST_CI", "false").lower() == "true"
     )
     # In CI, run for only 3 seconds, 1 message/sec
-    duration_minutes = 0.05 if is_ci else min(config["duration_minutes"], 15)  # 3 seconds
+    duration_minutes = (
+        0.05 if is_ci else min(config["duration_minutes"], 15)
+    )  # 3 seconds
     message_rate = 1 if is_ci else config["message_rate"]
 
     await mock_client.connect()
@@ -254,7 +257,9 @@ async def test_continuous_operation_under_load(
     end_time = start_time + (duration_minutes * 60)
 
     memory_monitor.take_sample("load_test_start")
-    logger.info(f"Starting minimal continuous load test for {duration_minutes*60:.1f} seconds")
+    logger.info(
+        f"Starting minimal continuous load test for {duration_minutes*60:.1f} seconds"
+    )
     logger.info(f"Target rate: {message_rate} messages/second")
 
     message_count = 0
@@ -307,9 +312,7 @@ async def test_continuous_operation_under_load(
     logger.info(f"Memory growth: {memory_growth:.2f} MB")
 
     # Minimal assertions for CI
-    assert (
-        actual_rate >= 1
-    ), f"Rate too low: {actual_rate:.2f} < 1"
+    assert actual_rate >= 1, f"Rate too low: {actual_rate:.2f} < 1"
     error_rate = error_count / message_count if message_count > 0 else 0
     assert error_rate < 0.5, f"Error rate too high under load: {error_rate:.2%}"
     assert (
@@ -326,6 +329,7 @@ async def test_session_lifecycle_stress(stress_session_manager, stress_test_conf
     """Test rapid session creation and destruction."""
 
     import os
+
     is_ci = (
         os.getenv("CI", "false").lower() == "true"
         or os.getenv("GITHUB_ACTIONS", "false").lower() == "true"

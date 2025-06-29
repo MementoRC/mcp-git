@@ -212,11 +212,15 @@ def stress_test_config():
                 "error_rate": float(
                     os.getenv("STRESS_ERROR_RATE", "0.1")
                 ),  # 10% of messages
-                "recovery_check_interval": int(os.getenv("STRESS_RECOVERY_CHECK", "10")),
+                "recovery_check_interval": int(
+                    os.getenv("STRESS_RECOVERY_CHECK", "10")
+                ),
             },
             "concurrent": {
                 "client_count": int(os.getenv("STRESS_CLIENT_COUNT", "20")),
-                "messages_per_client": int(os.getenv("STRESS_MESSAGES_PER_CLIENT", "1000")),
+                "messages_per_client": int(
+                    os.getenv("STRESS_MESSAGES_PER_CLIENT", "1000")
+                ),
                 "connection_delay": float(os.getenv("STRESS_CONNECTION_DELAY", "0.1")),
             },
         }

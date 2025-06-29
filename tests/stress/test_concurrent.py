@@ -18,6 +18,7 @@ async def test_massive_concurrent_clients(stress_session_manager, stress_test_co
     """Minimal concurrent client test for CI."""
 
     import os
+
     is_ci = (
         os.getenv("CI", "false").lower() == "true"
         or os.getenv("GITHUB_ACTIONS", "false").lower() == "true"
@@ -285,6 +286,7 @@ async def test_connection_churn_stability(stress_session_manager, stress_test_co
     """Test stability under rapid client connections and disconnections."""
 
     import os
+
     is_ci = (
         os.getenv("CI", "false").lower() == "true"
         or os.getenv("GITHUB_ACTIONS", "false").lower() == "true"
@@ -417,6 +419,7 @@ async def test_mixed_load_scenarios(stress_session_manager, stress_test_config):
     """Test server under mixed realistic load scenarios."""
 
     import os
+
     is_ci = (
         os.getenv("CI", "false").lower() == "true"
         or os.getenv("GITHUB_ACTIONS", "false").lower() == "true"
@@ -425,16 +428,36 @@ async def test_mixed_load_scenarios(stress_session_manager, stress_test_config):
 
     # Different client types with different behaviors
     scenarios = [
-        {"name": "burst_client", "count": 1 if is_ci else 5, "message_rate": 5 if is_ci else 50, "burst_interval": 2 if is_ci else 10},
-        {"name": "steady_client", "count": 1 if is_ci else 10, "message_rate": 2 if is_ci else 10, "burst_interval": 0},
-        {"name": "idle_client", "count": 1 if is_ci else 15, "message_rate": 1, "burst_interval": 0},
+        {
+            "name": "burst_client",
+            "count": 1 if is_ci else 5,
+            "message_rate": 5 if is_ci else 50,
+            "burst_interval": 2 if is_ci else 10,
+        },
+        {
+            "name": "steady_client",
+            "count": 1 if is_ci else 10,
+            "message_rate": 2 if is_ci else 10,
+            "burst_interval": 0,
+        },
+        {
+            "name": "idle_client",
+            "count": 1 if is_ci else 15,
+            "message_rate": 1,
+            "burst_interval": 0,
+        },
         {
             "name": "operation_heavy",
             "count": 1 if is_ci else 3,
             "message_rate": 2 if is_ci else 20,
             "operation_ratio": 0.8,
         },
-        {"name": "error_prone", "count": 1 if is_ci else 2, "message_rate": 1 if is_ci else 5, "error_rate": 0.1},
+        {
+            "name": "error_prone",
+            "count": 1 if is_ci else 2,
+            "message_rate": 1 if is_ci else 5,
+            "error_rate": 0.1,
+        },
     ]
 
     test_duration = 5 if is_ci else 60  # seconds
