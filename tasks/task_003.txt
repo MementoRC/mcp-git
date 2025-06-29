@@ -34,7 +34,7 @@ ClientNotification = Union[
 def parse_client_notification(data: Dict[str, Any]) -> ClientNotification:
     """Parse a client notification from raw data based on its type field."""
     notification_type = data.get("type", "")
-    
+
     if notification_type == "notifications/cancelled":
         return CancelledNotification.parse_obj(data)
     elif notification_type == "existing_type_1":

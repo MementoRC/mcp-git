@@ -86,7 +86,7 @@ The MCP Git Server will automatically:
 git_security_validate(repo_path="/path/to/repo")
 ```
 
-### Enforce Security Configuration  
+### Enforce Security Configuration
 ```python
 # Automatically fix security issues
 git_security_enforce(repo_path="/path/to/repo", strict_mode=True)
@@ -122,7 +122,7 @@ echo "GITHUB_TOKEN=your_token" >> .env
 
 ### The following are NOT allowed:
 - **Unsigned commits** - All commits must be GPG signed
-- **System git fallback** - Must use MCP Git tools exclusively  
+- **System git fallback** - Must use MCP Git tools exclusively
 - **Unverified identities** - User name/email must be configured
 - **Insecure configurations** - Automatic security enforcement
 

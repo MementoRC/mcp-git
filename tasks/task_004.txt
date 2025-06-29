@@ -29,7 +29,7 @@ class ValidationResult(Generic[T]):
         self.error = error
         self.raw_data = raw_data or {}
         self.is_valid = model is not None and error is None
-    
+
     @property
     def message_type(self) -> str:
         """Extract message type even if validation failed."""
@@ -49,7 +49,7 @@ def validate_message(data: Dict[str, Any], model_class: Type[T]) -> ValidationRe
 def safe_parse_notification(data: Dict[str, Any]) -> ValidationResult:
     """Parse a notification with fallback handling."""
     from .notifications import parse_client_notification
-    
+
     try:
         model = parse_client_notification(data)
         return ValidationResult(model=model, raw_data=data)

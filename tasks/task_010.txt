@@ -21,7 +21,7 @@ from typing import Dict, Any, Optional
 
 class StructuredLogFormatter(logging.Formatter):
     """Formatter that outputs JSON formatted logs."""
-    
+
     def format(self, record: logging.LogRecord) -> str:
         log_data = {
             "timestamp": datetime.fromtimestamp(record.created).isoformat(),
@@ -29,35 +29,35 @@ class StructuredLogFormatter(logging.Formatter):
             "message": record.getMessage(),
             "logger": record.name,
         }
-        
+
         # Add extra fields from record
         if hasattr(record, "session_id"):
             log_data["session_id"] = record.session_id
-        
+
         if hasattr(record, "request_id"):
             log_data["request_id"] = record.request_id
-        
+
         if hasattr(record, "duration"):
             log_data["duration_ms"] = record.duration
-        
+
         # Add exception info if present
         if record.exc_info:
             log_data["exception"] = {
                 "type": record.exc_info[0].__name__,
                 "message": str(record.exc_info[1]),
             }
-        
+
         return json.dumps(log_data)
 
 def configure_logging(log_level: str = "INFO") -> None:
     """Configure structured logging."""
     root_logger = logging.getLogger()
     root_logger.setLevel(log_level)
-    
+
     # Remove existing handlers
     for handler in root_logger.handlers:
         root_logger.removeHandler(handler)
-    
+
     # Add console handler with structured formatter
     console_handler = logging.StreamHandler()
     console_handler.setFormatter(StructuredLogFormatter())
@@ -71,7 +71,7 @@ from collections import defaultdict
 
 class MetricsCollector:
     """Collects and reports metrics about server operation."""
-    
+
     def __init__(self):
         self.metrics: Dict[str, Any] = {
             "sessions": {
@@ -96,56 +96,56 @@ class MetricsCollector:
             }
         }
         self.lock = asyncio.Lock()
-    
+
     async def record_message(self, message_type: str, duration_ms: float) -> None:
         """Record a processed message."""
         async with self.lock:
             self.metrics["messages"]["processed"] += 1
             self.metrics["messages"]["by_type"][message_type] += 1
-            
+
             # Track performance
             self.metrics["performance"]["message_processing_time"].append(duration_ms)
             # Keep only recent measurements
             if len(self.metrics["performance"]["message_processing_time"]) > 100:
                 self.metrics["performance"]["message_processing_time"].pop(0)
-            
+
             # Update average
             times = self.metrics["performance"]["message_processing_time"]
             self.metrics["performance"]["avg_processing_time"] = sum(times) / len(times) if times else 0
-    
+
     async def record_message_error(self, message_type: str) -> None:
         """Record a message processing error."""
         async with self.lock:
             self.metrics["messages"]["errors"] += 1
-    
+
     async def record_session_created(self) -> None:
         """Record a new session creation."""
         async with self.lock:
             self.metrics["sessions"]["active"] += 1
             self.metrics["sessions"]["total_created"] += 1
-    
+
     async def record_session_closed(self) -> None:
         """Record a session being closed."""
         async with self.lock:
             self.metrics["sessions"]["active"] -= 1
-    
+
     async def record_operation_started(self) -> None:
         """Record an operation being started."""
         async with self.lock:
             self.metrics["operations"]["active"] += 1
-    
+
     async def record_operation_completed(self, cancelled: bool = False, failed: bool = False) -> None:
         """Record an operation being completed."""
         async with self.lock:
             self.metrics["operations"]["active"] -= 1
-            
+
             if cancelled:
                 self.metrics["operations"]["cancelled"] += 1
             elif failed:
                 self.metrics["operations"]["failed"] += 1
             else:
                 self.metrics["operations"]["completed"] += 1
-    
+
     async def get_metrics(self) -> Dict[str, Any]:
         """Get a copy of the current metrics."""
         async with self.lock:
@@ -156,25 +156,25 @@ async def process_message(self, raw_message: Dict[str, Any], session_id: str) ->
     """Process an incoming message with performance tracking."""
     start_time = time.time()
     message_type = raw_message.get("type", "unknown")
-    
+
     try:
         # ... existing message processing code ...
-        
+
         # Record metrics
         duration_ms = (time.time() - start_time) * 1000
         await self.metrics.record_message(message_type, duration_ms)
-        
+
         # Add performance info to logs
         logger.info(f"Processed {message_type} message", extra={
             "session_id": session_id,
             "duration": duration_ms,
             "message_type": message_type
         })
-        
+
     except Exception as e:
         # Record error in metrics
         await self.metrics.record_message_error(message_type)
-        
+
         # ... existing error handling code ...
 ```
 

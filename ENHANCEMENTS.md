@@ -79,7 +79,7 @@ The enhanced MCP Git server now provides:
 **Example Usage**:
 ```json
 {
-  "tool": "git_commit", 
+  "tool": "git_commit",
   "arguments": {
     "repo_path": "/path/to/repo",
     "message": "feat: add user authentication",
@@ -212,7 +212,7 @@ git log --oneline --graph -10
 ```python
 # Direct MCP tool calls
 mcp_git.git_push(repo_path="/repo", branch="feature-branch", set_upstream=True)
-mcp_git.git_pull(repo_path="/repo", remote="upstream", branch="main") 
+mcp_git.git_pull(repo_path="/repo", remote="upstream", branch="main")
 mcp_git.git_log(repo_path="/repo", max_count=10, oneline=True, graph=True)
 ```
 
@@ -278,7 +278,7 @@ await git_add(repo, ["src/", "tests/"])
 
 # Create GPG-signed commit
 await git_commit(
-    repo, 
+    repo,
     "feat: add user authentication with JWT support",
     gpg_sign=True,
     gpg_key_id="C7927B4C27159961"

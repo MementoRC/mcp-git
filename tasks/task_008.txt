@@ -18,8 +18,8 @@ from datetime import datetime
 
 class HeartbeatManager:
     """Manages heartbeats for session health monitoring."""
-    
-    def __init__(self, session_manager: SessionManager, 
+
+    def __init__(self, session_manager: SessionManager,
                  heartbeat_interval: float = 30.0,
                  missed_heartbeat_threshold: int = 3):
         self.session_manager = session_manager
@@ -28,15 +28,15 @@ class HeartbeatManager:
         self.session_heartbeats: Dict[str, datetime] = {}
         self.running = False
         self.task: Optional[asyncio.Task] = None
-    
+
     async def start(self) -> None:
         """Start the heartbeat monitoring task."""
         if self.running:
             return
-        
+
         self.running = True
         self.task = asyncio.create_task(self._heartbeat_loop())
-    
+
     async def stop(self) -> None:
         """Stop the heartbeat monitoring task."""
         self.running = False
@@ -47,7 +47,7 @@ class HeartbeatManager:
             except asyncio.CancelledError:
                 pass
             self.task = None
-    
+
     async def _heartbeat_loop(self) -> None:
         """Main heartbeat monitoring loop."""
         while self.running:
@@ -59,37 +59,37 @@ class HeartbeatManager:
             except Exception as e:
                 logger.error(f"Error in heartbeat loop: {e}")
                 await asyncio.sleep(5.0)  # Backoff on error
-    
+
     async def _check_heartbeats(self) -> None:
         """Check all sessions for heartbeat status."""
         now = datetime.now()
         sessions = await self.session_manager.get_all_sessions()
-        
+
         for session in sessions:
             # Skip sessions that aren't fully active yet
             if session.state != SessionState.ACTIVE:
                 continue
-                
+
             last_heartbeat = self.session_heartbeats.get(session.session_id)
             if not last_heartbeat:
                 # New session, initialize heartbeat
                 self.session_heartbeats[session.session_id] = now
                 continue
-            
+
             # Calculate time since last heartbeat
             time_diff = (now - last_heartbeat).total_seconds()
             missed_beats = int(time_diff / self.heartbeat_interval)
-            
+
             if missed_beats >= self.missed_heartbeat_threshold:
                 logger.warning(f"Session {session.session_id} missed {missed_beats} heartbeats, closing")
                 await self.session_manager.close_session(session.session_id)
                 if session.session_id in self.session_heartbeats:
                     del self.session_heartbeats[session.session_id]
-    
+
     async def record_heartbeat(self, session_id: str) -> None:
         """Record a heartbeat from a client."""
         self.session_heartbeats[session_id] = datetime.now()
-        
+
         # Update session activity
         session = await self.session_manager.get_session(session_id)
         if session:
@@ -99,7 +99,7 @@ class HeartbeatManager:
 async def handle_heartbeat(self, message: Dict[str, Any], session_id: str) -> None:
     """Handle a heartbeat message from a client."""
     await self.heartbeat_manager.record_heartbeat(session_id)
-    
+
     # Send heartbeat response if needed
     response = {
         "type": "heartbeat",

@@ -24,7 +24,7 @@ class CancelledNotification(BaseModel):
     request_id: str
     reason: Optional[str] = None
     metadata: Optional[Dict[str, Any]] = Field(default_factory=dict)
-    
+
     class Config:
         extra = "ignore"  # Allow additional fields for forward compatibility
 ```

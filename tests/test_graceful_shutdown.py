@@ -18,6 +18,7 @@ class DummySession:
     def as_dict(self):
         return {"session_id": self.session_id, "state": self.state}
 
+
 class DummySessionManager:
     def __init__(self, sessions=None):
         self._sessions = sessions or {}
@@ -35,6 +36,7 @@ class DummySessionManager:
     def clear_sessions(self):
         self._sessions = {}
 
+
 class DummyHeartbeatManager:
     def __init__(self):
         self.stopped = False
@@ -42,7 +44,9 @@ class DummyHeartbeatManager:
     async def stop(self):
         self.stopped = True
 
+
 # --- Signal Handler Tests ---
+
 
 @pytest.mark.asyncio
 async def test_signal_handler_sets_shutdown_event(monkeypatch):
@@ -54,6 +58,7 @@ async def test_signal_handler_sets_shutdown_event(monkeypatch):
     monkeypatch.setattr(signal, "signal", lambda s, h: h)
     handler(signal.SIGTERM, None)
     assert shutdown_event.is_set()
+
 
 @pytest.mark.asyncio
 async def test_signal_handler_during_server_states(monkeypatch):
@@ -69,7 +74,9 @@ async def test_signal_handler_during_server_states(monkeypatch):
     assert shutdown_event.is_set()
     assert "handler_called" in states
 
+
 # --- Session State Persistence Tests ---
+
 
 @pytest.mark.asyncio
 async def test_save_and_restore_session_state(tmp_path):
@@ -98,6 +105,7 @@ async def test_save_and_restore_session_state(tmp_path):
     assert all(s["state"] in ("ACTIVE", "PAUSED") for s in loaded)
     assert len(loaded) == 2
 
+
 @pytest.mark.asyncio
 async def test_restore_missing_or_corrupted_session_file(tmp_path):
     data_dir = tmp_path / "data"
@@ -124,7 +132,9 @@ async def test_restore_missing_or_corrupted_session_file(tmp_path):
     except json.JSONDecodeError:
         pass
 
+
 # --- Graceful Shutdown Tests ---
+
 
 @pytest.mark.asyncio
 async def test_graceful_shutdown_waits_for_tasks(monkeypatch):
@@ -140,6 +150,7 @@ async def test_graceful_shutdown_waits_for_tasks(monkeypatch):
     # Simulate shutdown event
     await asyncio.wait_for(task, timeout=0.2)
     assert "done" in completed
+
 
 @pytest.mark.asyncio
 async def test_forced_cancellation_of_tasks(monkeypatch):
@@ -157,6 +168,7 @@ async def test_forced_cancellation_of_tasks(monkeypatch):
         pass
     assert task.cancelled()
 
+
 @pytest.mark.asyncio
 async def test_session_and_heartbeat_manager_shutdown():
     session_manager = DummySessionManager()
@@ -166,7 +178,9 @@ async def test_session_and_heartbeat_manager_shutdown():
     assert session_manager.shutdown_called
     assert heartbeat_manager.stopped
 
+
 # --- Recovery and Restart Tests ---
+
 
 @pytest.mark.asyncio
 async def test_session_restoration_after_restart(tmp_path):
@@ -189,6 +203,7 @@ async def test_session_restoration_after_restart(tmp_path):
     assert len(restored) == 2
     assert all(s["state"] in ("ACTIVE", "PAUSED") for s in restored)
 
+
 @pytest.mark.asyncio
 async def test_partial_shutdown_scenario(tmp_path):
     # Simulate partial shutdown: session file exists but is incomplete
@@ -205,6 +220,7 @@ async def test_partial_shutdown_scenario(tmp_path):
     except json.JSONDecodeError:
         pass
 
+
 @pytest.mark.asyncio
 async def test_data_directory_creation_and_cleanup(tmp_path):
     data_dir = tmp_path / "data"
@@ -217,7 +233,9 @@ async def test_data_directory_creation_and_cleanup(tmp_path):
     shutil.rmtree(data_dir)
     assert not data_dir.exists()
 
+
 # --- Integration Tests ---
+
 
 @pytest.mark.asyncio
 async def test_complete_shutdown_restart_cycle(tmp_path):
@@ -239,6 +257,7 @@ async def test_complete_shutdown_restart_cycle(tmp_path):
         loaded = json.load(f)
     assert len(loaded) == 2
 
+
 @pytest.mark.asyncio
 async def test_concurrent_operations_during_shutdown(monkeypatch):
     # Simulate concurrent tasks and shutdown
@@ -257,6 +276,7 @@ async def test_concurrent_operations_during_shutdown(monkeypatch):
     await asyncio.sleep(0.12)
     assert "op1" in results
     assert "op2" in results
+
 
 @pytest.mark.asyncio
 async def test_error_handling_during_shutdown(monkeypatch):

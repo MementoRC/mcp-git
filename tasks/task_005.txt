@@ -48,7 +48,7 @@ def recoverable(max_retries: int = 3, backoff_factor: float = 1.0):
         async def wrapper(*args: Any, **kwargs: Any) -> T:
             retries = 0
             last_error = None
-            
+
             while retries <= max_retries:
                 try:
                     return await func(*args, **kwargs)
@@ -61,32 +61,32 @@ def recoverable(max_retries: int = 3, backoff_factor: float = 1.0):
                         await asyncio.sleep(wait_time)
                     else:
                         logger.error(f"Failed after {max_retries} retries: {e}")
-            
+
             # If we get here, all retries failed
             raise last_error
-        
+
         return wrapper
     return decorator
 
 async def handle_error(context: ErrorContext) -> bool:
     """Central error handler that determines recovery strategy."""
     logger.error(f"{context.severity.value.upper()} error in {context.operation}: {context.error}")
-    
+
     # Record error in metrics
     # TODO: Add metrics integration
-    
+
     if context.severity == ErrorSeverity.CRITICAL:
         logger.critical("Critical error, cannot continue session")
         return False  # Cannot recover
-    
+
     if not context.recoverable:
         logger.error("Non-recoverable error, but session can continue")
         context.handled = True
         return True  # Session continues, but operation failed
-    
+
     # Implement recovery strategies based on error type
     # ...
-    
+
     context.handled = True
     return True  # Recovered successfully
 ```

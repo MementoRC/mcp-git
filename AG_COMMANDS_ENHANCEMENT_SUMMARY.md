@@ -19,7 +19,7 @@ Our git MCP server now includes these new GitHub API tools that the AG commands 
 
 2. **`mcp__git__github_get_pr_status`**
    - Get comprehensive PR status including checks
-   - Combined status and check runs information  
+   - Combined status and check runs information
    - Overall state assessment
    - Individual check statuses
 

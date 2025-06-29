@@ -15,79 +15,79 @@ jobs:
     name: Extended MCP Behavior Validation
     runs-on: ubuntu-latest
     timeout-minutes: 45
-    
+
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
       with:
         fetch-depth: 0
-    
+
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
         python-version: ${{ env.PYTHON_VERSION }}
-    
+
     - name: Install uv
       uses: astral-sh/setup-uv@v4
       with:
         enable-cache: true
         cache-dependency-glob: "uv.lock"
-    
+
     - name: Install dependencies
       run: uv sync --dev
-    
+
     - name: Install MCP inspector (if available)
       run: |
         pip install mcp-inspector || echo "MCP inspector not available"
-    
+
     - name: Configure Git for extended testing
       run: |
         git config --global user.name "Nightly Validator"
         git config --global user.email "nightly@example.com"
         git config --global init.defaultBranch main
-    
+
     - name: Create complex test repository
       run: |
         mkdir -p /tmp/nightly-test-repo
         cd /tmp/nightly-test-repo
         git init
-        
+
         # Create a complex repository structure for thorough testing
         echo "# Complex Test Repository" > README.md
         git add README.md
         git commit -m "Initial commit"
-        
+
         # Create multiple branches with conflicts
         git checkout -b feature/branch1
         echo "Feature 1 content" > feature1.txt
         git add feature1.txt
         git commit -m "Add feature 1"
-        
+
         git checkout main
         git checkout -b feature/branch2
         echo "Feature 2 content" > feature2.txt
         git add feature2.txt
         git commit -m "Add feature 2"
-        
+
         # Create merge conflicts
         git checkout main
         echo "Main branch change" > conflict.txt
         git add conflict.txt
         git commit -m "Main branch change"
-        
+
         git checkout feature/branch1
         echo "Branch 1 change" > conflict.txt
         git add conflict.txt
         git commit -m "Branch 1 change"
-        
+
         git checkout main
-    
+
     - name: Test MCP server basic functionality
       run: |
         # Test basic import and functionality
         uv run python -c "
         print('🔍 Starting extended MCP server validation...')
-        
+
         # Test 1: Basic imports
         try:
             from mcp_server_git.models.notifications import ClientNotification
@@ -95,7 +95,7 @@ jobs:
         except Exception as e:
             print(f'❌ Import failed: {e}')
             exit(1)
-        
+
         # Test 2: Notification parsing
         try:
             from mcp_server_git.models.notifications import parse_client_notification
@@ -105,32 +105,32 @@ jobs:
         except Exception as e:
             print(f'❌ Notification parsing failed: {e}')
             exit(1)
-            
+
         print('🎉 All extended MCP validation tests passed!')
         "
-    
+
     - name: Test with large repositories
       run: |
         # Create a large repository for performance testing
         mkdir -p /tmp/large-repo
         cd /tmp/large-repo
         git init
-        
+
         # Create many files and commits
         for i in {1..100}; do
           mkdir -p "dir_$((i/10))"
           echo "Content for file $i" > "dir_$((i/10))/file_$i.txt"
           git add "dir_$((i/10))/file_$i.txt"
-          
+
           if [ $((i % 10)) -eq 0 ]; then
             git commit -m "Batch commit for files $((i-9)) to $i"
           fi
         done
-        
+
         # Test server performance with large repo
         cd /home/runner/work/mcp-git/mcp-git
         echo "🔍 Testing server with large repository..."
-        
+
         # Test that the models can handle large data
         uv run python -c "from mcp_server_git.models.notifications import parse_client_notification; large_data = {'type': 'notifications/cancelled', 'params': {'requestId': 'test', 'data': 'x' * 10000}}; result = parse_client_notification(large_data); print('✅ Large payload handling works')"
 
@@ -143,33 +143,33 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
         python-version: ["3.10", "3.11", "3.12"]
       fail-fast: false
-    
+
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
-    
+
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python-version }}
-    
+
     - name: Install uv
       uses: astral-sh/setup-uv@v4
       with:
         enable-cache: true
-    
+
     - name: Install dependencies
       run: uv sync --dev
-    
+
     - name: Configure Git
       run: |
         git config --global user.name "Cross Platform Test"
         git config --global user.email "cross-platform@example.com"
-    
+
     - name: Run basic validation
       run: |
         uv run python -c "import mcp_server_git; from mcp_server_git.models.notifications import ClientNotification; import platform; import sys; print(f'✅ MCP Git Server works on {platform.system()} with Python {sys.version_info[:2]}')"
-    
+
     - name: Test Git operations
       run: |
         uv run pytest tests/test_server.py -v --tb=short
@@ -180,7 +180,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [extended-mcp-validation, cross-platform]
     if: always()
-    
+
     steps:
     - name: Generate nightly report
       run: |
@@ -191,7 +191,7 @@ jobs:
         echo "- Extended MCP Validation: ${{ needs.extended-mcp-validation.result }}" >> $GITHUB_STEP_SUMMARY
         echo "- Cross-Platform Validation: ${{ needs.cross-platform.result }}" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        
+
         if [[ "${{ needs.extended-mcp-validation.result }}" == "success" && "${{ needs.cross-platform.result }}" == "success" ]]; then
           echo "✅ **All nightly validations passed!**" >> $GITHUB_STEP_SUMMARY
         else
