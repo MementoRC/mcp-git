@@ -4207,7 +4207,6 @@ After pushing your changes, post the following summary comment on the PR and re-
     initialization_time = time.time() - start_time
     logger.info(f"📡 Server listening (startup took {initialization_time:.2f}s)")
 
-
     # Add periodic health check logging
     async def log_health():
         """Log periodic health checks to monitor server uptime and metrics"""

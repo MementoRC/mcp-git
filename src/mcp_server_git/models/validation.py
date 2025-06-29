@@ -56,7 +56,7 @@ class ValidationResult:
     def message_type(self) -> str:
         """Extract message type even if validation failed."""
         if self.model and hasattr(self.model, "method"):
-            return self.model.method
+            return getattr(self.model, "method", "unknown")
         return self.raw_data.get("method", "unknown")
 
 

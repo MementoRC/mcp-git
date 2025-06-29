@@ -16,6 +16,7 @@ async def github_get_pr_checks(
     conclusion: Optional[str] = None,
 ) -> str:
     """Get check runs for a pull request"""
+    client = None
     try:
         client = get_github_client()
         if not client:
@@ -95,6 +96,7 @@ async def github_get_failing_jobs(
     include_annotations: bool = True,
 ) -> str:
     """Get detailed information about failing jobs in a PR"""
+    client = None
     try:
         client = get_github_client()
         if not client:
@@ -179,6 +181,7 @@ async def github_get_workflow_run(
     repo_owner: str, repo_name: str, run_id: int, include_logs: bool = False
 ) -> str:
     """Get detailed workflow run information"""
+    client = None
     try:
         client = get_github_client()
         if not client:
@@ -248,6 +251,7 @@ async def github_get_pr_details(
     include_reviews: bool = False,
 ) -> str:
     """Get comprehensive PR details"""
+    client = None
     try:
         client = get_github_client()
         if not client:
@@ -337,6 +341,7 @@ async def github_list_pull_requests(
     page: int = 1,
 ) -> str:
     """List pull requests for a repository"""
+    client = None
     try:
         client = get_github_client()
         if not client:
@@ -393,6 +398,7 @@ async def github_list_pull_requests(
 
 async def github_get_pr_status(repo_owner: str, repo_name: str, pr_number: int) -> str:
     """Get the status and check runs for a pull request"""
+    client = None
     try:
         client = get_github_client()
         if not client:
@@ -457,6 +463,7 @@ async def github_get_pr_files(
     include_patch: bool = False,
 ) -> str:
     """Get files changed in a pull request"""
+    client = None
     try:
         client = get_github_client()
         if not client:
@@ -528,6 +535,7 @@ async def github_update_pr(
     """Update a pull request's title, body, or state."""
     logger.debug(f"🚀 Updating PR #{pr_number} in {repo_owner}/{repo_name}")
 
+    client = None
     try:
         client = get_github_client()
         if not client:
@@ -584,6 +592,7 @@ async def github_create_pr(
     """Create a new pull request."""
     logger.debug(f"🚀 Creating PR in {repo_owner}/{repo_name} from {head} to {base}")
 
+    client = None
     try:
         client = get_github_client()
         if not client:
@@ -634,6 +643,7 @@ async def github_merge_pr(
         f"🚀 Merging PR #{pr_number} in {repo_owner}/{repo_name} using '{merge_method}' method"
     )
 
+    client = None
     try:
         client = get_github_client()
         if not client:
@@ -684,6 +694,7 @@ async def github_add_pr_comment(
     """Add a comment to a pull request."""
     logger.debug(f"🚀 Adding comment to PR #{pr_number} in {repo_owner}/{repo_name}")
 
+    client = None
     try:
         client = get_github_client()
         if not client:

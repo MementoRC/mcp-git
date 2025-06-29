@@ -208,7 +208,9 @@ class TestHandleError:
     async def test_handle_critical_error(self, caplog):
         """Test handling of critical errors."""
         context = ErrorContext(
-            SystemExit("critical"), severity=ErrorSeverity.CRITICAL, operation="test_op"
+            RuntimeError("critical"),
+            severity=ErrorSeverity.CRITICAL,
+            operation="test_op",
         )
 
         result = await handle_error(context)
@@ -413,7 +415,7 @@ class TestErrorMetrics:
     def test_record_critical_error_metric(self):
         """Test recording critical error metrics."""
         context = ErrorContext(
-            SystemExit("exit"), severity=ErrorSeverity.CRITICAL, recoverable=False
+            RuntimeError("exit"), severity=ErrorSeverity.CRITICAL, recoverable=False
         )
         context.handled = False
 

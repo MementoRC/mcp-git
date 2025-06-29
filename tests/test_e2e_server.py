@@ -10,7 +10,7 @@ import os
 import subprocess
 import tempfile
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 import pytest
 
@@ -27,7 +27,7 @@ class MCPTestClient:
         return self.request_id
 
     async def send_request(
-        self, method: str, params: Dict[str, Any] = None
+        self, method: str, params: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
         """Send a JSON-RPC request to the server"""
         request = {
