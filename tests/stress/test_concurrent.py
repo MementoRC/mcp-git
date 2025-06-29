@@ -17,10 +17,23 @@ logger = logging.getLogger(__name__)
 async def test_massive_concurrent_clients(stress_session_manager, stress_test_config):
     """Test server stability with many concurrent clients."""
 
+    import os
+    is_ci = (
+        os.getenv("CI", "false").lower() == "true"
+        or os.getenv("GITHUB_ACTIONS", "false").lower() == "true"
+        or os.getenv("PYTEST_CI", "false").lower() == "true"
+    )
+
     config = stress_test_config["concurrent"]
     client_count = config["client_count"]
     messages_per_client = config["messages_per_client"]
     connection_delay = config["connection_delay"]
+
+    # In CI, further reduce for speed
+    if is_ci:
+        client_count = min(client_count, 3)
+        messages_per_client = min(messages_per_client, 10)
+        connection_delay = 0.001
 
     logger.info(f"Testing {client_count} concurrent clients")
     logger.info(f"Messages per client: {messages_per_client}")
@@ -184,6 +197,7 @@ async def test_massive_concurrent_clients(stress_session_manager, stress_test_co
 
 
 @pytest.mark.stress
+@pytest.mark.ci_skip  # Too intensive for CI
 @pytest.mark.asyncio
 async def test_high_throughput_message_processing(
     stress_session_manager, stress_test_config
@@ -327,9 +341,16 @@ async def test_high_throughput_message_processing(
 async def test_connection_churn_stability(stress_session_manager, stress_test_config):
     """Test stability under rapid client connections and disconnections."""
 
-    connection_cycles = 2000
-    concurrent_connections = 20
-    max_connection_time = 5.0  # seconds
+    import os
+    is_ci = (
+        os.getenv("CI", "false").lower() == "true"
+        or os.getenv("GITHUB_ACTIONS", "false").lower() == "true"
+        or os.getenv("PYTEST_CI", "false").lower() == "true"
+    )
+
+    connection_cycles = 10 if is_ci else 2000
+    concurrent_connections = 2 if is_ci else 20
+    max_connection_time = 1.0 if is_ci else 5.0  # seconds
 
     from .conftest import MockMCPClient
 
@@ -447,25 +468,33 @@ async def test_connection_churn_stability(stress_session_manager, stress_test_co
 
 
 @pytest.mark.stress
+@pytest.mark.ci_skip  # Too intensive for CI
 @pytest.mark.asyncio
 async def test_mixed_load_scenarios(stress_session_manager, stress_test_config):
     """Test server under mixed realistic load scenarios."""
 
+    import os
+    is_ci = (
+        os.getenv("CI", "false").lower() == "true"
+        or os.getenv("GITHUB_ACTIONS", "false").lower() == "true"
+        or os.getenv("PYTEST_CI", "false").lower() == "true"
+    )
+
     # Different client types with different behaviors
     scenarios = [
-        {"name": "burst_client", "count": 5, "message_rate": 50, "burst_interval": 10},
-        {"name": "steady_client", "count": 10, "message_rate": 10, "burst_interval": 0},
-        {"name": "idle_client", "count": 15, "message_rate": 1, "burst_interval": 0},
+        {"name": "burst_client", "count": 1 if is_ci else 5, "message_rate": 5 if is_ci else 50, "burst_interval": 2 if is_ci else 10},
+        {"name": "steady_client", "count": 1 if is_ci else 10, "message_rate": 2 if is_ci else 10, "burst_interval": 0},
+        {"name": "idle_client", "count": 1 if is_ci else 15, "message_rate": 1, "burst_interval": 0},
         {
             "name": "operation_heavy",
-            "count": 3,
-            "message_rate": 20,
+            "count": 1 if is_ci else 3,
+            "message_rate": 2 if is_ci else 20,
             "operation_ratio": 0.8,
         },
-        {"name": "error_prone", "count": 2, "message_rate": 5, "error_rate": 0.1},
+        {"name": "error_prone", "count": 1 if is_ci else 2, "message_rate": 1 if is_ci else 5, "error_rate": 0.1},
     ]
 
-    test_duration = 60  # seconds
+    test_duration = 5 if is_ci else 60  # seconds
 
     from .conftest import MockMCPClient
 

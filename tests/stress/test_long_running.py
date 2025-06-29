@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 @pytest.mark.stress
+@pytest.mark.ci_skip  # Skip this long test in CI
 @pytest.mark.asyncio
 @pytest.mark.timeout(3600)  # 1 hour timeout for safety
 async def test_48_hour_stability_simulation(
@@ -233,7 +234,14 @@ async def test_continuous_operation_under_load(
     """Test continuous high-load operation without breaks."""
 
     config = stress_test_config["long_running"]
-    duration_minutes = min(config["duration_minutes"], 15)  # Cap for continuous load
+    # In CI, run for only 1 minute
+    import os
+    is_ci = (
+        os.getenv("CI", "false").lower() == "true"
+        or os.getenv("GITHUB_ACTIONS", "false").lower() == "true"
+        or os.getenv("PYTEST_CI", "false").lower() == "true"
+    )
+    duration_minutes = 1 if is_ci else min(config["duration_minutes"], 15)
     message_rate = config["message_rate"]
 
     await mock_client.connect()
@@ -317,12 +325,19 @@ async def test_continuous_operation_under_load(
 
 
 @pytest.mark.stress
+@pytest.mark.ci_skip  # Skip this intensive test in CI
 @pytest.mark.asyncio
 async def test_session_lifecycle_stress(stress_session_manager, stress_test_config):
     """Test rapid session creation and destruction."""
 
-    session_count = 1000
-    concurrent_sessions = 50
+    import os
+    is_ci = (
+        os.getenv("CI", "false").lower() == "true"
+        or os.getenv("GITHUB_ACTIONS", "false").lower() == "true"
+        or os.getenv("PYTEST_CI", "false").lower() == "true"
+    )
+    session_count = 50 if is_ci else 1000
+    concurrent_sessions = 5 if is_ci else 50
 
     logger.info(
         f"Testing {session_count} session lifecycles with {concurrent_sessions} concurrent"

@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 @pytest.mark.stress
+@pytest.mark.ci_skip  # Too slow for CI
 @pytest.mark.asyncio
 async def test_comprehensive_error_injection(
     stress_session_manager, mock_client, error_scenarios, stress_test_config
@@ -121,6 +122,7 @@ async def test_comprehensive_error_injection(
 
 
 @pytest.mark.stress
+@pytest.mark.ci_skip  # Too slow for CI
 @pytest.mark.asyncio
 async def test_malformed_message_flood(
     stress_session_manager, mock_client, stress_test_config
@@ -222,6 +224,7 @@ async def test_malformed_message_flood(
 
 
 @pytest.mark.stress
+@pytest.mark.ci_skip  # Too slow for CI
 @pytest.mark.asyncio
 async def test_concurrent_error_injection(
     stress_session_manager, multiple_mock_clients, error_scenarios

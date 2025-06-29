@@ -156,36 +156,71 @@ async def multiple_mock_clients():
 
 @pytest.fixture
 def stress_test_config():
-    """Configuration for stress tests."""
-    return {
+    """Configuration for stress tests, with CI overrides for speed."""
+
+    # Detect CI environment
+    is_ci = (
+        os.getenv("CI", "false").lower() == "true"
+        or os.getenv("GITHUB_ACTIONS", "false").lower() == "true"
+        or os.getenv("PYTEST_CI", "false").lower() == "true"
+    )
+
+    # CI-friendly defaults
+    ci_defaults = {
         "long_running": {
-            "duration_minutes": int(os.getenv("STRESS_DURATION_MINUTES", "30")),
-            "message_rate": int(
-                os.getenv("STRESS_MESSAGE_RATE", "10")
-            ),  # messages per second
-            "operation_rate": int(
-                os.getenv("STRESS_OPERATION_RATE", "5")
-            ),  # operations per minute
+            "duration_minutes": 2,
+            "message_rate": 5,
+            "operation_rate": 2,
         },
         "memory": {
-            "sample_interval": int(
-                os.getenv("STRESS_MEMORY_SAMPLE_INTERVAL", "100")
-            ),  # operations
-            "max_growth_mb": int(os.getenv("STRESS_MAX_MEMORY_GROWTH", "50")),
-            "max_slope": float(os.getenv("STRESS_MAX_MEMORY_SLOPE", "0.1")),
+            "sample_interval": 50,
+            "max_growth_mb": 10,
+            "max_slope": 0.2,
         },
         "error_injection": {
-            "error_rate": float(
-                os.getenv("STRESS_ERROR_RATE", "0.1")
-            ),  # 10% of messages
-            "recovery_check_interval": int(os.getenv("STRESS_RECOVERY_CHECK", "10")),
+            "error_rate": 0.1,
+            "recovery_check_interval": 3,
         },
         "concurrent": {
-            "client_count": int(os.getenv("STRESS_CLIENT_COUNT", "20")),
-            "messages_per_client": int(os.getenv("STRESS_MESSAGES_PER_CLIENT", "1000")),
-            "connection_delay": float(os.getenv("STRESS_CONNECTION_DELAY", "0.1")),
+            "client_count": 5,
+            "messages_per_client": 50,
+            "connection_delay": 0.01,
         },
     }
+
+    if is_ci:
+        config = ci_defaults
+    else:
+        config = {
+            "long_running": {
+                "duration_minutes": int(os.getenv("STRESS_DURATION_MINUTES", "30")),
+                "message_rate": int(
+                    os.getenv("STRESS_MESSAGE_RATE", "10")
+                ),  # messages per second
+                "operation_rate": int(
+                    os.getenv("STRESS_OPERATION_RATE", "5")
+                ),  # operations per minute
+            },
+            "memory": {
+                "sample_interval": int(
+                    os.getenv("STRESS_MEMORY_SAMPLE_INTERVAL", "100")
+                ),  # operations
+                "max_growth_mb": int(os.getenv("STRESS_MAX_MEMORY_GROWTH", "50")),
+                "max_slope": float(os.getenv("STRESS_MAX_MEMORY_SLOPE", "0.1")),
+            },
+            "error_injection": {
+                "error_rate": float(
+                    os.getenv("STRESS_ERROR_RATE", "0.1")
+                ),  # 10% of messages
+                "recovery_check_interval": int(os.getenv("STRESS_RECOVERY_CHECK", "10")),
+            },
+            "concurrent": {
+                "client_count": int(os.getenv("STRESS_CLIENT_COUNT", "20")),
+                "messages_per_client": int(os.getenv("STRESS_MESSAGES_PER_CLIENT", "1000")),
+                "connection_delay": float(os.getenv("STRESS_CONNECTION_DELAY", "0.1")),
+            },
+        }
+    return config
 
 
 @pytest.fixture

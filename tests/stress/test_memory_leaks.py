@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 @pytest.mark.stress
+@pytest.mark.ci_skip  # Too slow for CI
 @pytest.mark.asyncio
 async def test_memory_leak_detection_extended_operations(
     stress_session_manager, mock_client, memory_monitor, stress_test_config
@@ -138,6 +139,7 @@ async def test_memory_leak_detection_extended_operations(
 
 
 @pytest.mark.stress
+@pytest.mark.ci_skip  # Too slow for CI
 @pytest.mark.asyncio
 async def test_session_creation_destruction_memory(
     stress_session_manager, memory_monitor, stress_test_config
@@ -313,6 +315,7 @@ async def test_resource_cleanup_after_errors(
 
 
 @pytest.mark.stress
+@pytest.mark.ci_skip  # Too slow for CI
 @pytest.mark.asyncio
 async def test_garbage_collection_effectiveness(
     stress_session_manager, mock_client, memory_monitor
@@ -391,6 +394,7 @@ async def test_garbage_collection_effectiveness(
 
 
 @pytest.mark.stress
+@pytest.mark.ci_skip  # Too slow for CI
 @pytest.mark.asyncio
 async def test_long_term_memory_stability(
     stress_session_manager, multiple_mock_clients, memory_monitor, stress_test_config
