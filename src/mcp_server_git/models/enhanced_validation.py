@@ -6,7 +6,7 @@ without crashing the server.
 
 import logging
 import json
-from typing import Dict, Any, Optional, Union
+from typing import Dict, Any, Optional, Union, Callable
 from dataclasses import dataclass
 
 
@@ -15,13 +15,44 @@ from .validation import ValidationResult, safe_parse_notification
 
 logger = logging.getLogger(__name__)
 
-# Import caching functionality
-try:
-    from ..optimizations import apply_validation_cache, get_validation_cache_stats
+# Define placeholders for caching functions and a flag
+_caching_available: bool = False
+_apply_validation_cache_func: Callable[[Callable[..., Any]], Callable[..., Any]]
+_get_validation_cache_stats_func: Callable[[], Dict[str, Any]]
 
+
+# Default no-op decorator and stats function if caching is not available
+def _no_op_apply_validation_cache(func: Callable[..., Any]) -> Callable[..., Any]:
+    return func
+
+
+def _no_op_get_validation_cache_stats() -> Dict[str, Any]:
+    return {
+        "hits": 0,
+        "misses": 0,
+        "current_size": 0,
+        "max_size": 0,
+        "enabled": False,
+    }
+
+
+# Assign defaults
+_apply_validation_cache_func = _no_op_apply_validation_cache
+_get_validation_cache_stats_func = _no_op_get_validation_cache_stats
+
+# Attempt to import and assign actual caching functions
+try:
+    from ..optimizations import (
+        apply_validation_cache as imported_apply_validation_cache,
+    )
+    from ..optimizations import (
+        get_validation_cache_stats as imported_get_validation_cache_stats,
+    )
+
+    _apply_validation_cache_func = imported_apply_validation_cache
+    _get_validation_cache_stats_func = imported_get_validation_cache_stats
     _caching_available = True
 except ImportError:
-    _caching_available = False
     logger.warning("Caching optimization not available")
 
 
@@ -183,18 +214,16 @@ class RobustNotificationHandler:
 notification_handler = RobustNotificationHandler()
 
 
-# Create cached version if caching is available
-if _caching_available:
+# Define the base function to be cached/called
+def _base_safe_parse_notification(data: Dict[str, Any]) -> ValidationResult:
+    """Base function for safe notification processing."""
+    return safe_parse_notification(data)
 
-    @apply_validation_cache
-    def _cached_safe_parse_notification(data: Dict[str, Any]) -> ValidationResult:
-        """Cached version of safe notification processing."""
-        return safe_parse_notification(data)
-else:
 
-    def _cached_safe_parse_notification(data: Dict[str, Any]) -> ValidationResult:
-        """Non-cached fallback version."""
-        return safe_parse_notification(data)
+# Apply the appropriate decorator (actual cache or no-op)
+_cached_safe_parse_notification = _apply_validation_cache_func(
+    _base_safe_parse_notification
+)
 
 
 def process_notification_safely(data: Dict[str, Any]) -> ValidationResult:
@@ -212,6 +241,7 @@ def log_notification_stats() -> None:
     stats = notification_handler.get_stats()
     logger.info(f"Notification stats: {stats}")
 
-    if _caching_available:
-        cache_stats = get_validation_cache_stats()
+    # Use the globally assigned get_validation_cache_stats
+    if _caching_available:  # Only log if caching is actually enabled
+        cache_stats = _get_validation_cache_stats_func()
         logger.info(f"Validation cache stats: {cache_stats}")

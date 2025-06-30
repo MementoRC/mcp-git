@@ -3,28 +3,38 @@
 import json
 import logging
 from functools import lru_cache, wraps
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, Optional, Protocol, runtime_checkable
+from functools import _CacheInfo  # Import the internal CacheInfo type for type hinting
 
 from .models.validation import ValidationResult
 
 logger = logging.getLogger(__name__)
 
+
+# Define a protocol for the LRU cached function to include cache_info and cache_clear
+@runtime_checkable
+class LRUCachedFunction(Protocol):
+    def __call__(self, *args: Any, **kwargs: Any) -> Any: ...
+    def cache_info(self) -> _CacheInfo: ...  # Use the actual CacheInfo type
+    def cache_clear(self) -> None: ...
+
+
 # This will hold the reference to the actual cached function
-_cached_parse_function: Optional[Callable[[str], ValidationResult]] = None
+_cached_parse_function: Optional[LRUCachedFunction] = None
 _cache_maxsize: int = 1024
 _cache_enabled: bool = True
 
 
 def _get_cache_info():
     """Helper to get cache info if the function is cached."""
-    if _cached_parse_function and hasattr(_cached_parse_function, "cache_info"):
+    if _cached_parse_function is not None:
         return _cached_parse_function.cache_info()
     return None
 
 
 def _clear_cache():
     """Helper to clear the cache if the function is cached."""
-    if _cached_parse_function and hasattr(_cached_parse_function, "cache_clear"):
+    if _cached_parse_function is not None:
         _cached_parse_function.cache_clear()
         logger.info("Validation cache cleared.")
 
@@ -94,7 +104,9 @@ def _create_cache_key(data: Dict[str, Any]) -> str:
         return str(data)
 
 
-def apply_validation_cache(func: Callable) -> Callable:
+def apply_validation_cache(
+    func: Callable[[Dict[str, Any]], ValidationResult],
+) -> Callable[[Dict[str, Any]], ValidationResult]:
     """
     Decorator to apply caching to validation functions.
 
@@ -105,11 +117,11 @@ def apply_validation_cache(func: Callable) -> Callable:
 
     # Create the cached version of the function
     @lru_cache(maxsize=_cache_maxsize)
-    def _cached_validation(cache_key: str, original_data: str) -> ValidationResult:
+    def _cached_validation(cache_key: str, original_data_str: str) -> ValidationResult:
         """Internal cached function that works on cache keys."""
         # Reconstruct the original data and call the function
         try:
-            data = json.loads(original_data)
+            data = json.loads(original_data_str)
             return func(data)
         except Exception as e:
             logger.error(f"Cache key reconstruction failed: {e}")
@@ -126,6 +138,7 @@ def apply_validation_cache(func: Callable) -> Callable:
         try:
             # Create cache key and serialized data
             cache_key = _create_cache_key(data)
+            # Ensure data is always serializable for the cache key
             serialized_data = json.dumps(data, sort_keys=True)
 
             # Call cached function
@@ -136,7 +149,8 @@ def apply_validation_cache(func: Callable) -> Callable:
             return func(data)
 
     # Store reference to cached function for stats
-    _cached_parse_function = _cached_validation
+    # The lru_cache decorator returns an object that implements the LRUCachedFunction protocol.
+    _cached_parse_function = _cached_validation  # type: ignore[assignment]
 
     return wrapper
 
@@ -147,8 +161,8 @@ class PerformanceTimer:
 
     def __init__(self, name: str):
         self.name = name
-        self.start_time = None
-        self.end_time = None
+        self.start_time: Optional[float] = None
+        self.end_time: Optional[float] = None
 
     def __enter__(self):
         import time
@@ -160,23 +174,30 @@ class PerformanceTimer:
         import time
 
         self.end_time = time.perf_counter()
-        duration = self.end_time - self.start_time
-        logger.info(f"Performance [{self.name}]: {duration:.6f} seconds")
+        # Ensure start_time and end_time are not None before subtraction
+        if self.start_time is not None and self.end_time is not None:
+            duration = self.end_time - self.start_time
+            logger.info(f"Performance [{self.name}]: {duration:.6f} seconds")
+        else:
+            logger.warning(
+                f"PerformanceTimer '{self.name}' exited without proper start/end times."
+            )
 
     @property
     def duration(self) -> float:
         """Get the duration in seconds."""
-        if self.start_time is not None and self.end_time is not None:
-            return self.end_time - self.start_time
-        return 0.0
+        if self.start_time is None or self.end_time is None:
+            return 0.0
+        # Type checker should now correctly infer float types here
+        return self.end_time - self.start_time
 
 
 def measure_performance(name: str):
     """Decorator to measure function performance."""
 
-    def decorator(func):
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         @wraps(func)
-        def wrapper(*args, **kwargs):
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
             with PerformanceTimer(name):
                 return func(*args, **kwargs)
 
