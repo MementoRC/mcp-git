@@ -65,7 +65,7 @@ async def test_message_throughput_ping(benchmark_session_manager, mock_client):
     logger.info(
         f"Ping Throughput: {throughput:.2f} messages/sec ({messages_sent} messages in {duration:.2f}s)"
     )
-    regression_monitor.check("ping_throughput", 1/throughput, threshold=1.2)
+    regression_monitor.check("ping_throughput", 1 / throughput, threshold=1.2)
     assert throughput > 100, "Ping throughput is too low"
 
 
@@ -95,7 +95,7 @@ async def test_message_throughput_operations(benchmark_session_manager, mock_cli
     logger.info(
         f"Operation Throughput: {throughput:.2f} operations/sec ({operations_completed} operations in {duration:.2f}s)"
     )
-    regression_monitor.check("operation_throughput", 1/throughput, threshold=1.2)
+    regression_monitor.check("operation_throughput", 1 / throughput, threshold=1.2)
     assert throughput > 50, "Operation throughput is too low"
 
 
@@ -172,18 +172,22 @@ async def test_validation_caching_effectiveness(memory_monitor):
     logger.info(f"Performance Improvement: {performance_ratio:.2f}x")
 
     # Performance regression detection
-    regression_monitor.check("validation_cache_no_cache", no_cache_duration, threshold=1.5)
-    regression_monitor.check("validation_cache_with_cache", with_cache_duration, threshold=1.5)
+    regression_monitor.check(
+        "validation_cache_no_cache", no_cache_duration, threshold=1.5
+    )
+    regression_monitor.check(
+        "validation_cache_with_cache", with_cache_duration, threshold=1.5
+    )
 
     # Assertions - cache should show activity and not break functionality
-    assert (
-        cache_stats.get("hits", 0) + cache_stats.get("misses", 0) > 0
-    ), "Cache should show some activity"
+    assert cache_stats.get("hits", 0) + cache_stats.get("misses", 0) > 0, (
+        "Cache should show some activity"
+    )
     # Allow cache overhead for small operations, focus on correctness
     assert performance_ratio >= 0.1, "Cache should not make things 10x slower"
-    assert (
-        with_cache_duration < 1.0
-    ), "Cached operations should complete in reasonable time"
+    assert with_cache_duration < 1.0, (
+        "Cached operations should complete in reasonable time"
+    )
 
     # Memory leak detection
     memory_growth = memory_monitor.get_memory_growth()
@@ -324,19 +328,27 @@ async def test_realistic_mixed_workload_performance(
     logger.info(f"Leak Detector: {leak_report}")
     memory_monitor.log_samples()
 
-    regression_monitor.check("mixed_workload_throughput", 1/throughput, threshold=1.2)
-    regression_monitor.check("mixed_workload_memory_growth", memory_growth, threshold=2.0)
-    regression_monitor.check("mixed_workload_object_growth", leak_report["object_growth"], threshold=2.0)
+    regression_monitor.check("mixed_workload_throughput", 1 / throughput, threshold=1.2)
+    regression_monitor.check(
+        "mixed_workload_memory_growth", memory_growth, threshold=2.0
+    )
+    regression_monitor.check(
+        "mixed_workload_object_growth", leak_report["object_growth"], threshold=2.0
+    )
 
     assert throughput > 100, "Mixed workload throughput is too low"
     assert error_rate < 0.01, "Mixed workload error rate is too high"
     assert memory_growth < 10, "Mixed workload memory growth is too high"
-    assert leak_report["object_growth"] < 10000, "Object growth is too high (possible leak)"
+    assert leak_report["object_growth"] < 10000, (
+        "Object growth is too high (possible leak)"
+    )
 
     # Cleanup
     for client in clients:
         if client.connected:
             await client.disconnect()
+
+
 @pytest.mark.benchmark
 @pytest.mark.asyncio
 async def test_optimized_message_processing_performance(memory_monitor):
@@ -387,10 +399,17 @@ async def test_optimized_message_processing_performance(memory_monitor):
     logger.info(f"Optimized message processing duration: {duration:.4f}s")
     logger.info(f"Leak Detector: {leak_report}")
 
-    regression_monitor.check("optimized_message_processing_duration", duration, threshold=1.5)
+    regression_monitor.check(
+        "optimized_message_processing_duration", duration, threshold=1.5
+    )
     assert duration < 1.0, "Optimized message processing is too slow"
-    assert leak_report["memory_growth_mb"] < 5, "Memory growth is too high in optimized processing"
-    assert leak_report["object_growth"] < 5000, "Object growth is too high in optimized processing"
+    assert leak_report["memory_growth_mb"] < 5, (
+        "Memory growth is too high in optimized processing"
+    )
+    assert leak_report["object_growth"] < 5000, (
+        "Object growth is too high in optimized processing"
+    )
+
 
 @pytest.mark.benchmark
 @pytest.mark.asyncio
@@ -403,7 +422,10 @@ async def test_performance_monitor_production_stats():
         message_perf_monitor.record(0.001 + random.random() * 0.002)
     stats = message_perf_monitor.get_stats()
     logger.info(f"Production PerformanceMonitor stats: {stats}")
-    assert stats["count"] == 0 or stats["avg"] < 0.01, "Average message processing time should be low"
+    assert stats["count"] == 0 or stats["avg"] < 0.01, (
+        "Average message processing time should be low"
+    )
+
 
 @pytest.mark.benchmark
 def test_performance_regression_summary():
