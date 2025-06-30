@@ -436,3 +436,6 @@ def test_performance_regression_summary():
     else:
         logger.info("No performance regressions detected.")
     assert not regressions, f"Performance regressions detected: {regressions}"
+
+
+# CI formatting resolution trigger
