@@ -2,13 +2,173 @@
 
 import json
 import logging
+import time
+import threading
 from functools import lru_cache, wraps
-from typing import Any, Callable, Dict, Optional, Protocol, runtime_checkable
+from typing import Any, Callable, Dict, Optional, Protocol, runtime_checkable, List, Tuple
 from functools import _CacheInfo  # Import the internal CacheInfo type for type hinting
 
 from .models.validation import ValidationResult
 
 logger = logging.getLogger(__name__)
+
+# --- CPU Profiling Utilities ---
+
+class CPUProfiler:
+    """
+    Context manager and utility for CPU profiling using cProfile.
+    Can be used in production or test to profile code blocks.
+    """
+    def __init__(self, profile_name: str = "cpu_profile", enabled: bool = True):
+        self.profile_name = profile_name
+        self.enabled = enabled
+        self.profiler = None
+        self.stats_output = None
+
+    def __enter__(self):
+        if self.enabled:
+            import cProfile
+            self.profiler = cProfile.Profile()
+            self.profiler.enable()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self.enabled and self.profiler:
+            import pstats
+            self.profiler.disable()
+            import io
+            s = io.StringIO()
+            ps = pstats.Stats(self.profiler, stream=s).sort_stats("cumulative")
+            ps.print_stats(30)  # Print top 30 functions
+            self.stats_output = s.getvalue()
+            logger.info(f"CPU Profile [{self.profile_name}]:\n{self.stats_output}")
+
+    def get_stats(self) -> Optional[str]:
+        return self.stats_output
+
+def profile_cpu_block(name: str = "cpu_profile", enabled: bool = True):
+    """
+    Decorator/context for profiling a function or code block.
+    """
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            with CPUProfiler(profile_name=name, enabled=enabled):
+                return func(*args, **kwargs)
+        return wrapper
+    return decorator
+
+# --- Memory Leak Detection Utilities ---
+
+class MemoryLeakDetector:
+    """
+    Utility for detecting memory leaks by tracking object counts and memory usage.
+    """
+    def __init__(self):
+        import gc
+        import tracemalloc
+        self.gc = gc
+        self.tracemalloc = tracemalloc
+        self.snapshots: List[Tuple[float, int, int]] = []
+        self.tracemalloc.start()
+
+    def take_snapshot(self, label: str = ""):
+        self.gc.collect()
+        current, peak = self.tracemalloc.get_traced_memory()
+        obj_count = len(self.gc.get_objects())
+        timestamp = time.time()
+        self.snapshots.append((timestamp, current, obj_count))
+        logger.info(f"[MemoryLeakDetector] {label}: {current/1024/1024:.2f} MB, {obj_count} objects")
+
+    def report_growth(self) -> Dict[str, float]:
+        if len(self.snapshots) < 2:
+            return {"memory_growth_mb": 0.0, "object_growth": 0}
+        start = self.snapshots[0]
+        end = self.snapshots[-1]
+        mem_growth = (end[1] - start[1]) / 1024 / 1024
+        obj_growth = end[2] - start[2]
+        logger.info(f"[MemoryLeakDetector] Memory growth: {mem_growth:.2f} MB, Object growth: {obj_growth}")
+        return {"memory_growth_mb": mem_growth, "object_growth": obj_growth}
+
+    def stop(self):
+        self.tracemalloc.stop()
+
+# --- Performance Regression Detection ---
+
+class PerformanceRegressionMonitor:
+    """
+    Tracks and detects performance regressions based on historical baselines.
+    """
+    def __init__(self):
+        self.baselines: Dict[str, float] = {}
+        self.regressions: List[str] = []
+
+    def set_baseline(self, test_name: str, value: float):
+        self.baselines[test_name] = value
+
+    def check(self, test_name: str, value: float, threshold: float = 1.2) -> bool:
+        """
+        Returns True if regression detected (value is threshold*baseline or worse).
+        """
+        baseline = self.baselines.get(test_name)
+        if baseline is None:
+            logger.info(f"[RegressionMonitor] No baseline for {test_name}, setting to {value:.4f}")
+            self.set_baseline(test_name, value)
+            return False
+        if value > baseline * threshold:
+            logger.warning(f"[RegressionMonitor] Regression detected in {test_name}: {value:.4f} vs baseline {baseline:.4f}")
+            self.regressions.append(test_name)
+            return True
+        logger.info(f"[RegressionMonitor] {test_name}: {value:.4f} (baseline {baseline:.4f})")
+        return False
+
+    def get_regressions(self) -> List[str]:
+        return self.regressions
+
+# --- Production Performance Monitoring ---
+
+class PerformanceMonitor:
+    """
+    Thread-safe, lightweight performance monitor for production.
+    Tracks operation timings, counts, and can emit periodic reports.
+    """
+    def __init__(self, name: str, report_interval: float = 60.0):
+        self.name = name
+        self.report_interval = report_interval
+        self.lock = threading.Lock()
+        self.timings: List[float] = []
+        self.count = 0
+        self.last_report = time.time()
+
+    def record(self, duration: float):
+        with self.lock:
+            self.timings.append(duration)
+            self.count += 1
+            now = time.time()
+            if now - self.last_report > self.report_interval:
+                self.report()
+                self.last_report = now
+
+    def report(self):
+        with self.lock:
+            if not self.timings:
+                return
+            avg = sum(self.timings) / len(self.timings)
+            p95 = sorted(self.timings)[int(0.95 * len(self.timings)) - 1] if len(self.timings) > 1 else avg
+            logger.info(f"[PerfMonitor:{self.name}] Count: {self.count}, Avg: {avg:.6f}s, P95: {p95:.6f}s")
+            self.timings.clear()
+            self.count = 0
+
+    def get_stats(self) -> Dict[str, Any]:
+        with self.lock:
+            if not self.timings:
+                return {"count": 0, "avg": 0.0, "p95": 0.0}
+            avg = sum(self.timings) / len(self.timings)
+            p95 = sorted(self.timings)[int(0.95 * len(self.timings)) - 1] if len(self.timings) > 1 else avg
+            return {"count": self.count, "avg": avg, "p95": p95}
+
+# Global production monitor for message processing
+message_perf_monitor = PerformanceMonitor("message_processing", report_interval=60.0)
 
 
 # Define a protocol for the LRU cached function to include cache_info and cache_clear
@@ -215,23 +375,29 @@ def optimize_message_validation(data: Dict[str, Any]) -> ValidationResult:
     - Fast path for common message types
     - Minimal object creation
     - Efficient error handling
+    - Performance monitoring for production
     """
-    # Fast path for common cancelled notifications
-    if data.get("method") == "notifications/cancelled":
-        # Basic structure validation
-        if "params" in data and isinstance(data["params"], dict):
-            params = data["params"]
-            if "requestId" in params:
-                # This is likely a valid cancelled notification
-                try:
-                    from .models.notifications import CancelledNotification
+    start = time.perf_counter()
+    try:
+        # Fast path for common cancelled notifications
+        if data.get("method") == "notifications/cancelled":
+            # Basic structure validation
+            if "params" in data and isinstance(data["params"], dict):
+                params = data["params"]
+                if "requestId" in params:
+                    # This is likely a valid cancelled notification
+                    try:
+                        from .models.notifications import CancelledNotification
 
-                    model = CancelledNotification.model_validate(data)
-                    return ValidationResult(model=model, raw_data=data)
-                except Exception as e:
-                    logger.debug(f"Fast path validation failed: {e}")
+                        model = CancelledNotification.model_validate(data)
+                        return ValidationResult(model=model, raw_data=data)
+                    except Exception as e:
+                        logger.debug(f"Fast path validation failed: {e}")
 
-    # Fall back to full validation
-    from .models.validation import safe_parse_notification
+        # Fall back to full validation
+        from .models.validation import safe_parse_notification
 
-    return safe_parse_notification(data)
+        return safe_parse_notification(data)
+    finally:
+        duration = time.perf_counter() - start
+        message_perf_monitor.record(duration)
