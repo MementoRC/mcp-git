@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 # Import caching functionality
 try:
     from ..optimizations import apply_validation_cache, get_validation_cache_stats
+
     _caching_available = True
 except ImportError:
     _caching_available = False
@@ -184,11 +185,13 @@ notification_handler = RobustNotificationHandler()
 
 # Create cached version if caching is available
 if _caching_available:
+
     @apply_validation_cache
     def _cached_safe_parse_notification(data: Dict[str, Any]) -> ValidationResult:
         """Cached version of safe notification processing."""
         return safe_parse_notification(data)
 else:
+
     def _cached_safe_parse_notification(data: Dict[str, Any]) -> ValidationResult:
         """Non-cached fallback version."""
         return safe_parse_notification(data)
@@ -208,7 +211,7 @@ def log_notification_stats() -> None:
     """Log current notification processing statistics."""
     stats = notification_handler.get_stats()
     logger.info(f"Notification stats: {stats}")
-    
+
     if _caching_available:
         cache_stats = get_validation_cache_stats()
         logger.info(f"Validation cache stats: {cache_stats}")
