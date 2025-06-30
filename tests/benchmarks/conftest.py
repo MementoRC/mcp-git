@@ -1,4 +1,3 @@
-import os
 import time
 import uuid
 from typing import Any, Dict, Optional
@@ -83,6 +82,7 @@ class MockMCPClient:
             results.append(result)
         return results
 
+
 # Import SessionManager and HeartbeatManager for a lightweight session fixture
 from mcp_server_git.session import SessionManager, HeartbeatManager
 
@@ -132,6 +132,7 @@ def memory_monitor():
     Memory monitoring utilities for leak detection, redefined for independence
     from the stress test conftest.
     """
+
     class MemoryMonitor:
         def __init__(self):
             self.process = psutil.Process()
@@ -168,9 +169,9 @@ def memory_monitor():
             sum_x = sum(x)
             sum_y = sum(y)
             sum_xy = sum(x[i] * y[i] for i in range(n))
-            sum_x_squared = sum(xi ** 2 for xi in x)
+            sum_x_squared = sum(xi**2 for xi in x)
 
-            denominator = (n * sum_x_squared - sum_x ** 2)
+            denominator = n * sum_x_squared - sum_x**2
             if denominator == 0:
                 return 0.0  # Avoid division by zero if all x values are identical (e.g., n=1)
 
@@ -185,4 +186,3 @@ def memory_monitor():
             print("----------------------")
 
     return MemoryMonitor()
-
