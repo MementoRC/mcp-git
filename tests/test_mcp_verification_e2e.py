@@ -15,24 +15,12 @@ The tests use real MCP calls through the server_simple.py implementation
 to verify the routing fix and full functionality.
 """
 
-import asyncio
 import os
 import tempfile
 from pathlib import Path
-# Remove unused Optional import
 
 import pytest
 from git import Repo
-
-try:
-    from .test_e2e_server import MCPTestClient
-except ImportError:
-    # Fallback for direct execution or CI
-    import sys
-    from pathlib import Path
-
-    sys.path.insert(0, str(Path(__file__).parent))
-    from test_e2e_server import MCPTestClient
 
 
 # Fixtures for E2E verification tests

@@ -99,7 +99,7 @@ See also:
 # from .llm_reporter import *
 
 # Placeholder exports - will be populated as modules are implemented
-__all__ = [
+__all__: list[str] = [
     # State inspection - to be implemented
     # "StateInspector",
     # "StateSnapshot",

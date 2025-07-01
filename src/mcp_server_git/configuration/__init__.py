@@ -111,7 +111,7 @@ See also:
 # from .application_config import *
 
 # Placeholder exports - will be populated as modules are implemented
-__all__ = [
+__all__: list[str] = [
     # Main application configuration - to be implemented
     # "ApplicationConfig",
     # Server configuration - to be implemented

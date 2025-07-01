@@ -72,7 +72,7 @@ See also:
 # from .validation_constants import *
 
 # Placeholder exports - will be populated as modules are implemented
-__all__ = [
+__all__: list[str] = [
     # Git constants - to be implemented
     # "GitOperationDefaults",
     # "GitTimeouts",

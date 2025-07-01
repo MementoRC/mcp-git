@@ -45,7 +45,7 @@ See also:
 """
 
 # Placeholder exports - will be populated as modules are implemented
-__all__ = [
+__all__: list[str] = [
     # Git primitive operations - to be implemented in Task 19
     # "git_primitives",
     # GitHub primitive operations - to be implemented in Task 20

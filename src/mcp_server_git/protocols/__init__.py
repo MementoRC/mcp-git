@@ -47,9 +47,9 @@ Implementation examples:
     ...
     ...     def explain_state_change(self, prev, curr) -> str:
     ...         return "State changed from active to idle"
-    >>>
-    >>> # MyService now implements DebuggableComponent protocol
-    >>> service: DebuggableComponent = MyService()
+>>>
+>>> # MyService now implements DebuggableComponent protocol
+>>> service: DebuggableComponent = MyService()
 
 Protocol benefits:
     - Type checking: Static analysis can verify implementations
@@ -77,7 +77,7 @@ See also:
 # from .debugging_protocol import *
 
 # Placeholder exports - will be populated as modules are implemented
-__all__ = [
+__all__: list[str] = [
     # Repository protocols - to be implemented
     # "RepositoryProtocol",
     # "GitRepositoryProtocol",

@@ -73,7 +73,7 @@ See also:
 """
 
 # Placeholder exports - will be populated as modules are implemented
-__all__ = [
+__all__: list[str] = [
     # Git service - to be implemented in Task 23
     # "git_service",
     # GitHub service - to be implemented in Task 24

@@ -69,7 +69,7 @@ See also:
 """
 
 # Placeholder exports - will be populated as modules are implemented
-__all__ = [
+__all__: list[str] = [
     # MCP server framework - to be implemented
     # "mcp_server_framework",
     # Tool registry framework - to be implemented

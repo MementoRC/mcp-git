@@ -60,7 +60,7 @@ See also:
 """
 
 # Placeholder exports - will be populated as modules are implemented
-__all__ = [
+__all__: list[str] = [
     # Git operations - to be implemented in Task 21
     # "git_operations",
     # GitHub operations - to be implemented in Task 22

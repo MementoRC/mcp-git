@@ -82,7 +82,7 @@ See also:
 # from .mcp_types import *
 
 # Placeholder exports - will be populated as modules are implemented
-__all__ = [
+__all__: list[str] = [
     # Git types - to be implemented
     # "RepoPath",
     # "GitCommitHash",
