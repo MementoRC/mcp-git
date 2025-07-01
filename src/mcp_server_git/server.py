@@ -324,6 +324,9 @@ class GitHubClient:
         # This should never be reached due to the exception handling above
         if last_error:
             raise last_error
+        
+        # Fallback return to satisfy type checker
+        return {}
 
 
 def get_github_client() -> GitHubClient:
