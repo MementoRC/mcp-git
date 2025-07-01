@@ -1,118 +1,17 @@
 # Task ID: 6
-# Title: Implement Circuit Breaker Pattern
-# Status: done
-# Dependencies: 5
+# Title: Implement State Inspection Framework
+# Status: pending
+# Dependencies: 1, 4
 # Priority: medium
-# Description: Add a circuit breaker mechanism to prevent cascading failures when repeated errors occur.
+# Description: Create a comprehensive state inspection and debugging framework that allows introspection of component state for debugging and LLM analysis.
 # Details:
-1. Create a CircuitBreaker class in error_handling.py
-2. Implement the three states: Closed, Open, Half-Open
-3. Add configurable thresholds for tripping the circuit
-4. Create tracking for error rates and types
-5. Implement automatic recovery after cooling period
+Create the following files in the debugging directory:
+- `__init__.py`: Export debugging components
+- `state_inspector.py`: Implement ComponentStateInspector class
+- `debug_context.py`: Context managers for debugging
+- `performance_profiler.py`: Performance profiling utilities
 
-```python
-# Add to src/mcp_server_git/error_handling.py
-from enum import Enum
-import time
-from typing import Dict, List, Optional, Callable, Any
-
-class CircuitState(Enum):
-    CLOSED = "closed"       # Normal operation, allowing requests
-    OPEN = "open"           # Failing fast, not allowing requests
-    HALF_OPEN = "half_open" # Testing if system has recovered
-
-class CircuitBreaker:
-    """Implements the circuit breaker pattern to prevent cascading failures."""
-
-    def __init__(self, name: str, failure_threshold: int = 5,
-                 recovery_timeout: float = 30.0, half_open_max_calls: int = 1):
-        self.name = name
-        self.failure_threshold = failure_threshold
-        self.recovery_timeout = recovery_timeout
-        self.half_open_max_calls = half_open_max_calls
-
-        self.state = CircuitState.CLOSED
-        self.failure_count = 0
-        self.last_failure_time = 0.0
-        self.half_open_calls = 0
-
-    def reset(self) -> None:
-        """Reset the circuit breaker to closed state."""
-        self.state = CircuitState.CLOSED
-        self.failure_count = 0
-        self.last_failure_time = 0.0
-        self.half_open_calls = 0
-
-    def record_failure(self) -> None:
-        """Record a failure and potentially trip the circuit."""
-        self.failure_count += 1
-        self.last_failure_time = time.time()
-
-        if self.state == CircuitState.CLOSED and self.failure_count >= self.failure_threshold:
-            logger.warning(f"Circuit {self.name} tripped after {self.failure_count} failures")
-            self.state = CircuitState.OPEN
-        elif self.state == CircuitState.HALF_OPEN:
-            logger.warning(f"Circuit {self.name} reopened after test failure")
-            self.state = CircuitState.OPEN
-
-    def record_success(self) -> None:
-        """Record a success and potentially reset the circuit."""
-        if self.state == CircuitState.HALF_OPEN:
-            self.reset()
-            logger.info(f"Circuit {self.name} closed after successful test")
-
-    def allow_request(self) -> bool:
-        """Check if a request should be allowed based on circuit state."""
-        if self.state == CircuitState.CLOSED:
-            return True
-
-        if self.state == CircuitState.OPEN:
-            # Check if recovery timeout has elapsed
-            if time.time() - self.last_failure_time >= self.recovery_timeout:
-                logger.info(f"Circuit {self.name} entering half-open state for testing")
-                self.state = CircuitState.HALF_OPEN
-                self.half_open_calls = 0
-            else:
-                return False  # Still open, fail fast
-
-        if self.state == CircuitState.HALF_OPEN:
-            if self.half_open_calls < self.half_open_max_calls:
-                self.half_open_calls += 1
-                return True
-            return False
-
-        return True
-
-# Circuit breaker decorator
-def with_circuit_breaker(circuit: CircuitBreaker):
-    """Decorator to apply circuit breaker to a function."""
-    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
-        @functools.wraps(func)
-        async def wrapper(*args: Any, **kwargs: Any) -> Any:
-            if not circuit.allow_request():
-                raise CircuitOpenError(f"Circuit {circuit.name} is open")
-
-            try:
-                result = await func(*args, **kwargs)
-                circuit.record_success()
-                return result
-            except Exception as e:
-                circuit.record_failure()
-                raise
-
-        return wrapper
-    return decorator
-
-class CircuitOpenError(Exception):
-    """Error raised when a circuit is open and rejects a request."""
-    pass
-```
+Implement the `ComponentStateInspector` class as shown in section 4.4.2 of the PRD. Create the `StateSnapshot` dataclass for capturing immutable state snapshots. Implement methods for registering components, capturing state, and generating LLM-friendly reports. Add proper thread safety with locks.
 
 # Test Strategy:
-1. Test circuit transitions between states
-2. Verify circuit trips after threshold failures
-3. Test automatic recovery after timeout
-4. Verify half-open state behavior
-5. Test with concurrent requests
-6. Verify metrics and logging of circuit state changes
+Create unit tests that verify state inspection works correctly. Test component registration, state capture, and report generation. Include test cases with mock components that implement the DebuggableComponent protocol.

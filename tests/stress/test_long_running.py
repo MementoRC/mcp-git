@@ -258,7 +258,7 @@ async def test_continuous_operation_under_load(
 
     memory_monitor.take_sample("load_test_start")
     logger.info(
-        f"Starting minimal continuous load test for {duration_minutes*60:.1f} seconds"
+        f"Starting minimal continuous load test for {duration_minutes * 60:.1f} seconds"
     )
     logger.info(f"Target rate: {message_rate} messages/second")
 

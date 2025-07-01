@@ -1,0 +1,40 @@
+#!/usr/bin/env python3
+"""
+Simplified MCP Git Server entry point.
+
+This script provides a simplified MCP server without complex initialization
+that might interfere with MCP handshake.
+"""
+
+import sys
+from pathlib import Path
+
+# Add the source directory to the path BEFORE any other imports to avoid E402
+src_dir = Path(__file__).parent / "src"
+sys.path.insert(0, str(src_dir))
+
+# Now, import everything else
+import asyncio
+import click
+from mcp_server_git.server_simple import main_simple
+
+
+@click.command()
+@click.option("--repository", "-r", type=Path, help="Git repository path")
+@click.option("-v", "--verbose", count=True, help="Increase verbosity")
+@click.option("--enable-file-logging", is_flag=True, help="Enable file logging")
+@click.option("--test-mode", is_flag=True, help="Run in test mode for CI")
+def main(repository: Path, verbose: int, enable_file_logging: bool, test_mode: bool):
+    """Simplified MCP Git Server"""
+    # Set logging level based on verbosity
+    import os
+    if verbose == 1:
+        os.environ["LOG_LEVEL"] = "INFO"
+    elif verbose >= 2:
+        os.environ["LOG_LEVEL"] = "DEBUG"
+
+    # Run the simplified server
+    asyncio.run(main_simple(repository, test_mode))
+
+if __name__ == "__main__":
+    main()

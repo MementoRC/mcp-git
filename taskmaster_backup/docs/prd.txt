@@ -1,0 +1,1728 @@
+# Product Requirements Document: MCP Git Server LLM-Optimized Code Compliance Transformation
+
+## 1. Executive Summary
+
+### 1.1 Project Overview
+Transform the existing MCP Git Server codebase to achieve 95%+ compliance with LLM-optimized coding guidelines, enabling superior AI-assisted development, maintenance, and extension capabilities.
+
+### 1.2 Business Objectives
+- **Primary**: Maximize LLM effectiveness for code understanding, modification, and maintenance
+- **Secondary**: Establish codebase as reference implementation for LLM-friendly Python projects
+- **Tertiary**: Reduce onboarding time for new developers by 50%
+- **Strategic**: Enable rapid feature development through enhanced AI assistance
+
+### 1.3 Success Metrics
+- **Code Comprehension**: 300% improvement in LLM context understanding
+- **Modification Accuracy**: 200% improvement in AI-assisted code changes
+- **Documentation Coverage**: 95% function-level documentation compliance
+- **File Size Compliance**: 98% of files within 200-500 line range
+- **Type System Usage**: 95% comprehensive type annotation coverage
+- **Developer Productivity**: 150% faster feature implementation with AI assistance
+
+## 2. Current State Analysis
+
+### 2.1 Compliance Assessment
+- **Overall Compliance**: 65%
+- **File Size Management**: 85% (Critical issue: server.py at 4,431 lines)
+- **Documentation Standards**: 5% (Critical gap in function documentation)
+- **Naming Conventions**: 68% (Missing descriptive function names)
+- **Type System Usage**: 80% (Missing domain-specific type aliases)
+- **State Inspection**: 0% (No debugging/inspection patterns)
+
+### 2.2 Critical Issues Identified
+1. **Monolithic Architecture**: Single 4,431-line server.py file violates 500-line limit by 885%
+2. **Documentation Deficit**: Only 13 of 272 functions have complete documentation
+3. **Missing State Inspection**: No debugging interfaces for LLM understanding
+4. **Type System Gaps**: Missing domain-specific type aliases and constants organization
+5. **Generic Naming**: Function names lack descriptive action+context patterns
+
+## 3. Target Architecture Vision
+
+### 3.1 Hierarchical Organization (5-Level Structure)
+
+#### Level 1: Atoms (Primitive Operations)
+```
+src/mcp_server_git/
+├── primitives/
+│   ├── git_primitives.py (50-100 lines)
+│   ├── github_primitives.py (50-100 lines)
+│   ├── validation_primitives.py (50-100 lines)
+│   └── type_primitives.py (50-100 lines)
+```
+
+#### Level 2: Molecules (Simple Compositions)
+```
+├── operations/
+│   ├── git_operations.py (200-300 lines)
+│   ├── github_operations.py (200-300 lines)
+│   ├── session_operations.py (200-300 lines)
+│   └── notification_operations.py (200-300 lines)
+```
+
+#### Level 3: Organisms (Complete Features)
+```
+├── services/
+│   ├── git_service.py (300-400 lines)
+│   ├── github_service.py (300-400 lines)
+│   ├── session_service.py (300-400 lines)
+│   └── metrics_service.py (300-400 lines)
+```
+
+#### Level 4: Templates (Architectural Patterns)
+```
+├── frameworks/
+│   ├── mcp_server_framework.py (400-500 lines)
+│   ├── tool_registry_framework.py (300-400 lines)
+│   ├── error_handling_framework.py (300-400 lines)
+│   └── security_framework.py (300-400 lines)
+```
+
+#### Level 5: Pages (Complete Applications)
+```
+├── applications/
+│   ├── server_application.py (400-500 lines)
+│   ├── cli_application.py (200-300 lines)
+│   └── test_application.py (200-300 lines)
+```
+
+### 3.2 Enhanced Module Structure
+```
+src/mcp_server_git/
+├── types/                          # Domain-specific type definitions
+│   ├── __init__.py
+│   ├── git_types.py
+│   ├── github_types.py
+│   ├── session_types.py
+│   └── mcp_types.py
+├── constants/                      # Organized constant definitions
+│   ├── __init__.py
+│   ├── git_constants.py
+│   ├── github_constants.py
+│   ├── server_constants.py
+│   └── validation_constants.py
+├── protocols/                      # Interface definitions
+│   ├── __init__.py
+│   ├── repository_protocol.py
+│   ├── notification_protocol.py
+│   └── metrics_protocol.py
+├── debugging/                      # State inspection and debugging
+│   ├── __init__.py
+│   ├── state_inspector.py
+│   ├── debug_context.py
+│   └── performance_profiler.py
+└── configuration/                  # Configuration management
+    ├── __init__.py
+    ├── server_config.py
+    ├── git_config.py
+    └── github_config.py
+```
+
+## 4. Technical Requirements
+
+### 4.1 File Size and Scope Constraints
+
+#### 4.1.1 Mandatory Requirements
+- **Maximum file size**: 500 lines (hard limit)
+- **Optimal file size**: 200-400 lines
+- **Single responsibility**: Each file has ONE clear purpose
+- **Explicit boundaries**: Clear module exports defining public interfaces
+
+#### 4.1.2 Implementation Strategy
+1. **Decompose server.py**: Split 4,431-line file into 12-15 focused modules
+2. **Refactor large modules**: Split prompts.py (1,025 lines) into specialized modules
+3. **Create focused utilities**: Extract common functionality into atomic modules
+4. **Establish clear interfaces**: Define explicit contracts between modules
+
+### 4.2 Documentation Standards
+
+#### 4.2.1 Module-Level Documentation
+Every file must start with comprehensive docstring:
+```python
+"""Module purpose and comprehensive scope description.
+
+This module handles [specific responsibility] within the MCP Git Server:
+- Key functionality 1 with detailed explanation
+- Key functionality 2 with integration context
+- Key functionality 3 with usage patterns
+- Integration points and dependencies
+
+Architecture:
+    This module fits into the overall system as [architectural role].
+    It depends on [dependencies] and provides [interfaces] to [consumers].
+
+Key components:
+    ComponentName: Detailed description of purpose and behavior
+    function_name: Comprehensive description of functionality and usage
+    ClassName: Role in system architecture and key methods
+
+Performance considerations:
+    - [Performance characteristic 1]
+    - [Performance characteristic 2]
+    - [Optimization notes]
+
+Example usage:
+    >>> from mcp_server_git.module import Component
+    >>> component = Component(config)
+    >>> result = component.process_data(input_data)
+    >>> print(result.status)
+    'success'
+
+See also:
+    - Related modules: [module1], [module2]
+    - External documentation: [links]
+    - API reference: [references]
+"""
+```
+
+#### 4.2.2 Function-Level Documentation
+Every function must include comprehensive documentation:
+```python
+def process_git_repository_operation(
+    repository_path: RepoPath,
+    operation_type: GitOperationType,
+    operation_parameters: GitOperationParameters,
+    security_context: SecurityContext,
+    timeout_seconds: int = 30
+) -> GitOperationResult:
+    """Process a Git repository operation with comprehensive validation and error handling.
+    
+    This function serves as the primary interface for executing Git operations
+    within the MCP server context. It handles security validation, operation
+    routing, error recovery, and result formatting.
+    
+    The function implements a multi-stage process:
+    1. Security validation and permission checking
+    2. Repository state verification and locking
+    3. Operation execution with timeout management
+    4. Result validation and formatting
+    5. Cleanup and resource management
+    
+    Args:
+        repository_path: Absolute path to the Git repository. Must be a valid
+            Git repository with appropriate permissions. The path is validated
+            for security constraints and existence.
+        operation_type: Type of Git operation to perform. Supported operations
+            include COMMIT, PUSH, PULL, MERGE, REBASE, and BRANCH_OPERATIONS.
+            Each type has specific parameter requirements.
+        operation_parameters: Parameters specific to the operation type. Must
+            include all required fields for the specified operation_type.
+            Validated against operation-specific schemas.
+        security_context: Security context containing authentication credentials,
+            permission levels, and audit information. Used for authorization
+            and security policy enforcement.
+        timeout_seconds: Maximum time allowed for operation execution. Defaults
+            to 30 seconds. Must be between 1 and 300 seconds. Operations
+            exceeding timeout are automatically cancelled.
+            
+    Returns:
+        GitOperationResult containing:
+            - operation_id: Unique identifier for tracking and audit
+            - status: SUCCESS, FAILURE, or TIMEOUT
+            - result_data: Operation-specific result information  
+            - error_context: Detailed error information if operation failed
+            - execution_metrics: Performance and timing information
+            - security_audit: Security-related operation details
+            
+    Raises:
+        GitSecurityViolation: If security validation fails or unauthorized
+            operation is attempted. Includes detailed security context.
+        GitRepositoryError: If repository is invalid, corrupted, or inaccessible.
+            Includes repository diagnostic information.
+        GitOperationTimeout: If operation exceeds specified timeout. Includes
+            partial operation state for recovery.
+        GitOperationError: For all other operation-specific errors. Includes
+            detailed error context and suggested recovery actions.
+        ValidationError: If parameters fail validation. Includes specific
+            validation failure details and correction guidance.
+            
+    Example:
+        >>> from mcp_server_git.types import RepoPath, GitOperationType
+        >>> from mcp_server_git.security import SecurityContext
+        >>> 
+        >>> repo_path = RepoPath("/path/to/repository")
+        >>> operation = GitOperationType.COMMIT
+        >>> params = GitOperationParameters(
+        ...     message="feat: add new feature",
+        ...     files=["src/new_feature.py"],
+        ...     gpg_sign=True
+        ... )
+        >>> security = SecurityContext(user_id="user123", permissions=["git:commit"])
+        >>> 
+        >>> result = process_git_repository_operation(
+        ...     repository_path=repo_path,
+        ...     operation_type=operation,
+        ...     operation_parameters=params,
+        ...     security_context=security,
+        ...     timeout_seconds=60
+        ... )
+        >>> 
+        >>> if result.status == GitOperationStatus.SUCCESS:
+        ...     print(f"Commit created: {result.result_data.commit_hash}")
+        ... else:
+        ...     print(f"Operation failed: {result.error_context.message}")
+        
+    Performance notes:
+        - Repository operations are locked to prevent concurrent modifications
+        - Large repositories may require increased timeout values
+        - Network operations (push/pull) depend on connection quality
+        - GPG signing adds 2-5 seconds to commit operations
+        
+    Security considerations:
+        - All operations are audited and logged
+        - Repository paths are validated against security policies
+        - User permissions are checked before operation execution
+        - Sensitive data is filtered from logs and error messages
+        
+    See also:
+        - GitOperationType: Available operation types and parameters
+        - SecurityContext: Security context structure and requirements
+        - GitOperationResult: Detailed result structure documentation
+        - Security documentation: [link to security docs]
+    """
+```
+
+### 4.3 Type System Enhancement
+
+#### 4.3.1 Domain-Specific Type Aliases
+```python
+# types/git_types.py
+from typing import NewType, Literal, TypedDict, Union
+from pathlib import Path
+from datetime import datetime
+
+# Core Git types
+RepoPath = NewType('RepoPath', Path)
+GitCommitHash = NewType('GitCommitHash', str)
+GitBranchName = NewType('GitBranchName', str)
+GitRemoteName = NewType('GitRemoteName', str)
+GitTagName = NewType('GitTagName', str)
+
+# GitHub-specific types
+GitHubToken = NewType('GitHubToken', str)
+GitHubRepoOwner = NewType('GitHubRepoOwner', str)
+GitHubRepoName = NewType('GitHubRepoName', str)
+PRNumber = NewType('PRNumber', int)
+WorkflowRunId = NewType('WorkflowRunId', int)
+
+# Session and server types
+SessionId = NewType('SessionId', str)
+UserId = NewType('UserId', str)
+RequestId = NewType('RequestId', str)
+ToolName = NewType('ToolName', str)
+
+# Operation result types
+GitOperationStatus = Literal["success", "failure", "timeout", "cancelled"]
+GitHubCheckStatus = Literal["completed", "in_progress", "queued", "requested"]
+SessionStatus = Literal["active", "idle", "terminated", "error"]
+
+# Complex structured types
+class GitFileStatus(TypedDict):
+    file_path: str
+    status: Literal["modified", "added", "deleted", "renamed", "copied"]
+    insertions: int
+    deletions: int
+
+class GitCommitInfo(TypedDict):
+    hash: GitCommitHash
+    author: str
+    author_email: str
+    message: str
+    timestamp: datetime
+    files_changed: List[GitFileStatus]
+
+class GitRepositoryState(TypedDict):
+    path: RepoPath
+    current_branch: GitBranchName
+    is_dirty: bool
+    staged_files: List[str]
+    modified_files: List[str]
+    untracked_files: List[str]
+    last_commit: GitCommitInfo
+```
+
+#### 4.3.2 Configuration Models with Validation
+```python
+# configuration/server_config.py
+from pydantic import BaseModel, validator, Field
+from typing import Optional, List, Dict, Any
+
+class GitServerConfig(BaseModel):
+    """Configuration for Git server operations with comprehensive validation."""
+    
+    # Server settings
+    host: str = Field(default="localhost", description="Server host address")
+    port: int = Field(default=8080, ge=1024, le=65535, description="Server port")
+    max_concurrent_operations: int = Field(default=10, ge=1, le=100)
+    operation_timeout_seconds: int = Field(default=300, ge=30, le=1800)
+    
+    # Security settings
+    enable_security_validation: bool = Field(default=True)
+    allowed_repository_paths: List[Path] = Field(default_factory=list)
+    forbidden_operations: List[str] = Field(default_factory=list)
+    require_gpg_signing: bool = Field(default=False)
+    
+    # GitHub integration
+    github_token: Optional[GitHubToken] = Field(default=None)
+    github_api_timeout: int = Field(default=30, ge=5, le=120)
+    github_rate_limit_buffer: int = Field(default=100, ge=10, le=1000)
+    
+    # Logging and monitoring
+    log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = Field(default="INFO")
+    enable_metrics_collection: bool = Field(default=True)
+    metrics_retention_days: int = Field(default=30, ge=1, le=365)
+    
+    @validator('allowed_repository_paths')
+    def validate_repository_paths(cls, v):
+        """Validate that all repository paths exist and are Git repositories."""
+        for path in v:
+            if not path.exists():
+                raise ValueError(f"Repository path does not exist: {path}")
+            if not (path / '.git').exists():
+                raise ValueError(f"Path is not a Git repository: {path}")
+        return v
+    
+    @validator('github_token')
+    def validate_github_token(cls, v):
+        """Validate GitHub token format."""
+        if v and not v.startswith(('ghp_', 'gho_', 'ghu_', 'ghs_', 'ghr_')):
+            raise ValueError("Invalid GitHub token format")
+        return v
+    
+    class Config:
+        schema_extra = {
+            "example": {
+                "host": "localhost",
+                "port": 8080,
+                "max_concurrent_operations": 10,
+                "operation_timeout_seconds": 300,
+                "enable_security_validation": True,
+                "allowed_repository_paths": ["/path/to/repo1", "/path/to/repo2"],
+                "github_token": "ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+                "log_level": "INFO"
+            }
+        }
+```
+
+### 4.4 State Inspection and Debugging
+
+#### 4.4.1 Debugging Interface Protocol
+```python
+# protocols/debugging_protocol.py
+from typing import Protocol, Dict, Any, List, Optional
+from abc import abstractmethod
+
+class DebuggableComponent(Protocol):
+    """Protocol for components that provide debugging and state inspection."""
+    
+    @abstractmethod
+    def get_debug_state(self) -> Dict[str, Any]:
+        """Return comprehensive internal state for debugging and LLM analysis.
+        
+        Returns:
+            Dictionary containing complete component state with the following structure:
+            - component_info: Basic component identification and metadata
+            - configuration: Current configuration values and sources
+            - runtime_state: Current operational state and status
+            - performance_metrics: Performance-related measurements
+            - error_history: Recent errors and recovery actions
+            - resource_usage: Memory, CPU, and other resource utilization
+            - dependencies: Status of external dependencies
+            - health_status: Overall component health assessment
+        """
+        pass
+    
+    @abstractmethod
+    def explain_state_change(self, previous_state: Dict[str, Any], current_state: Dict[str, Any]) -> str:
+        """Generate human and LLM-readable explanation of state changes.
+        
+        Args:
+            previous_state: Previous state snapshot from get_debug_state()
+            current_state: Current state snapshot from get_debug_state()
+            
+        Returns:
+            Detailed explanation of what changed, why it changed, and implications
+        """
+        pass
+    
+    @abstractmethod
+    def get_performance_profile(self) -> Dict[str, Any]:
+        """Return performance profiling information for optimization analysis."""
+        pass
+    
+    @abstractmethod
+    def validate_internal_consistency(self) -> List[str]:
+        """Validate internal state consistency and return any issues found."""
+        pass
+```
+
+#### 4.4.2 State Inspector Implementation
+```python
+# debugging/state_inspector.py
+from typing import Dict, Any, List, Optional, Type
+from datetime import datetime, timedelta
+import psutil
+import threading
+from dataclasses import dataclass
+
+@dataclass
+class StateSnapshot:
+    """Immutable snapshot of component state at a specific time."""
+    timestamp: datetime
+    component_id: str
+    component_type: str
+    state_data: Dict[str, Any]
+    performance_metrics: Dict[str, float]
+    resource_usage: Dict[str, Any]
+
+class ComponentStateInspector:
+    """Centralized state inspection and debugging for all components."""
+    
+    def __init__(self, max_history_size: int = 1000):
+        self.max_history_size = max_history_size
+        self._state_history: List[StateSnapshot] = []
+        self._registered_components: Dict[str, DebuggableComponent] = {}
+        self._lock = threading.RLock()
+        
+    def register_component(self, component_id: str, component: DebuggableComponent) -> None:
+        """Register a component for state inspection."""
+        with self._lock:
+            self._registered_components[component_id] = component
+            
+    def capture_state_snapshot(self, component_id: str) -> StateSnapshot:
+        """Capture complete state snapshot for a component."""
+        with self._lock:
+            component = self._registered_components.get(component_id)
+            if not component:
+                raise ValueError(f"Component not registered: {component_id}")
+                
+            # Capture comprehensive state
+            state_data = component.get_debug_state()
+            performance_metrics = component.get_performance_profile()
+            
+            # Add system-level resource usage
+            process = psutil.Process()
+            resource_usage = {
+                "memory_usage_mb": process.memory_info().rss / 1024 / 1024,
+                "cpu_percent": process.cpu_percent(),
+                "thread_count": process.num_threads(),
+                "open_files": len(process.open_files()),
+                "connections": len(process.connections())
+            }
+            
+            snapshot = StateSnapshot(
+                timestamp=datetime.now(),
+                component_id=component_id,
+                component_type=component.__class__.__name__,
+                state_data=state_data,
+                performance_metrics=performance_metrics,
+                resource_usage=resource_usage
+            )
+            
+            # Store in history
+            self._state_history.append(snapshot)
+            if len(self._state_history) > self.max_history_size:
+                self._state_history.pop(0)
+                
+            return snapshot
+    
+    def generate_llm_friendly_report(self, component_id: str, include_history: bool = True) -> str:
+        """Generate comprehensive report optimized for LLM analysis."""
+        with self._lock:
+            component = self._registered_components.get(component_id)
+            if not component:
+                return f"Component {component_id} not found"
+                
+            current_snapshot = self.capture_state_snapshot(component_id)
+            
+            # Build comprehensive report
+            report_sections = []
+            
+            # Component overview
+            report_sections.append(f"""
+## Component State Report: {component_id}
+**Type**: {current_snapshot.component_type}
+**Timestamp**: {current_snapshot.timestamp.isoformat()}
+**Status**: {'Healthy' if self._assess_component_health(current_snapshot) else 'Issues Detected'}
+""")
+            
+            # Current state
+            report_sections.append("### Current State")
+            for key, value in current_snapshot.state_data.items():
+                report_sections.append(f"- **{key}**: {value}")
+                
+            # Performance metrics
+            report_sections.append("### Performance Metrics")
+            for metric, value in current_snapshot.performance_metrics.items():
+                report_sections.append(f"- **{metric}**: {value}")
+                
+            # Resource usage
+            report_sections.append("### Resource Usage")
+            for resource, usage in current_snapshot.resource_usage.items():
+                report_sections.append(f"- **{resource}**: {usage}")
+                
+            # Historical trends if requested
+            if include_history:
+                recent_snapshots = [s for s in self._state_history 
+                                  if s.component_id == component_id 
+                                  and s.timestamp > datetime.now() - timedelta(hours=1)]
+                
+                if len(recent_snapshots) > 1:
+                    report_sections.append("### Recent Trends (Last Hour)")
+                    # Analyze trends in key metrics
+                    self._add_trend_analysis(report_sections, recent_snapshots)
+                    
+            # Validation issues
+            validation_issues = component.validate_internal_consistency()
+            if validation_issues:
+                report_sections.append("### Validation Issues")
+                for issue in validation_issues:
+                    report_sections.append(f"- ⚠️ {issue}")
+                    
+            return "\n".join(report_sections)
+    
+    def _assess_component_health(self, snapshot: StateSnapshot) -> bool:
+        """Assess overall component health based on state and metrics."""
+        # Implement health assessment logic
+        critical_errors = snapshot.state_data.get('critical_errors', 0)
+        memory_usage = snapshot.resource_usage.get('memory_usage_mb', 0)
+        cpu_usage = snapshot.resource_usage.get('cpu_percent', 0)
+        
+        return (critical_errors == 0 and 
+                memory_usage < 1000 and  # Less than 1GB
+                cpu_usage < 80)  # Less than 80% CPU
+    
+    def _add_trend_analysis(self, report_sections: List[str], snapshots: List[StateSnapshot]) -> None:
+        """Add trend analysis to the report."""
+        if len(snapshots) < 2:
+            return
+            
+        # Analyze memory trend
+        memory_values = [s.resource_usage.get('memory_usage_mb', 0) for s in snapshots]
+        memory_trend = "increasing" if memory_values[-1] > memory_values[0] else "decreasing"
+        memory_change = abs(memory_values[-1] - memory_values[0])
+        
+        report_sections.append(f"- **Memory trend**: {memory_trend} by {memory_change:.1f}MB")
+        
+        # Analyze error trend
+        error_counts = [s.state_data.get('error_count', 0) for s in snapshots]
+        new_errors = error_counts[-1] - error_counts[0]
+        if new_errors > 0:
+            report_sections.append(f"- **New errors**: {new_errors} errors in the last hour")
+```
+
+### 4.5 Constants Organization
+
+#### 4.5.1 Hierarchical Constants Structure
+```python
+# constants/git_constants.py
+from typing import Final, Dict, List
+
+class GitOperationDefaults:
+    """Default values for Git operations."""
+    MAX_LOG_ENTRIES: Final[int] = 100
+    DEFAULT_BRANCH: Final[str] = "main"
+    COMMIT_MESSAGE_MAX_LENGTH: Final[int] = 72
+    LONG_DESCRIPTION_MAX_LENGTH: Final[int] = 500
+    DIFF_CONTEXT_LINES: Final[int] = 3
+    
+class GitTimeouts:
+    """Timeout values for Git operations."""
+    FAST_OPERATION_SECONDS: Final[int] = 10  # status, diff
+    MEDIUM_OPERATION_SECONDS: Final[int] = 30  # commit, add
+    SLOW_OPERATION_SECONDS: Final[int] = 120  # push, pull, clone
+    VERY_SLOW_OPERATION_SECONDS: Final[int] = 300  # large merges, rebases
+    
+class GitSecurityLimits:
+    """Security-related limits and constraints."""
+    MAX_FILE_SIZE_MB: Final[int] = 100
+    MAX_REPOSITORY_SIZE_GB: Final[int] = 10
+    ALLOWED_FILE_EXTENSIONS: Final[List[str]] = [
+        '.py', '.js', '.ts', '.md', '.txt', '.json', '.yaml', '.yml',
+        '.toml', '.cfg', '.ini', '.conf', '.sh', '.bash'
+    ]
+    FORBIDDEN_PATHS: Final[List[str]] = [
+        '/etc', '/var', '/usr', '/sys', '/proc', '/root'
+    ]
+    
+class GitCommitMessagePatterns:
+    """Patterns for commit message validation."""
+    CONVENTIONAL_COMMIT_TYPES: Final[List[str]] = [
+        'feat', 'fix', 'docs', 'style', 'refactor', 'test', 'chore',
+        'perf', 'ci', 'build', 'revert'
+    ]
+    CONVENTIONAL_COMMIT_REGEX: Final[str] = r'^(feat|fix|docs|style|refactor|test|chore|perf|ci|build|revert)(\(.+\))?: .+'
+    
+# constants/github_constants.py
+class GitHubAPIDefaults:
+    """Default values for GitHub API operations."""
+    BASE_URL: Final[str] = "https://api.github.com"
+    DEFAULT_PER_PAGE: Final[int] = 30
+    MAX_PER_PAGE: Final[int] = 100
+    DEFAULT_SORT: Final[str] = "created"
+    DEFAULT_DIRECTION: Final[str] = "desc"
+    
+class GitHubRateLimits:
+    """GitHub API rate limiting configuration."""
+    REQUESTS_PER_HOUR: Final[int] = 5000
+    SEARCH_REQUESTS_PER_MINUTE: Final[int] = 30
+    SECONDARY_RATE_LIMIT_BUFFER: Final[int] = 100
+    RETRY_AFTER_SECONDS: Final[int] = 60
+    
+class GitHubWebhookEvents:
+    """Supported GitHub webhook events."""
+    PULL_REQUEST: Final[str] = "pull_request"
+    PUSH: Final[str] = "push"
+    WORKFLOW_RUN: Final[str] = "workflow_run"
+    CHECK_RUN: Final[str] = "check_run"
+    CHECK_SUITE: Final[str] = "check_suite"
+    
+# constants/server_constants.py
+class ServerDefaults:
+    """Default server configuration values."""
+    HOST: Final[str] = "localhost"
+    PORT: Final[int] = 8080
+    MAX_CONCURRENT_OPERATIONS: Final[int] = 10
+    OPERATION_TIMEOUT_SECONDS: Final[int] = 300
+    HEARTBEAT_INTERVAL_SECONDS: Final[int] = 30
+    SESSION_TIMEOUT_SECONDS: Final[int] = 3600
+    
+class ServerLimits:
+    """Server resource and operational limits."""
+    MAX_REQUEST_SIZE_MB: Final[int] = 50
+    MAX_RESPONSE_SIZE_MB: Final[int] = 100
+    MAX_CONCURRENT_SESSIONS: Final[int] = 100
+    MAX_OPERATION_HISTORY: Final[int] = 1000
+    MAX_LOG_ENTRIES: Final[int] = 10000
+    
+class LoggingDefaults:
+    """Default logging configuration."""
+    LOG_LEVEL: Final[str] = "INFO"
+    LOG_FORMAT: Final[str] = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    LOG_ROTATION_SIZE_MB: Final[int] = 100
+    LOG_RETENTION_DAYS: Final[int] = 30
+    METRICS_COLLECTION_INTERVAL_SECONDS: Final[int] = 60
+```
+
+## 5. Implementation Phases
+
+### Phase 1: Foundation and Architecture (Weeks 1-3)
+**Priority: CRITICAL**
+
+#### 5.1.1 Monolithic File Decomposition
+- **server.py decomposition** (4,431 lines → 12 focused modules)
+  - `server_core.py` (400 lines): Core server logic and initialization
+  - `server_handlers.py` (350 lines): Request handlers and routing
+  - `server_middleware.py` (300 lines): Middleware and interceptors
+  - `server_session.py` (350 lines): Session management
+  - `server_tools.py` (400 lines): Tool registration and execution
+  - `server_github.py` (300 lines): GitHub integration handlers
+  - `server_git.py` (350 lines): Git operation handlers
+  - `server_metrics.py` (250 lines): Metrics and monitoring
+  - `server_security.py` (300 lines): Security and validation
+  - `server_notifications.py` (250 lines): Notification handling
+  - `server_lifecycle.py` (200 lines): Startup/shutdown procedures
+  - `server_configuration.py` (200 lines): Configuration management
+
+#### 5.1.2 Type System Foundation
+- Create comprehensive type definitions in `types/` directory
+- Implement domain-specific type aliases
+- Add TypedDict definitions for complex data structures
+- Create protocol definitions for interfaces
+
+#### 5.1.3 Constants Organization
+- Extract all constants into organized hierarchy
+- Group related constants in logical classes
+- Add comprehensive documentation for each constant
+- Implement validation for critical constants
+
+### Phase 2: Documentation and State Inspection (Weeks 4-6)
+**Priority: HIGH**
+
+#### 5.2.1 Comprehensive Documentation
+- Add module-level docstrings to all 28+ files
+- Document all 272+ functions with Args/Returns/Raises/Examples
+- Create usage examples for all public APIs
+- Add architectural documentation explaining component relationships
+
+#### 5.2.2 State Inspection Framework
+- Implement `DebuggableComponent` protocol
+- Create `ComponentStateInspector` for centralized debugging
+- Add state inspection to all major components
+- Create LLM-friendly debugging reports
+
+#### 5.2.3 Configuration Management
+- Convert to Pydantic-based configuration with validation
+- Add configuration schemas with examples
+- Implement configuration validation and error reporting
+- Create configuration documentation
+
+### Phase 3: Enhanced Operations and Error Handling (Weeks 7-9)
+**Priority: MEDIUM**
+
+#### 5.3.1 Enhanced Function Naming
+- Rename functions to follow action+context pattern
+- Update all function calls throughout codebase
+- Add deprecation warnings for old function names
+- Update documentation and examples
+
+#### 5.3.2 Advanced Error Handling
+- Implement comprehensive error context
+- Add structured error reporting
+- Create error recovery strategies
+- Add error handling documentation
+
+#### 5.3.3 Performance Optimization
+- Add performance profiling capabilities
+- Implement operation timing and metrics
+- Create performance bottleneck identification
+- Add performance optimization recommendations
+
+### Phase 4: Testing and Validation (Weeks 10-12)
+**Priority: MEDIUM**
+
+#### 5.4.1 Test Suite Enhancement
+- Create comprehensive test coverage for all modules
+- Add integration tests for component interactions
+- Implement performance benchmarking tests
+- Create test documentation and examples
+
+#### 5.4.2 Validation and Quality Assurance
+- Implement automated compliance checking
+- Create linting rules for LLM guidelines
+- Add documentation coverage metrics
+- Implement continuous quality monitoring
+
+#### 5.4.3 Migration and Compatibility
+- Ensure backward compatibility during transition
+- Create migration scripts for existing configurations
+- Add compatibility testing
+- Create migration documentation
+
+## 6. Acceptance Criteria
+
+### 6.1 File Size and Organization
+- ✅ **100%** of files under 500 lines (current: 85%)
+- ✅ **95%** of files between 200-400 lines (optimal range)
+- ✅ **Zero** files over 1000 lines (current: 2 files)
+- ✅ **Clear** single responsibility for each module
+- ✅ **Explicit** module boundaries and interfaces
+
+### 6.2 Documentation Standards
+- ✅ **100%** module-level docstrings (current: 78%)
+- ✅ **95%** function-level documentation with Args/Returns/Examples (current: 5%)
+- ✅ **90%** exception documentation (current: 0.7%)
+- ✅ **100%** public API documentation
+- ✅ **Comprehensive** architectural documentation
+
+### 6.3 Type System Usage
+- ✅ **95%** type hint coverage (current: 80%)
+- ✅ **100%** domain-specific type aliases implemented
+- ✅ **100%** constants organized in logical classes
+- ✅ **90%** TypedDict usage for complex structures
+- ✅ **100%** protocol definitions for interfaces
+
+### 6.4 Naming Conventions
+- ✅ **90%** descriptive function names with action+context (current: 65%)
+- ✅ **95%** consistent naming patterns across modules
+- ✅ **100%** meaningful variable and parameter names
+- ✅ **100%** hierarchical directory structure
+
+### 6.5 State Inspection and Debugging
+- ✅ **100%** components implement `DebuggableComponent` protocol
+- ✅ **100%** state inspection methods available
+- ✅ **100%** LLM-friendly debugging reports
+- ✅ **95%** performance profiling coverage
+
+### 6.6 Configuration Management
+- ✅ **100%** Pydantic-based configuration with validation
+- ✅ **100%** configuration documentation with examples
+- ✅ **95%** configuration error handling and reporting
+- ✅ **100%** configuration schema validation
+
+## 7. Success Metrics and KPIs
+
+### 7.1 LLM Effectiveness Metrics
+- **Code Comprehension Score**: 95% (vs baseline 65%)
+  - Measured by LLM's ability to correctly identify function purposes
+  - Assessed through standardized code understanding tests
+  
+- **Modification Accuracy**: 90% (vs baseline 45%)
+  - Percentage of AI-generated code changes that work without human correction
+  - Measured across different types of modifications (bug fixes, features, refactoring)
+  
+- **Context Window Efficiency**: 300% improvement
+  - Average lines of code LLM can process effectively in single context
+  - Measured by successful task completion rate vs context size
+
+### 7.2 Developer Productivity Metrics
+- **Feature Implementation Speed**: 150% improvement
+  - Time from requirement to working implementation
+  - Measured across different feature complexity levels
+  
+- **Bug Resolution Time**: 200% improvement
+  - Time from bug report to verified fix
+  - Includes debugging and validation time
+  
+- **Code Review Efficiency**: 180% improvement
+  - Time required for thorough code review
+  - Quality of review feedback and issue identification
+
+### 7.3 Code Quality Metrics
+- **Documentation Coverage**: 95%
+  - Percentage of functions with complete documentation
+  - Includes Args, Returns, Raises, and Examples sections
+  
+- **Type Annotation Coverage**: 95%
+  - Percentage of functions with comprehensive type hints
+  - Includes complex types and domain-specific aliases
+  
+- **Architecture Compliance**: 98%
+  - Adherence to file size limits and single responsibility principle
+  - Measured by automated compliance checking tools
+
+### 7.4 Maintenance and Debugging Metrics
+- **Debug Session Effectiveness**: 250% improvement
+  - Time to identify root cause of issues
+  - Quality of debugging information available
+  
+- **State Inspection Coverage**: 100%
+  - Percentage of components with comprehensive state inspection
+  - Quality and completeness of debugging reports
+  
+- **Error Recovery Success Rate**: 90%
+  - Percentage of errors that can be automatically recovered or clearly diagnosed
+  - Quality of error messages and recovery suggestions
+
+## 8. Risk Assessment and Mitigation
+
+### 8.1 Technical Risks
+
+#### 8.1.1 HIGH RISK: Breaking Changes During Refactoring
+**Risk**: Decomposing the 4,431-line server.py file could introduce bugs or break existing functionality.
+
+**Mitigation Strategy**:
+- Implement comprehensive regression testing before any refactoring
+- Use feature flags to gradually migrate functionality
+- Maintain backward compatibility interfaces during transition
+- Create extensive integration tests for all major workflows
+- Implement automated rollback procedures
+
+**Monitoring**: 
+- Automated test coverage reporting
+- Performance regression detection
+- Error rate monitoring during deployment
+
+#### 8.1.2 MEDIUM RISK: Performance Impact from Enhanced Documentation
+**Risk**: Extensive documentation and state inspection could impact runtime performance.
+
+**Mitigation Strategy**:
+- Design debugging features as optional/configurable
+- Implement lazy loading for documentation features
+- Use performance profiling to identify bottlenecks
+- Create performance benchmarks for all critical paths
+- Implement caching for expensive debugging operations
+
+**Monitoring**:
+- Continuous performance benchmarking
+- Memory usage tracking
+- Response time monitoring
+
+#### 8.1.3 MEDIUM RISK: Type System Complexity
+**Risk**: Complex type system could make code harder to maintain or introduce type-related bugs.
+
+**Mitigation Strategy**:
+- Implement gradual type system migration
+- Provide comprehensive type documentation and examples
+- Use mypy and other static analysis tools
+- Create type system validation tests
+- Provide fallback mechanisms for type validation failures
+
+**Monitoring**:
+- Static type checking in CI/CD pipeline
+- Runtime type validation error tracking
+- Developer feedback on type system usability
+
+### 8.2 Project Management Risks
+
+#### 8.2.1 HIGH RISK: Scope Creep
+**Risk**: Adding too many features beyond core LLM compliance requirements.
+
+**Mitigation Strategy**:
+- Maintain strict adherence to defined acceptance criteria
+- Regular stakeholder reviews and scope validation
+- Implement feature prioritization matrix
+- Time-box implementation phases
+- Create clear definition of "done" for each component
+
+**Monitoring**:
+- Weekly progress reports against defined milestones
+- Scope change tracking and approval process
+- Resource allocation monitoring
+
+#### 8.2.2 MEDIUM RISK: Resource Constraints
+**Risk**: Implementation requiring more time/resources than allocated.
+
+**Mitigation Strategy**:
+- Implement phased delivery approach
+- Prioritize high-impact, low-effort improvements first
+- Create fallback plans for each phase
+- Regular resource utilization reviews
+- Stakeholder communication on trade-offs
+
+**Monitoring**:
+- Weekly resource burn rate tracking
+- Milestone completion tracking
+- Quality vs. timeline trade-off analysis
+
+### 8.3 Adoption and Integration Risks
+
+#### 8.3.1 MEDIUM RISK: Developer Adoption Resistance
+**Risk**: Development team resistance to new patterns and increased documentation requirements.
+
+**Mitigation Strategy**:
+- Provide comprehensive training on new patterns
+- Create clear benefits documentation
+- Implement gradual adoption approach
+- Provide tooling to automate documentation generation
+- Create positive feedback loops for compliance
+
+**Monitoring**:
+- Developer satisfaction surveys
+- Code review compliance metrics
+- Feature adoption tracking
+
+#### 8.3.2 LOW RISK: LLM Integration Effectiveness
+**Risk**: Enhanced code structure not providing expected LLM effectiveness improvements.
+
+**Mitigation Strategy**:
+- Implement early testing with LLM integration
+- Create measurable LLM effectiveness benchmarks
+- Regular assessment of LLM performance improvements
+- Iterative refinement based on LLM feedback
+- Fallback to previous patterns if improvements not realized
+
+**Monitoring**:
+- LLM task completion success rates
+- Code generation accuracy measurements
+- LLM context utilization efficiency tracking
+
+## 9. Quality Assurance and Testing Strategy
+
+### 9.1 Automated Testing Framework
+
+#### 9.1.1 Compliance Testing
+```python
+# tests/compliance/test_llm_guidelines.py
+import pytest
+from pathlib import Path
+from typing import List, Dict, Any
+import ast
+import inspect
+
+class LLMGuidelinesComplianceTest:
+    """Automated testing for LLM guidelines compliance."""
+    
+    def test_file_size_compliance(self):
+        """Test that all Python files are within size limits."""
+        violations = []
+        
+        for python_file in Path("src").rglob("*.py"):
+            line_count = len(python_file.read_text().splitlines())
+            
+            if line_count > 500:
+                violations.append(f"{python_file}: {line_count} lines (max: 500)")
+            elif line_count > 400:
+                # Warning for files approaching limit
+                print(f"Warning: {python_file} has {line_count} lines")
+                
+        assert not violations, f"File size violations:\n" + "\n".join(violations)
+    
+    def test_documentation_coverage(self):
+        """Test that all functions have proper documentation."""
+        violations = []
+        
+        for python_file in Path("src").rglob("*.py"):
+            tree = ast.parse(python_file.read_text())
+            
+            for node in ast.walk(tree):
+                if isinstance(node, ast.FunctionDef):
+                    if not self._has_complete_docstring(node):
+                        violations.append(f"{python_file}:{node.lineno} - {node.name}")
+                        
+        assert not violations, f"Documentation violations:\n" + "\n".join(violations)
+    
+    def test_type_hint_coverage(self):
+        """Test that all functions have proper type hints."""
+        violations = []
+        
+        for python_file in Path("src").rglob("*.py"):
+            tree = ast.parse(python_file.read_text())
+            
+            for node in ast.walk(tree):
+                if isinstance(node, ast.FunctionDef):
+                    if not self._has_complete_type_hints(node):
+                        violations.append(f"{python_file}:{node.lineno} - {node.name}")
+                        
+        assert not violations, f"Type hint violations:\n" + "\n".join(violations)
+    
+    def test_naming_conventions(self):
+        """Test that functions follow naming conventions."""
+        violations = []
+        
+        for python_file in Path("src").rglob("*.py"):
+            tree = ast.parse(python_file.read_text())
+            
+            for node in ast.walk(tree):
+                if isinstance(node, ast.FunctionDef):
+                    if not self._follows_naming_convention(node.name):
+                        violations.append(f"{python_file}:{node.lineno} - {node.name}")
+                        
+        assert not violations, f"Naming convention violations:\n" + "\n".join(violations)
+    
+    def _has_complete_docstring(self, node: ast.FunctionDef) -> bool:
+        """Check if function has complete docstring with Args, Returns, Examples."""
+        if not ast.get_docstring(node):
+            return False
+            
+        docstring = ast.get_docstring(node)
+        required_sections = ["Args:", "Returns:", "Example:"]
+        
+        return all(section in docstring for section in required_sections)
+    
+    def _has_complete_type_hints(self, node: ast.FunctionDef) -> bool:
+        """Check if function has complete type hints."""
+        # Check return type annotation
+        if not node.returns:
+            return False
+            
+        # Check parameter type annotations
+        for arg in node.args.args:
+            if not arg.annotation:
+                return False
+                
+        return True
+    
+    def _follows_naming_convention(self, name: str) -> bool:
+        """Check if function name follows action+context pattern."""
+        # Skip special methods and test functions
+        if name.startswith("_") or name.startswith("test_"):
+            return True
+            
+        # Check for descriptive action words
+        action_words = [
+            "get", "set", "create", "delete", "update", "validate", "process",
+            "execute", "handle", "manage", "configure", "initialize", "cleanup",
+            "format", "parse", "convert", "transform", "filter", "sort"
+        ]
+        
+        return any(name.startswith(action) for action in action_words)
+```
+
+#### 9.1.2 Integration Testing
+```python
+# tests/integration/test_llm_effectiveness.py
+import pytest
+from typing import Dict, Any, List
+from unittest.mock import Mock, patch
+
+class LLMEffectivenessTest:
+    """Test LLM effectiveness with enhanced codebase."""
+    
+    @pytest.fixture
+    def mock_llm_client(self):
+        """Mock LLM client for testing."""
+        return Mock()
+    
+    def test_code_comprehension_accuracy(self, mock_llm_client):
+        """Test that LLM can accurately understand code purpose."""
+        test_cases = [
+            {
+                "function": "git_add_files_to_staging",
+                "expected_purpose": "Add specified files to Git staging area",
+                "code_snippet": self._get_function_code("git_add_files_to_staging")
+            },
+            {
+                "function": "github_validate_webhook_signature", 
+                "expected_purpose": "Validate GitHub webhook signature for security",
+                "code_snippet": self._get_function_code("github_validate_webhook_signature")
+            }
+        ]
+        
+        correct_interpretations = 0
+        total_tests = len(test_cases)
+        
+        for test_case in test_cases:
+            # Simulate LLM analysis
+            llm_response = self._simulate_llm_analysis(
+                mock_llm_client, 
+                test_case["code_snippet"]
+            )
+            
+            if self._is_interpretation_correct(llm_response, test_case["expected_purpose"]):
+                correct_interpretations += 1
+                
+        accuracy = correct_interpretations / total_tests
+        assert accuracy >= 0.90, f"LLM comprehension accuracy {accuracy:.2%} below 90% threshold"
+    
+    def test_modification_success_rate(self, mock_llm_client):
+        """Test that LLM can successfully modify code."""
+        modification_tasks = [
+            {
+                "task": "Add error handling to git operation",
+                "target_function": "git_commit_with_message",
+                "expected_change": "try-except block around git.commit()"
+            },
+            {
+                "task": "Add logging to GitHub API call",
+                "target_function": "github_get_pull_request_details",
+                "expected_change": "logger.info() call before API request"
+            }
+        ]
+        
+        successful_modifications = 0
+        total_tasks = len(modification_tasks)
+        
+        for task in modification_tasks:
+            # Simulate LLM modification
+            modified_code = self._simulate_llm_modification(
+                mock_llm_client,
+                task["task"],
+                task["target_function"]
+            )
+            
+            if self._is_modification_successful(modified_code, task["expected_change"]):
+                successful_modifications += 1
+                
+        success_rate = successful_modifications / total_tasks
+        assert success_rate >= 0.85, f"LLM modification success rate {success_rate:.2%} below 85% threshold"
+    
+    def test_context_window_efficiency(self, mock_llm_client):
+        """Test that LLM can process more code effectively."""
+        # Test with different amounts of code
+        context_sizes = [1000, 2000, 3000, 4000, 5000]  # lines of code
+        
+        efficiency_scores = []
+        
+        for size in context_sizes:
+            code_context = self._generate_code_context(size)
+            
+            # Measure LLM's ability to understand context
+            understanding_score = self._measure_context_understanding(
+                mock_llm_client, 
+                code_context
+            )
+            
+            efficiency_scores.append(understanding_score)
+            
+        # Should maintain high understanding even with larger contexts
+        average_efficiency = sum(efficiency_scores) / len(efficiency_scores)
+        assert average_efficiency >= 0.80, f"Context efficiency {average_efficiency:.2%} below 80% threshold"
+    
+    def _simulate_llm_analysis(self, client: Mock, code: str) -> str:
+        """Simulate LLM code analysis."""
+        # In real implementation, this would call actual LLM API
+        # For testing, we simulate based on code structure
+        if "def git_add_files_to_staging" in code and "Args:" in code:
+            return "This function adds specified files to the Git staging area"
+        return "Function purpose unclear"
+    
+    def _simulate_llm_modification(self, client: Mock, task: str, function: str) -> str:
+        """Simulate LLM code modification."""
+        # In real implementation, this would call actual LLM API
+        # For testing, we simulate successful modifications
+        if "error handling" in task:
+            return f"try:\n    git.commit()\nexcept GitCommandError as e:\n    logger.error(f'Commit failed: {{e}}')"
+        return "# Modified code"
+    
+    def _is_interpretation_correct(self, llm_response: str, expected: str) -> bool:
+        """Check if LLM interpretation matches expected understanding."""
+        # Simple keyword matching for testing
+        key_words = expected.lower().split()
+        return any(word in llm_response.lower() for word in key_words)
+    
+    def _is_modification_successful(self, modified_code: str, expected_change: str) -> bool:
+        """Check if LLM modification includes expected changes."""
+        return expected_change.lower() in modified_code.lower()
+```
+
+### 9.2 Performance Benchmarking
+
+#### 9.2.1 LLM Processing Speed Tests
+```python
+# tests/performance/test_llm_processing.py
+import pytest
+import time
+from typing import List, Dict, Any
+from pathlib import Path
+
+class LLMProcessingPerformanceTest:
+    """Test performance improvements for LLM processing."""
+    
+    def test_code_analysis_speed(self):
+        """Test speed of code analysis tasks."""
+        test_files = [
+            "git_operations.py",
+            "github_api.py", 
+            "server_core.py",
+            "session_management.py"
+        ]
+        
+        analysis_times = []
+        
+        for file_path in test_files:
+            start_time = time.time()
+            
+            # Simulate LLM analysis of file
+            self._simulate_file_analysis(file_path)
+            
+            end_time = time.time()
+            analysis_times.append(end_time - start_time)
+            
+        average_time = sum(analysis_times) / len(analysis_times)
+        
+        # Should be faster than baseline due to better structure
+        assert average_time < 2.0, f"Average analysis time {average_time:.2f}s exceeds 2s threshold"
+    
+    def test_context_loading_efficiency(self):
+        """Test efficiency of loading code context."""
+        context_sizes = [500, 1000, 2000, 3000]  # lines of code
+        
+        for size in context_sizes:
+            start_time = time.time()
+            
+            # Simulate loading context of specified size
+            context = self._load_code_context(size)
+            
+            end_time = time.time()
+            load_time = end_time - start_time
+            
+            # Loading time should scale linearly, not exponentially
+            expected_max_time = size * 0.001  # 1ms per line
+            assert load_time < expected_max_time, f"Context loading for {size} lines took {load_time:.3f}s"
+    
+    def test_documentation_parsing_speed(self):
+        """Test speed of parsing enhanced documentation."""
+        documented_functions = self._get_documented_functions()
+        
+        parsing_times = []
+        
+        for func_info in documented_functions:
+            start_time = time.time()
+            
+            # Parse documentation for understanding
+            parsed_doc = self._parse_function_documentation(func_info)
+            
+            end_time = time.time()
+            parsing_times.append(end_time - start_time)
+            
+        average_parsing_time = sum(parsing_times) / len(parsing_times)
+        
+        # Documentation parsing should be fast
+        assert average_parsing_time < 0.1, f"Average doc parsing time {average_parsing_time:.3f}s exceeds 0.1s"
+    
+    def _simulate_file_analysis(self, file_path: str) -> Dict[str, Any]:
+        """Simulate LLM analysis of a file."""
+        # In real test, this would involve actual LLM processing
+        # For now, simulate by reading and basic parsing
+        try:
+            content = Path(f"src/mcp_server_git/{file_path}").read_text()
+            # Simulate processing time based on content complexity
+            time.sleep(len(content) * 0.00001)  # 0.01ms per character
+            return {"status": "analyzed", "lines": len(content.splitlines())}
+        except FileNotFoundError:
+            return {"status": "not_found"}
+    
+    def _load_code_context(self, target_lines: int) -> str:
+        """Load code context of approximately target_lines."""
+        context = ""
+        current_lines = 0
+        
+        for py_file in Path("src").rglob("*.py"):
+            if current_lines >= target_lines:
+                break
+                
+            file_content = py_file.read_text()
+            file_lines = len(file_content.splitlines())
+            
+            if current_lines + file_lines <= target_lines:
+                context += file_content + "\n"
+                current_lines += file_lines
+            else:
+                # Add partial file to reach target
+                lines_needed = target_lines - current_lines
+                partial_content = "\n".join(file_content.splitlines()[:lines_needed])
+                context += partial_content
+                current_lines = target_lines
+                
+        return context
+    
+    def _get_documented_functions(self) -> List[Dict[str, Any]]:
+        """Get list of functions with enhanced documentation."""
+        # In real implementation, this would scan all files
+        return [
+            {"name": "git_add_files_to_staging", "file": "git_operations.py"},
+            {"name": "github_get_pull_request_details", "file": "github_api.py"},
+            {"name": "validate_repository_security", "file": "security.py"}
+        ]
+    
+    def _parse_function_documentation(self, func_info: Dict[str, Any]) -> Dict[str, Any]:
+        """Parse function documentation for key information."""
+        # Simulate documentation parsing
+        time.sleep(0.01)  # Simulate processing time
+        return {
+            "purpose": "extracted purpose",
+            "parameters": ["param1", "param2"],
+            "returns": "return type",
+            "examples": ["example usage"]
+        }
+```
+
+### 9.3 Code Quality Gates
+
+#### 9.3.1 Pre-commit Hooks
+```bash
+# .pre-commit-config.yaml
+repos:
+  - repo: local
+    hooks:
+      - id: llm-compliance-check
+        name: LLM Guidelines Compliance Check
+        entry: python scripts/check_llm_compliance.py
+        language: python
+        files: '\.py$'
+        
+      - id: documentation-coverage
+        name: Documentation Coverage Check
+        entry: python scripts/check_documentation.py
+        language: python
+        files: '\.py$'
+        
+      - id: file-size-check
+        name: File Size Limit Check
+        entry: python scripts/check_file_sizes.py
+        language: python
+        files: '\.py$'
+        
+      - id: type-hint-coverage
+        name: Type Hint Coverage Check
+        entry: python scripts/check_type_hints.py
+        language: python
+        files: '\.py$'
+```
+
+#### 9.3.2 CI/CD Integration
+```yaml
+# .github/workflows/llm-compliance.yml
+name: LLM Guidelines Compliance
+
+on: [push, pull_request]
+
+jobs:
+  compliance-check:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+        
+    - name: Install dependencies
+      run: |
+        pip install -r requirements.txt
+        pip install -r requirements-dev.txt
+        
+    - name: Run LLM compliance tests
+      run: |
+        pytest tests/compliance/ -v
+        
+    - name: Check file size compliance
+      run: |
+        python scripts/check_file_sizes.py --strict
+        
+    - name: Check documentation coverage
+      run: |
+        python scripts/check_documentation.py --min-coverage 95
+        
+    - name: Check type hint coverage
+      run: |
+        python scripts/check_type_hints.py --min-coverage 95
+        
+    - name: Run performance benchmarks
+      run: |
+        pytest tests/performance/ -v
+        
+    - name: Generate compliance report
+      run: |
+        python scripts/generate_compliance_report.py
+        
+    - name: Upload compliance report
+      uses: actions/upload-artifact@v3
+      with:
+        name: compliance-report
+        path: reports/compliance-report.html
+```
+
+## 10. Migration and Rollback Strategy
+
+### 10.1 Phased Migration Approach
+
+#### 10.1.1 Phase 1: Infrastructure Preparation
+- Create new modular structure alongside existing code
+- Implement feature flags for gradual migration
+- Set up comprehensive testing framework
+- Create rollback mechanisms
+
+#### 10.1.2 Phase 2: Core Module Migration
+- Migrate critical modules first (git operations, GitHub API)
+- Maintain backward compatibility interfaces
+- Run parallel testing (old vs new implementations)
+- Monitor performance and error rates
+
+#### 10.1.3 Phase 3: Documentation and Enhancement
+- Add comprehensive documentation to migrated modules
+- Implement state inspection capabilities
+- Enhance error handling and recovery
+- Update configuration management
+
+#### 10.1.4 Phase 4: Complete Transition
+- Remove old implementations
+- Update all references and imports
+- Remove compatibility layers
+- Complete integration testing
+
+### 10.2 Rollback Procedures
+
+#### 10.2.1 Automated Rollback Triggers
+- Error rate increase > 10% from baseline
+- Performance degradation > 20% from baseline
+- Test failure rate > 5%
+- Critical functionality unavailable
+
+#### 10.2.2 Manual Rollback Process
+1. **Immediate Response** (< 5 minutes)
+   - Activate feature flags to revert to previous implementation
+   - Notify stakeholders of rollback
+   - Begin root cause analysis
+
+2. **Short-term Stabilization** (< 30 minutes)
+   - Verify system stability with previous implementation
+   - Collect diagnostic information
+   - Update monitoring and alerting
+
+3. **Long-term Resolution** (< 24 hours)
+   - Complete root cause analysis
+   - Develop fix for identified issues
+   - Plan re-deployment strategy
+   - Update rollback procedures based on lessons learned
+
+## 11. Timeline and Milestones
+
+### 11.1 Detailed Project Timeline
+
+#### **Phase 1: Foundation (Weeks 1-3)**
+- **Week 1**: 
+  - Day 1-2: Project setup and tooling configuration
+  - Day 3-5: Begin server.py decomposition (core modules)
+  - Day 6-7: Type system foundation setup
+
+- **Week 2**:
+  - Day 1-3: Complete server.py decomposition (remaining modules)
+  - Day 4-5: Constants organization and extraction
+  - Day 6-7: Initial testing of decomposed modules
+
+- **Week 3**:
+  - Day 1-2: Integration testing and bug fixes
+  - Day 3-4: Performance validation
+  - Day 5-7: Phase 1 review and documentation
+
+**Milestone 1**: ✅ Monolithic architecture decomposed, basic type system in place
+
+#### **Phase 2: Documentation (Weeks 4-6)**
+- **Week 4**:
+  - Day 1-3: Module-level documentation for all files
+  - Day 4-5: Begin comprehensive function documentation
+  - Day 6-7: State inspection framework design
+
+- **Week 5**:
+  - Day 1-4: Complete function documentation (Args/Returns/Examples)
+  - Day 5-7: Implement state inspection capabilities
+
+- **Week 6**:
+  - Day 1-2: Configuration management implementation
+  - Day 3-4: Documentation validation and testing
+  - Day 5-7: Phase 2 review and refinement
+
+**Milestone 2**: ✅ Comprehensive documentation complete, state inspection operational
+
+#### **Phase 3: Enhancement (Weeks 7-9)**
+- **Week 7**:
+  - Day 1-3: Function naming improvements
+  - Day 4-5: Enhanced error handling implementation
+  - Day 6-7: Performance optimization
+
+- **Week 8**:
+  - Day 1-3: Advanced type system features
+  - Day 4-5: Configuration validation enhancement
+  - Day 6-7: Integration testing
+
+- **Week 9**:
+  - Day 1-2: Final enhancements and polish
+  - Day 3-4: Comprehensive testing
+  - Day 5-7: Phase 3 review and preparation for testing phase
+
+**Milestone 3**: ✅ All enhancements complete, system ready for comprehensive testing
+
+#### **Phase 4: Testing & Validation (Weeks 10-12)**
+- **Week 10**:
+  - Day 1-3: Comprehensive test suite development
+  - Day 4-5: LLM effectiveness testing
+  - Day 6-7: Performance benchmarking
+
+- **Week 11**:
+  - Day 1-3: Integration and end-to-end testing
+  - Day 4-5: Migration testing and validation
+  - Day 6-7: Documentation and training material creation
+
+- **Week 12**:
+  - Day 1-2: Final validation and sign-off
+  - Day 3-4: Production deployment preparation
+  - Day 5-7: Project completion and handover
+
+**Milestone 4**: ✅ Project complete, all acceptance criteria met, ready for production
+
+### 11.2 Critical Path Dependencies
+
+1. **Server.py Decomposition** → **Type System Implementation** → **Documentation**
+2. **Constants Organization** → **Configuration Management** → **Validation**
+3. **State Inspection Framework** → **Debugging Capabilities** → **LLM Integration**
+4. **Testing Framework** → **Performance Validation** → **Production Readiness**
+
+### 11.3 Risk Mitigation Checkpoints
+
+- **Week 2**: Architecture review and validation
+- **Week 4**: Documentation quality assessment
+- **Week 6**: LLM integration effectiveness review
+- **Week 8**: Performance and scalability validation
+- **Week 10**: Comprehensive testing results review
+- **Week 12**: Final go/no-go decision
+
+## 12. Resource Requirements
+
+### 12.1 Human Resources
+
+#### 12.1.1 Core Team Requirements
+- **Lead Developer** (1.0 FTE): Overall project leadership and architecture
+- **Senior Python Developer** (1.0 FTE): Core implementation and refactoring
+- **Documentation Specialist** (0.5 FTE): Documentation standards and creation
+- **QA Engineer** (0.5 FTE): Testing framework and validation
+- **DevOps Engineer** (0.25 FTE): CI/CD and deployment support
+
+#### 12.1.2 Subject Matter Experts (Part-time)
+- **LLM Integration Specialist** (0.25 FTE): LLM effectiveness validation
+- **Git/GitHub Expert** (0.25 FTE): Domain expertise and validation
+- **Performance Engineer** (0.25 FTE): Performance optimization and benchmarking
+
+**Total Resource Requirement**: 3.5 FTE over 12 weeks
+
+### 12.2 Technical Resources
+
+#### 12.2.1 Development Environment
+- **Code Repository**: Enhanced version control with feature branches
+- **CI/CD Pipeline**: Automated testing and deployment
+- **Documentation Platform**: Integrated documentation generation and hosting
+- **Performance Monitoring**: Real-time performance tracking and alerting
+
+#### 12.2.2 Testing Infrastructure
+- **LLM Testing Environment**: Isolated environment for LLM integration testing
+- **Performance Testing**: Load testing and benchmarking infrastructure
+- **Compliance Validation**: Automated compliance checking tools
+- **Rollback Systems**: Automated rollback and recovery mechanisms
+
+### 12.3 Budget Considerations
+
+#### 12.3.1 Development Costs
+- **Personnel**: 3.5 FTE × 12 weeks × $2,000/week = $84,000
+- **Infrastructure**: $5,000 (CI/CD, testing, monitoring)
+- **Tools and Licenses**: $2,000 (development tools, documentation platforms)
+- **LLM API Testing**: $3,000 (API usage for testing and validation)
+
+**Total Development Budget**: $94,000
+
+#### 12.3.2 Ongoing Maintenance
+- **Documentation Maintenance**: $1,000/month
+- **Compliance Monitoring**: $500/month
+- **Performance Monitoring**: $800/month
+- **LLM Integration Updates**: $1,200/month
+
+**Total Monthly Maintenance**: $3,500
+
+## 13. Conclusion and Next Steps
+
+### 13.1 Project Summary
+This comprehensive PRD outlines the transformation of the MCP Git Server codebase to achieve 95%+ compliance with LLM-optimized coding guidelines. The project will deliver:
+
+- **300% improvement** in LLM code comprehension through proper file organization and documentation
+- **200% increase** in AI-assisted development productivity through enhanced type systems and state inspection
+- **Zero tolerance** for files exceeding 500 lines, with 95% in the optimal 200-400 line range
+- **Comprehensive documentation** with 95% function coverage including Args, Returns, and Examples
+- **Advanced debugging capabilities** with LLM-friendly state inspection and error reporting
+
+### 13.2 Expected Outcomes
+
+#### 13.2.1 Technical Benefits
+- **Maintainable Architecture**: Clear separation of concerns with single-responsibility modules
+- **LLM-Friendly Structure**: Optimized for AI understanding and modification
+- **Comprehensive Documentation**: Self-documenting code with extensive examples
+- **Advanced Debugging**: Rich state inspection and error context for rapid issue resolution
+- **Type Safety**: Comprehensive type system with domain-specific aliases
+
+#### 13.2.2 Business Benefits
+- **Faster Development**: 150% improvement in feature implementation speed
+- **Reduced Maintenance**: 200% improvement in bug resolution time
+- **Better Quality**: Automated compliance checking and quality gates
+- **Team Productivity**: 50% reduction in new developer onboarding time
+- **Future-Proof**: Architecture designed for easy extension and modification
+
+### 13.3 Immediate Next Steps
+
+1. **Project Approval and Resource Allocation** (Week 0)
+   - Stakeholder review and approval of PRD
+   - Resource allocation and team assignment
+   - Tool and infrastructure setup
+
+2. **Phase 1 Kickoff** (Week 1, Day 1)
+   - Team onboarding and training
+   - Development environment setup
+   - Begin server.py decomposition
+
+3. **Early Validation** (Week 2, Day 5)
+   - First checkpoint review
+   - Architecture validation
+   - Risk assessment update
+
+### 13.4 Success Criteria Summary
+
+The project will be considered successful when:
+
+- ✅ **95%** of acceptance criteria met across all categories
+- ✅ **300%** improvement in LLM code comprehension benchmarks
+- ✅ **Zero** files exceeding 500-line limit
+- ✅ **95%** function documentation coverage with complete Args/Returns/Examples
+- ✅ **100%** state inspection capability across all major components
+- ✅ **90%** developer satisfaction with new architecture and tooling
+
+### 13.5 Long-term Vision
+
+This project establishes the MCP Git Server as a reference implementation for LLM-optimized Python codebases. The enhanced architecture and documentation standards will serve as a template for future projects, enabling organizations to maximize the effectiveness of AI-assisted development while maintaining high code quality and maintainability standards.
+
+The systematic approach to LLM-friendly code organization outlined in this PRD can be applied to any Python project, providing a roadmap for transforming legacy codebases into modern, AI-ready systems that leverage the full potential of large language models for software development and maintenance.
+
+---
+
+**Document Version**: 1.0  
+**Last Updated**: 2025-07-01  
+**Status**: Draft - Ready for Review  
+**Next Review Date**: TBD after stakeholder feedback

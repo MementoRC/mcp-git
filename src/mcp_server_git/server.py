@@ -325,6 +325,9 @@ class GitHubClient:
         if last_error:
             raise last_error
 
+        # Fallback return to satisfy type checker
+        return {}
+
 
 def get_github_client() -> GitHubClient:
     """Get GitHub client from environment variables"""
