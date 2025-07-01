@@ -165,7 +165,7 @@ pr_checks = github_get_pr_checks(
 # NEW: Intelligent failure job analysis with logs
 failing_jobs = github_get_failing_jobs(
     repo_owner="owner",
-    repo_name="repo", 
+    repo_name="repo",
     pr_number=123,
     include_logs=True,          # Get execution logs
     include_annotations=True    # Get specific error annotations
@@ -352,7 +352,7 @@ root_cause = get_prompt("ci-failure-root-cause", {
 ```markdown
 ## 🚨 ENHANCED MCP GIT CAPABILITIES:
 - **✅ git_push**: Push commits to remote with upstream tracking
-- **✅ git_pull**: Pull changes from remote repositories  
+- **✅ git_pull**: Pull changes from remote repositories
 - **✅ Enhanced git_commit**: GPG signing with key C7927B4C27159961
 - **✅ GitHub Actions**: Complete CI/CD failure analysis and resolution
 - **✅ Intelligent Prompts**: 13 specialized Git workflow prompts
@@ -424,7 +424,7 @@ mcp__git__git_commit(
     pr_checks = github_get_pr_checks(
         repo_owner=REPO_OWNER, repo_name=REPO_NAME, pr_number=WORKING_PR
     )
-    
+
     # If failures detected, get detailed analysis
     if "failure" in pr_checks.overall_status:
         failing_jobs = github_get_failing_jobs(
@@ -475,7 +475,7 @@ mcp__git__git_commit(
 ```markdown
 ## TOOLS USED:
 - **Enhanced MCP Git** (PRIMARY): Complete Git workflow with push/pull and GPG signing
-- **Enhanced GitHub Actions Integration** (PRIMARY): CI monitoring and failure analysis  
+- **Enhanced GitHub Actions Integration** (PRIMARY): CI monitoring and failure analysis
 - **MCP GitHub** (PRIMARY): PR management, merge operations
 - **Intelligent Git Prompts** (PRIMARY): AI-powered workflow assistance
 - **Bash** (STRATEGIC): Package manager commands only
@@ -540,7 +540,7 @@ if "failure" in pr_checks.overall_status:
         repo_owner=OWNER, repo_name=REPO, pr_number=PR,
         include_logs=True, include_annotations=True
     )
-    
+
     # AI-powered failure analysis
     analysis = get_prompt("github-actions-failure-analysis", {
         "failure_logs": failing_jobs,
@@ -560,13 +560,13 @@ try:
         branch=current_branch,
         set_upstream=True
     )
-    
+
     if push_result.success:
         print("✅ Push completed successfully")
     else:
         print(f"❌ Push failed: {push_result.error}")
         # Fallback or retry logic
-        
+
 except Exception as e:
     print(f"❌ Unexpected error in Git operation: {e}")
     # Log error details and provide recovery options
@@ -578,17 +578,17 @@ except Exception as e:
 ```python
 def analyze_ci_failures(repo_owner, repo_name, pr_number):
     """Comprehensive CI failure analysis with intelligent insights."""
-    
+
     # Step 1: Get overall CI status
     pr_checks = github_get_pr_checks(
         repo_owner=repo_owner,
-        repo_name=repo_name, 
+        repo_name=repo_name,
         pr_number=pr_number
     )
-    
+
     if "failure" not in pr_checks.overall_status:
         return {"status": "success", "message": "All CI checks passing"}
-    
+
     # Step 2: Get detailed failure information
     failing_jobs = github_get_failing_jobs(
         repo_owner=repo_owner,
@@ -597,7 +597,7 @@ def analyze_ci_failures(repo_owner, repo_name, pr_number):
         include_logs=True,
         include_annotations=True
     )
-    
+
     # Step 3: Get PR context for analysis
     pr_details = github_get_pr_details(
         repo_owner=repo_owner,
@@ -605,14 +605,14 @@ def analyze_ci_failures(repo_owner, repo_name, pr_number):
         pr_number=pr_number,
         include_files=True
     )
-    
+
     # Step 4: AI-powered failure analysis
     analysis = get_prompt("github-actions-failure-analysis", {
         "failure_logs": failing_jobs,
         "changed_files": [f.filename for f in pr_details.files],
         "pr_number": pr_number
     })
-    
+
     return {
         "status": "failure",
         "failing_jobs": failing_jobs,
@@ -627,7 +627,7 @@ def analyze_ci_failures(repo_owner, repo_name, pr_number):
 ```python
 def create_verified_commit(repo_path, message, files=None):
     """Create a GPG-signed verified commit with proper attribution."""
-    
+
     # Enhanced commit message with quality validation
     enhanced_message = f"""{message}
 
@@ -637,11 +637,11 @@ def create_verified_commit(repo_path, message, files=None):
 🤖 Generated with [Claude Code](https://claude.ai/code)
 
 Co-Authored-By: Memento RC Mori <https://github.com/MementoRC>"""
-    
+
     # Selective staging if files specified
     if files:
         mcp__git__git_add(repo_path=repo_path, files=files)
-    
+
     # GPG-signed commit with verified requirements
     result = mcp__git__git_commit(
         repo_path=repo_path,
@@ -649,10 +649,10 @@ Co-Authored-By: Memento RC Mori <https://github.com/MementoRC>"""
         gpg_sign=True,
         gpg_key_id="C7927B4C27159961"
     )
-    
+
     if not result.success:
         raise Exception(f"Commit failed: {result.error}")
-    
+
     return result
 ```
 
@@ -666,9 +666,9 @@ Co-Authored-By: Memento RC Mori <https://github.com/MementoRC>"""
 ```python
 def run_quality_validation(pkg_manager):
     """Execute comprehensive quality validation pipeline."""
-    
+
     quality_results = {}
-    
+
     # Test validation with environment-specific commands
     try:
         test_cmd = f"{pkg_manager} run -e dev pytest"
@@ -677,7 +677,7 @@ def run_quality_validation(pkg_manager):
     except subprocess.CalledProcessError as e:
         quality_results["tests"] = f"FAIL (exit {e.returncode})"
         return quality_results  # Stop on test failure
-    
+
     # Lint validation
     try:
         lint_cmd = f"{pkg_manager} run -e dev ruff check --select=F,E9"
@@ -686,7 +686,7 @@ def run_quality_validation(pkg_manager):
     except subprocess.CalledProcessError as e:
         quality_results["lint"] = f"FAIL (exit {e.returncode})"
         return quality_results  # Stop on lint failure
-    
+
     # Pre-commit validation
     try:
         precommit_cmd = f"{pkg_manager} run -e dev pre-commit run --all-files"
@@ -695,7 +695,7 @@ def run_quality_validation(pkg_manager):
     except subprocess.CalledProcessError as e:
         quality_results["precommit"] = f"FAIL (exit {e.returncode})"
         return quality_results  # Stop on pre-commit failure
-    
+
     return quality_results
 ```
 
@@ -703,10 +703,10 @@ def run_quality_validation(pkg_manager):
 ```python
 def monitor_ci_completion(repo_owner, repo_name, pr_number, timeout=300):
     """Monitor CI completion with intelligent failure analysis."""
-    
+
     import time
     start_time = time.time()
-    
+
     while time.time() - start_time < timeout:
         # Check CI status using Enhanced GitHub Actions Integration
         pr_checks = github_get_pr_checks(
@@ -714,22 +714,22 @@ def monitor_ci_completion(repo_owner, repo_name, pr_number, timeout=300):
             repo_name=repo_name,
             pr_number=pr_number
         )
-        
+
         if "success" in pr_checks.overall_status:
             return {"status": "success", "message": "All CI checks passing"}
-        
+
         elif "failure" in pr_checks.overall_status:
             # Get detailed failure analysis
             failure_analysis = analyze_ci_failures(repo_owner, repo_name, pr_number)
             return failure_analysis
-        
+
         elif "pending" in pr_checks.overall_status:
             time.sleep(30)  # Wait and check again
             continue
-        
+
         else:
             return {"status": "unknown", "ci_state": pr_checks.overall_status}
-    
+
     return {"status": "timeout", "message": "CI monitoring timeout reached"}
 ```
 
@@ -888,7 +888,7 @@ if not failing_jobs or len(failing_jobs) == 0:
 # Batch multiple GitHub API calls
 def get_comprehensive_pr_analysis(repo_owner, repo_name, pr_number):
     """Get all PR information in token-efficient manner."""
-    
+
     # Single call for PR details with files
     pr_details = github_get_pr_details(
         repo_owner=repo_owner,
@@ -897,14 +897,14 @@ def get_comprehensive_pr_analysis(repo_owner, repo_name, pr_number):
         include_files=True,
         include_reviews=True
     )
-    
+
     # Single call for CI status
     pr_checks = github_get_pr_checks(
         repo_owner=repo_owner,
         repo_name=repo_name,
         pr_number=pr_number
     )
-    
+
     # Only get failing jobs if there are failures
     failing_jobs = None
     if "failure" in pr_checks.overall_status:
@@ -915,7 +915,7 @@ def get_comprehensive_pr_analysis(repo_owner, repo_name, pr_number):
             include_logs=True,
             include_annotations=True
         )
-    
+
     return {
         "pr_details": pr_details,
         "ci_status": pr_checks,
@@ -1042,7 +1042,7 @@ get_prompt("architecture-review", {
 ```python
 def new_git_operation(repo_path: str, **kwargs) -> GitOperationResult:
     """Template for new Git operations with proper error handling."""
-    
+
     try:
         # Validate inputs
         if not os.path.exists(repo_path):
@@ -1050,16 +1050,16 @@ def new_git_operation(repo_path: str, **kwargs) -> GitOperationResult:
                 success=False,
                 error=f"Repository path does not exist: {repo_path}"
             )
-        
+
         # Perform operation with structured error handling
         result = perform_git_operation(repo_path, **kwargs)
-        
+
         return GitOperationResult(
             success=True,
             data=result,
             message="Operation completed successfully"
         )
-        
+
     except Exception as e:
         return GitOperationResult(
             success=False,
@@ -1071,22 +1071,22 @@ def new_git_operation(repo_path: str, **kwargs) -> GitOperationResult:
 ```python
 def test_new_enhancement():
     """Test template for new enhancements."""
-    
+
     # Setup test environment
     test_repo = create_test_repository()
-    
+
     # Test MCP operation
     result = new_mcp_operation(repo_path=test_repo.path)
     assert result.success, f"MCP operation failed: {result.error}"
-    
+
     # Test integration with existing workflow
     workflow_result = run_complete_workflow(test_repo)
     assert workflow_result.all_passed, "Integration test failed"
-    
+
     # Test error handling
     error_result = new_mcp_operation(repo_path="/nonexistent")
     assert not error_result.success, "Error handling test failed"
-    
+
     # Cleanup
     cleanup_test_repository(test_repo)
 ```

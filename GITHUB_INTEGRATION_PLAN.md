@@ -252,7 +252,7 @@ class GitMergeReadiness(BaseModel):
 
 ```json
 {
-  "name": "ci-failure-root-cause", 
+  "name": "ci-failure-root-cause",
   "description": "Identify root cause of CI failures and provide solutions",
   "arguments": [
     {"name": "error_message", "description": "Primary error message", "required": true},
@@ -333,11 +333,11 @@ class GitWorkflowSuggestions(BaseModel):
 class GitHubClient:
     def __init__(self, token: str):
         self.client = github.Github(token)
-    
+
     async def get_pr_checks(self, repo: str, pr_number: int) -> list[CheckRun]:
         # Implementation using PyGithub
         pass
-    
+
     async def get_workflow_run_logs(self, repo: str, run_id: int) -> str:
         # Implementation to fetch detailed logs
         pass
@@ -352,12 +352,12 @@ class GitHubAuth:
     def from_token(cls, token: str) -> GitHubClient:
         # Personal access token
         pass
-    
-    @classmethod 
+
+    @classmethod
     def from_app(cls, app_id: str, private_key: str) -> GitHubClient:
         # GitHub App authentication
         pass
-    
+
     @classmethod
     def from_environment(cls) -> GitHubClient:
         # Auto-detect from environment
@@ -440,7 +440,7 @@ class GitHubAuth:
 
 ### Phase 3A: Critical GitHub Tools (Week 1)
 1. github_get_pr_checks
-2. github_get_failing_jobs  
+2. github_get_failing_jobs
 3. github-actions-failure-analysis prompt
 
 ### Phase 3B: PR Management (Week 2)

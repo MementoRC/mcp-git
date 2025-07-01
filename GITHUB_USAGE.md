@@ -45,7 +45,7 @@ export GITHUB_TOKEN="ghp_your_token_here"
   "tool": "github_get_pr_checks",
   "arguments": {
     "repo_owner": "anthropic",
-    "repo_name": "claude-code", 
+    "repo_name": "claude-code",
     "pr_number": 123,
     "status": "completed",
     "conclusion": "failure"
@@ -264,8 +264,8 @@ root_cause = get_prompt("ci-failure-root-cause", {
 **ClaudeCode Workflow:**
 ```python
 # 1. Comprehensive PR assessment
-pr_details = github_get_pr_details("owner", "repo", 123, 
-                                   include_files=True, 
+pr_details = github_get_pr_details("owner", "repo", 123,
+                                   include_files=True,
                                    include_reviews=True)
 ci_status = github_get_pr_checks("owner", "repo", 123)
 

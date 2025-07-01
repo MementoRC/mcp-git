@@ -34,7 +34,7 @@ Use:
 ```python
 github_get_pr_checks(
     repo_owner="MementoRC",
-    repo_name="repo-name", 
+    repo_name="repo-name",
     pr_number=3
 )
 ```
@@ -83,7 +83,7 @@ github_get_failing_jobs(
 
 **Available MCP Tools**:
 - All `mcp__git__*` tools for Git operations
-- All `github_*` tools for GitHub operations  
+- All `github_*` tools for GitHub operations
 - All `get_prompt()` tools for intelligent assistance
 
 **Remember**: The goal is 95% MCP coverage, 5% strategic Bash. Most operations should use MCP tools!

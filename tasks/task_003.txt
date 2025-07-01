@@ -1,0 +1,55 @@
+# Task ID: 3
+# Title: Update ClientNotification Union Type
+# Status: done
+# Dependencies: 2
+# Priority: high
+# Description: Modify the existing ClientNotification union type to include the new CancelledNotification model and ensure all notification types are supported.
+# Details:
+1. Locate the current ClientNotification union definition
+2. Add CancelledNotification to the union
+3. Review MCP spec for any other missing notification types
+4. Add any other missing notification types
+5. Implement type discrimination logic based on 'type' field
+6. Update docstrings and type hints
+
+```python
+# src/mcp_server_git/models/notifications.py
+from typing import Union, Literal, Dict, Any
+from pydantic import BaseModel, Field, root_validator
+
+# Import existing notification models
+from .existing_models import ExistingNotification1, ExistingNotification2
+
+# Add the new CancelledNotification model
+
+# Update the union type
+ClientNotification = Union[
+    ExistingNotification1,
+    ExistingNotification2,
+    CancelledNotification,
+    # Add any other missing notification types
+]
+
+# Helper function for parsing notifications
+def parse_client_notification(data: Dict[str, Any]) -> ClientNotification:
+    """Parse a client notification from raw data based on its type field."""
+    notification_type = data.get("type", "")
+
+    if notification_type == "notifications/cancelled":
+        return CancelledNotification.parse_obj(data)
+    elif notification_type == "existing_type_1":
+        return ExistingNotification1.parse_obj(data)
+    # Handle other types
+    else:
+        # Log unknown type but don't crash
+        logger.warning(f"Unknown notification type: {notification_type}")
+        # Return a generic notification or best guess
+```
+
+# Test Strategy:
+1. Test parsing each notification type
+2. Verify type discrimination works correctly
+3. Test with all known notification types from MCP spec
+4. Test with unknown notification types to ensure graceful handling
+5. Verify backward compatibility with existing code
+6. Test with real-world message examples

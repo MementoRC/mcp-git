@@ -34,7 +34,7 @@ The MCP Git server provides 10 specialized prompts to help with common Git workf
 **With Type and Scope:**
 ```json
 {
-  "prompt": "commit-message", 
+  "prompt": "commit-message",
   "arguments": {
     "changes": "Added user authentication middleware with JWT support",
     "type": "feat",
@@ -63,7 +63,7 @@ The MCP Git server provides 10 specialized prompts to help with common Git workf
   "prompt": "release-notes",
   "arguments": {
     "version": "v2.1.0",
-    "previous_version": "v2.0.0", 
+    "previous_version": "v2.0.0",
     "commits": "feat(auth): add JWT middleware\nfix(api): resolve user session timeout\nfeat(ui): implement dark mode toggle\nfix(deps): update vulnerable packages\ndocs: update API documentation"
   }
 }
@@ -121,7 +121,7 @@ The MCP Git server provides 10 specialized prompts to help with common Git workf
 
 ```json
 {
-  "prompt": "git-troubleshooting", 
+  "prompt": "git-troubleshooting",
   "arguments": {
     "issue": "Cannot push to remote repository, getting 'non-fast-forward' error",
     "git_status": "On branch feature/new-api\nYour branch is ahead of 'origin/feature/new-api' by 3 commits.\nnothing to commit, working tree clean"

@@ -192,7 +192,7 @@ For quick installation, use one of the one-click install buttons below...
 
 For manual installation, add the following JSON block to your User Settings (JSON) file in VS Code. You can do this by pressing `Ctrl + Shift + P` and typing `Preferences: Open Settings (JSON)`.
 
-Optionally, you can add it to a file called `.vscode/mcp.json` in your workspace. This will allow you to share the configuration with others. 
+Optionally, you can add it to a file called `.vscode/mcp.json` in your workspace. This will allow you to share the configuration with others.
 
 > Note that the `mcp` key is not needed in the `.vscode/mcp.json` file.
 
@@ -317,7 +317,7 @@ If you are doing local development, there are two ways to test your changes:
 "mcpServers": {
   "git": {
     "command": "uv",
-    "args": [ 
+    "args": [
       "--directory",
       "/<path to mcp-servers>/mcp-servers/src/git",
       "run",
