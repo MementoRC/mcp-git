@@ -333,6 +333,7 @@ def git_push(
             push_args.insert(0, "--force")
 
         # Get remote URL for GitHub authentication handling
+        remote_url = ""
         try:
             remote_url = repo.remote(remote).url
             is_github = "github.com" in remote_url
