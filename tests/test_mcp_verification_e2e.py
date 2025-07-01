@@ -19,7 +19,7 @@ import asyncio
 import os
 import tempfile
 from pathlib import Path
-from typing import Optional
+# Remove unused Optional import
 
 import pytest
 from git import Repo
@@ -457,7 +457,7 @@ async def test_comprehensive_verification_report(mcp_client, test_repo):
             passed_tests = sum(verification_results.values())
             total_tests = len(verification_results)
             
-            print(f"\n📋 Verification Report:")
+            print("\n📋 Verification Report:")
             print(f"  ✅ Basic Git Operations: {'PASS' if verification_results['basic_git_ops'] else 'FAIL'}")
             print(f"  ✅ GitHub API Integration: {'PASS' if verification_results['github_api'] else 'FAIL'}")
             print(f"  ✅ Advanced Git Operations: {'PASS' if verification_results['advanced_ops'] else 'FAIL'}")
