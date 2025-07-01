@@ -180,14 +180,14 @@ async def test_validation_caching_effectiveness(memory_monitor):
     )
 
     # Assertions - cache should show activity and not break functionality
-    assert cache_stats.get("hits", 0) + cache_stats.get("misses", 0) > 0, (
-        "Cache should show some activity"
-    )
+    assert (
+        cache_stats.get("hits", 0) + cache_stats.get("misses", 0) > 0
+    ), "Cache should show some activity"
     # Allow cache overhead for small operations, focus on correctness
     assert performance_ratio >= 0.1, "Cache should not make things 10x slower"
-    assert with_cache_duration < 1.0, (
-        "Cached operations should complete in reasonable time"
-    )
+    assert (
+        with_cache_duration < 1.0
+    ), "Cached operations should complete in reasonable time"
 
     # Memory leak detection
     memory_growth = memory_monitor.get_memory_growth()
@@ -339,9 +339,9 @@ async def test_realistic_mixed_workload_performance(
     assert throughput > 100, "Mixed workload throughput is too low"
     assert error_rate < 0.01, "Mixed workload error rate is too high"
     assert memory_growth < 10, "Mixed workload memory growth is too high"
-    assert leak_report["object_growth"] < 10000, (
-        "Object growth is too high (possible leak)"
-    )
+    assert (
+        leak_report["object_growth"] < 10000
+    ), "Object growth is too high (possible leak)"
 
     # Cleanup
     for client in clients:
@@ -403,12 +403,12 @@ async def test_optimized_message_processing_performance(memory_monitor):
         "optimized_message_processing_duration", duration, threshold=1.5
     )
     assert duration < 1.0, "Optimized message processing is too slow"
-    assert leak_report["memory_growth_mb"] < 5, (
-        "Memory growth is too high in optimized processing"
-    )
-    assert leak_report["object_growth"] < 5000, (
-        "Object growth is too high in optimized processing"
-    )
+    assert (
+        leak_report["memory_growth_mb"] < 5
+    ), "Memory growth is too high in optimized processing"
+    assert (
+        leak_report["object_growth"] < 5000
+    ), "Object growth is too high in optimized processing"
 
 
 @pytest.mark.benchmark
@@ -422,9 +422,9 @@ async def test_performance_monitor_production_stats():
         message_perf_monitor.record(0.001 + random.random() * 0.002)
     stats = message_perf_monitor.get_stats()
     logger.info(f"Production PerformanceMonitor stats: {stats}")
-    assert stats["count"] == 0 or stats["avg"] < 0.01, (
-        "Average message processing time should be low"
-    )
+    assert (
+        stats["count"] == 0 or stats["avg"] < 0.01
+    ), "Average message processing time should be low"
 
 
 @pytest.mark.benchmark
