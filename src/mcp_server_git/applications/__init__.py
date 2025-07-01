@@ -47,13 +47,13 @@ Deployment patterns:
 Example usage:
     >>> from mcp_server_git.applications import server_application
     >>> from mcp_server_git.configuration import ApplicationConfig
-    >>> 
+    >>>
     >>> config = ApplicationConfig.from_environment()
     >>> app = server_application.MCPGitServerApplication(config)
-    >>> 
+    >>>
     >>> # Start the application
     >>> await app.start()
-    >>> 
+    >>>
     >>> # Application is now running and handling requests
     >>> # Will continue until shutdown signal received
 
@@ -61,10 +61,10 @@ Command line usage:
     ```bash
     # Start the MCP Git Server
     python -m mcp_server_git.applications.server_application
-    
+
     # Use CLI tools
     python -m mcp_server_git.applications.cli_application --help
-    
+
     # Run tests
     python -m mcp_server_git.applications.test_application
     ```
@@ -80,10 +80,8 @@ See also:
 __all__ = [
     # Main server application - to be implemented in Task 25
     # "server_application",
-    
     # CLI application - to be implemented
     # "cli_application",
-    
     # Test application - to be implemented
     # "test_application",
 ]

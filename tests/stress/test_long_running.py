@@ -214,14 +214,14 @@ async def test_48_hour_stability_simulation(
 
     # Should have completed significant work
     assert operation_count > 100, f"Too few operations completed: {operation_count}"
-    assert (
-        mock_client.message_count > 500
-    ), f"Too few messages sent: {mock_client.message_count}"
+    assert mock_client.message_count > 500, (
+        f"Too few messages sent: {mock_client.message_count}"
+    )
 
     # Simulated time should be close to target
-    assert (
-        simulated_hours >= 40
-    ), f"Test duration too short: {simulated_hours:.2f} hours"
+    assert simulated_hours >= 40, (
+        f"Test duration too short: {simulated_hours:.2f} hours"
+    )
 
     logger.info("✅ 48-hour stability test completed successfully")
 
@@ -258,7 +258,7 @@ async def test_continuous_operation_under_load(
 
     memory_monitor.take_sample("load_test_start")
     logger.info(
-        f"Starting minimal continuous load test for {duration_minutes*60:.1f} seconds"
+        f"Starting minimal continuous load test for {duration_minutes * 60:.1f} seconds"
     )
     logger.info(f"Target rate: {message_rate} messages/second")
 
@@ -315,9 +315,9 @@ async def test_continuous_operation_under_load(
     assert actual_rate >= 1, f"Rate too low: {actual_rate:.2f} < 1"
     error_rate = error_count / message_count if message_count > 0 else 0
     assert error_rate < 0.5, f"Error rate too high under load: {error_rate:.2%}"
-    assert (
-        memory_growth < 20
-    ), f"Memory growth too high under load: {memory_growth:.2f} MB"
+    assert memory_growth < 20, (
+        f"Memory growth too high under load: {memory_growth:.2f} MB"
+    )
 
     logger.info("✅ Minimal continuous load test completed successfully")
 
@@ -400,8 +400,8 @@ async def test_session_lifecycle_stress(stress_session_manager, stress_test_conf
     assert success_rate >= 0.95, f"Session success rate too low: {success_rate:.2%}"
 
     # Should not have lingering sessions (small tolerance for timing)
-    assert (
-        len(final_sessions) <= 5
-    ), f"Too many lingering sessions: {len(final_sessions)}"
+    assert len(final_sessions) <= 5, (
+        f"Too many lingering sessions: {len(final_sessions)}"
+    )
 
     logger.info("✅ Session lifecycle stress test completed successfully")

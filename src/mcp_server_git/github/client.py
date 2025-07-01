@@ -98,30 +98,34 @@ class GitHubClient:
 
 def get_github_client() -> Optional[GitHubClient]:
     """Get GitHub client with token from environment.
-    
+
     This function implements a defensive strategy to handle environment variable
     loading issues by attempting to reload environment variables if the token
     is not initially found.
     """
     token = os.getenv("GITHUB_TOKEN")
-    
+
     # If no token found, try to reload environment variables defensively
     if not token:
         logger.debug("🔍 No GitHub token found in environment, attempting to reload...")
-        
+
         # Import here to avoid circular imports
         from pathlib import Path
+
         try:
             # Try to reload environment variables with current working directory
             from ..server import load_environment_variables
+
             load_environment_variables(Path.cwd())
-            
+
             # Try to get token again after reload
             token = os.getenv("GITHUB_TOKEN")
             if token:
                 logger.info("✅ GitHub token found after environment reload")
             else:
-                logger.debug("🔍 Still no GitHub token found after environment reload (GITHUB_TOKEN)")
+                logger.debug(
+                    "🔍 Still no GitHub token found after environment reload (GITHUB_TOKEN)"
+                )
                 return None
         except Exception as e:
             logger.warning(f"⚠️ Failed to reload environment variables: {e}")

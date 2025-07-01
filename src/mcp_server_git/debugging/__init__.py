@@ -41,43 +41,43 @@ LLM-friendly features:
 Usage examples:
     >>> from mcp_server_git.debugging import StateInspector
     >>> from mcp_server_git.services import GitService
-    >>> 
+    >>>
     >>> inspector = StateInspector()
     >>> git_service = GitService(config)
-    >>> 
+    >>>
     >>> # Register service for inspection
     >>> inspector.register_component("git_service", git_service)
-    >>> 
+    >>>
     >>> # Capture current state
     >>> snapshot = inspector.capture_state_snapshot("git_service")
-    >>> 
+    >>>
     >>> # Generate LLM-friendly report
     >>> report = inspector.generate_llm_friendly_report("git_service")
     >>> print(report)
 
 Performance profiling:
     >>> from mcp_server_git.debugging import PerformanceProfiler
-    >>> 
+    >>>
     >>> profiler = PerformanceProfiler()
-    >>> 
+    >>>
     >>> with profiler.profile_operation("git_commit"):
     ...     result = git_service.commit_changes(...)
-    >>> 
+    >>>
     >>> metrics = profiler.get_operation_metrics("git_commit")
     >>> print(f"Average commit time: {metrics.average_duration}ms")
 
 Debug context management:
     >>> from mcp_server_git.debugging import DebugContext
-    >>> 
+    >>>
     >>> with DebugContext("user_request_123") as ctx:
     ...     ctx.add_metadata("user_id", "user456")
     ...     ctx.add_metadata("operation", "git_commit")
-    ...     
+    ...
     ...     result = git_service.commit_changes(...)
-    ...     
+    ...
     ...     if result.error:
     ...         ctx.add_error_context(result.error)
-    >>> 
+    >>>
     >>> # Debug context automatically captured and available for analysis
 
 Integration with monitoring:
@@ -102,19 +102,16 @@ See also:
 __all__ = [
     # State inspection - to be implemented
     # "StateInspector",
-    # "StateSnapshot", 
+    # "StateSnapshot",
     # "ComponentStateInspector",
-    
     # Debug context - to be implemented
     # "DebugContext",
     # "DebugContextManager",
     # "OperationContext",
-    
     # Performance profiling - to be implemented
     # "PerformanceProfiler",
-    # "OperationProfiler", 
+    # "OperationProfiler",
     # "ResourceMonitor",
-    
     # LLM reporting - to be implemented
     # "LLMReporter",
     # "ReportGenerator",

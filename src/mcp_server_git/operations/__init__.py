@@ -39,14 +39,14 @@ Performance considerations:
 Example usage:
     >>> from mcp_server_git.operations import git_operations
     >>> from mcp_server_git.types import RepoPath, GitCommitRequest
-    >>> 
+    >>>
     >>> repo_path = RepoPath("/path/to/repository")
     >>> commit_request = GitCommitRequest(
     ...     message="feat: add new feature",
     ...     files=["src/new_feature.py"],
     ...     author="Developer <dev@example.com>"
     ... )
-    >>> 
+    >>>
     >>> result = git_operations.commit_changes_with_validation(
     ...     repo_path, commit_request
     ... )
@@ -63,13 +63,10 @@ See also:
 __all__ = [
     # Git operations - to be implemented in Task 21
     # "git_operations",
-    
     # GitHub operations - to be implemented in Task 22
     # "github_operations",
-    
     # Session operations - to be implemented
     # "session_operations",
-    
     # Notification operations - to be implemented
     # "notification_operations",
 ]

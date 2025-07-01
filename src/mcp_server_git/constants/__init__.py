@@ -30,7 +30,7 @@ Organization pattern:
         \"\"\"Default values for category operations.\"\"\"
         SOME_VALUE: Final[int] = 100
         ANOTHER_VALUE: Final[str] = "default"
-        
+
     class CategoryLimits:
         \"\"\"Limits and constraints for category operations.\"\"\"
         MAX_ITEMS: Final[int] = 1000
@@ -40,10 +40,10 @@ Organization pattern:
 Usage examples:
     >>> from mcp_server_git.constants import GitOperationDefaults
     >>> from mcp_server_git.constants import GitHubAPIDefaults
-    >>> 
+    >>>
     >>> max_log_entries = GitOperationDefaults.MAX_LOG_ENTRIES
     >>> api_timeout = GitHubAPIDefaults.DEFAULT_TIMEOUT_SECONDS
-    >>> 
+    >>>
     >>> print(f"Fetching {max_log_entries} log entries")
     >>> print(f"API timeout: {api_timeout}s")
 
@@ -78,17 +78,14 @@ __all__ = [
     # "GitTimeouts",
     # "GitSecurityLimits",
     # "GitCommitMessagePatterns",
-    
     # GitHub constants - to be implemented
-    # "GitHubAPIDefaults", 
+    # "GitHubAPIDefaults",
     # "GitHubRateLimits",
     # "GitHubWebhookEvents",
-    
     # Server constants - to be implemented
     # "ServerDefaults",
     # "ServerLimits",
     # "LoggingDefaults",
-    
     # Validation constants - to be implemented
     # "ValidationLimits",
     # "ValidationPatterns",

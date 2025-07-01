@@ -43,17 +43,17 @@ Configuration hierarchy:
 
 Usage examples:
     >>> from mcp_server_git.configuration import ApplicationConfig
-    >>> 
+    >>>
     >>> # Load from environment variables
     >>> config = ApplicationConfig()
-    >>> 
+    >>>
     >>> # Load from file
     >>> config = ApplicationConfig.parse_file("config.json")
-    >>> 
+    >>>
     >>> # Load from dictionary
     >>> config_dict = {"server": {"host": "0.0.0.0", "port": 8080}}
     >>> config = ApplicationConfig.parse_obj(config_dict)
-    >>> 
+    >>>
     >>> # Access typed configuration
     >>> print(f"Server running on {config.server.host}:{config.server.port}")
 
@@ -68,7 +68,7 @@ Environment variable binding:
 
 Validation examples:
     >>> from mcp_server_git.configuration import GitConfig
-    >>> 
+    >>>
     >>> try:
     ...     config = GitConfig(operation_timeout_seconds=0)
     ... except ValidationError as e:
@@ -77,7 +77,7 @@ Validation examples:
 
 Configuration testing:
     >>> from mcp_server_git.configuration import create_test_config
-    >>> 
+    >>>
     >>> # Create configuration optimized for testing
     >>> test_config = create_test_config(
     ...     override_git_timeout=1,  # Fast timeouts for tests
@@ -86,7 +86,7 @@ Configuration testing:
 
 Schema generation:
     >>> from mcp_server_git.configuration import ApplicationConfig
-    >>> 
+    >>>
     >>> # Generate JSON schema for documentation
     >>> schema = ApplicationConfig.schema()
     >>> print(json.dumps(schema, indent=2))
@@ -114,17 +114,14 @@ See also:
 __all__ = [
     # Main application configuration - to be implemented
     # "ApplicationConfig",
-    
     # Server configuration - to be implemented
     # "ServerConfig",
     # "LoggingConfig",
     # "MetricsConfig",
-    
     # Service configurations - to be implemented
     # "GitConfig",
     # "GitHubConfig",
     # "SecurityConfig",
-    
     # Configuration utilities - to be implemented
     # "create_test_config",
     # "load_config_from_env",

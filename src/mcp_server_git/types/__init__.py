@@ -37,14 +37,14 @@ Example type definitions:
     RepoPath = NewType('RepoPath', Path)
     GitCommitHash = NewType('GitCommitHash', str)
     PRNumber = NewType('PRNumber', int)
-    
+
     # Structured data types
     class GitCommitInfo(TypedDict):
         hash: GitCommitHash
         author: str
         message: str
         timestamp: datetime
-        
+
     # Constrained value types
     GitOperationStatus = Literal["success", "failure", "timeout"]
     ```
@@ -52,10 +52,10 @@ Example type definitions:
 Usage patterns:
     >>> from mcp_server_git.types import RepoPath, GitCommitHash
     >>> from mcp_server_git.types.git_types import GitCommitInfo
-    >>> 
+    >>>
     >>> repo_path = RepoPath("/path/to/repository")
     >>> commit_hash = GitCommitHash("a1b2c3d4e5f6...")
-    >>> 
+    >>>
     >>> commit_info: GitCommitInfo = {
     ...     "hash": commit_hash,
     ...     "author": "Developer <dev@example.com>",
@@ -85,20 +85,17 @@ See also:
 __all__ = [
     # Git types - to be implemented
     # "RepoPath",
-    # "GitCommitHash", 
+    # "GitCommitHash",
     # "GitBranchName",
     # ...
-    
     # GitHub types - to be implemented
     # "GitHubToken",
     # "GitHubRepoOwner",
     # ...
-    
-    # Session types - to be implemented  
+    # Session types - to be implemented
     # "SessionId",
     # "UserId",
     # ...
-    
     # MCP types - to be implemented
     # "RequestId",
     # "ToolName",

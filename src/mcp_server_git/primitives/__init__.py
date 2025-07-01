@@ -32,7 +32,7 @@ Performance characteristics:
 Example usage:
     >>> from mcp_server_git.primitives import git_primitives
     >>> from mcp_server_git.types import RepoPath
-    >>> 
+    >>>
     >>> repo_path = RepoPath("/path/to/repository")
     >>> status = git_primitives.get_repository_status(repo_path)
     >>> print(status.is_clean)
@@ -48,13 +48,10 @@ See also:
 __all__ = [
     # Git primitive operations - to be implemented in Task 19
     # "git_primitives",
-    
     # GitHub primitive operations - to be implemented in Task 20
     # "github_primitives",
-    
     # Validation primitive operations - to be implemented
     # "validation_primitives",
-    
     # Type primitive operations - to be implemented
     # "type_primitives",
 ]

@@ -31,15 +31,15 @@ _tool_registry = None
 async def main_simple(repository: Path | None, test_mode: bool = False) -> None:
     """
     Simplified MCP Git Server main function following aider pattern.
-    
-    This version removes all complex initialization that might interfere 
+
+    This version removes all complex initialization that might interfere
     with MCP handshake: no heartbeat managers, no session restoration,
     no stream wrapping, no async component startup before MCP connection.
     """
     # Basic logging setup
     configure_logging(os.environ.get("LOG_LEVEL", "INFO"))
     logger = logging.getLogger(__name__)
-    
+
     logger.info("🚀 Starting Simplified MCP Git Server")
     logger.info(f"Repository: {repository or '.'}")
 
@@ -71,13 +71,13 @@ async def main_simple(repository: Path | None, test_mode: bool = False) -> None:
     async def call_tool(name: str, arguments: Dict[str, Any]) -> List[TextContent]:
         """Handle tool calls with minimal wrapper"""
         logger.info(f"Tool call: {name}")
-        
+
         try:
             # Initialize handler if needed
             global _tool_handler
             if _tool_handler is None:
                 _tool_handler = CallToolHandler()
-            
+
             # Route the tool call
             result = await _tool_handler.router.route_tool_call(name, arguments)
             return result
@@ -97,14 +97,16 @@ async def main_simple(repository: Path | None, test_mode: bool = False) -> None:
     try:
         options = server.create_initialization_options()
         logger.info("Initializing stdio server connection...")
-        
+
         async with stdio_server() as (read_stream, write_stream):
             logger.info("Server running. Waiting for requests...")
             # Use raise_exceptions=True like aider to see handshake failures
             await server.run(read_stream, write_stream, options, raise_exceptions=True)
-            
+
     except Exception as e:
-        logger.exception(f"Critical Error: Server stopped due to unhandled exception: {e}")
+        logger.exception(
+            f"Critical Error: Server stopped due to unhandled exception: {e}"
+        )
         sys.exit(1)
     finally:
         logger.info("Simplified MCP Git Server shutting down.")
@@ -113,22 +115,27 @@ async def main_simple(repository: Path | None, test_mode: bool = False) -> None:
 def main_cli() -> None:
     """Entry point for console script"""
     import click
-    
+
     @click.command()
     @click.option("--repository", "-r", type=Path, help="Git repository path")
     @click.option("-v", "--verbose", count=True, help="Increase verbosity")
     @click.option("--enable-file-logging", is_flag=True, help="Enable file logging")
     @click.option("--test-mode", is_flag=True, help="Run in test mode for CI")
-    def cli(repository: Path | None, verbose: int, enable_file_logging: bool, test_mode: bool) -> None:
+    def cli(
+        repository: Path | None,
+        verbose: int,
+        enable_file_logging: bool,
+        test_mode: bool,
+    ) -> None:
         """Simplified MCP Git Server CLI"""
         # Set logging level based on verbosity
         if verbose == 1:
             os.environ["LOG_LEVEL"] = "INFO"
         elif verbose >= 2:
             os.environ["LOG_LEVEL"] = "DEBUG"
-        
+
         asyncio.run(main_simple(repository, test_mode))
-    
+
     cli()
 
 

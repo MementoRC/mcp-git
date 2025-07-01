@@ -27,12 +27,12 @@ Protocol design principles:
 Usage patterns:
     ```python
     from typing import Protocol
-    
+
     class RepositoryProtocol(Protocol):
         def get_status(self) -> RepositoryStatus:
             \"\"\"Get current repository status.\"\"\"
             ...
-            
+
         def commit_changes(self, message: str) -> CommitResult:
             \"\"\"Commit staged changes.\"\"\"
             ...
@@ -40,14 +40,14 @@ Usage patterns:
 
 Implementation examples:
     >>> from mcp_server_git.protocols import DebuggableComponent
-    >>> 
+    >>>
     >>> class MyService:
     ...     def get_debug_state(self) -> Dict[str, Any]:
     ...         return {"status": "active", "connections": 5}
-    ...     
+    ...
     ...     def explain_state_change(self, prev, curr) -> str:
     ...         return "State changed from active to idle"
-    >>> 
+    >>>
     >>> # MyService now implements DebuggableComponent protocol
     >>> service: DebuggableComponent = MyService()
 
@@ -80,19 +80,16 @@ See also:
 __all__ = [
     # Repository protocols - to be implemented
     # "RepositoryProtocol",
-    # "GitRepositoryProtocol", 
+    # "GitRepositoryProtocol",
     # "GitHubRepositoryProtocol",
-    
     # Notification protocols - to be implemented
     # "NotificationProtocol",
     # "NotificationHandlerProtocol",
     # "NotificationRouterProtocol",
-    
     # Metrics protocols - to be implemented
     # "MetricsCollectorProtocol",
     # "MetricsReporterProtocol",
     # "PerformanceMonitorProtocol",
-    
     # Debugging protocols - to be implemented
     # "DebuggableComponent",
     # "StateInspectorProtocol",

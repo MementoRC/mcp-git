@@ -46,22 +46,22 @@ Performance expectations:
 Example usage:
     >>> from mcp_server_git.services import git_service
     >>> from mcp_server_git.configuration import GitServiceConfig
-    >>> 
+    >>>
     >>> config = GitServiceConfig(
     ...     max_concurrent_operations=10,
     ...     operation_timeout_seconds=300,
     ...     enable_security_validation=True
     ... )
-    >>> 
+    >>>
     >>> service = git_service.GitService(config)
     >>> await service.start()
-    >>> 
+    >>>
     >>> result = await service.commit_changes(
     ...     repository_path="/path/to/repo",
     ...     message="feat: implement new feature",
     ...     files=["src/feature.py"]
     ... )
-    >>> 
+    >>>
     >>> print(result.commit_hash)
     'a1b2c3d4e5f6...'
 
@@ -76,13 +76,10 @@ See also:
 __all__ = [
     # Git service - to be implemented in Task 23
     # "git_service",
-    
     # GitHub service - to be implemented in Task 24
     # "github_service",
-    
     # Session service - to be implemented
     # "session_service",
-    
     # Metrics service - to be implemented
     # "metrics_service",
 ]

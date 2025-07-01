@@ -1,0 +1,17 @@
+{
+  "mcp": {
+    "git": {
+      "command": "uv",
+      "args": [
+        "--directory",
+        "/home/memento/ClaudeCode/git_servers/src/git",
+        "run",
+        "./mcp-server-git-simple",
+        "-vv",
+        "--repository",
+        "/home/memento/ClaudeCode/git_servers/src/git",
+        "--enable-file-logging"
+      ]
+    }
+  }
+}

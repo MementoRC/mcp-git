@@ -47,17 +47,17 @@ Performance characteristics:
 Example usage:
     >>> from mcp_server_git.frameworks import mcp_server_framework
     >>> from mcp_server_git.configuration import ServerConfig
-    >>> 
+    >>>
     >>> config = ServerConfig(
     ...     host="localhost",
     ...     port=8080,
     ...     max_concurrent_operations=100
     ... )
-    >>> 
+    >>>
     >>> framework = mcp_server_framework.MCPServerFramework(config)
     >>> framework.register_service("git", git_service)
     >>> framework.register_service("github", github_service)
-    >>> 
+    >>>
     >>> await framework.start()
     >>> # Framework now manages service lifecycle and request routing
 
@@ -72,13 +72,10 @@ See also:
 __all__ = [
     # MCP server framework - to be implemented
     # "mcp_server_framework",
-    
     # Tool registry framework - to be implemented
     # "tool_registry_framework",
-    
     # Error handling framework - to be implemented
     # "error_handling_framework",
-    
     # Security framework - to be implemented
     # "security_framework",
 ]

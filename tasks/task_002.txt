@@ -1,38 +1,18 @@
 # Task ID: 2
-# Title: Implement CancelledNotification Pydantic Model
-# Status: done
+# Title: Implement Domain-Specific Type System
+# Status: in-progress
 # Dependencies: 1
 # Priority: high
-# Description: Create a Pydantic model for the notifications/cancelled message type that is currently causing validation errors.
+# Description: Create comprehensive type definitions in the types/ directory including domain-specific type aliases, TypedDict definitions, and Literal types as specified in the PRD.
 # Details:
-1. Review MCP protocol specification for cancelled notification format
-2. Create a new Pydantic model in models/notifications.py
-3. Include all required and optional fields according to spec
-4. Add proper type hints and validation rules
-5. Implement sensible defaults for optional fields
-6. Add docstrings explaining the model purpose and usage
+Create the following files in the types directory:
+- `__init__.py`: Export all types
+- `git_types.py`: Git-specific types (RepoPath, GitCommitHash, etc.)
+- `github_types.py`: GitHub-specific types (GitHubToken, PRNumber, etc.)
+- `session_types.py`: Session-related types (SessionId, UserId, etc.)
+- `mcp_types.py`: MCP server-specific types
 
-```python
-# src/mcp_server_git/models/notifications.py
-from pydantic import BaseModel, Field
-from typing import Optional, Any, Dict, List
-
-class CancelledNotification(BaseModel):
-    """Model for MCP notifications/cancelled message type."""
-    type: str = Field("notifications/cancelled", const=True)
-    id: str
-    request_id: str
-    reason: Optional[str] = None
-    metadata: Optional[Dict[str, Any]] = Field(default_factory=dict)
-
-    class Config:
-        extra = "ignore"  # Allow additional fields for forward compatibility
-```
+Implement all type aliases using `NewType`, complex types using `TypedDict`, and status enums using `Literal` as shown in section 4.3.1 of the PRD. Ensure all types are properly documented with docstrings explaining their purpose and usage patterns.
 
 # Test Strategy:
-1. Unit test the model with valid cancelled notification examples
-2. Test with missing optional fields to verify defaults work
-3. Test with extra fields to ensure they're ignored
-4. Test with malformed data to verify validation errors
-5. Verify compatibility with actual MCP client messages
-6. Test serialization/deserialization roundtrip
+Create unit tests that verify type checking works correctly with mypy. Include test cases that demonstrate proper type narrowing and validation. Verify that all types can be imported correctly from their respective modules.

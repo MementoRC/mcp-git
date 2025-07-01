@@ -1,1 +1,0 @@
-/home/memento/.claude/commands/AG_fix_CI.md
