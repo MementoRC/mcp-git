@@ -29,39 +29,41 @@ async def mcp_client():
     """Create an MCP client connected to the git server."""
     # Instead of using server_simple in test mode, let's simulate the MCP tool calls
     # by directly testing the tool routing functionality
-    
+
     # For E2E verification, we'll test the tools directly rather than through MCP protocol
     # This gives us the same verification of the routing fix without MCP protocol complexity
     from mcp_server_git.core.tools import ToolRegistry
     from mcp_server_git.core.handlers import CallToolHandler
-    
+
     # Initialize the tool infrastructure that server_simple.py uses
     tool_registry = ToolRegistry()
     tool_registry.initialize_default_tools()
-    
+
     tool_handler = CallToolHandler()
-    
+
     # Create a mock client that uses the same routing logic as server_simple.py
     class DirectToolClient:
         def __init__(self, handler):
             self.handler = handler
-            
+
         async def send_request(self, method: str, params: dict):
             """Simulate MCP tool call by calling tools directly."""
             if method == "tools/call":
                 tool_name = params["name"]
                 arguments = params["arguments"]
-                
+
                 try:
                     # This is the exact same call that server_simple.py makes on line 82-83
-                    result = await self.handler.router.route_tool_call(tool_name, arguments)
+                    result = await self.handler.router.route_tool_call(
+                        tool_name, arguments
+                    )
                     return {"result": result}
                 except Exception as e:
                     return {"error": str(e)}
-            
+
             # For other methods (like initialize), just return success
             return {"result": {"success": True}}
-    
+
     client = DirectToolClient(tool_handler)
     yield client
 
