@@ -44,16 +44,17 @@ See also:
     - constants: Constants and configuration values
 """
 
+# Placeholder exports - will be populated as modules are implemented
 __all__ = [
-    # Git primitive operations
-    "git_primitives",
+    # Git primitive operations - to be implemented in Task 19
+    # "git_primitives",
     
-    # GitHub primitive operations  
-    "github_primitives",
+    # GitHub primitive operations - to be implemented in Task 20
+    # "github_primitives",
     
-    # Validation primitive operations
-    "validation_primitives",
+    # Validation primitive operations - to be implemented
+    # "validation_primitives",
     
-    # Type primitive operations
-    "type_primitives",
+    # Type primitive operations - to be implemented
+    # "type_primitives",
 ]

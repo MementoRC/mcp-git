@@ -59,16 +59,17 @@ See also:
     - types: Type definitions for operation parameters and results
 """
 
+# Placeholder exports - will be populated as modules are implemented
 __all__ = [
-    # Git operations
-    "git_operations",
+    # Git operations - to be implemented in Task 21
+    # "git_operations",
     
-    # GitHub operations
-    "github_operations",
+    # GitHub operations - to be implemented in Task 22
+    # "github_operations",
     
-    # Session operations
-    "session_operations",
+    # Session operations - to be implemented
+    # "session_operations",
     
-    # Notification operations
-    "notification_operations",
+    # Notification operations - to be implemented
+    # "notification_operations",
 ]

@@ -72,16 +72,17 @@ See also:
     - protocols: Interfaces implemented by services
 """
 
+# Placeholder exports - will be populated as modules are implemented
 __all__ = [
-    # Git service
-    "git_service",
+    # Git service - to be implemented in Task 23
+    # "git_service",
     
-    # GitHub service
-    "github_service",
+    # GitHub service - to be implemented in Task 24
+    # "github_service",
     
-    # Session service
-    "session_service",
+    # Session service - to be implemented
+    # "session_service",
     
-    # Metrics service
-    "metrics_service",
+    # Metrics service - to be implemented
+    # "metrics_service",
 ]

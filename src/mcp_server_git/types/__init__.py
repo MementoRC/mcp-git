@@ -75,46 +75,32 @@ See also:
     - constants: Type-related constants and defaults
 """
 
-# Core type imports
-from .git_types import *
-from .github_types import *
-from .session_types import *
-from .mcp_types import *
+# Core type imports - will be implemented in Task 2
+# from .git_types import *
+# from .github_types import *
+# from .session_types import *
+# from .mcp_types import *
 
+# Placeholder exports - will be populated as modules are implemented
 __all__ = [
-    # Git types
-    "RepoPath",
-    "GitCommitHash", 
-    "GitBranchName",
-    "GitRemoteName",
-    "GitTagName",
-    "GitOperationStatus",
-    "GitFileStatus",
-    "GitCommitInfo",
-    "GitRepositoryState",
+    # Git types - to be implemented
+    # "RepoPath",
+    # "GitCommitHash", 
+    # "GitBranchName",
+    # ...
     
-    # GitHub types
-    "GitHubToken",
-    "GitHubRepoOwner",
-    "GitHubRepoName", 
-    "PRNumber",
-    "WorkflowRunId",
-    "GitHubCheckStatus",
-    "GitHubPRInfo",
-    "GitHubWorkflowInfo",
+    # GitHub types - to be implemented
+    # "GitHubToken",
+    # "GitHubRepoOwner",
+    # ...
     
-    # Session types
-    "SessionId",
-    "UserId",
-    "SessionStatus",
-    "SessionInfo",
-    "SessionMetrics",
+    # Session types - to be implemented  
+    # "SessionId",
+    # "UserId",
+    # ...
     
-    # MCP types
-    "RequestId",
-    "ToolName",
-    "MessageType",
-    "MCPRequest",
-    "MCPResponse",
-    "MCPError",
+    # MCP types - to be implemented
+    # "RequestId",
+    # "ToolName",
+    # ...
 ]

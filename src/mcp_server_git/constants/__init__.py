@@ -65,31 +65,32 @@ See also:
     - validation: Validation rules that use these constants
 """
 
-# Import all constant groups
-from .git_constants import *
-from .github_constants import *
-from .server_constants import *
-from .validation_constants import *
+# Import all constant groups - will be implemented in Task 3
+# from .git_constants import *
+# from .github_constants import *
+# from .server_constants import *
+# from .validation_constants import *
 
+# Placeholder exports - will be populated as modules are implemented
 __all__ = [
-    # Git constants
-    "GitOperationDefaults",
-    "GitTimeouts",
-    "GitSecurityLimits",
-    "GitCommitMessagePatterns",
+    # Git constants - to be implemented
+    # "GitOperationDefaults",
+    # "GitTimeouts",
+    # "GitSecurityLimits",
+    # "GitCommitMessagePatterns",
     
-    # GitHub constants
-    "GitHubAPIDefaults", 
-    "GitHubRateLimits",
-    "GitHubWebhookEvents",
+    # GitHub constants - to be implemented
+    # "GitHubAPIDefaults", 
+    # "GitHubRateLimits",
+    # "GitHubWebhookEvents",
     
-    # Server constants
-    "ServerDefaults",
-    "ServerLimits",
-    "LoggingDefaults",
+    # Server constants - to be implemented
+    # "ServerDefaults",
+    # "ServerLimits",
+    # "LoggingDefaults",
     
-    # Validation constants
-    "ValidationLimits",
-    "ValidationPatterns",
-    "SecurityConstraints",
+    # Validation constants - to be implemented
+    # "ValidationLimits",
+    # "ValidationPatterns",
+    # "SecurityConstraints",
 ]

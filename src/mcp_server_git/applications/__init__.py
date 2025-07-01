@@ -76,13 +76,14 @@ See also:
     - deployment: Application deployment documentation
 """
 
+# Placeholder exports - will be populated as modules are implemented
 __all__ = [
-    # Main server application
-    "server_application",
+    # Main server application - to be implemented in Task 25
+    # "server_application",
     
-    # CLI application
-    "cli_application",
+    # CLI application - to be implemented
+    # "cli_application",
     
-    # Test application
-    "test_application",
+    # Test application - to be implemented
+    # "test_application",
 ]

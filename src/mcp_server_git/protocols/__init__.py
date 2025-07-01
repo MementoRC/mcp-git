@@ -70,30 +70,31 @@ See also:
     - frameworks: Framework patterns that use these protocols
 """
 
-# Import all protocol definitions
-from .repository_protocol import *
-from .notification_protocol import *
-from .metrics_protocol import *
-from .debugging_protocol import *
+# Import all protocol definitions - will be implemented in Task 4
+# from .repository_protocol import *
+# from .notification_protocol import *
+# from .metrics_protocol import *
+# from .debugging_protocol import *
 
+# Placeholder exports - will be populated as modules are implemented
 __all__ = [
-    # Repository protocols
-    "RepositoryProtocol",
-    "GitRepositoryProtocol", 
-    "GitHubRepositoryProtocol",
+    # Repository protocols - to be implemented
+    # "RepositoryProtocol",
+    # "GitRepositoryProtocol", 
+    # "GitHubRepositoryProtocol",
     
-    # Notification protocols
-    "NotificationProtocol",
-    "NotificationHandlerProtocol",
-    "NotificationRouterProtocol",
+    # Notification protocols - to be implemented
+    # "NotificationProtocol",
+    # "NotificationHandlerProtocol",
+    # "NotificationRouterProtocol",
     
-    # Metrics protocols
-    "MetricsCollectorProtocol",
-    "MetricsReporterProtocol",
-    "PerformanceMonitorProtocol",
+    # Metrics protocols - to be implemented
+    # "MetricsCollectorProtocol",
+    # "MetricsReporterProtocol",
+    # "PerformanceMonitorProtocol",
     
-    # Debugging protocols
-    "DebuggableComponent",
-    "StateInspectorProtocol",
-    "DiagnosticProviderProtocol",
+    # Debugging protocols - to be implemented
+    # "DebuggableComponent",
+    # "StateInspectorProtocol",
+    # "DiagnosticProviderProtocol",
 ]
