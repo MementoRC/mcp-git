@@ -6,6 +6,9 @@ import pytest
 import psutil
 import gc
 
+# Import SessionManager and HeartbeatManager for a lightweight session fixture
+from mcp_server_git.session import SessionManager, HeartbeatManager
+
 # Define MockMCPClient directly to avoid import issues
 
 
@@ -81,10 +84,6 @@ class MockMCPClient:
             result = await self.ping()
             results.append(result)
         return results
-
-
-# Import SessionManager and HeartbeatManager for a lightweight session fixture
-from mcp_server_git.session import SessionManager, HeartbeatManager
 
 
 @pytest.fixture
