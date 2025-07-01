@@ -491,6 +491,8 @@ jobs:
         git config --global user.email "perf-test@example.com"
 
     - name: Run performance tests
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         # Create a larger test repository for performance testing
         mkdir -p /tmp/perf-test-repo

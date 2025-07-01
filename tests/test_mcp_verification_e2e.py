@@ -222,6 +222,7 @@ async def test_phase_2_github_api_operations(mcp_client):
         is_success = "Pull Request" in result_text or "#" in result_text
         is_graceful_failure = (
             "No GitHub token" in result_text
+            or "GitHub token not configured" in result_text
             or "404" in result_text
             or "Failed to" in result_text
         )
