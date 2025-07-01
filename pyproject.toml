@@ -26,6 +26,7 @@ dependencies = [
 
 [project.scripts]
 mcp-server-git = "mcp_server_git:main"
+mcp-server-git-simple = "mcp_server_git.server_simple:main_cli"
 
 [build-system]
 requires = ["hatchling"]
@@ -46,7 +47,13 @@ addopts = "-v --tb=short"
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "e2e: marks tests as end-to-end tests (deselect with '-m \"not e2e\"')",
-    "ci_skip: marks tests to skip in CI environment"
+    "ci_skip: marks tests to skip in CI environment",
+    "mcp_verification: tests that replicate manual MCP verification process",
+    "phase1: basic git operations (status, log, diff)",
+    "phase2: GitHub API operations (list PRs, get details, status)",
+    "phase3: advanced git operations (show, security validation)", 
+    "phase4: error handling and edge cases",
+    "requires_github_token: tests that require GitHub API access"
 ]
 
 [tool.ruff]
