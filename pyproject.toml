@@ -48,3 +48,15 @@ markers = [
     "e2e: marks tests as end-to-end tests (deselect with '-m \"not e2e\"')",
     "ci_skip: marks tests to skip in CI environment"
 ]
+
+[tool.ruff]
+# Pin to CI-compatible settings for ruff 0.8.0
+target-version = "py310"
+line-length = 88
+
+[tool.ruff.format]
+# Ensure consistent formatting across ruff versions
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
