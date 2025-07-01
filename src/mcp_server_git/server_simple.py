@@ -8,7 +8,6 @@ MCP handshake/connection problems with the main server.
 import asyncio
 import logging
 import os
-import signal
 import sys
 from pathlib import Path
 from typing import Any, Dict, List

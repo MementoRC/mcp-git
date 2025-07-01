@@ -16,13 +16,10 @@ to verify the routing fix and full functionality.
 """
 
 import asyncio
-import json
 import os
-import subprocess
 import tempfile
-import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Optional
 
 import pytest
 from git import Repo
