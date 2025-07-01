@@ -6,10 +6,8 @@ This script tests whether the simplified server can establish MCP connection
 without the complex initialization that may be causing handshake failures.
 """
 
-import asyncio
 import subprocess
 import sys
-import time
 from pathlib import Path
 
 
