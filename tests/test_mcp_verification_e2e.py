@@ -24,22 +24,19 @@ from typing import Optional
 import pytest
 from git import Repo
 
-from .test_e2e_server import MCPTestClient
+try:
+    from .test_e2e_server import MCPTestClient
+except ImportError:
+    # Fallback for direct execution or CI
+    import sys
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).parent))
+    from test_e2e_server import MCPTestClient
 
 
-class MCPGitVerificationTests:
-    """
-    End-to-end verification tests that replicate manual verification process.
-    
-    These tests ensure that:
-    1. The routing fix (route_call -> route_tool_call) works correctly
-    2. All git operations function as expected
-    3. GitHub API integration works properly
-    4. Error handling is robust
-    """
-
-    @pytest.fixture
-    async def mcp_client(self):
+# Fixtures for E2E verification tests
+@pytest.fixture
+async def mcp_client():
         """Create an MCP client connected to the git server."""
         # Use the simple server that contains our routing fix
         cmd = [
@@ -74,8 +71,8 @@ class MCPGitVerificationTests:
             process.kill()
             await process.wait()
 
-    @pytest.fixture
-    def test_repo(self):
+@pytest.fixture  
+def test_repo():
         """Create a temporary git repository for testing."""
         with tempfile.TemporaryDirectory() as tmpdir:
             repo_path = Path(tmpdir) / "test_repo"
@@ -106,9 +103,9 @@ class MCPGitVerificationTests:
             
             yield repo_path
     
-    @pytest.mark.e2e
-    @pytest.mark.asyncio
-    async def test_phase_1_basic_git_operations(self, mcp_client, test_repo):
+@pytest.mark.e2e
+@pytest.mark.asyncio
+async def test_phase_1_basic_git_operations(mcp_client, test_repo):
         """
         Phase 1: Test basic git operations (status, log, diff)
         
@@ -176,9 +173,9 @@ class MCPGitVerificationTests:
         
         print("  ✅ Phase 1 completed successfully")
 
-    @pytest.mark.e2e
-    @pytest.mark.asyncio
-    async def test_phase_2_github_api_operations(self, mcp_client):
+@pytest.mark.e2e
+@pytest.mark.asyncio
+async def test_phase_2_github_api_operations(mcp_client):
         """
         Phase 2: Test GitHub API operations
         
@@ -277,9 +274,9 @@ class MCPGitVerificationTests:
         
         print("  ✅ Phase 2 completed successfully")
 
-    @pytest.mark.e2e
-    @pytest.mark.asyncio
-    async def test_phase_3_advanced_git_operations(self, mcp_client, test_repo):
+@pytest.mark.e2e
+@pytest.mark.asyncio  
+async def test_phase_3_advanced_git_operations(mcp_client, test_repo):
         """
         Phase 3: Test advanced git operations
         
@@ -322,9 +319,9 @@ class MCPGitVerificationTests:
         
         print("  ✅ Phase 3 completed successfully")
 
-    @pytest.mark.e2e
-    @pytest.mark.asyncio
-    async def test_phase_4_error_handling_and_edge_cases(self, mcp_client):
+@pytest.mark.e2e
+@pytest.mark.asyncio
+async def test_phase_4_error_handling_and_edge_cases(mcp_client):
         """
         Phase 4: Test error handling and edge cases
         
@@ -401,9 +398,9 @@ class MCPGitVerificationTests:
         
         print("  ✅ Phase 4 completed successfully")
 
-    @pytest.mark.e2e
-    @pytest.mark.asyncio
-    async def test_comprehensive_verification_report(self, mcp_client, test_repo):
+@pytest.mark.e2e
+@pytest.mark.asyncio
+async def test_comprehensive_verification_report(mcp_client, test_repo):
         """
         Comprehensive verification that replicates the complete manual verification process.
         
