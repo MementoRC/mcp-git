@@ -35,7 +35,7 @@ def configure_logging(log_level: str = "INFO") -> None:
     """
     root_logger = logging.getLogger()
     root_logger.handlers.clear()
-    handler = logging.StreamHandler(sys.stdout)
+    handler = logging.StreamHandler(sys.stderr)
     formatter = StructuredLogFormatter()
     handler.setFormatter(formatter)
     root_logger.addHandler(handler)
