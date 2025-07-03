@@ -60,8 +60,9 @@ target-version = "py310"
 line-length = 88
 
 [tool.ruff.lint]
-# Ignore F821 (undefined name) during TDD phase where type implementations follow tests
-ignore = ["F821"]
+# Ignore TDD-related errors during red phase where type implementations follow tests
+# F821: undefined name, F401: unused imports, F841: unused variables
+ignore = ["F821", "F401", "F841"]
 
 [tool.ruff.format]
 # Ensure consistent formatting across ruff versions
