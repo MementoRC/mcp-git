@@ -9,8 +9,6 @@ Do not modify tests to match implementation - implementation must satisfy these 
 """
 
 import pytest
-from typing import Dict, Any, List, Optional, Union
-from unittest.mock import Mock, patch
 from datetime import datetime
 
 # Import the types we expect to be implemented
@@ -20,30 +18,24 @@ try:
         GitOperationRequest,
         GitOperationResponse,
         GitHubOperationRequest,
-        GitHubOperationResponse,
-        MCPToolRequest,
-        MCPToolResponse,
         RepositoryContext,
         OperationContext,
-        RequestContext,
-        ResponseContext,
         GitWorkflowResult,
         GitHubWorkflowResult,
         IntegratedOperationResult,
         TypeFactory,
         TypeRegistry,
-        TypeConverter,
         DomainBridge,
     )
     # Import domain types for integration testing
     from mcp_server_git.types.git_types import (
-        GitRepositoryPath, GitBranch, GitCommitHash, GitStatusResult
+        GitRepositoryPath, GitBranch, GitStatusResult
     )
     from mcp_server_git.types.github_types import (
-        GitHubRepository, GitHubPullRequest, GitHubUser
+        GitHubRepository, GitHubPullRequest
     )
     from mcp_server_git.types.mcp_types import (
-        MCPRequest, MCPResponse, MCPTool, MCPToolOutput
+        MCPRequest, MCPResponse
     )
     TYPES_AVAILABLE = True
 except ImportError:
