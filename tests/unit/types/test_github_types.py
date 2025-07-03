@@ -423,8 +423,8 @@ class TestGitHubPagination:
             )
             
             assert pagination.total_pages == 4
-            assert pagination.is_last_page == False
-            assert pagination.is_first_page == False
+            assert not pagination.is_last_page
+            assert not pagination.is_first_page
             assert pagination.next_page == 4
             assert pagination.previous_page == 2
     
