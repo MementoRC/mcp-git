@@ -36,11 +36,25 @@ jobs:
     - name: Install uv
       uses: astral-sh/setup-uv@v4
       with:
-        enable-cache: true
+        enable-cache: false  # Disable cache to avoid 503 errors
         cache-dependency-glob: "uv.lock"
 
-    - name: Install dependencies
-      run: uv sync --dev
+    - name: Install dependencies with retry
+      run: |
+        # Retry logic for uv sync --dev to handle infra flakiness
+        for i in {1..3}; do
+          if uv sync --dev; then
+            echo "✅ Dependencies installed successfully"
+            break
+          else
+            echo "⚠️ Attempt $i failed, retrying..."
+            if [ $i -eq 3 ]; then
+              echo "❌ Failed to install dependencies after 3 attempts"
+              exit 1
+            fi
+            sleep 10
+          fi
+        done
 
     - name: Run ruff linting (critical violations)
       run: uv run ruff check --select=F,E9 --output-format=github
@@ -82,8 +96,22 @@ jobs:
       with:
         enable-cache: false
 
-    - name: Install dependencies
-      run: uv sync --dev
+    - name: Install dependencies with retry
+      run: |
+        # Retry logic for uv sync --dev to handle infra flakiness
+        for i in {1..3}; do
+          if uv sync --dev; then
+            echo "✅ Dependencies installed successfully"
+            break
+          else
+            echo "⚠️ Attempt $i failed, retrying..."
+            if [ $i -eq 3 ]; then
+              echo "❌ Failed to install dependencies after 3 attempts"
+              exit 1
+            fi
+            sleep 10
+          fi
+        done
 
     - name: Configure Git for testing
       run: |
