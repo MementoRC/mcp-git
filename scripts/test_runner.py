@@ -9,7 +9,7 @@ Enforces TDD governance rules and quality gates.
 import sys
 import subprocess
 from pathlib import Path
-from typing import List, Optional
+from typing import Optional
 
 class TDDTestRunner:
     """Test runner that enforces TDD governance rules."""

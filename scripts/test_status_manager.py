@@ -21,9 +21,8 @@ Usage:
 import json
 import sys
 import argparse
-import fnmatch
 from pathlib import Path
-from typing import Dict, List, Any
+from typing import Dict, Any
 from datetime import datetime
 
 
@@ -82,8 +81,8 @@ class TestStatusManager:
     def show_status(self):
         """Display current test status"""
         current_phase = self.status_data.get("current_phase", "unknown")
-        print(f"📊 Test Status Report")
-        print(f"=" * 50)
+        print("📊 Test Status Report")
+        print("=" * 50)
         print(f"Project: {self.status_data.get('project', 'Unknown')}")
         print(f"Version: {self.status_data.get('version', 'Unknown')}")
         print(f"Current Phase: {current_phase}")
@@ -92,7 +91,7 @@ class TestStatusManager:
         
         if current_phase in self.status_data.get("test_phases", {}):
             phase_info = self.status_data["test_phases"][current_phase]
-            print(f"Phase Details:")
+            print("Phase Details:")
             print(f"  Description: {phase_info.get('description', 'N/A')}")
             print(f"  Status: {phase_info.get('status', 'unknown')}")
             print(f"  Target Commit: {phase_info.get('target_commit', 'TBD')}")
@@ -135,7 +134,7 @@ class TestStatusManager:
         phase_info["expected_failing"] = expected_failing
         phase_info["expected_passing"] = expected_passing
         self._save_status()
-        print(f"💾 Status updated and saved")
+        print("💾 Status updated and saved")
     
     def mark_failing(self, test_pattern: str):
         """Mark a test pattern as intentionally failing"""
@@ -163,7 +162,7 @@ class TestStatusManager:
         phase_info["expected_failing"] = expected_failing
         phase_info["expected_passing"] = expected_passing
         self._save_status()
-        print(f"💾 Status updated and saved")
+        print("💾 Status updated and saved")
     
     def next_phase(self):
         """Move to the next development phase"""
@@ -273,7 +272,7 @@ class TestStatusManager:
                 completion_rate = len(expected_passing) / total_tests * 100
                 print(f"   Progress: {len(expected_passing)}/{total_tests} ({completion_rate:.1f}%)")
             else:
-                print(f"   Progress: No tests defined")
+                print("   Progress: No tests defined")
 
 
 def main():

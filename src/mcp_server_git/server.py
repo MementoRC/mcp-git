@@ -1159,7 +1159,6 @@ async def github_get_pr_files(
     except Exception as e:
         return f"Error getting PR files: {str(e)}"
 
-
 async def serve(repository: Path | None, test_mode: bool = False) -> None:
     logger = logging.getLogger(__name__)
 
