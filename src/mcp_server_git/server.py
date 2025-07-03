@@ -33,17 +33,45 @@ def load_environment_variables(repository_path: Path | None = None):
     3. ClaudeCode working directory .env file (if available)
     4. System environment variables (existing behavior)
     
+    Special handling for GITHUB_TOKEN:
+    - Empty tokens ("") are overridden
+    - Placeholder tokens are overridden (YOUR_TOKEN_HERE, REPLACE_ME, TODO, CHANGEME)
+    - Whitespace-only tokens are overridden
+    
     Args:
         repository_path: Optional path to the repository being used
     """
     logger = logging.getLogger(__name__)
     loaded_files = []
     
+    # Common placeholder values that should be overridden
+    GITHUB_TOKEN_PLACEHOLDERS = ["", "YOUR_TOKEN_HERE", "REPLACE_ME", "TODO", "CHANGEME"]
+    
+    def should_override_github_token(token: str | None) -> bool:
+        """Check if a GitHub token should be overridden."""
+        if token is None:
+            return True
+        if token.strip() in GITHUB_TOKEN_PLACEHOLDERS:
+            return True
+        if not token.strip():  # Whitespace-only
+            return True
+        return False
+    
     # Try to load from project-specific .env file first
     project_env = Path.cwd() / ".env"
     if project_env.exists():
         try:
+            # Special handling for GITHUB_TOKEN - override placeholders and empty tokens
+            github_token_before = os.getenv("GITHUB_TOKEN")
             load_dotenv(project_env, override=False)  # Don't override existing env vars
+            
+            # If GITHUB_TOKEN should be overridden and .env file has a value, override it
+            if should_override_github_token(github_token_before):
+                from dotenv import dotenv_values
+                env_values = dotenv_values(project_env)
+                if "GITHUB_TOKEN" in env_values and env_values["GITHUB_TOKEN"] and not should_override_github_token(env_values["GITHUB_TOKEN"]):
+                    os.environ["GITHUB_TOKEN"] = env_values["GITHUB_TOKEN"]
+            
             loaded_files.append(str(project_env))
             logger.info(f"Loaded environment variables from project .env: {project_env}")
         except Exception as e:
@@ -54,7 +82,17 @@ def load_environment_variables(repository_path: Path | None = None):
         repo_env = repository_path / ".env"
         if repo_env.exists() and str(repo_env) not in loaded_files:
             try:
+                # Special handling for GITHUB_TOKEN - override placeholders and empty tokens
+                github_token_before = os.getenv("GITHUB_TOKEN")
                 load_dotenv(repo_env, override=False)  # Don't override existing env vars
+                
+                # If GITHUB_TOKEN should be overridden and .env file has a value, override it
+                if should_override_github_token(github_token_before):
+                    from dotenv import dotenv_values
+                    env_values = dotenv_values(repo_env)
+                    if "GITHUB_TOKEN" in env_values and env_values["GITHUB_TOKEN"] and not should_override_github_token(env_values["GITHUB_TOKEN"]):
+                        os.environ["GITHUB_TOKEN"] = env_values["GITHUB_TOKEN"]
+                
                 loaded_files.append(str(repo_env))
                 logger.info(f"Loaded environment variables from repository .env: {repo_env}")
             except Exception as e:
@@ -93,7 +131,17 @@ def load_environment_variables(repository_path: Path | None = None):
             claude_env = claude_dir / ".env"
             if claude_env.exists():
                 try:
+                    # Special handling for GITHUB_TOKEN - override placeholders and empty tokens
+                    github_token_before = os.getenv("GITHUB_TOKEN")
                     load_dotenv(claude_env, override=False)  # Don't override existing env vars
+                    
+                    # If GITHUB_TOKEN should be overridden and .env file has a value, override it
+                    if should_override_github_token(github_token_before):
+                        from dotenv import dotenv_values
+                        env_values = dotenv_values(claude_env)
+                        if "GITHUB_TOKEN" in env_values and env_values["GITHUB_TOKEN"] and not should_override_github_token(env_values["GITHUB_TOKEN"]):
+                            os.environ["GITHUB_TOKEN"] = env_values["GITHUB_TOKEN"]
+                    
                     if str(claude_env) not in loaded_files:
                         loaded_files.append(str(claude_env))
                         logger.info(f"Loaded environment variables from ClaudeCode .env: {claude_env}")
@@ -136,6 +184,13 @@ def get_github_client() -> GitHubClient:
     token = os.getenv("GITHUB_TOKEN")
     if not token:
         raise Exception("GITHUB_TOKEN environment variable not set")
+    
+    # Validate GitHub token format
+    # GitHub tokens typically start with: ghp_, gho_, ghu_, ghs_, github_pat_, or ghr_ (GitHub App)
+    valid_prefixes = ["ghp_", "gho_", "ghu_", "ghs_", "github_pat_", "ghr_"]
+    if not any(token.startswith(prefix) for prefix in valid_prefixes):
+        raise Exception("GITHUB_TOKEN appears to be invalid format")
+    
     return GitHubClient(token=token)
 
 def validate_gpg_environment() -> dict:
