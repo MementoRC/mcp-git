@@ -11,21 +11,25 @@ from mcp_server_git.server import load_environment_variables, get_github_client
 class TestEnvironmentLoading:
     """Test environment variable loading with various scenarios."""
 
-    def test_load_environment_with_empty_github_token(self, tmp_path):
+    def test_load_environment_with_empty_github_token(self, tmp_path, monkeypatch):
         """Test that empty GITHUB_TOKEN is overridden from .env file."""
         # Create a temporary .env file
         env_file = tmp_path / ".env"
         env_file.write_text("GITHUB_TOKEN=test_token_123\nOTHER_VAR=test_value\n")
 
+        # Unset GITHUB_TOKEN and OTHER_VAR to ensure clean environment
+        monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+        monkeypatch.delenv("OTHER_VAR", raising=False)
         # Set empty GITHUB_TOKEN in environment (simulating MCP client behavior)
-        with patch.dict(os.environ, {"GITHUB_TOKEN": ""}, clear=False):
-            # Change to the temp directory
-            with patch("pathlib.Path.cwd", return_value=tmp_path):
-                load_environment_variables()
+        monkeypatch.setenv("GITHUB_TOKEN", "")
 
-                # Should have overridden the empty token
-                assert os.getenv("GITHUB_TOKEN") == "test_token_123"
-                assert os.getenv("OTHER_VAR") == "test_value"
+        # Patch Path.cwd to point to the temp directory
+        with patch("pathlib.Path.cwd", return_value=tmp_path):
+            load_environment_variables()
+
+            # Should have overridden the empty token
+            assert os.getenv("GITHUB_TOKEN") == "test_token_123"
+            assert os.getenv("OTHER_VAR") == "test_value"
 
     def test_load_environment_preserves_existing_tokens(self, tmp_path):
         """Test that existing non-empty tokens are preserved."""
