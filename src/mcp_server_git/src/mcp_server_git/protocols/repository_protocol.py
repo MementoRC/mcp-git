@@ -1,5 +1,5 @@
 from abc import abstractmethod
-from typing import Protocol, Any, List, Tuple, Optional, Union
+from typing import Protocol, Any, List, Tuple, Optional
 
 
 class RepositoryProtocol(Protocol):

@@ -9,10 +9,8 @@ Do not modify tests to match implementation - implementation must satisfy these 
 """
 
 import pytest
-from typing import Any, Dict, List, Optional, Union, Type
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 from pathlib import Path
-import re
 
 # Import the types we expect to be implemented
 # These imports will fail initially (RED phase) - that's expected!

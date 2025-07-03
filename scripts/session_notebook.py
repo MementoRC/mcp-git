@@ -22,7 +22,7 @@ import sys
 import argparse
 from pathlib import Path
 from datetime import datetime
-from typing import Dict, List, Any
+from typing import Dict, Any
 
 
 class SessionNotebook:
@@ -99,7 +99,7 @@ class SessionNotebook:
         })
         
         self._save_session_data()
-        print(f"🔧 Added issue resolution:")
+        print("🔧 Added issue resolution:")
         print(f"   Problem: {problem}")
         print(f"   Solution: {solution}")
     
@@ -120,7 +120,7 @@ class SessionNotebook:
         })
         
         self._save_session_data()
-        print(f"🧠 Added methodology:")
+        print("🧠 Added methodology:")
         print(f"   Name: {name}")
         print(f"   Description: {description}")
     
@@ -140,7 +140,7 @@ class SessionNotebook:
         })
         
         self._save_session_data()
-        print(f"💡 Added insight:")
+        print("💡 Added insight:")
         print(f"   {insight}")
     
     def record_tool_usage(self, tool_name: str, purpose: str, effectiveness: str = "effective"):
@@ -187,7 +187,7 @@ class SessionNotebook:
         self._save_session_data()
         self._update_notebook()
         
-        print(f"✅ Session completed:")
+        print("✅ Session completed:")
         print(f"   Duration: {duration}")
         print(f"   Issues resolved: {len(self.current_session['issues'])}")
         print(f"   Methods documented: {len(self.current_session['methods'])}")

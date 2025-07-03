@@ -5,7 +5,7 @@ This module defines protocols for event notification, status updates,
 error reporting, and message broadcasting throughout the system.
 """
 
-from typing import Protocol, Dict, Any, List, Optional, Union, Callable, AsyncIterator
+from typing import Protocol, Dict, Any, List, Optional, Union, AsyncIterator
 from abc import abstractmethod
 from enum import Enum
 from datetime import datetime

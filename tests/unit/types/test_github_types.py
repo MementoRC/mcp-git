@@ -9,8 +9,6 @@ Do not modify tests to match implementation - implementation must satisfy these 
 """
 
 import pytest
-from typing import List, Optional, Dict, Any
-from unittest.mock import Mock, patch
 from datetime import datetime
 
 # Import the types we expect to be implemented

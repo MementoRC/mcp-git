@@ -1,5 +1,5 @@
 from abc import abstractmethod
-from typing import Protocol, Dict, Any, Optional
+from typing import Protocol, Dict, Optional
 
 
 class MetricsProtocol(Protocol):

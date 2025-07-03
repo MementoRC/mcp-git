@@ -5,7 +5,7 @@ Provides mock responses for GitHub API calls to enable testing
 without actual API requests.
 """
 
-from typing import Dict, Any, List
+from typing import Dict, Any
 import pytest
 from unittest.mock import MagicMock
 

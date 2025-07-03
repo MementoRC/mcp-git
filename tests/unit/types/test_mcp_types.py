@@ -9,9 +9,6 @@ Do not modify tests to match implementation - implementation must satisfy these 
 """
 
 import pytest
-from typing import Dict, Any, List, Optional, Union
-from unittest.mock import Mock, patch
-import json
 
 # Import the types we expect to be implemented
 # These imports will fail initially (RED phase) - that's expected!
