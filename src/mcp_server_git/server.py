@@ -445,11 +445,6 @@ from mcp_server_git.git.operations import (
     git_push,
     git_pull,
     git_diff_branches,
-    git_rebase,
-    git_merge,
-    git_cherry_pick,
-    git_abort,
-    git_continue,
 )
 
 async def github_get_pr_checks(repo_owner: str, repo_name: str, pr_number: int, status: str | None = None, conclusion: str | None = None) -> str:
