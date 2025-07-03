@@ -59,6 +59,10 @@ markers = [
 target-version = "py310"
 line-length = 88
 
+[tool.ruff.lint]
+# Ignore F821 (undefined name) during TDD phase where type implementations follow tests
+ignore = ["F821"]
+
 [tool.ruff.format]
 # Ensure consistent formatting across ruff versions
 quote-style = "double"
