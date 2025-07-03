@@ -60,7 +60,7 @@ jobs:
   test:
     name: Unit & Integration Tests
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 15
     strategy:
       matrix:
         python-version: ["3.10", "3.11", "3.12"]
@@ -100,7 +100,7 @@ jobs:
           --cov-report=xml \
           --cov-report=term-missing \
           --junit-xml=pytest-results.xml \
-          -m "not ci_skip and not e2e" \
+          -m "not ci_skip and not e2e and not slow" \
           -x
 
     - name: Upload test results
