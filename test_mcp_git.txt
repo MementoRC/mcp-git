@@ -1,2 +1,0 @@
-This is a test file for testing MCP git server operations.
-Testing staging and commit functionality.
