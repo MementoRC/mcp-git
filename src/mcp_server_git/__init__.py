@@ -48,8 +48,9 @@ def main(
     logger = logging.getLogger()
     logger.setLevel(logging_level)
 
-    # Console handler (stderr)
-    console_handler = logging.StreamHandler(sys.stderr)
+    # Console handler (stderr) - import SafeStreamHandler
+    from .logging_config import SafeStreamHandler
+    console_handler = SafeStreamHandler(sys.stderr)
     console_handler.setLevel(logging_level)
     console_formatter = logging.Formatter(
         "%(asctime)s [%(levelname)s] %(name)s: %(message)s"

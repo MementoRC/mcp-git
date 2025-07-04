@@ -4,7 +4,7 @@ import sys
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Sequence
+from typing import Sequence, Optional
 
 import aiohttp
 import git

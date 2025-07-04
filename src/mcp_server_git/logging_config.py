@@ -3,6 +3,24 @@ import json
 import sys
 
 
+class SafeStreamHandler(logging.StreamHandler):
+    """
+    Stream handler that gracefully handles closed streams during shutdown.
+    """
+    
+    def emit(self, record):
+        try:
+            super().emit(record)
+        except (ValueError, OSError) as e:
+            # Handle closed file errors during shutdown
+            if "closed file" in str(e).lower() or "bad file descriptor" in str(e).lower():
+                # Silently ignore - this is expected during shutdown
+                pass
+            else:
+                # Re-raise other stream errors
+                raise
+
+
 class StructuredLogFormatter(logging.Formatter):
     """
     Formats log records as structured JSON with contextual fields.
@@ -31,11 +49,11 @@ class StructuredLogFormatter(logging.Formatter):
 def configure_logging(log_level: str = "INFO") -> None:
     """
     Centralized logging configuration for MCP Git Server.
-    Sets up root logger with structured JSON output.
+    Sets up root logger with structured JSON output and safe stream handling.
     """
     root_logger = logging.getLogger()
     root_logger.handlers.clear()
-    handler = logging.StreamHandler(sys.stderr)
+    handler = SafeStreamHandler(sys.stderr)
     formatter = StructuredLogFormatter()
     handler.setFormatter(formatter)
     root_logger.addHandler(handler)
