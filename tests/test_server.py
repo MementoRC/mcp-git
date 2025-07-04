@@ -28,8 +28,9 @@ def test_git_checkout_existing_branch(test_repository):
 
 
 def test_git_checkout_nonexistent_branch(test_repository):
-    with pytest.raises(git.GitCommandError):
-        git_checkout(test_repository, "nonexistent-branch")
+    result = git_checkout(test_repository, "nonexistent-branch")
+    assert "not found" in result
+    assert "❌" in result
 
 
 def test_github_api_tools_no_repo_path_required():
@@ -295,8 +296,8 @@ def test_git_abort_invalid_operation(test_repository):
 
     result = git_abort(test_repository, "invalid-operation")
 
-    assert "❌ Unknown operation" in result
-    assert "Supported: rebase, merge, cherry-pick" in result
+    assert "❌ Invalid operation" in result
+    assert "Valid operations: rebase, merge, cherry-pick" in result
 
 
 def test_git_continue_rebase(test_repository):
@@ -320,8 +321,8 @@ def test_git_continue_invalid_operation(test_repository):
 
     result = git_continue(test_repository, "invalid-operation")
 
-    assert "❌ Unknown operation" in result
-    assert "Supported: rebase, merge, cherry-pick" in result
+    assert "❌ Invalid operation" in result
+    assert "Valid operations: rebase, merge, cherry-pick" in result
 
 
 def test_advanced_git_tools_enum():

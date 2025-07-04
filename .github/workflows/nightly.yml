@@ -91,7 +91,7 @@ jobs:
         # Test 1: Basic imports
         try:
             from mcp_server_git.models.notifications import ClientNotification
-            print('✅ Basic imports work')
+            print('SUCCESS: Basic imports work')
         except Exception as e:
             print(f'❌ Import failed: {e}')
             exit(1)
@@ -101,7 +101,7 @@ jobs:
             from mcp_server_git.models.notifications import parse_client_notification
             test_data = {'type': 'notifications/cancelled', 'params': {'requestId': 'test-123'}}
             result = parse_client_notification(test_data)
-            print('✅ Notification parsing works')
+            print('SUCCESS: Notification parsing works')
         except Exception as e:
             print(f'❌ Notification parsing failed: {e}')
             exit(1)
@@ -132,7 +132,7 @@ jobs:
         echo "🔍 Testing server with large repository..."
 
         # Test that the models can handle large data
-        uv run python -c "from mcp_server_git.models.notifications import parse_client_notification; large_data = {'type': 'notifications/cancelled', 'params': {'requestId': 'test', 'data': 'x' * 10000}}; result = parse_client_notification(large_data); print('✅ Large payload handling works')"
+        uv run python -c "from mcp_server_git.models.notifications import parse_client_notification; large_data = {'type': 'notifications/cancelled', 'params': {'requestId': 'test', 'data': 'x' * 10000}}; result = parse_client_notification(large_data); print('SUCCESS: Large payload handling works')"
 
   # Test across different operating systems
   cross-platform:
@@ -168,7 +168,7 @@ jobs:
 
     - name: Run basic validation
       run: |
-        uv run python -c "import mcp_server_git; from mcp_server_git.models.notifications import ClientNotification; import platform; import sys; print(f'✅ MCP Git Server works on {platform.system()} with Python {sys.version_info[:2]}')"
+        uv run python -c "import mcp_server_git; from mcp_server_git.models.notifications import ClientNotification; import platform; import sys; print(f'SUCCESS: MCP Git Server works on {platform.system()} with Python {sys.version_info[:2]}')"
 
     - name: Test Git operations
       run: |
@@ -193,7 +193,7 @@ jobs:
         echo "" >> $GITHUB_STEP_SUMMARY
 
         if [[ "${{ needs.extended-mcp-validation.result }}" == "success" && "${{ needs.cross-platform.result }}" == "success" ]]; then
-          echo "✅ **All nightly validations passed!**" >> $GITHUB_STEP_SUMMARY
+          echo "SUCCESS: **All nightly validations passed!**" >> $GITHUB_STEP_SUMMARY
         else
           echo "❌ **Some nightly validations failed. Please review.**" >> $GITHUB_STEP_SUMMARY
         fi

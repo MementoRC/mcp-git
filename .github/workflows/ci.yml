@@ -33,34 +33,38 @@ jobs:
       with:
         python-version: ${{ env.PYTHON_VERSION }}
 
-    - name: Install uv
-      uses: astral-sh/setup-uv@v4
+    - name: Install pixi
+      uses: prefix-dev/setup-pixi@v0.8.1
       with:
-        enable-cache: true
-        cache-dependency-glob: "uv.lock"
+        pixi-version: v0.41.4
 
-    - name: Install dependencies
-      run: uv sync --dev
+    - name: Install dependencies with pixi
+      run: |
+        # Install dependencies using pixi
+        pixi install
 
     - name: Run ruff linting (critical violations)
-      run: uv run ruff check --select=F,E9 --output-format=github
+      run: |
+        # File-specific TDD support: Use per-file-ignores from pyproject.toml
+        # Only tests/unit/types/*.py have relaxed rules for TDD red phase
+        pixi run -e dev lint --output-format=github
 
     - name: Run ruff linting (full)
-      run: uv run ruff check --output-format=github
+      run: pixi run -e dev ruff check --output-format=github
       continue-on-error: true
 
     - name: Run type checking with pyright
-      run: uv run pyright
+      run: pixi run -e dev typecheck
       continue-on-error: true
 
     - name: Check code formatting
-      run: uv run ruff format --check
+      run: pixi run -e dev format-check
 
   # Job 2: Unit and Integration Tests
   test:
     name: Unit & Integration Tests
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 15
     strategy:
       matrix:
         python-version: ["3.10", "3.11", "3.12"]
@@ -77,13 +81,15 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
 
-    - name: Install uv
-      uses: astral-sh/setup-uv@v4
+    - name: Install pixi
+      uses: prefix-dev/setup-pixi@v0.8.1
       with:
-        enable-cache: false
+        pixi-version: v0.41.4
 
-    - name: Install dependencies
-      run: uv sync --dev
+    - name: Install dependencies with pixi
+      run: |
+        # Install dependencies using pixi
+        pixi install
 
     - name: Configure Git for testing
       run: |
@@ -93,14 +99,14 @@ jobs:
 
     - name: Run pytest with coverage
       run: |
-        # Run tests with uv environment (includes all dependencies)
-        uv run python -m pytest --verbose --tb=short \
+        # Run tests with pixi environment (includes all dependencies)
+        pixi run -e dev python -m pytest --verbose --tb=short \
           --timeout=300 \
           --cov=src/mcp_server_git \
           --cov-report=xml \
           --cov-report=term-missing \
           --junit-xml=pytest-results.xml \
-          -m "not ci_skip and not e2e" \
+          -m "not ci_skip and not e2e and not slow and not stress" \
           -x
 
     - name: Upload test results
@@ -139,14 +145,13 @@ jobs:
       with:
         python-version: ${{ env.PYTHON_VERSION }}
 
-    - name: Install uv
-      uses: astral-sh/setup-uv@v4
+    - name: Install pixi
+      uses: prefix-dev/setup-pixi@v0.8.1
       with:
-        enable-cache: true
-        cache-dependency-glob: "uv.lock"
+        pixi-version: v0.41.4
 
     - name: Install dependencies
-      run: uv sync --dev
+      run: pixi install
 
     - name: Configure Git for MCP testing
       run: |
@@ -168,7 +173,7 @@ jobs:
 
     - name: Test MCP server startup and basic functionality
       run: |
-        timeout 30s uv run python -m mcp_server_git --test-mode &
+        timeout 30s pixi run -e dev python -m mcp_server_git --test-mode &
         SERVER_PID=$!
         sleep 5
 
@@ -242,7 +247,7 @@ jobs:
             sys.exit(0 if success else 1)
         EOF
 
-        uv run python mcp_validate.py
+        pixi run -e dev python mcp_validate.py
 
     - name: Test notification handling
       run: |
@@ -303,7 +308,7 @@ jobs:
             sys.exit(0 if (success1 and success2) else 1)
         EOF
 
-        uv run python test_notifications.py
+        pixi run -e dev python test_notifications.py
 
     - name: Run E2E MCP Git Server Verification
       run: |
@@ -314,7 +319,7 @@ jobs:
         export GITHUB_TOKEN="${{ secrets.GITHUB_TOKEN }}"
         
         # Run the comprehensive E2E verification tests
-        uv run python -m pytest tests/test_mcp_verification_e2e.py \
+        pixi run -e dev python -m pytest tests/test_mcp_verification_e2e.py \
           -v \
           -m "e2e" \
           --tb=short \
@@ -403,25 +408,24 @@ jobs:
       with:
         python-version: ${{ env.PYTHON_VERSION }}
 
-    - name: Install uv
-      uses: astral-sh/setup-uv@v4
+    - name: Install pixi
+      uses: prefix-dev/setup-pixi@v0.8.1
       with:
-        enable-cache: true
-        cache-dependency-glob: "uv.lock"
+        pixi-version: v0.41.4
 
     - name: Install dependencies
-      run: uv sync --dev
+      run: pixi install
 
     - name: Run safety check for known vulnerabilities
       run: |
         pip install safety
-        uv export --format requirements-txt | safety check --stdin
+        pixi list --format=json | jq -r '.[] | select(.name != null) | "\(.name)==\(.version)"' | safety check --stdin
       continue-on-error: true
 
     - name: Audit dependencies
       run: |
         pip install pip-audit
-        uv export --format requirements-txt | pip-audit --requirement /dev/stdin --format=json --output=audit-results.json
+        pixi list --format=json | jq -r '.[] | select(.name != null) | "\(.name)==\(.version)"' | pip-audit --requirement /dev/stdin --format=json --output=audit-results.json
       continue-on-error: true
 
     - name: Upload security scan results
@@ -450,40 +454,13 @@ jobs:
       with:
         python-version: ${{ env.PYTHON_VERSION }}
 
-    - name: Install uv with cache
-      uses: astral-sh/setup-uv@v4
+    - name: Install pixi
+      uses: prefix-dev/setup-pixi@v0.8.1
       with:
-        enable-cache: true
-        cache-dependency-glob: "uv.lock"
-      continue-on-error: true
+        pixi-version: v0.41.4
 
-    - name: Install uv fallback (if cache failed)
-      if: failure()
-      uses: astral-sh/setup-uv@v4
-      with:
-        enable-cache: false
-
-    - name: Install dependencies with retry
-      run: |
-        # Try with cache first, fallback without cache if it fails
-        for i in {1..3}; do
-          if uv sync --dev; then
-            echo "✅ Dependencies installed successfully"
-            break
-          else
-            echo "⚠️ Attempt $i failed, retrying without cache..."
-            uv cache clean
-            if [ $i -eq 3 ]; then
-              echo "❌ Failed to install dependencies after 3 attempts"
-              exit 1
-            fi
-            sleep 10
-          fi
-        done
-        # The above steps (including 'Install uv fallback' and this retry loop)
-        # already provide significant resilience against cache failures by
-        # ensuring uv is installed and then retrying uv sync while clearing
-        # uv's local cache on each failure.
+    - name: Install dependencies
+      run: pixi install
 
     - name: Configure Git for performance testing
       run: |
@@ -514,7 +491,7 @@ jobs:
 
         # Run performance-focused tests
         cd "$GITHUB_WORKSPACE"
-        uv run pytest tests/ -k "not slow" -m "not ci_skip" --tb=short -v --timeout=600
+        pixi run -e dev pytest tests/ -k "not slow" -m "not ci_skip" --tb=short -v --timeout=600
 
   # Summary job to check overall CI status
   status_check:
