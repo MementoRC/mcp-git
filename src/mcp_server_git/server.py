@@ -24,6 +24,30 @@ from mcp.types import (
 )
 from pydantic import BaseModel
 
+# Import canonical git operations from git/operations.py
+from mcp_server_git.git.operations import (
+    git_status,
+    git_diff_unstaged,
+    git_diff_staged,
+    git_diff,
+    git_commit,
+    git_add,
+    git_reset,
+    git_log,
+    git_create_branch,
+    git_checkout,
+    git_show,
+    git_init,
+    git_push,
+    git_pull,
+    git_diff_branches,
+    git_rebase,
+    git_merge,
+    git_cherry_pick,
+    git_abort,
+    git_continue,
+)
+
 
 def load_environment_variables(repository_path: Path | None = None):
     """Load environment variables from .env files with proper precedence.
@@ -517,30 +541,6 @@ class GitTools(str, Enum):
     GITHUB_GET_PR_STATUS = "github_get_pr_status"
     GITHUB_GET_PR_FILES = "github_get_pr_files"
 
-
-# Import canonical git operations from git/operations.py
-from mcp_server_git.git.operations import (
-    git_status,
-    git_diff_unstaged,
-    git_diff_staged,
-    git_diff,
-    git_commit,
-    git_add,
-    git_reset,
-    git_log,
-    git_create_branch,
-    git_checkout,
-    git_show,
-    git_init,
-    git_push,
-    git_pull,
-    git_diff_branches,
-    git_rebase,
-    git_merge,
-    git_cherry_pick,
-    git_abort,
-    git_continue,
-)
 
 # Export functions for test imports - these are used by tests that import from this module
 __all__ = [
