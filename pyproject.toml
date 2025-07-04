@@ -74,6 +74,9 @@ platforms = ["linux-64", "osx-64", "osx-arm64", "win-64"]
 python = ">=3.10"
 psutil = ">=5.9.0"
 
+[tool.pixi.pypi-dependencies]
+mcp-server-git = { path = ".", editable = true }
+
 [tool.pixi.feature.dev.dependencies]
 pytest = ">=8.0.0"
 pytest-asyncio = ">=0.21.0"
@@ -105,3 +108,5 @@ install-pre-commit = "pre-commit install"
 clean = "rm -rf __pycache__ .pytest_cache .coverage htmlcov .ruff_cache"
 serve = "python -m mcp_server_git"
 serve-simple = "python -m mcp_server_git.server_simple"
+mcp-server = { cmd = "python -m mcp_server_git", env = { PYTHONPATH = "src" } }
+install-editable = "pip install -e ."
