@@ -2257,3 +2257,7 @@ Provide specific, actionable recommendations for each area."""
             logger.info("💥 Unexpected server error - attempting graceful recovery")
         
         # Don't re-raise - let server shutdown gracefully instead of crashing
+
+
+# Alias for backward compatibility
+main = serve
