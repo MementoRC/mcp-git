@@ -1,5 +1,6 @@
 import logging
 import os
+import sys
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
@@ -1057,7 +1058,7 @@ async def github_get_pr_files(
         return f"Error getting PR files: {str(e)}"
 
 
-async def serve(repository: Path | None) -> None:
+async def serve(repository: Path | None, test_mode: bool = False) -> None:
     logger = logging.getLogger(__name__)
 
     # Load environment variables from .env files with proper precedence
@@ -2474,6 +2475,12 @@ Provide specific, actionable recommendations for each area."""
         )
 
     options = server.create_initialization_options()
+
+    # Handle test mode for CI validation
+    if test_mode:
+        logger.info("🧪 Test mode: MCP server initialized successfully")
+        print("✅ MCP server started successfully", file=sys.stderr)
+        return
 
     # Enhanced server run with transport-level error recovery
     try:
