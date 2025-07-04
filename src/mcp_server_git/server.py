@@ -503,6 +503,11 @@ class GitTools(str, Enum):
     PUSH = "git_push"
     PULL = "git_pull"
     DIFF_BRANCHES = "git_diff_branches"
+    REBASE = "git_rebase"
+    MERGE = "git_merge"
+    CHERRY_PICK = "git_cherry_pick"
+    ABORT = "git_abort"
+    CONTINUE = "git_continue"
     # GitHub API Tools
     GITHUB_GET_PR_CHECKS = "github_get_pr_checks"
     GITHUB_GET_FAILING_JOBS = "github_get_failing_jobs"
@@ -536,6 +541,33 @@ from mcp_server_git.git.operations import (
     git_abort,
     git_continue,
 )
+
+# Export functions for test imports - these are used by tests that import from this module
+__all__ = [
+    "git_status",
+    "git_diff_unstaged", 
+    "git_diff_staged",
+    "git_diff",
+    "git_commit",
+    "git_add",
+    "git_reset", 
+    "git_log",
+    "git_create_branch",
+    "git_checkout",
+    "git_show",
+    "git_init",
+    "git_push",
+    "git_pull",
+    "git_diff_branches",
+    "git_rebase",
+    "git_merge", 
+    "git_cherry_pick",
+    "git_abort",
+    "git_continue",
+    "GitTools",
+    "serve",
+    "main",
+]
 
 
 async def github_get_pr_checks(

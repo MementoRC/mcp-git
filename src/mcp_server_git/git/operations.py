@@ -452,9 +452,16 @@ def git_rebase(repo: Repo, target_branch: str, interactive: bool = False) -> str
         current_branch = repo.active_branch.name
 
         # Check if target branch exists
-        all_branches = [branch.name for branch in repo.branches] + [
-            ref.name.split("/")[-1] for ref in repo.remote().refs
-        ]
+        all_branches = [branch.name for branch in repo.branches]
+        
+        # Add remote branches if remotes exist
+        try:
+            if repo.remotes:
+                for remote in repo.remotes:
+                    all_branches.extend([ref.name.split("/")[-1] for ref in remote.refs])
+        except Exception:
+            # Ignore remote access errors (e.g., no remotes configured)
+            pass
         if target_branch not in all_branches:
             return f"❌ Target branch '{target_branch}' not found"
 
@@ -491,9 +498,16 @@ def git_merge(
         current_branch = repo.active_branch.name
 
         # Check if source branch exists
-        all_branches = [branch.name for branch in repo.branches] + [
-            ref.name.split("/")[-1] for ref in repo.remote().refs
-        ]
+        all_branches = [branch.name for branch in repo.branches]
+        
+        # Add remote branches if remotes exist
+        try:
+            if repo.remotes:
+                for remote in repo.remotes:
+                    all_branches.extend([ref.name.split("/")[-1] for ref in remote.refs])
+        except Exception:
+            # Ignore remote access errors (e.g., no remotes configured)
+            pass
         if source_branch not in all_branches:
             return f"❌ Source branch '{source_branch}' not found"
 

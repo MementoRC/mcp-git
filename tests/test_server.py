@@ -296,8 +296,8 @@ def test_git_abort_invalid_operation(test_repository):
 
     result = git_abort(test_repository, "invalid-operation")
 
-    assert "❌ Unknown operation" in result
-    assert "Supported: rebase, merge, cherry-pick" in result
+    assert "❌ Invalid operation" in result
+    assert "Valid operations: rebase, merge, cherry-pick" in result
 
 
 def test_git_continue_rebase(test_repository):
@@ -321,8 +321,8 @@ def test_git_continue_invalid_operation(test_repository):
 
     result = git_continue(test_repository, "invalid-operation")
 
-    assert "❌ Unknown operation" in result
-    assert "Supported: rebase, merge, cherry-pick" in result
+    assert "❌ Invalid operation" in result
+    assert "Valid operations: rebase, merge, cherry-pick" in result
 
 
 def test_advanced_git_tools_enum():
