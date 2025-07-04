@@ -47,18 +47,18 @@ jobs:
       run: |
         # File-specific TDD support: Use per-file-ignores from pyproject.toml
         # Only tests/unit/types/*.py have relaxed rules for TDD red phase
-        pixi run lint --output-format=github
+        pixi run -e dev lint --output-format=github
 
     - name: Run ruff linting (full)
-      run: pixi run ruff check --output-format=github
+      run: pixi run -e dev ruff check --output-format=github
       continue-on-error: true
 
     - name: Run type checking with pyright
-      run: pixi run typecheck
+      run: pixi run -e dev typecheck
       continue-on-error: true
 
     - name: Check code formatting
-      run: pixi run format-check
+      run: pixi run -e dev format-check
 
   # Job 2: Unit and Integration Tests
   test:
@@ -100,7 +100,7 @@ jobs:
     - name: Run pytest with coverage
       run: |
         # Run tests with pixi environment (includes all dependencies)
-        pixi run python -m pytest --verbose --tb=short \
+        pixi run -e dev python -m pytest --verbose --tb=short \
           --timeout=300 \
           --cov=src/mcp_server_git \
           --cov-report=xml \
@@ -173,7 +173,7 @@ jobs:
 
     - name: Test MCP server startup and basic functionality
       run: |
-        timeout 30s pixi run python -m mcp_server_git --test-mode &
+        timeout 30s pixi run -e dev python -m mcp_server_git --test-mode &
         SERVER_PID=$!
         sleep 5
 
@@ -247,7 +247,7 @@ jobs:
             sys.exit(0 if success else 1)
         EOF
 
-        pixi run python mcp_validate.py
+        pixi run -e dev python mcp_validate.py
 
     - name: Test notification handling
       run: |
@@ -308,7 +308,7 @@ jobs:
             sys.exit(0 if (success1 and success2) else 1)
         EOF
 
-        pixi run python test_notifications.py
+        pixi run -e dev python test_notifications.py
 
     - name: Run E2E MCP Git Server Verification
       run: |
@@ -319,7 +319,7 @@ jobs:
         export GITHUB_TOKEN="${{ secrets.GITHUB_TOKEN }}"
         
         # Run the comprehensive E2E verification tests
-        pixi run python -m pytest tests/test_mcp_verification_e2e.py \
+        pixi run -e dev python -m pytest tests/test_mcp_verification_e2e.py \
           -v \
           -m "e2e" \
           --tb=short \
@@ -491,7 +491,7 @@ jobs:
 
         # Run performance-focused tests
         cd "$GITHUB_WORKSPACE"
-        pixi run pytest tests/ -k "not slow" -m "not ci_skip" --tb=short -v --timeout=600
+        pixi run -e dev pytest tests/ -k "not slow" -m "not ci_skip" --tb=short -v --timeout=600
 
   # Summary job to check overall CI status
   status_check:
