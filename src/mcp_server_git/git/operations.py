@@ -593,3 +593,210 @@ def git_continue(repo: Repo, operation: str) -> str:
         return f"❌ Continue {operation} failed: {str(e)}"
     except Exception as e:
         return f"❌ Continue error: {str(e)}"
+
+
+def git_remote_list(repo: Repo, verbose: bool = False) -> str:
+    """List all remote repositories"""
+    try:
+        if verbose:
+            return repo.git.remote("-v")
+        else:
+            return repo.git.remote()
+    except GitCommandError as e:
+        return f"❌ Remote list failed: {str(e)}"
+    except Exception as e:
+        return f"❌ Remote list error: {str(e)}"
+
+
+def git_remote_add(repo: Repo, name: str, url: str) -> str:
+    """Add a new remote repository"""
+    try:
+        repo.git.remote("add", name, url)
+        return f"✅ Successfully added remote '{name}' -> {url}"
+    except GitCommandError as e:
+        return f"❌ Remote add failed: {str(e)}"
+    except Exception as e:
+        return f"❌ Remote add error: {str(e)}"
+
+
+def git_remote_remove(repo: Repo, name: str) -> str:
+    """Remove a remote repository"""
+    try:
+        repo.git.remote("remove", name)
+        return f"✅ Successfully removed remote '{name}'"
+    except GitCommandError as e:
+        return f"❌ Remote remove failed: {str(e)}"
+    except Exception as e:
+        return f"❌ Remote remove error: {str(e)}"
+
+
+def git_remote_rename(repo: Repo, old_name: str, new_name: str) -> str:
+    """Rename a remote repository"""
+    try:
+        repo.git.remote("rename", old_name, new_name)
+        return f"✅ Successfully renamed remote '{old_name}' to '{new_name}'"
+    except GitCommandError as e:
+        return f"❌ Remote rename failed: {str(e)}"
+    except Exception as e:
+        return f"❌ Remote rename error: {str(e)}"
+
+
+def git_remote_set_url(repo: Repo, name: str, url: str) -> str:
+    """Set URL for a remote repository"""
+    try:
+        repo.git.remote("set-url", name, url)
+        return f"✅ Successfully set URL for remote '{name}' -> {url}"
+    except GitCommandError as e:
+        return f"❌ Remote set-url failed: {str(e)}"
+    except Exception as e:
+        return f"❌ Remote set-url error: {str(e)}"
+
+
+def git_remote_get_url(repo: Repo, name: str) -> str:
+    """Get URL for a remote repository"""
+    try:
+        url = repo.git.remote("get-url", name)
+        return f"Remote '{name}' URL: {url}"
+    except GitCommandError as e:
+        return f"❌ Remote get-url failed: {str(e)}"
+    except Exception as e:
+        return f"❌ Remote get-url error: {str(e)}"
+
+
+def git_fetch(repo: Repo, remote: str = "origin", branch: Optional[str] = None, prune: bool = False) -> str:
+    """Fetch changes from remote repository"""
+    try:
+        args = [remote]
+        if branch:
+            args.append(branch)
+        if prune:
+            args.append("--prune")
+        
+        repo.git.fetch(*args)
+        
+        if branch:
+            return f"✅ Successfully fetched {remote}/{branch}" + (" (with prune)" if prune else "")
+        else:
+            return f"✅ Successfully fetched from {remote}" + (" (with prune)" if prune else "")
+    except GitCommandError as e:
+        return f"❌ Fetch failed: {str(e)}"
+    except Exception as e:
+        return f"❌ Fetch error: {str(e)}"
+
+
+def git_stash_list(repo: Repo) -> str:
+    """List all stashes"""
+    try:
+        stash_list = repo.git.stash("list")
+        if not stash_list.strip():
+            return "No stashes found"
+        return f"Stash list:\n{stash_list}"
+    except GitCommandError as e:
+        return f"❌ Stash list failed: {str(e)}"
+    except Exception as e:
+        return f"❌ Stash list error: {str(e)}"
+
+
+def git_stash_push(repo: Repo, message: Optional[str] = None, include_untracked: bool = False) -> str:
+    """Create a new stash"""
+    try:
+        args = ["push"]
+        if include_untracked:
+            args.append("--include-untracked")
+        if message:
+            args.extend(["-m", message])
+        
+        repo.git.stash(*args)
+        return f"✅ Successfully created stash" + (f": {message}" if message else "")
+    except GitCommandError as e:
+        return f"❌ Stash push failed: {str(e)}"
+    except Exception as e:
+        return f"❌ Stash push error: {str(e)}"
+
+
+def git_stash_pop(repo: Repo, stash_id: Optional[str] = None) -> str:
+    """Apply and remove a stash"""
+    try:
+        if stash_id:
+            repo.git.stash("pop", stash_id)
+            return f"✅ Successfully popped stash {stash_id}"
+        else:
+            repo.git.stash("pop")
+            return "✅ Successfully popped latest stash"
+    except GitCommandError as e:
+        return f"❌ Stash pop failed: {str(e)}"
+    except Exception as e:
+        return f"❌ Stash pop error: {str(e)}"
+
+
+def git_stash_drop(repo: Repo, stash_id: Optional[str] = None) -> str:
+    """Remove a stash without applying it"""
+    try:
+        if stash_id:
+            repo.git.stash("drop", stash_id)
+            return f"✅ Successfully dropped stash {stash_id}"
+        else:
+            repo.git.stash("drop")
+            return "✅ Successfully dropped latest stash"
+    except GitCommandError as e:
+        return f"❌ Stash drop failed: {str(e)}"
+    except Exception as e:
+        return f"❌ Stash drop error: {str(e)}"
+
+
+def git_tag_list(repo: Repo) -> str:
+    """List all tags"""
+    try:
+        tag_list = repo.git.tag("-l")
+        if not tag_list.strip():
+            return "No tags found"
+        return f"Tags:\n{tag_list}"
+    except GitCommandError as e:
+        return f"❌ Tag list failed: {str(e)}"
+    except Exception as e:
+        return f"❌ Tag list error: {str(e)}"
+
+
+def git_tag_create(repo: Repo, tag_name: str, message: Optional[str] = None, commit: Optional[str] = None) -> str:
+    """Create a new tag"""
+    try:
+        args = [tag_name]
+        if message:
+            args.extend(["-m", message])
+        if commit:
+            args.append(commit)
+        
+        repo.git.tag(*args)
+        return f"✅ Successfully created tag '{tag_name}'" + (f" on {commit}" if commit else "")
+    except GitCommandError as e:
+        return f"❌ Tag create failed: {str(e)}"
+    except Exception as e:
+        return f"❌ Tag create error: {str(e)}"
+
+
+def git_tag_delete(repo: Repo, tag_name: str) -> str:
+    """Delete a tag"""
+    try:
+        repo.git.tag("-d", tag_name)
+        return f"✅ Successfully deleted tag '{tag_name}'"
+    except GitCommandError as e:
+        return f"❌ Tag delete failed: {str(e)}"
+    except Exception as e:
+        return f"❌ Tag delete error: {str(e)}"
+
+
+def git_blame(repo: Repo, file_path: str, line_start: Optional[int] = None, line_end: Optional[int] = None) -> str:
+    """Show blame information for a file"""
+    try:
+        args = [file_path]
+        if line_start and line_end:
+            args.extend(["-L", f"{line_start},{line_end}"])
+        elif line_start:
+            args.extend(["-L", f"{line_start},+1"])
+        
+        blame_output = repo.git.blame(*args)
+        return f"Blame for {file_path}:\n{blame_output}"
+    except GitCommandError as e:
+        return f"❌ Blame failed: {str(e)}"
+    except Exception as e:
+        return f"❌ Blame error: {str(e)}"

@@ -47,6 +47,13 @@ from mcp_server_git.git.operations import (
     git_cherry_pick,
     git_abort,
     git_continue,
+    git_remote_list,
+    git_remote_add,
+    git_remote_remove,
+    git_remote_rename,
+    git_remote_set_url,
+    git_remote_get_url,
+    git_fetch,
 )
 
 
@@ -453,6 +460,47 @@ class GitDiffBranches(BaseModel):
     compare_branch: str
 
 
+# Git Remote Models
+class GitRemoteList(BaseModel):
+    repo_path: str
+    verbose: bool = False
+
+
+class GitRemoteAdd(BaseModel):
+    repo_path: str
+    name: str
+    url: str
+
+
+class GitRemoteRemove(BaseModel):
+    repo_path: str
+    name: str
+
+
+class GitRemoteRename(BaseModel):
+    repo_path: str
+    old_name: str
+    new_name: str
+
+
+class GitRemoteSetUrl(BaseModel):
+    repo_path: str
+    name: str
+    url: str
+
+
+class GitRemoteGetUrl(BaseModel):
+    repo_path: str
+    name: str
+
+
+class GitFetch(BaseModel):
+    repo_path: str
+    remote: str = "origin"
+    branch: Optional[str] = None
+    prune: bool = False
+
+
 # GitHub API Models
 class GitHubGetPRChecks(BaseModel):
     repo_owner: str
@@ -533,6 +581,14 @@ class GitTools(str, Enum):
     CHERRY_PICK = "git_cherry_pick"
     ABORT = "git_abort"
     CONTINUE = "git_continue"
+    # Remote operations
+    REMOTE_LIST = "git_remote_list"
+    REMOTE_ADD = "git_remote_add"
+    REMOTE_REMOVE = "git_remote_remove"
+    REMOTE_RENAME = "git_remote_rename"
+    REMOTE_SET_URL = "git_remote_set_url"
+    REMOTE_GET_URL = "git_remote_get_url"
+    FETCH = "git_fetch"
     # GitHub API Tools
     GITHUB_GET_PR_CHECKS = "github_get_pr_checks"
     GITHUB_GET_FAILING_JOBS = "github_get_failing_jobs"
@@ -565,6 +621,13 @@ __all__ = [
     "git_cherry_pick",
     "git_abort",
     "git_continue",
+    "git_remote_list",
+    "git_remote_add",
+    "git_remote_remove",
+    "git_remote_rename",
+    "git_remote_set_url",
+    "git_remote_get_url",
+    "git_fetch",
     "GitTools",
     "serve",
     "main",
@@ -2092,6 +2155,42 @@ Provide specific, actionable recommendations for each area."""
                 description="Show differences between two branches",
                 inputSchema=GitDiffBranches.model_json_schema(),
             ),
+            # Remote Operations
+            Tool(
+                name=GitTools.REMOTE_LIST,
+                description="List remote repositories",
+                inputSchema=GitRemoteList.model_json_schema(),
+            ),
+            Tool(
+                name=GitTools.REMOTE_ADD,
+                description="Add a new remote repository",
+                inputSchema=GitRemoteAdd.model_json_schema(),
+            ),
+            Tool(
+                name=GitTools.REMOTE_REMOVE,
+                description="Remove a remote repository",
+                inputSchema=GitRemoteRemove.model_json_schema(),
+            ),
+            Tool(
+                name=GitTools.REMOTE_RENAME,
+                description="Rename a remote repository",
+                inputSchema=GitRemoteRename.model_json_schema(),
+            ),
+            Tool(
+                name=GitTools.REMOTE_SET_URL,
+                description="Set URL for a remote repository",
+                inputSchema=GitRemoteSetUrl.model_json_schema(),
+            ),
+            Tool(
+                name=GitTools.REMOTE_GET_URL,
+                description="Get URL of a remote repository",
+                inputSchema=GitRemoteGetUrl.model_json_schema(),
+            ),
+            Tool(
+                name=GitTools.FETCH,
+                description="Fetch changes from remote repository",
+                inputSchema=GitFetch.model_json_schema(),
+            ),
             # GitHub API Tools
             Tool(
                 name=GitTools.GITHUB_GET_PR_CHECKS,
@@ -2269,7 +2368,7 @@ Provide specific, actionable recommendations for each area."""
                     )
                     return [
                         TextContent(
-                            type="text", text="Commit history:\n" + "\n".join(log)
+                            type="text", text="Commit history:\n" + log
                         )
                     ]
 
@@ -2306,6 +2405,40 @@ Provide specific, actionable recommendations for each area."""
                 case GitTools.DIFF_BRANCHES:
                     result = git_diff_branches(
                         repo, arguments["base_branch"], arguments["compare_branch"]
+                    )
+                    return [TextContent(type="text", text=result)]
+
+                # Remote Operations
+                case GitTools.REMOTE_LIST:
+                    result = git_remote_list(repo, arguments.get("verbose", False))
+                    return [TextContent(type="text", text=result)]
+
+                case GitTools.REMOTE_ADD:
+                    result = git_remote_add(repo, arguments["name"], arguments["url"])
+                    return [TextContent(type="text", text=result)]
+
+                case GitTools.REMOTE_REMOVE:
+                    result = git_remote_remove(repo, arguments["name"])
+                    return [TextContent(type="text", text=result)]
+
+                case GitTools.REMOTE_RENAME:
+                    result = git_remote_rename(repo, arguments["old_name"], arguments["new_name"])
+                    return [TextContent(type="text", text=result)]
+
+                case GitTools.REMOTE_SET_URL:
+                    result = git_remote_set_url(repo, arguments["name"], arguments["url"])
+                    return [TextContent(type="text", text=result)]
+
+                case GitTools.REMOTE_GET_URL:
+                    result = git_remote_get_url(repo, arguments["name"])
+                    return [TextContent(type="text", text=result)]
+
+                case GitTools.FETCH:
+                    result = git_fetch(
+                        repo,
+                        arguments.get("remote", "origin"),
+                        arguments.get("branch"),
+                        arguments.get("prune", False),
                     )
                     return [TextContent(type="text", text=result)]
 
