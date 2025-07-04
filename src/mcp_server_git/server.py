@@ -2480,6 +2480,10 @@ Provide specific, actionable recommendations for each area."""
     if test_mode:
         logger.info("🧪 Test mode: MCP server initialized successfully")
         print("✅ MCP server started successfully", file=sys.stderr)
+        # Stay alive briefly for CI detection, then exit gracefully
+        import asyncio
+        await asyncio.sleep(10)  # Stay alive for 10 seconds for CI to detect
+        logger.info("🧪 Test mode: Server stopping gracefully")
         return
 
     # Enhanced server run with transport-level error recovery
