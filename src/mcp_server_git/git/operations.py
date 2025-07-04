@@ -707,7 +707,7 @@ def git_stash_push(repo: Repo, message: Optional[str] = None, include_untracked:
             args.extend(["-m", message])
         
         repo.git.stash(*args)
-        return f"✅ Successfully created stash" + (f": {message}" if message else "")
+        return "✅ Successfully created stash" + (f": {message}" if message else "")
     except GitCommandError as e:
         return f"❌ Stash push failed: {str(e)}"
     except Exception as e:
