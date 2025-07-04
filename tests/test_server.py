@@ -28,8 +28,9 @@ def test_git_checkout_existing_branch(test_repository):
 
 
 def test_git_checkout_nonexistent_branch(test_repository):
-    with pytest.raises(git.GitCommandError):
-        git_checkout(test_repository, "nonexistent-branch")
+    result = git_checkout(test_repository, "nonexistent-branch")
+    assert "not found" in result
+    assert "❌" in result
 
 
 def test_github_api_tools_no_repo_path_required():
