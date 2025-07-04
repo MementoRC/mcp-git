@@ -530,6 +530,11 @@ from mcp_server_git.git.operations import (
     git_push,
     git_pull,
     git_diff_branches,
+    git_rebase,
+    git_merge,
+    git_cherry_pick,
+    git_abort,
+    git_continue,
 )
 
 
