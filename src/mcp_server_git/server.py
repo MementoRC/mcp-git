@@ -2482,6 +2482,7 @@ Provide specific, actionable recommendations for each area."""
         print("✅ MCP server started successfully", file=sys.stderr)
         # Stay alive briefly for CI detection, then exit gracefully
         import asyncio
+
         await asyncio.sleep(10)  # Stay alive for 10 seconds for CI to detect
         logger.info("🧪 Test mode: Server stopping gracefully")
         return
