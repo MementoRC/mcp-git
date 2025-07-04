@@ -453,12 +453,14 @@ def git_rebase(repo: Repo, target_branch: str, interactive: bool = False) -> str
 
         # Check if target branch exists
         all_branches = [branch.name for branch in repo.branches]
-        
+
         # Add remote branches if remotes exist
         try:
             if repo.remotes:
                 for remote in repo.remotes:
-                    all_branches.extend([ref.name.split("/")[-1] for ref in remote.refs])
+                    all_branches.extend(
+                        [ref.name.split("/")[-1] for ref in remote.refs]
+                    )
         except Exception:
             # Ignore remote access errors (e.g., no remotes configured)
             pass
@@ -499,12 +501,14 @@ def git_merge(
 
         # Check if source branch exists
         all_branches = [branch.name for branch in repo.branches]
-        
+
         # Add remote branches if remotes exist
         try:
             if repo.remotes:
                 for remote in repo.remotes:
-                    all_branches.extend([ref.name.split("/")[-1] for ref in remote.refs])
+                    all_branches.extend(
+                        [ref.name.split("/")[-1] for ref in remote.refs]
+                    )
         except Exception:
             # Ignore remote access errors (e.g., no remotes configured)
             pass

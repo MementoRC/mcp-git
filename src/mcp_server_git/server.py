@@ -545,12 +545,12 @@ class GitTools(str, Enum):
 # Export functions for test imports - these are used by tests that import from this module
 __all__ = [
     "git_status",
-    "git_diff_unstaged", 
+    "git_diff_unstaged",
     "git_diff_staged",
     "git_diff",
     "git_commit",
     "git_add",
-    "git_reset", 
+    "git_reset",
     "git_log",
     "git_create_branch",
     "git_checkout",
@@ -560,7 +560,7 @@ __all__ = [
     "git_pull",
     "git_diff_branches",
     "git_rebase",
-    "git_merge", 
+    "git_merge",
     "git_cherry_pick",
     "git_abort",
     "git_continue",
