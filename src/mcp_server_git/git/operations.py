@@ -663,7 +663,12 @@ def git_remote_get_url(repo: Repo, name: str) -> str:
         return f"❌ Remote get-url error: {str(e)}"
 
 
-def git_fetch(repo: Repo, remote: str = "origin", branch: Optional[str] = None, prune: bool = False) -> str:
+def git_fetch(
+    repo: Repo,
+    remote: str = "origin",
+    branch: Optional[str] = None,
+    prune: bool = False,
+) -> str:
     """Fetch changes from remote repository"""
     try:
         args = [remote]
@@ -671,13 +676,17 @@ def git_fetch(repo: Repo, remote: str = "origin", branch: Optional[str] = None, 
             args.append(branch)
         if prune:
             args.append("--prune")
-        
+
         repo.git.fetch(*args)
-        
+
         if branch:
-            return f"✅ Successfully fetched {remote}/{branch}" + (" (with prune)" if prune else "")
+            return f"✅ Successfully fetched {remote}/{branch}" + (
+                " (with prune)" if prune else ""
+            )
         else:
-            return f"✅ Successfully fetched from {remote}" + (" (with prune)" if prune else "")
+            return f"✅ Successfully fetched from {remote}" + (
+                " (with prune)" if prune else ""
+            )
     except GitCommandError as e:
         return f"❌ Fetch failed: {str(e)}"
     except Exception as e:
@@ -697,7 +706,9 @@ def git_stash_list(repo: Repo) -> str:
         return f"❌ Stash list error: {str(e)}"
 
 
-def git_stash_push(repo: Repo, message: Optional[str] = None, include_untracked: bool = False) -> str:
+def git_stash_push(
+    repo: Repo, message: Optional[str] = None, include_untracked: bool = False
+) -> str:
     """Create a new stash"""
     try:
         args = ["push"]
@@ -705,7 +716,7 @@ def git_stash_push(repo: Repo, message: Optional[str] = None, include_untracked:
             args.append("--include-untracked")
         if message:
             args.extend(["-m", message])
-        
+
         repo.git.stash(*args)
         return "✅ Successfully created stash" + (f": {message}" if message else "")
     except GitCommandError as e:
@@ -757,7 +768,12 @@ def git_tag_list(repo: Repo) -> str:
         return f"❌ Tag list error: {str(e)}"
 
 
-def git_tag_create(repo: Repo, tag_name: str, message: Optional[str] = None, commit: Optional[str] = None) -> str:
+def git_tag_create(
+    repo: Repo,
+    tag_name: str,
+    message: Optional[str] = None,
+    commit: Optional[str] = None,
+) -> str:
     """Create a new tag"""
     try:
         args = [tag_name]
@@ -765,9 +781,11 @@ def git_tag_create(repo: Repo, tag_name: str, message: Optional[str] = None, com
             args.extend(["-m", message])
         if commit:
             args.append(commit)
-        
+
         repo.git.tag(*args)
-        return f"✅ Successfully created tag '{tag_name}'" + (f" on {commit}" if commit else "")
+        return f"✅ Successfully created tag '{tag_name}'" + (
+            f" on {commit}" if commit else ""
+        )
     except GitCommandError as e:
         return f"❌ Tag create failed: {str(e)}"
     except Exception as e:
@@ -785,7 +803,12 @@ def git_tag_delete(repo: Repo, tag_name: str) -> str:
         return f"❌ Tag delete error: {str(e)}"
 
 
-def git_blame(repo: Repo, file_path: str, line_start: Optional[int] = None, line_end: Optional[int] = None) -> str:
+def git_blame(
+    repo: Repo,
+    file_path: str,
+    line_start: Optional[int] = None,
+    line_end: Optional[int] = None,
+) -> str:
     """Show blame information for a file"""
     try:
         args = [file_path]
@@ -793,7 +816,7 @@ def git_blame(repo: Repo, file_path: str, line_start: Optional[int] = None, line
             args.extend(["-L", f"{line_start},{line_end}"])
         elif line_start:
             args.extend(["-L", f"{line_start},+1"])
-        
+
         blame_output = repo.git.blame(*args)
         return f"Blame for {file_path}:\n{blame_output}"
     except GitCommandError as e:

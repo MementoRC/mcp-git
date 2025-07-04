@@ -2366,11 +2366,7 @@ Provide specific, actionable recommendations for each area."""
                         arguments.get("graph", False),
                         arguments.get("format"),
                     )
-                    return [
-                        TextContent(
-                            type="text", text="Commit history:\n" + log
-                        )
-                    ]
+                    return [TextContent(type="text", text="Commit history:\n" + log)]
 
                 case GitTools.CREATE_BRANCH:
                     result = git_create_branch(
@@ -2422,11 +2418,15 @@ Provide specific, actionable recommendations for each area."""
                     return [TextContent(type="text", text=result)]
 
                 case GitTools.REMOTE_RENAME:
-                    result = git_remote_rename(repo, arguments["old_name"], arguments["new_name"])
+                    result = git_remote_rename(
+                        repo, arguments["old_name"], arguments["new_name"]
+                    )
                     return [TextContent(type="text", text=result)]
 
                 case GitTools.REMOTE_SET_URL:
-                    result = git_remote_set_url(repo, arguments["name"], arguments["url"])
+                    result = git_remote_set_url(
+                        repo, arguments["name"], arguments["url"]
+                    )
                     return [TextContent(type="text", text=result)]
 
                 case GitTools.REMOTE_GET_URL:

@@ -7,13 +7,16 @@ class SafeStreamHandler(logging.StreamHandler):
     """
     Stream handler that gracefully handles closed streams during shutdown.
     """
-    
+
     def emit(self, record):
         try:
             super().emit(record)
         except (ValueError, OSError) as e:
             # Handle closed file errors during shutdown
-            if "closed file" in str(e).lower() or "bad file descriptor" in str(e).lower():
+            if (
+                "closed file" in str(e).lower()
+                or "bad file descriptor" in str(e).lower()
+            ):
                 # Silently ignore - this is expected during shutdown
                 pass
             else:

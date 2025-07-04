@@ -50,6 +50,7 @@ def main(
 
     # Console handler (stderr) - import SafeStreamHandler
     from .logging_config import SafeStreamHandler
+
     console_handler = SafeStreamHandler(sys.stderr)
     console_handler.setLevel(logging_level)
     console_formatter = logging.Formatter(
