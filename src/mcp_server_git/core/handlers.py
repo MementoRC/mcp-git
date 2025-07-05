@@ -247,17 +247,12 @@ class CallToolHandler:
 
     def _get_security_handlers(self) -> Dict[str, Any]:
         """Get security handlers (modular or original)"""
-        try:
-            from ..git.security import (
-                validate_git_security_config,
-                enforce_secure_git_config,
-            )
+        from ..git.security import (
+            validate_git_security_config,
+            enforce_secure_git_config,
+        )
 
-            logger.debug("Using modular security functions")
-        except ImportError:
-            from ..server import validate_git_security_config, enforce_secure_git_config
-
-            logger.debug("Using original security functions")
+        logger.debug("Using modular security functions")
 
         return {
             "git_security_validate": self._create_security_handler(

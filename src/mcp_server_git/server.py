@@ -501,6 +501,35 @@ class GitFetch(BaseModel):
     prune: bool = False
 
 
+class GitRebase(BaseModel):
+    repo_path: str
+    target_branch: str
+    interactive: bool = False
+
+
+class GitMerge(BaseModel):
+    repo_path: str
+    source_branch: str
+    strategy: str = "merge"
+    message: Optional[str] = None
+
+
+class GitCherryPick(BaseModel):
+    repo_path: str
+    commit_hash: str
+    no_commit: bool = False
+
+
+class GitAbort(BaseModel):
+    repo_path: str
+    operation: str
+
+
+class GitContinue(BaseModel):
+    repo_path: str
+    operation: str
+
+
 # GitHub API Models
 class GitHubGetPRChecks(BaseModel):
     repo_owner: str
@@ -2155,6 +2184,31 @@ Provide specific, actionable recommendations for each area."""
                 description="Show differences between two branches",
                 inputSchema=GitDiffBranches.model_json_schema(),
             ),
+            Tool(
+                name=GitTools.REBASE,
+                description="Rebase current branch onto another branch",
+                inputSchema=GitRebase.model_json_schema(),
+            ),
+            Tool(
+                name=GitTools.MERGE,
+                description="Merge a branch into the current branch",
+                inputSchema=GitMerge.model_json_schema(),
+            ),
+            Tool(
+                name=GitTools.CHERRY_PICK,
+                description="Apply a commit from another branch to current branch",
+                inputSchema=GitCherryPick.model_json_schema(),
+            ),
+            Tool(
+                name=GitTools.ABORT,
+                description="Abort an in-progress git operation (rebase, merge, cherry-pick)",
+                inputSchema=GitAbort.model_json_schema(),
+            ),
+            Tool(
+                name=GitTools.CONTINUE,
+                description="Continue an in-progress git operation after resolving conflicts",
+                inputSchema=GitContinue.model_json_schema(),
+            ),
             # Remote Operations
             Tool(
                 name=GitTools.REMOTE_LIST,
@@ -2401,6 +2455,45 @@ Provide specific, actionable recommendations for each area."""
                 case GitTools.DIFF_BRANCHES:
                     result = git_diff_branches(
                         repo, arguments["base_branch"], arguments["compare_branch"]
+                    )
+                    return [TextContent(type="text", text=result)]
+
+                case GitTools.REBASE:
+                    result = git_rebase(
+                        repo,
+                        arguments["target_branch"],
+                        arguments.get("interactive", False),
+                    )
+                    return [TextContent(type="text", text=result)]
+
+                case GitTools.MERGE:
+                    result = git_merge(
+                        repo,
+                        arguments["source_branch"],
+                        arguments.get("strategy", "merge"),
+                        arguments.get("message"),
+                    )
+                    return [TextContent(type="text", text=result)]
+
+                case GitTools.CHERRY_PICK:
+                    result = git_cherry_pick(
+                        repo,
+                        arguments["commit_hash"],
+                        arguments.get("no_commit", False),
+                    )
+                    return [TextContent(type="text", text=result)]
+
+                case GitTools.ABORT:
+                    result = git_abort(
+                        repo,
+                        arguments["operation"],
+                    )
+                    return [TextContent(type="text", text=result)]
+
+                case GitTools.CONTINUE:
+                    result = git_continue(
+                        repo,
+                        arguments["operation"],
                     )
                     return [TextContent(type="text", text=result)]
 
