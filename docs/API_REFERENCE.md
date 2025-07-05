@@ -399,10 +399,10 @@ from mcp_server_git.error_handling import CircuitBreaker
 async def main():
     # Enable performance optimizations
     enable_validation_cache()
-    
+
     # Create server
     server = MCPGitServer()
-    
+
     # Setup session management
     session_manager = SessionManager()
     heartbeat_manager = HeartbeatManager(
@@ -410,18 +410,18 @@ async def main():
         heartbeat_interval=30.0,
         missed_heartbeat_threshold=3
     )
-    
+
     # Start components
     await server.start()
     await heartbeat_manager.start()
-    
+
     try:
         # Server is now running and ready to handle clients
         print("MCP Git Server is running...")
-        
+
         # Keep server running
         await asyncio.Event().wait()
-        
+
     finally:
         # Graceful shutdown
         await heartbeat_manager.stop()
@@ -442,14 +442,14 @@ class CustomMCPServer(MCPGitServer):
         """Handle custom message type."""
         # Validate message
         result = validate_message(message, CustomMessageModel)
-        
+
         if not result.is_valid:
             await self.send_error_response(
                 session.session_id,
                 f"Validation failed: {result.error}"
             )
             return
-        
+
         # Process message
         try:
             response = await self.process_custom_operation(result.model)

@@ -47,7 +47,7 @@ asyncio.run(test_startup())
    ```bash
    # Check what's using the port
    lsof -i :8080
-   
+
    # Use different port
    export MCP_GIT_PORT=8081
    ```
@@ -62,7 +62,7 @@ asyncio.run(test_startup())
    ```bash
    # Check file permissions
    ls -la src/mcp_server_git/
-   
+
    # Fix permissions if needed
    chmod +x src/mcp_server_git/__main__.py
    ```
@@ -86,7 +86,7 @@ async def test_connection():
             # Send test message
             test_msg = {"type": "ping", "id": "test_123"}
             await websocket.send(json.dumps(test_msg))
-            
+
             # Receive response
             response = await websocket.recv()
             print(f"✓ Connection successful: {response}")
@@ -111,7 +111,7 @@ asyncio.run(test_connection())
    ```bash
    # Linux
    sudo ufw status
-   
+
    # macOS
    sudo pfctl -sr
    ```
@@ -151,7 +151,7 @@ else:
 # These errors should close the session
 CRITICAL_ERRORS = [
     "authentication_failed",
-    "protocol_violation", 
+    "protocol_violation",
     "security_breach",
     "corrupted_session_state"
 ]
@@ -184,23 +184,23 @@ class ErrorAnalyzer:
     def __init__(self):
         self.error_counts = defaultdict(int)
         self.error_timestamps = defaultdict(list)
-    
+
     def record_error(self, error_type, timestamp=None):
         if timestamp is None:
             timestamp = datetime.now()
-        
+
         self.error_counts[error_type] += 1
         self.error_timestamps[error_type].append(timestamp)
-    
+
     def get_error_rate(self, error_type, window_minutes=60):
         """Get error rate for the last N minutes."""
         cutoff = datetime.now() - timedelta(minutes=window_minutes)
         recent_errors = [
-            ts for ts in self.error_timestamps[error_type] 
+            ts for ts in self.error_timestamps[error_type]
             if ts > cutoff
         ]
         return len(recent_errors) / window_minutes  # errors per minute
-    
+
     def detect_error_spikes(self, threshold=5):
         """Detect error spikes that might indicate systemic issues."""
         spikes = {}
@@ -216,7 +216,7 @@ analyzer = ErrorAnalyzer()
 # In your error handler
 async def handle_error_with_analysis(error, error_type):
     analyzer.record_error(error_type)
-    
+
     # Check for error spikes
     spikes = analyzer.detect_error_spikes()
     if spikes:
@@ -241,7 +241,7 @@ async def diagnose_performance():
     with PerformanceTimer("message_processing") as timer:
         # Simulate message processing
         await process_test_message()
-    
+
     if timer.elapsed_ms > 1000:  # 1 second threshold
         print(f"⚠ High latency detected: {timer.elapsed_ms}ms")
     else:
@@ -258,7 +258,7 @@ async def diagnose_performance():
 2. **Profile bottlenecks:**
    ```python
    from mcp_server_git.optimizations import CPUProfiler
-   
+
    with CPUProfiler("performance_analysis"):
        await process_messages(large_message_batch)
    ```
@@ -287,22 +287,22 @@ import gc
 
 def diagnose_memory():
     monitor = MemoryMonitor()
-    
+
     # Take initial sample
     initial = monitor.take_sample("start")
-    
+
     # Force garbage collection
     gc.collect()
     after_gc = monitor.take_sample("after_gc")
-    
+
     print(f"Memory before GC: {initial:.2f}MB")
     print(f"Memory after GC: {after_gc:.2f}MB")
     print(f"GC recovered: {initial - after_gc:.2f}MB")
-    
+
     # Check for memory leaks
     if initial - after_gc < 10:  # Less than 10MB recovered
         print("⚠ Potential memory leak detected")
-    
+
     # Get garbage collection stats
     stats = gc.get_stats()
     print(f"GC stats: {stats}")
@@ -320,7 +320,7 @@ async def periodic_memory_check():
 1. **Clear caches periodically:**
    ```python
    from mcp_server_git.optimizations import clear_validation_cache
-   
+
    async def cache_cleanup_task():
        while True:
            await asyncio.sleep(3600)  # Every hour
@@ -332,12 +332,12 @@ async def periodic_memory_check():
    ```python
    class MemoryAwareSessionManager(SessionManager):
        MAX_SESSIONS = 1000
-       
+
        async def create_session(self, session_id=None):
            if len(self.sessions) >= self.MAX_SESSIONS:
                # Close oldest sessions
                await self.cleanup_oldest_sessions(count=100)
-           
+
            return await super().create_session(session_id)
    ```
 
@@ -358,26 +358,26 @@ async def monitor_cpu_usage():
     """Monitor CPU usage and identify bottlenecks."""
     while True:
         cpu_percent = psutil.cpu_percent(interval=1)
-        
+
         if cpu_percent > 80:  # High CPU threshold
             # Get detailed CPU info
             cpu_count = psutil.cpu_count()
             load_avg = psutil.getloadavg()
-            
+
             logger.warning(f"High CPU usage detected", extra={
                 "cpu_percent": cpu_percent,
                 "cpu_count": cpu_count,
                 "load_average": load_avg,
                 "timestamp": datetime.now().isoformat()
             })
-            
+
             # Get process-specific CPU usage
             process = psutil.Process()
             process_cpu = process.cpu_percent()
             threads = process.num_threads()
-            
+
             logger.warning(f"Process CPU usage: {process_cpu}%, Threads: {threads}")
-        
+
         await asyncio.sleep(10)  # Check every 10 seconds
 ```
 
@@ -387,7 +387,7 @@ async def monitor_cpu_usage():
    # Instead of blocking operations
    def blocking_operation():
        time.sleep(1)  # Bad - blocks event loop
-   
+
    # Use async alternatives
    async def async_operation():
        await asyncio.sleep(1)  # Good - yields control
@@ -399,7 +399,7 @@ async def monitor_cpu_usage():
        def __init__(self):
            super().__init__()
            self.processing_semaphore = asyncio.Semaphore(10)  # Max 10 concurrent
-       
+
        async def handle_message(self, message, session):
            async with self.processing_semaphore:
                return await super().handle_message(message, session)
@@ -418,16 +418,16 @@ async def monitor_cpu_usage():
 ```python
 async def diagnose_session_cleanup():
     sessions = await session_manager.get_all_sessions()
-    
+
     active_sessions = [s for s in sessions if s.is_active]
     idle_sessions = [s for s in sessions if s.idle_time > 3600]  # 1 hour
     error_sessions = [s for s in sessions if s.state == SessionState.ERROR]
-    
+
     print(f"Total sessions: {len(sessions)}")
     print(f"Active sessions: {len(active_sessions)}")
     print(f"Idle sessions (>1h): {len(idle_sessions)}")
     print(f"Error sessions: {len(error_sessions)}")
-    
+
     if len(idle_sessions) > 100:
         print("⚠ Too many idle sessions - cleanup needed")
 ```
@@ -439,10 +439,10 @@ async def diagnose_session_cleanup():
        while True:
            # Clean up idle sessions more frequently
            closed = await session_manager.cleanup_idle_sessions(max_idle_time=1800)  # 30 min
-           
+
            if closed > 0:
                logger.info(f"Cleaned up {closed} idle sessions")
-           
+
            await asyncio.sleep(300)  # Every 5 minutes
    ```
 
@@ -468,11 +468,11 @@ async def diagnose_heartbeat_system():
     if not heartbeat_manager.running:
         print("✗ Heartbeat manager not running")
         return
-    
+
     # Check heartbeat intervals
     print(f"Heartbeat interval: {heartbeat_manager.heartbeat_interval}s")
     print(f"Missed threshold: {heartbeat_manager.missed_heartbeat_threshold}")
-    
+
     # Check recent heartbeats
     for session_id, last_heartbeat in heartbeat_manager.session_heartbeats.items():
         time_since = (datetime.now() - last_heartbeat).total_seconds()
@@ -496,7 +496,7 @@ async def diagnose_heartbeat_system():
    async def recover_heartbeat_failures():
        """Attempt to recover from heartbeat failures."""
        sessions = await session_manager.get_all_sessions()
-       
+
        for session in sessions:
            if session.session_id not in heartbeat_manager.session_heartbeats:
                # Re-initialize heartbeat for this session
@@ -521,16 +521,16 @@ def diagnose_validation_error(message_data):
     # Try different validation modes
     strict_result = enhanced_validate_message(message_data, strict_mode=True)
     lenient_result = enhanced_validate_message(message_data, strict_mode=False)
-    
+
     print(f"Strict validation: {'✓' if strict_result.is_valid else '✗'}")
     print(f"Lenient validation: {'✓' if lenient_result.is_valid else '✗'}")
-    
+
     if not strict_result.is_valid:
         print(f"Strict errors: {strict_result.error}")
-    
+
     if not lenient_result.is_valid:
         print(f"Lenient errors: {lenient_result.error}")
-    
+
     # Show validation warnings
     if hasattr(lenient_result, 'validation_warnings'):
         print(f"Warnings: {lenient_result.validation_warnings}")
@@ -541,7 +541,7 @@ def diagnose_validation_error(message_data):
    ```python
    # Enable fallback validation
    from mcp_server_git.models.enhanced_validation import enhanced_validate_message
-   
+
    result = enhanced_validate_message(data, strict_mode=False)
    if result.is_valid:
        # Process even if there were minor validation issues
@@ -578,11 +578,11 @@ def diagnose_circuit_breaker(circuit):
     print(f"Failure threshold: {circuit.failure_threshold}")
     print(f"Last failure time: {circuit.last_failure_time}")
     print(f"Recovery timeout: {circuit.recovery_timeout}")
-    
+
     if circuit.state == CircuitState.OPEN:
         time_since_failure = time.time() - circuit.last_failure_time
         print(f"Time since last failure: {time_since_failure}s")
-        
+
         if time_since_failure > circuit.recovery_timeout:
             print("⚠ Circuit should have moved to half-open by now")
 ```
@@ -622,58 +622,58 @@ class MemoryLeakDetector:
     def __init__(self):
         self.monitor = MemoryMonitor()
         self.snapshots = []
-        
+
     def start_tracking(self):
         """Start memory leak detection."""
         tracemalloc.start()
         self.monitor.take_sample("leak_detection_start")
-    
+
     def take_snapshot(self, label):
         """Take a memory snapshot."""
         gc.collect()  # Force garbage collection
-        
+
         snapshot = tracemalloc.take_snapshot()
         memory_mb = self.monitor.take_sample(label)
-        
+
         self.snapshots.append({
             "label": label,
             "snapshot": snapshot,
             "memory_mb": memory_mb,
             "timestamp": datetime.now()
         })
-        
+
         return memory_mb
-    
+
     def analyze_leaks(self):
         """Analyze potential memory leaks."""
         if len(self.snapshots) < 2:
             return
-        
+
         # Compare first and last snapshots
         first = self.snapshots[0]
         last = self.snapshots[-1]
-        
+
         # Memory growth analysis
         growth = last["memory_mb"] - first["memory_mb"]
         print(f"Memory growth: {growth:.2f}MB")
-        
+
         # Top memory allocations
         top_stats = last["snapshot"].compare_to(
             first["snapshot"], 'lineno'
         )
-        
+
         print("Top 10 memory allocations:")
         for stat in top_stats[:10]:
             print(f"  {stat}")
-    
+
     def get_top_allocators(self, count=10):
         """Get top memory allocators."""
         if not self.snapshots:
             return []
-        
+
         snapshot = self.snapshots[-1]["snapshot"]
         top_stats = snapshot.statistics('lineno')
-        
+
         return [(stat.traceback, stat.size) for stat in top_stats[:count]]
 
 # Usage
@@ -684,12 +684,12 @@ leak_detector.start_tracking()
 async def memory_monitoring_loop():
     while True:
         leak_detector.take_snapshot(f"periodic_{datetime.now().isoformat()}")
-        
+
         if len(leak_detector.snapshots) > 10:
             leak_detector.analyze_leaks()
             # Keep only last 5 snapshots
             leak_detector.snapshots = leak_detector.snapshots[-5:]
-        
+
         await asyncio.sleep(600)  # Every 10 minutes
 ```
 
@@ -700,13 +700,13 @@ class ResourceManager:
     def __init__(self):
         self.active_resources = {}
         self.resource_count = 0
-    
+
     async def acquire_resource(self, resource_type, resource_id=None):
         """Acquire a resource with automatic cleanup."""
         if resource_id is None:
             resource_id = f"{resource_type}_{self.resource_count}"
             self.resource_count += 1
-        
+
         # Create resource
         if resource_type == "file":
             resource = await self._create_file_resource(resource_id)
@@ -714,45 +714,45 @@ class ResourceManager:
             resource = await self._create_connection_resource(resource_id)
         else:
             raise ValueError(f"Unknown resource type: {resource_type}")
-        
+
         self.active_resources[resource_id] = {
             "resource": resource,
             "type": resource_type,
             "created_at": datetime.now()
         }
-        
+
         return resource_id, resource
-    
+
     async def release_resource(self, resource_id):
         """Release a specific resource."""
         if resource_id not in self.active_resources:
             logger.warning(f"Resource {resource_id} not found for release")
             return
-        
+
         resource_info = self.active_resources[resource_id]
         resource = resource_info["resource"]
-        
+
         # Type-specific cleanup
         if resource_info["type"] == "file":
             await self._cleanup_file_resource(resource)
         elif resource_info["type"] == "connection":
             await self._cleanup_connection_resource(resource)
-        
+
         del self.active_resources[resource_id]
         logger.debug(f"Released resource {resource_id}")
-    
+
     async def cleanup_old_resources(self, max_age_seconds=3600):
         """Clean up resources older than specified age."""
         cutoff = datetime.now() - timedelta(seconds=max_age_seconds)
-        
+
         to_cleanup = [
             resource_id for resource_id, info in self.active_resources.items()
             if info["created_at"] < cutoff
         ]
-        
+
         for resource_id in to_cleanup:
             await self.release_resource(resource_id)
-        
+
         return len(to_cleanup)
 ```
 
@@ -783,7 +783,7 @@ class DebuggableMCPServer(MCPGitServer):
     async def handle_message(self, message, session):
         if os.getenv("MCP_DEBUG_BREAKPOINT"):
             pdb.set_trace()  # Interactive debugging
-        
+
         return await super().handle_message(message, session)
 ```
 
@@ -798,16 +798,16 @@ from mcp_server_git.optimizations import CPUProfiler
 def profile_operation(operation_name, func, *args, **kwargs):
     profiler = cProfile.Profile()
     profiler.enable()
-    
+
     try:
         result = func(*args, **kwargs)
         return result
     finally:
         profiler.disable()
-        
+
         # Save profile data
         profiler.dump_stats(f"{operation_name}_profile.stats")
-        
+
         # Print top functions
         stats = pstats.Stats(profiler)
         stats.sort_stats('tottime')
@@ -822,32 +822,32 @@ def profile_operation(operation_name, func, *args, **kwargs):
 async def emergency_server_recovery():
     """Emergency recovery procedure for server issues."""
     logger.info("Starting emergency server recovery")
-    
+
     try:
         # 1. Stop all active operations
         await stop_all_operations()
-        
+
         # 2. Clear all caches
         clear_validation_cache()
         gc.collect()
-        
+
         # 3. Reset circuit breakers
         for circuit in get_all_circuit_breakers():
             circuit.reset()
-        
+
         # 4. Clean up sessions
         session_manager = get_session_manager()
         sessions = await session_manager.get_all_sessions()
         for session in sessions:
             await session_manager.close_session(session.session_id)
-        
+
         # 5. Restart critical components
         await restart_heartbeat_manager()
         await restart_validation_system()
-        
+
         logger.info("Emergency recovery completed successfully")
         return True
-        
+
     except Exception as e:
         logger.error(f"Emergency recovery failed: {e}")
         return False
@@ -855,25 +855,25 @@ async def emergency_server_recovery():
 async def graceful_restart():
     """Gracefully restart the server."""
     logger.info("Starting graceful server restart")
-    
+
     # 1. Stop accepting new connections
     await server.stop_accepting_connections()
-    
+
     # 2. Wait for active operations to complete
     await wait_for_operations_to_complete(timeout=300)  # 5 minutes
-    
+
     # 3. Save session state if needed
     await save_session_state()
-    
+
     # 4. Shutdown components
     await server.shutdown()
-    
+
     # 5. Restart server
     await server.start()
-    
+
     # 6. Restore session state if needed
     await restore_session_state()
-    
+
     logger.info("Graceful restart completed")
 ```
 

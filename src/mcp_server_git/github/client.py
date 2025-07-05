@@ -99,37 +99,20 @@ class GitHubClient:
 def get_github_client() -> Optional[GitHubClient]:
     """Get GitHub client with token from environment.
 
-    This function implements a defensive strategy to handle environment variable
-    loading issues by attempting to reload environment variables if the token
-    is not initially found.
+    Assumes environment variables have already been loaded by the server.
     """
     token = os.getenv("GITHUB_TOKEN")
+    logger.debug(f"🔑 GITHUB_TOKEN check: {'Found' if token else 'Not found'}")
 
-    # If no token found, try to reload environment variables defensively
     if not token:
-        logger.debug("🔍 No GitHub token found in environment, attempting to reload...")
-
-        # Import here to avoid circular imports
-        from pathlib import Path
-
-        try:
-            # Try to reload environment variables with current working directory
-            from ..server import load_environment_variables
-
-            load_environment_variables(Path.cwd())
-
-            # Try to get token again after reload
-            token = os.getenv("GITHUB_TOKEN")
-            if token:
-                logger.info("✅ GitHub token found after environment reload")
-            else:
-                logger.debug(
-                    "🔍 Still no GitHub token found after environment reload (GITHUB_TOKEN)"
-                )
-                return None
-        except Exception as e:
-            logger.warning(f"⚠️ Failed to reload environment variables: {e}")
-            return None
+        logger.error(
+            "🔍 No GitHub token found in environment (GITHUB_TOKEN). "
+            "Ensure environment variables are loaded before calling this function."
+        )
+        logger.debug(
+            f"📋 Available env vars starting with 'GITHUB': {[k for k in os.environ.keys() if k.startswith('GITHUB')]}"
+        )
+        return None
 
     if not GitHubClient._is_valid_github_token(token):
         logger.warning("⚠️ GITHUB_TOKEN appears to be invalid format")

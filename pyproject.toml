@@ -49,7 +49,7 @@ markers = [
     "mcp_verification: tests that replicate manual MCP verification process",
     "phase1: basic git operations (status, log, diff)",
     "phase2: GitHub API operations (list PRs, get details, status)",
-    "phase3: advanced git operations (show, security validation)", 
+    "phase3: advanced git operations (show, security validation)",
     "phase4: error handling and edge cases",
     "requires_github_token: tests that require GitHub API access"
 ]
@@ -109,4 +109,5 @@ clean = "rm -rf __pycache__ .pytest_cache .coverage htmlcov .ruff_cache"
 serve = "python -m mcp_server_git"
 serve-simple = "python -m mcp_server_git.server_simple"
 mcp-server = { cmd = "python -m mcp_server_git", env = { PYTHONPATH = "src" } }
+mcp-server-debug = { cmd = "python -m mcp_server_git -vv --enable-file-logging", env = { PYTHONPATH = "src", LOG_LEVEL = "DEBUG" } }
 install-editable = "pip install -e ."
