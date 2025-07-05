@@ -161,19 +161,83 @@ def git_add(repo: Repo, files: list[str]) -> str:
         return f"❌ Add error: {str(e)}"
 
 
-def git_reset(repo: Repo) -> str:
-    """Reset all staged changes"""
+def git_reset(repo: Repo, mode: Optional[str] = None, target: Optional[str] = None, files: Optional[list[str]] = None) -> str:
+    """Reset repository with advanced options (--soft, --mixed, --hard)"""
     try:
-        # Get list of staged files before reset
-        staged_files = [item.a_path for item in repo.index.diff("HEAD")]
+        # Validate reset mode
+        valid_modes = ["soft", "mixed", "hard"]
+        if mode and mode not in valid_modes:
+            return f"❌ Invalid reset mode '{mode}'. Valid modes: {', '.join(valid_modes)}"
 
-        if not staged_files:
-            return "ℹ️ No staged changes to reset"
+        # Build git reset command
+        reset_args = []
+        
+        # Add mode flag if specified
+        if mode:
+            reset_args.append(f"--{mode}")
+        
+        # Add target if specified
+        if target:
+            # Validate target exists
+            try:
+                repo.git.rev_parse(target)
+            except GitCommandError:
+                return f"❌ Target '{target}' does not exist"
+            reset_args.append(target)
+        
+        # Add files if specified
+        if files:
+            # Validate files exist
+            for file in files:
+                if not os.path.exists(os.path.join(repo.working_dir, file)):
+                    return f"❌ File '{file}' does not exist"
+            reset_args.extend(files)
 
-        # Reset the index
-        repo.git.reset()
+        # Special handling for file-specific reset
+        if files and not mode and not target:
+            # Default to mixed reset for files
+            reset_args.insert(0, "HEAD")
 
-        return f"✅ Reset {len(staged_files)} staged file(s): {', '.join(staged_files)}"
+        # Get status before reset for informative message
+        status_before = ""
+        if mode in ["mixed", "hard"] or not mode:
+            try:
+                staged_files = [item.a_path for item in repo.index.diff("HEAD")]
+                if staged_files:
+                    status_before = f"staged files: {', '.join(staged_files[:5])}"
+                    if len(staged_files) > 5:
+                        status_before += f" (and {len(staged_files) - 5} more)"
+            except:
+                pass
+
+        if mode == "hard":
+            try:
+                modified_files = [item.a_path for item in repo.index.diff(None)]
+                if modified_files:
+                    mod_status = f"modified files: {', '.join(modified_files[:5])}"
+                    if len(modified_files) > 5:
+                        mod_status += f" (and {len(modified_files) - 5} more)"
+                    status_before = f"{status_before}, {mod_status}" if status_before else mod_status
+            except:
+                pass
+
+        # Execute reset
+        if reset_args:
+            repo.git.reset(*reset_args)
+        else:
+            repo.git.reset()
+
+        # Build success message
+        if files:
+            return f"✅ Reset {len(files)} file(s): {', '.join(files)}"
+        elif mode == "soft":
+            return f"✅ Soft reset to {target if target else 'HEAD'} - keeping changes in index"
+        elif mode == "mixed" or not mode:
+            target_msg = f" to {target}" if target else ""
+            return f"✅ Mixed reset{target_msg} - {status_before if status_before else 'no staged changes'}"
+        elif mode == "hard":
+            target_msg = f" to {target}" if target else ""
+            return f"✅ Hard reset{target_msg} - {status_before if status_before else 'no changes'} discarded"
 
     except GitCommandError as e:
         return f"❌ Reset failed: {str(e)}"

@@ -36,6 +36,9 @@ class GitAdd(BaseModel):
 
 class GitReset(BaseModel):
     repo_path: str
+    mode: Optional[str] = None  # --soft, --mixed, --hard
+    target: Optional[str] = None  # commit hash, branch, tag
+    files: Optional[list[str]] = None  # specific files to reset
 
 
 class GitLog(BaseModel):
