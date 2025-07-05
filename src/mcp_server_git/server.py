@@ -166,7 +166,7 @@ def load_environment_variables(repository_path: Path | None = None):
     if not loaded_files:
         logger.info("No .env files found, using system environment variables only")
     else:
-        logger.info(f"Environment variables loaded from: {", ".join(loaded_files)}")
+        logger.info(f"Environment variables loaded from: {', '.join(loaded_files)}")
 
     # Log token change for debugging
     final_github_token = os.getenv("GITHUB_TOKEN")
