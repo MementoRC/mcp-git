@@ -139,7 +139,7 @@ class CallToolHandler:
             "git_rebase": self._create_git_handler(
                 git_rebase,
                 requires_repo=True,
-                extra_args=["target_branch", "interactive"],
+                extra_args=["target_branch"],
             ),
             "git_merge": self._create_git_handler(
                 git_merge,
@@ -290,7 +290,6 @@ class CallToolHandler:
                         elif arg in [
                             "oneline",
                             "graph",
-                            "interactive",
                             "set_upstream",
                             "force",
                             "no_commit",

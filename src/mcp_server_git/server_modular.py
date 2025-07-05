@@ -476,7 +476,6 @@ async def serve_modular(repository: Path | None = None):
                         rebase_result = git_rebase(
                             repo,
                             arguments["target_branch"],
-                            arguments.get("interactive", False),
                         )
                         result = [TextContent(type="text", text=rebase_result)]
 

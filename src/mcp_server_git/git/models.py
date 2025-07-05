@@ -89,7 +89,6 @@ class GitDiffBranches(BaseModel):
 class GitRebase(BaseModel):
     repo_path: str
     target_branch: str
-    interactive: bool = False
 
 
 class GitMerge(BaseModel):

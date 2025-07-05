@@ -360,56 +360,6 @@ Include exact Git commands and explain what each command does."""
                 ],
             )
 
-        case "rebase-interactive":
-            commits = args.get("commits", "")
-            goal = args.get("goal", "clean up history")
-
-            prompt_text = f"""Guide through an interactive rebase operation.
-
-**Commits to Rebase:**
-```
-{commits}
-```
-
-**Goal:** {goal}
-
-Provide a comprehensive rebase guide:
-
-1. **Rebase Strategy**
-   - Recommended approach for the goal
-   - Which commits to pick, squash, edit, or drop
-   - Commit message improvements
-
-2. **Interactive Rebase Commands**
-   - Complete rebase plan with actions
-   - Explanation of each action
-   - Expected outcome
-
-3. **Execution Steps**
-   - Exact commands to run
-   - What to expect at each step
-   - How to handle conflicts
-
-4. **Safety Measures**
-   - Backup recommendations
-   - How to abort if needed
-   - Recovery procedures
-
-5. **Verification**
-   - How to verify the rebase succeeded
-   - Testing recommendations
-   - Push considerations
-
-Include the interactive rebase script with explanations."""
-
-            return GetPromptResult(
-                description="Interactive rebase guide",
-                messages=[
-                    PromptMessage(
-                        role="user", content=TextContent(type="text", text=prompt_text)
-                    )
-                ],
-            )
 
         case "release-notes":
             version = args.get("version", "")
