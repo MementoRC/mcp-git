@@ -56,20 +56,21 @@ from mcp_server_git.git.operations import (
     git_fetch,
 )
 
+# Module-level logger for this file
+logger = logging.getLogger(__name__)
+
 
 def load_environment_variables(repository_path: Path | None = None):
     """Load environment variables from .env files with proper precedence.
 
-    Order of precedence:
-    1. Project-specific .env file (current working directory)
+    NEW Order of precedence (HIGHEST to LOWEST):
+    1. ClaudeCode running environment (.env files) - HIGHEST PRIORITY
     2. Repository-specific .env file (if repository path provided)
-    3. ClaudeCode working directory .env file (if available)
-    4. System environment variables (existing behavior)
+    3. MCP git folder (.env file from pixi --manifest-path location)
+    4. System environment variables (bash environment) - LOWEST PRIORITY
 
-    Special handling for GITHUB_TOKEN:
-    - Empty tokens ("") are overridden
-    - Placeholder tokens are overridden (YOUR_TOKEN_HERE, REPLACE_ME, TODO, CHANGEME)
-    - Whitespace-only tokens are overridden
+    This ensures that local development environments take precedence over
+    system-wide settings, which is more appropriate for development workflows.
 
     Args:
         repository_path: Optional path to the repository being used
@@ -77,152 +78,108 @@ def load_environment_variables(repository_path: Path | None = None):
     logger = logging.getLogger(__name__)
     loaded_files = []
 
-    # Common placeholder values that should be overridden
-    GITHUB_TOKEN_PLACEHOLDERS = [
-        "",
-        "YOUR_TOKEN_HERE",
-        "REPLACE_ME",
-        "TODO",
-        "CHANGEME",
-    ]
+    # Store original environment for logging
+    original_github_token = os.getenv("GITHUB_TOKEN")
 
-    def should_override_github_token(token: str | None) -> bool:
-        """Check if a GitHub token should be overridden."""
-        if token is None:
-            return True
-        if token.strip() in GITHUB_TOKEN_PLACEHOLDERS:
-            return True
-        if not token.strip():  # Whitespace-only
-            return True
-        return False
+    # Define .env files to load in REVERSE precedence order (lowest to highest priority)
+    env_files_to_load = []
 
-    # Try to load from project-specific .env file first
-    project_env = Path.cwd() / ".env"
-    if project_env.exists():
-        try:
-            # Special handling for GITHUB_TOKEN - override placeholders and empty tokens
-            github_token_before = os.getenv("GITHUB_TOKEN")
-            load_dotenv(project_env, override=False)  # Don't override existing env vars
+    # 4. System environment variables (already loaded - lowest priority)
 
-            # If GITHUB_TOKEN should be overridden and .env file has a value, override it
-            if should_override_github_token(github_token_before):
-                from dotenv import dotenv_values
+    # 3. MCP git folder (.env file from pixi --manifest-path location)
+    # This is typically /home/memento/ClaudeCode/Servers/git/worktrees/fix-list-pr-failure/.env
+    current_path = Path.cwd()
+    if "Servers/git" in str(current_path):
+        # Find the git server directory
+        for parent in [current_path] + list(current_path.parents):
+            if parent.name.startswith("fix-") or "git" in parent.name:
+                mcp_env = parent / ".env"
+                if mcp_env.exists():
+                    env_files_to_load.append(("mcp_git", mcp_env))
+                    break
 
-                env_values = dotenv_values(project_env)
-                if (
-                    "GITHUB_TOKEN" in env_values
-                    and env_values["GITHUB_TOKEN"]
-                    and not should_override_github_token(env_values["GITHUB_TOKEN"])
-                ):
-                    os.environ["GITHUB_TOKEN"] = env_values["GITHUB_TOKEN"]
-
-            loaded_files.append(str(project_env))
-            logger.info(
-                f"Loaded environment variables from project .env: {project_env}"
-            )
-        except Exception as e:
-            logger.warning(f"Failed to load project .env file {project_env}: {e}")
-
-    # Try to load from repository-specific .env file (if repository path provided)
+    # 2. Repository-specific .env file (if repository path provided)
     if repository_path:
         repo_env = repository_path / ".env"
-        if repo_env.exists() and str(repo_env) not in loaded_files:
-            try:
-                # Special handling for GITHUB_TOKEN - override placeholders and empty tokens
-                github_token_before = os.getenv("GITHUB_TOKEN")
-                load_dotenv(
-                    repo_env, override=False
-                )  # Don't override existing env vars
+        if repo_env.exists():
+            env_files_to_load.append(("repository", repo_env))
 
-                # If GITHUB_TOKEN should be overridden and .env file has a value, override it
-                if should_override_github_token(github_token_before):
-                    from dotenv import dotenv_values
+    # 1. ClaudeCode running environment (.env files) - HIGHEST PRIORITY
+    # Check current working directory first (for tests and general use)
+    current_env = current_path / ".env"
+    if current_env.exists():
+        env_files_to_load.append(("current_directory", current_env))
 
-                    env_values = dotenv_values(repo_env)
-                    if (
-                        "GITHUB_TOKEN" in env_values
-                        and env_values["GITHUB_TOKEN"]
-                        and not should_override_github_token(env_values["GITHUB_TOKEN"])
-                    ):
-                        os.environ["GITHUB_TOKEN"] = env_values["GITHUB_TOKEN"]
-
-                loaded_files.append(str(repo_env))
-                logger.info(
-                    f"Loaded environment variables from repository .env: {repo_env}"
-                )
-            except Exception as e:
-                logger.warning(f"Failed to load repository .env file {repo_env}: {e}")
-
-    # Try to load from ClaudeCode working directory .env file
-    # Check if we're in a ClaudeCode context by looking for typical ClaudeCode paths
+    # Check for ClaudeCode root directory
     claude_code_dirs = []
-
-    # Method 1: Check if current path contains ClaudeCode and traverse up to find it
-    current_path = Path.cwd()
     if "ClaudeCode" in str(current_path):
         for parent in [current_path] + list(current_path.parents):
             if parent.name == "ClaudeCode":
                 claude_code_dirs.append(parent)
                 break
-
-    # Method 2: Check if repository path contains ClaudeCode and traverse up to find it
     if repository_path and "ClaudeCode" in str(repository_path):
         for parent in [repository_path] + list(repository_path.parents):
             if parent.name == "ClaudeCode":
-                claude_code_dirs.append(parent)
+                if parent not in claude_code_dirs:
+                    claude_code_dirs.append(parent)
                 break
 
-    # Method 3: Standard Claude directories
-    claude_code_dirs.extend(
-        [
-            Path.home() / ".claude",
-            Path("/tmp/claude-code") if Path("/tmp/claude-code").exists() else None,
-        ]
+    for claude_dir in claude_code_dirs:
+        claude_env = claude_dir / ".env"
+        if claude_env.exists() and claude_env != current_env:  # Avoid duplicates
+            env_files_to_load.append(("ClaudeCode", claude_env))
+
+    # Check if current GITHUB_TOKEN should be preserved
+    current_token = os.getenv("GITHUB_TOKEN", "")
+    placeholder_values = ["YOUR_TOKEN_HERE", "REPLACE_ME", "TODO", "CHANGEME"]
+    should_override_token = (
+        not current_token  # Empty
+        or current_token.strip() == ""  # Whitespace only
+        or current_token in placeholder_values  # Placeholder value
     )
 
-    # Remove None values and duplicates
-    claude_code_dirs = list(dict.fromkeys([d for d in claude_code_dirs if d]))
+    # Store current GITHUB_TOKEN if we need to preserve it
+    preserved_token = None
+    if not should_override_token:
+        preserved_token = current_token
 
-    for claude_dir in claude_code_dirs:
-        if claude_dir and claude_dir.exists():
-            claude_env = claude_dir / ".env"
-            if claude_env.exists():
-                try:
-                    # Special handling for GITHUB_TOKEN - override placeholders and empty tokens
-                    github_token_before = os.getenv("GITHUB_TOKEN")
-                    load_dotenv(
-                        claude_env, override=False
-                    )  # Don't override existing env vars
+    # Load .env files in order (lowest to highest priority)
+    # Always load with override=True for proper precedence
+    for source_name, env_file in env_files_to_load:
+        try:
+            load_dotenv(env_file, override=True)
+            loaded_files.append(str(env_file))
+            logger.info(
+                f"Loaded environment variables from {source_name} .env: {env_file}"
+            )
+        except Exception as e:
+            logger.warning(f"Failed to load {source_name} .env file {env_file}: {e}")
 
-                    # If GITHUB_TOKEN should be overridden and .env file has a value, override it
-                    if should_override_github_token(github_token_before):
-                        from dotenv import dotenv_values
+    # Restore preserved GITHUB_TOKEN if needed
+    if preserved_token is not None:
+        os.environ["GITHUB_TOKEN"] = preserved_token
+        logger.debug(
+            "🔒 Preserved existing GITHUB_TOKEN (not overridden by .env files)"
+        )
 
-                        env_values = dotenv_values(claude_env)
-                        if (
-                            "GITHUB_TOKEN" in env_values
-                            and env_values["GITHUB_TOKEN"]
-                            and not should_override_github_token(
-                                env_values["GITHUB_TOKEN"]
-                            )
-                        ):
-                            os.environ["GITHUB_TOKEN"] = env_values["GITHUB_TOKEN"]
-
-                    if str(claude_env) not in loaded_files:
-                        loaded_files.append(str(claude_env))
-                        logger.info(
-                            f"Loaded environment variables from ClaudeCode .env: {claude_env}"
-                        )
-                except Exception as e:
-                    logger.warning(
-                        f"Failed to load ClaudeCode .env file {claude_env}: {e}"
-                    )
-                break  # Only load from the first found ClaudeCode directory
-
+    # Log results
     if not loaded_files:
         logger.info("No .env files found, using system environment variables only")
     else:
-        logger.info(f"Environment variables loaded from: {', '.join(loaded_files)}")
+        logger.info(f"Environment variables loaded from: {", ".join(loaded_files)}")
+
+    # Log token change for debugging
+    final_github_token = os.getenv("GITHUB_TOKEN")
+    if original_github_token != final_github_token:
+        logger.info("🔑 GITHUB_TOKEN was overridden from .env files")
+        if original_github_token:
+            logger.debug(
+                f"🔑 Original token ended with: ...{original_github_token[-4:]}"
+            )
+        if final_github_token:
+            logger.debug(f"🔑 Final token ends with: ...{final_github_token[-4:]}")
+    else:
+        logger.info("🔑 GITHUB_TOKEN unchanged from system environment")
 
 
 @dataclass
@@ -244,28 +201,59 @@ class GitHubClient:
         url = f"{self.base_url}{endpoint}"
         headers = self.get_headers()
 
+        logger.debug(f"🌐 Making {method} request to: {url}")
+        logger.debug(f"🔗 Authorization header present: {'Authorization' in headers}")
+        if "Authorization" in headers:
+            auth_header = headers["Authorization"]
+            logger.debug(f"🔑 Auth token prefix: {auth_header[:20]}...")
+            # Log token details for debugging (masked)
+            if auth_header.startswith("Bearer "):
+                actual_token = auth_header[7:]  # Remove "Bearer " prefix
+                logger.debug(f"🔑 Token first 20 chars: {actual_token[:20]}...")
+                logger.debug(f"🔑 Token last 10 chars: ...{actual_token[-10:]}")
+                logger.debug(f"🔑 Token length: {len(actual_token)} chars")
+
         async with aiohttp.ClientSession() as session:
             async with session.request(
                 method, url, headers=headers, **kwargs
             ) as response:
+                logger.debug(f"📨 GitHub API response status: {response.status}")
+
                 if response.status >= 400:
                     error_text = await response.text()
+                    logger.error(f"❌ GitHub API error {response.status}: {error_text}")
                     raise Exception(f"GitHub API error {response.status}: {error_text}")
+
+                logger.debug("✅ GitHub API request successful, parsing JSON response")
                 return await response.json()
 
 
 def get_github_client() -> GitHubClient:
     """Get GitHub client from environment variables"""
+    logger.debug("🔍 Getting GitHub client from server.py...")
+
     token = os.getenv("GITHUB_TOKEN")
+    logger.debug(f"🔑 GITHUB_TOKEN check: {'Found' if token else 'Not found'}")
+
     if not token:
+        logger.error("❌ GITHUB_TOKEN environment variable not set")
         raise Exception("GITHUB_TOKEN environment variable not set")
+
+    # Strip any whitespace that might have been added
+    token = token.strip()
+
+    logger.debug(f"🔗 Token prefix: {token[:8]}...")
+    logger.debug(f"🔗 Token length: {len(token)} characters")
+    logger.debug(f"🔗 Token last 4 chars: ...{token[-4:]}")
 
     # Validate GitHub token format
     # GitHub tokens typically start with: ghp_, gho_, ghu_, ghs_, github_pat_, or ghr_ (GitHub App)
     valid_prefixes = ["ghp_", "gho_", "ghu_", "ghs_", "github_pat_", "ghr_"]
     if not any(token.startswith(prefix) for prefix in valid_prefixes):
+        logger.error("❌ GITHUB_TOKEN appears to be invalid format")
         raise Exception("GITHUB_TOKEN appears to be invalid format")
 
+    logger.debug("✅ GitHub token validated, creating client")
     return GitHubClient(token=token)
 
 
@@ -943,8 +931,19 @@ async def github_list_pull_requests(
     page: int = 1,
 ) -> str:
     """List pull requests for a repository"""
+    logger.debug(f"🔍 Starting github_list_pull_requests for {repo_owner}/{repo_name}")
+
     try:
+        logger.debug("🔑 Attempting to get GitHub client...")
         client = get_github_client()
+
+        if not client:
+            logger.error("❌ GitHub client creation failed - no token available")
+            return (
+                "❌ GitHub token not configured. Set GITHUB_TOKEN environment variable."
+            )
+
+        logger.debug("✅ GitHub client obtained successfully")
 
         # Build query parameters
         params = {
@@ -962,7 +961,17 @@ async def github_list_pull_requests(
 
         # Get pull requests
         prs_endpoint = f"/repos/{repo_owner}/{repo_name}/pulls"
+        logger.debug(f"📡 Making API call to {prs_endpoint} with params: {params}")
+
         prs_data = await client.make_request("GET", prs_endpoint, params=params)
+
+        logger.debug(f"📨 GitHub API response received, data type: {type(prs_data)}")
+        if prs_data is None:
+            logger.error("❌ GitHub API returned None - likely authentication failure")
+        else:
+            logger.debug(
+                f"📊 Received {len(prs_data) if isinstance(prs_data, list) else 'non-list'} items"
+            )
 
         if not prs_data:
             return (
@@ -1545,7 +1554,7 @@ Please review for:
    - Consistent coding style and conventions
    - Appropriate abstractions and patterns
 
-2. **Functionality**  
+2. **Functionality**
    - Logic correctness
    - Edge cases handling
    - Performance implications
@@ -2504,7 +2513,11 @@ Provide specific, actionable recommendations for each area."""
                     return [TextContent(type="text", text=result)]
 
                 case GitTools.GITHUB_LIST_PULL_REQUESTS:
-                    result = await github_list_pull_requests(
+                    from mcp_server_git.github.api import (
+                        github_list_pull_requests as modern_github_list_pull_requests,
+                    )
+
+                    result = await modern_github_list_pull_requests(
                         arguments["repo_owner"],
                         arguments["repo_name"],
                         arguments.get("state", "open"),
