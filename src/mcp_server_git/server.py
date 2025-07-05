@@ -504,7 +504,6 @@ class GitFetch(BaseModel):
 class GitRebase(BaseModel):
     repo_path: str
     target_branch: str
-    interactive: bool = False
 
 
 class GitMerge(BaseModel):
@@ -1327,22 +1326,6 @@ async def serve(repository: Path | None, test_mode: bool = False) -> None:
                     ),
                 ],
             ),
-            Prompt(
-                name="rebase-interactive",
-                description="Guide for interactive rebase operations",
-                arguments=[
-                    PromptArgument(
-                        name="commits",
-                        description="Commits to be rebased",
-                        required=True,
-                    ),
-                    PromptArgument(
-                        name="goal",
-                        description="What you want to achieve with the rebase",
-                        required=False,
-                    ),
-                ],
-            ),
             # GitHub Actions Prompts
             Prompt(
                 name="github-actions-failure-analysis",
@@ -1842,60 +1825,6 @@ Transform technical commit messages into user-friendly changelog entries."""
 
                 return GetPromptResult(
                     description="Changelog generator",
-                    messages=[
-                        PromptMessage(
-                            role="user",
-                            content=TextContent(type="text", text=prompt_text),
-                        )
-                    ],
-                )
-
-            case "rebase-interactive":
-                commits = args.get("commits", "")
-                goal = args.get("goal", "")
-
-                goal_section = f"\n**Goal:** {goal}\n" if goal else ""
-
-                prompt_text = f"""Guide me through an interactive rebase for these commits:
-
-{commits}
-{goal_section}
-Provide comprehensive rebase guidance:
-
-1. **Rebase Planning**
-   - Analysis of current commits
-   - Recommended rebase actions
-   - Potential risks and considerations
-
-2. **Interactive Rebase Commands**
-   - pick: keep commit as-is
-   - reword: change commit message
-   - edit: modify commit content
-   - squash: combine with previous commit
-   - fixup: combine with previous, discard message
-   - drop: remove commit entirely
-
-3. **Step-by-Step Process**
-   - Command to start interactive rebase
-   - How to edit the rebase todo list
-   - Resolving conflicts during rebase
-   - Completing the rebase process
-
-4. **Best Practices**
-   - When to use each rebase action
-   - Maintaining commit history clarity
-   - Testing between rebase steps
-   - Safety with force pushing
-
-5. **Troubleshooting**
-   - Common rebase issues
-   - How to abort if needed
-   - Recovering from mistakes
-
-Include specific commands and editor instructions."""
-
-                return GetPromptResult(
-                    description="Interactive rebase guide",
                     messages=[
                         PromptMessage(
                             role="user",
@@ -2462,7 +2391,6 @@ Provide specific, actionable recommendations for each area."""
                     result = git_rebase(
                         repo,
                         arguments["target_branch"],
-                        arguments.get("interactive", False),
                     )
                     return [TextContent(type="text", text=result)]
 

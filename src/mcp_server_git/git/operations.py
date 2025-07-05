@@ -445,7 +445,7 @@ def git_diff_branches(repo: Repo, base_branch: str, compare_branch: str) -> str:
         return f"❌ Diff error: {str(e)}"
 
 
-def git_rebase(repo: Repo, target_branch: str, interactive: bool = False) -> str:
+def git_rebase(repo: Repo, target_branch: str) -> str:
     """Rebase current branch onto target branch"""
     try:
         # Get current branch
@@ -467,13 +467,8 @@ def git_rebase(repo: Repo, target_branch: str, interactive: bool = False) -> str
         if target_branch not in all_branches:
             return f"❌ Target branch '{target_branch}' not found"
 
-        # Build rebase command
-        rebase_args = [target_branch]
-        if interactive:
-            rebase_args.insert(0, "--interactive")
-
-        # Perform rebase
-        result = repo.git.rebase(*rebase_args)
+        # Perform rebase (non-interactive only)
+        result = repo.git.rebase(target_branch)
 
         return (
             f"✅ Successfully rebased {current_branch} onto {target_branch}\n{result}"
