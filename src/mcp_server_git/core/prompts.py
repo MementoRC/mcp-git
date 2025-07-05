@@ -360,7 +360,6 @@ Include exact Git commands and explain what each command does."""
                 ],
             )
 
-
         case "release-notes":
             version = args.get("version", "")
             commits = args.get("commits", "")

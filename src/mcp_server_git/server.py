@@ -1833,7 +1833,6 @@ Transform technical commit messages into user-friendly changelog entries."""
                     ],
                 )
 
-
             case "github-actions-failure-analysis":
                 failure_logs = args.get("failure_logs", "")
                 workflow_file = args.get("workflow_file", "")
