@@ -62,3 +62,9 @@ uv.lock
 
 # Data directory (temporary/cache files)
 data/
+
+# Development tool files - local only
+.aider/
+.aider.tags.cache.v4
+.claude/
+ai_docs/

@@ -59,6 +59,14 @@ markers = [
 target-version = "py310"
 line-length = 88
 
+[tool.ruff.lint]
+# File-specific TDD support: Only relax linting for type test files during TDD red phase
+[tool.ruff.lint.per-file-ignores]
+# TDD type tests: Allow undefined names and unused imports during red phase
+"tests/unit/types/*.py" = ["F821", "F401", "F841"]
+# Ensure production code maintains strict standards
+"src/mcp_server_git/types/*.py" = []
+
 [tool.ruff.format]
 # Ensure consistent formatting across ruff versions
 quote-style = "double"

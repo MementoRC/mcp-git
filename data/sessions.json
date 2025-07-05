@@ -1,0 +1,68 @@
+[
+  {
+    "session_id": "shutdown1",
+    "user": null,
+    "repository": null,
+    "state": "ACTIVE",
+    "metrics": {
+      "start_time": 1751579388.8656259,
+      "last_active": 1751579388.865656,
+      "last_heartbeat": 1751579388.865656,
+      "error_count": 0,
+      "command_count": 0,
+      "idle_timeouts": 0,
+      "heartbeat_timeouts": 0,
+      "heartbeat_count": 0,
+      "state_transitions": 1,
+      "uptime": 9.584426879882812e-05,
+      "idle_time": 6.604194641113281e-05,
+      "heartbeat_age": 6.628036499023438e-05
+    },
+    "idle_timeout": 900.0,
+    "heartbeat_timeout": 60.0
+  },
+  {
+    "session_id": "shutdown2",
+    "user": null,
+    "repository": null,
+    "state": "ACTIVE",
+    "metrics": {
+      "start_time": 1751579388.8656733,
+      "last_active": 1751579388.8656821,
+      "last_heartbeat": 1751579388.8656821,
+      "error_count": 0,
+      "command_count": 0,
+      "idle_timeouts": 0,
+      "heartbeat_timeouts": 0,
+      "heartbeat_count": 0,
+      "state_transitions": 1,
+      "uptime": 5.1975250244140625e-05,
+      "idle_time": 4.315376281738281e-05,
+      "heartbeat_age": 4.3392181396484375e-05
+    },
+    "idle_timeout": 900.0,
+    "heartbeat_timeout": 60.0
+  },
+  {
+    "session_id": "shutdown3",
+    "user": null,
+    "repository": null,
+    "state": "ACTIVE",
+    "metrics": {
+      "start_time": 1751579388.8656917,
+      "last_active": 1751579388.8657007,
+      "last_heartbeat": 1751579388.8657007,
+      "error_count": 0,
+      "command_count": 0,
+      "idle_timeouts": 0,
+      "heartbeat_timeouts": 0,
+      "heartbeat_count": 0,
+      "state_transitions": 1,
+      "uptime": 3.504753112792969e-05,
+      "idle_time": 2.6226043701171875e-05,
+      "heartbeat_age": 2.6464462280273438e-05
+    },
+    "idle_timeout": 900.0,
+    "heartbeat_timeout": 60.0
+  }
+]

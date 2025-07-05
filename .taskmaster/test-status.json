@@ -1,0 +1,49 @@
+{
+  "project": "mcp-git LLM Compliance Enhancement",
+  "version": "0.6.3",
+  "test_phases": {
+    "phase_1_foundation": {
+      "description": "Core type system and basic structures",
+      "status": "in_progress", 
+      "expected_passing": [
+        "tests/unit/test_server.py::test_server_initialization",
+        "tests/unit/test_server.py::test_basic_git_operations"
+      ],
+      "expected_failing": [
+        "tests/unit/types/test_git_types.py::TestGitRepositoryPath::*",
+        "tests/unit/types/test_github_types.py::TestGitHubRepository::*",
+        "tests/unit/types/test_mcp_types.py::TestMCPRequest::*",
+        "tests/unit/types/test_validation_types.py::TestValidationError::*",
+        "tests/unit/types/test_composite_types.py::TestGitOperationRequest::*"
+      ],
+      "target_commit": "TBD"
+    },
+    "phase_2_implementation": {
+      "description": "Implement core type classes",
+      "status": "planned",
+      "expected_passing": [
+        "tests/unit/types/test_git_types.py::TestGitRepositoryPath::*",
+        "tests/unit/types/test_github_types.py::TestGitHubRepository::*"
+      ],
+      "expected_failing": [
+        "tests/unit/types/test_composite_types.py::TestIntegratedOperationResult::*",
+        "tests/unit/types/test_validation_types.py::TestCompositeValidator::*"
+      ],
+      "target_commit": "TBD"
+    },
+    "phase_3_integration": {
+      "description": "Integration and composite types",
+      "status": "planned",
+      "expected_passing": [
+        "tests/unit/types/test_composite_types.py::*"
+      ],
+      "expected_failing": [
+        "tests/integration/test_end_to_end.py::*"
+      ],
+      "target_commit": "TBD"
+    }
+  },
+  "current_phase": "phase_1_foundation",
+  "last_updated": "2025-07-03T10:30:00Z",
+  "commit_hash": "f40e7546"
+}
