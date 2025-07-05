@@ -1556,7 +1556,7 @@ packages:
 - pypi: ./
   name: mcp-server-git
   version: 0.6.3
-  sha256: d884101184bf513105772c58140e01df2185c59ce33d3fb0d42631defe2496f8
+  sha256: 53995fd562cccc254fc1ce64525f11f840c41f5f5168432febbfb35b4d2f295d
   requires_dist:
   - click>=8.1.7
   - gitpython>=3.1.43

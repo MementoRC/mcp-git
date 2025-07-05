@@ -341,13 +341,22 @@ async def github_list_pull_requests(
     page: int = 1,
 ) -> str:
     """List pull requests for a repository"""
+    logger.debug(f"🔍 Starting github_list_pull_requests for {repo_owner}/{repo_name}")
+
     client = None
     try:
+        logger.debug("🔑 Attempting to get GitHub client...")
         client = get_github_client()
         if not client:
+            logger.error("❌ GitHub client creation failed - no token available")
             return (
                 "❌ GitHub token not configured. Set GITHUB_TOKEN environment variable."
             )
+
+        logger.debug("✅ GitHub client obtained successfully")
+        logger.debug(
+            f"🔗 Token prefix: {client.token[:8]}..." if client.token else "No token"
+        )
 
         params = {
             "state": state,
@@ -362,11 +371,26 @@ async def github_list_pull_requests(
         if base:
             params["base"] = base
 
+        logger.debug(
+            f"📡 Making API call to /repos/{repo_owner}/{repo_name}/pulls with params: {params}"
+        )
+
         response = await client.get(
             f"/repos/{repo_owner}/{repo_name}/pulls", params=params
         )
-        if response.status != 200:
-            return f"❌ Failed to list pull requests: {response.status}"
+
+        logger.debug(f"📨 GitHub API response status: {response.status}")
+
+        if response.status == 401:
+            response_text = await response.text()
+            logger.error(f"🔒 GitHub API authentication failed (401): {response_text}")
+            return f"❌ GitHub API error 401: {response_text}"
+        elif response.status != 200:
+            response_text = await response.text()
+            logger.error(f"❌ GitHub API error {response.status}: {response_text}")
+            return (
+                f"❌ Failed to list pull requests: {response.status} - {response_text}"
+            )
 
         prs = await response.json()
 

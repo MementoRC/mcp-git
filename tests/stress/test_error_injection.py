@@ -113,9 +113,9 @@ async def test_comprehensive_error_injection(
     logger.info(f"Final recovery: {'✅' if final_recovery else '❌'}")
 
     # Assertions
-    assert recovery_success_rate >= 0.95, (
-        f"Recovery success rate too low: {recovery_success_rate:.2%}"
-    )
+    assert (
+        recovery_success_rate >= 0.95
+    ), f"Recovery success rate too low: {recovery_success_rate:.2%}"
     assert final_recovery, "Server failed final recovery check"
 
     logger.info("✅ Error injection resilience verified")
@@ -215,9 +215,9 @@ async def test_malformed_message_flood(
     logger.info(f"Final recovery: {'✅' if final_recovery else '❌'}")
 
     # Server should handle malformed messages gracefully
-    assert recovery_success_rate >= 0.98, (
-        f"Server stability compromised: {recovery_success_rate:.2%}"
-    )
+    assert (
+        recovery_success_rate >= 0.98
+    ), f"Server stability compromised: {recovery_success_rate:.2%}"
     assert final_recovery, "Server failed to recover from malformed message flood"
 
     logger.info("✅ Malformed message flood resilience verified")
@@ -338,9 +338,9 @@ async def test_concurrent_error_injection(
 
     # Assertions
     assert failed_tasks <= 1, f"Too many client tasks failed: {failed_tasks}"
-    assert system_recovery_rate >= 0.8, (
-        f"System recovery rate too low: {system_recovery_rate:.2%}"
-    )
+    assert (
+        system_recovery_rate >= 0.8
+    ), f"System recovery rate too low: {system_recovery_rate:.2%}"
 
     logger.info("✅ Concurrent error injection resilience verified")
 
@@ -456,12 +456,12 @@ async def test_error_recovery_under_load(
     logger.info(f"Final recovery: {'✅' if final_recovery else '❌'}")
 
     # Assertions
-    assert recovery_success_rate >= 0.95, (
-        f"Recovery success rate under load too low: {recovery_success_rate:.2%}"
-    )
-    assert normal_success_rate >= 0.95, (
-        f"Normal operations affected by errors: {normal_success_rate:.2%}"
-    )
+    assert (
+        recovery_success_rate >= 0.95
+    ), f"Recovery success rate under load too low: {recovery_success_rate:.2%}"
+    assert (
+        normal_success_rate >= 0.95
+    ), f"Normal operations affected by errors: {normal_success_rate:.2%}"
     assert final_recovery, "System failed final recovery under load"
 
     logger.info("✅ Error recovery under load verified")

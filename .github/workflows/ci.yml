@@ -314,10 +314,10 @@ jobs:
       run: |
         echo "🚀 Starting comprehensive E2E MCP Git Server verification"
         echo "This replicates the manual verification process performed during debugging"
-        
+
         # Set up GitHub token for API testing (optional)
         export GITHUB_TOKEN="${{ secrets.GITHUB_TOKEN }}"
-        
+
         # Run the comprehensive E2E verification tests
         pixi run -e dev python -m pytest tests/test_mcp_verification_e2e.py \
           -v \
@@ -325,7 +325,7 @@ jobs:
           --tb=short \
           --timeout=300 \
           -x
-        
+
         echo "✅ E2E MCP Git Server verification completed successfully"
 
     - name: Generate E2E verification report

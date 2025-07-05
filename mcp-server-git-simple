@@ -28,6 +28,7 @@ def main(repository: Path, verbose: int, enable_file_logging: bool, test_mode: b
     """Simplified MCP Git Server"""
     # Set logging level based on verbosity
     import os
+
     if verbose == 1:
         os.environ["LOG_LEVEL"] = "INFO"
     elif verbose >= 2:
@@ -35,6 +36,7 @@ def main(repository: Path, verbose: int, enable_file_logging: bool, test_mode: b
 
     # Run the simplified server
     asyncio.run(main_simple(repository, test_mode))
+
 
 if __name__ == "__main__":
     main()

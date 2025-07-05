@@ -136,9 +136,9 @@ async def test_server_startup_and_initialization(mcp_server):
     ]
 
     for tool_name in github_tools:
-        assert tool_name in tool_names, (
-            f"GitHub tool {tool_name} not found in available tools"
-        )
+        assert (
+            tool_name in tool_names
+        ), f"GitHub tool {tool_name} not found in available tools"
 
     print(f"✅ Server initialized successfully with {len(tools)} tools")
 
@@ -160,9 +160,9 @@ async def test_github_api_tools_routing(mcp_server):
     assert "result" in response, f"Tool call failed: {response}"
 
     result_text = response["result"]["content"][0]["text"]
-    assert "not implemented" not in result_text.lower(), (
-        f"Tool still showing as not implemented: {result_text}"
-    )
+    assert (
+        "not implemented" not in result_text.lower()
+    ), f"Tool still showing as not implemented: {result_text}"
 
     # May get authentication error or other GitHub API error, but not "not implemented"
     print(f"✅ GitHub API tool routing works - got response: {result_text[:100]}...")
@@ -195,9 +195,9 @@ async def test_git_tools_still_work(mcp_server):
 
         assert "result" in response, f"Git status tool failed: {response}"
         result_text = response["result"]["content"][0]["text"]
-        assert "Repository status" in result_text, (
-            f"Unexpected git status response: {result_text}"
-        )
+        assert (
+            "Repository status" in result_text
+        ), f"Unexpected git status response: {result_text}"
 
         print("✅ Git tools still work correctly")
 
@@ -214,9 +214,9 @@ async def test_tool_separation(mcp_server):
         "github_list_pull_requests", {"repo_owner": "test", "repo_name": "test"}
     )
 
-    assert "result" in github_response, (
-        f"GitHub tool without repo_path failed: {github_response}"
-    )
+    assert (
+        "result" in github_response
+    ), f"GitHub tool without repo_path failed: {github_response}"
 
     # Git tools should require repo_path
     with tempfile.TemporaryDirectory() as temp_dir:
@@ -227,8 +227,8 @@ async def test_tool_separation(mcp_server):
             "git_status", {"repo_path": str(repo_path)}
         )
 
-        assert "result" in git_response, (
-            f"Git tool with repo_path failed: {git_response}"
-        )
+        assert (
+            "result" in git_response
+        ), f"Git tool with repo_path failed: {git_response}"
 
     print("✅ Tool separation working correctly")
