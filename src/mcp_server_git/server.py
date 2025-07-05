@@ -56,6 +56,16 @@ from mcp_server_git.git.operations import (
     git_fetch,
 )
 
+# Import GitHub CLI models
+from mcp_server_git.github.models import (
+    GitHubCLICreatePR,
+    GitHubCLIEditPR,
+    GitHubCLIMergePR,
+    GitHubCLIClosePR,
+    GitHubCLIReopenPR,
+    GitHubCLIReadyPR,
+)
+
 # Module-level logger for this file
 logger = logging.getLogger(__name__)
 
@@ -613,6 +623,13 @@ class GitTools(str, Enum):
     GITHUB_LIST_PULL_REQUESTS = "github_list_pull_requests"
     GITHUB_GET_PR_STATUS = "github_get_pr_status"
     GITHUB_GET_PR_FILES = "github_get_pr_files"
+    # GitHub CLI Tools
+    GITHUB_CLI_CREATE_PR = "github_cli_create_pr"
+    GITHUB_CLI_EDIT_PR = "github_cli_edit_pr"
+    GITHUB_CLI_MERGE_PR = "github_cli_merge_pr"
+    GITHUB_CLI_CLOSE_PR = "github_cli_close_pr"
+    GITHUB_CLI_REOPEN_PR = "github_cli_reopen_pr"
+    GITHUB_CLI_READY_PR = "github_cli_ready_pr"
 
 
 # Export functions for test imports - these are used by tests that import from this module
@@ -2081,7 +2098,7 @@ Provide specific, actionable recommendations for each area."""
             ),
             Tool(
                 name=GitTools.RESET,
-                description="Unstages all staged changes",
+                description="Reset repository with advanced options (--soft, --mixed, --hard)",
                 inputSchema=GitReset.model_json_schema(),
             ),
             Tool(
@@ -2221,6 +2238,37 @@ Provide specific, actionable recommendations for each area."""
                 description="Get files changed in a pull request with pagination support",
                 inputSchema=GitHubGetPRFiles.model_json_schema(),
             ),
+            # GitHub CLI Tools
+            Tool(
+                name=GitTools.GITHUB_CLI_CREATE_PR,
+                description="Create a pull request using GitHub CLI",
+                inputSchema=GitHubCLICreatePR.model_json_schema(),
+            ),
+            Tool(
+                name=GitTools.GITHUB_CLI_EDIT_PR,
+                description="Edit a pull request using GitHub CLI",
+                inputSchema=GitHubCLIEditPR.model_json_schema(),
+            ),
+            Tool(
+                name=GitTools.GITHUB_CLI_MERGE_PR,
+                description="Merge a pull request using GitHub CLI",
+                inputSchema=GitHubCLIMergePR.model_json_schema(),
+            ),
+            Tool(
+                name=GitTools.GITHUB_CLI_CLOSE_PR,
+                description="Close a pull request using GitHub CLI",
+                inputSchema=GitHubCLIClosePR.model_json_schema(),
+            ),
+            Tool(
+                name=GitTools.GITHUB_CLI_REOPEN_PR,
+                description="Reopen a pull request using GitHub CLI",
+                inputSchema=GitHubCLIReopenPR.model_json_schema(),
+            ),
+            Tool(
+                name=GitTools.GITHUB_CLI_READY_PR,
+                description="Mark a pull request as ready for review using GitHub CLI",
+                inputSchema=GitHubCLIReadyPR.model_json_schema(),
+            ),
         ]
 
     async def list_repos() -> Sequence[str]:
@@ -2349,7 +2397,12 @@ Provide specific, actionable recommendations for each area."""
                     return [TextContent(type="text", text=result)]
 
                 case GitTools.RESET:
-                    result = git_reset(repo)
+                    result = git_reset(
+                        repo,
+                        arguments.get("mode"),
+                        arguments.get("target"),
+                        arguments.get("files")
+                    )
                     return [TextContent(type="text", text=result)]
 
                 case GitTools.LOG:
@@ -2548,6 +2601,74 @@ Provide specific, actionable recommendations for each area."""
                         arguments.get("per_page", 30),
                         arguments.get("page", 1),
                         arguments.get("include_patch", False),
+                    )
+                    return [TextContent(type="text", text=result)]
+
+                # GitHub CLI Tools
+                case GitTools.GITHUB_CLI_CREATE_PR:
+                    from mcp_server_git.github.cli import gh_create_pr
+                    result = gh_create_pr(
+                        arguments["repo_path"],
+                        arguments["title"],
+                        arguments.get("body"),
+                        arguments.get("base"),
+                        arguments.get("head"),
+                        arguments.get("draft", False),
+                        arguments.get("web", False),
+                    )
+                    return [TextContent(type="text", text=result)]
+
+                case GitTools.GITHUB_CLI_EDIT_PR:
+                    from mcp_server_git.github.cli import gh_edit_pr
+                    result = gh_edit_pr(
+                        arguments["repo_path"],
+                        arguments["pr_number"],
+                        arguments.get("title"),
+                        arguments.get("body"),
+                        arguments.get("base"),
+                        arguments.get("add_assignee"),
+                        arguments.get("remove_assignee"),
+                        arguments.get("add_label"),
+                        arguments.get("remove_label"),
+                        arguments.get("add_reviewer"),
+                        arguments.get("remove_reviewer"),
+                    )
+                    return [TextContent(type="text", text=result)]
+
+                case GitTools.GITHUB_CLI_MERGE_PR:
+                    from mcp_server_git.github.cli import gh_merge_pr
+                    result = gh_merge_pr(
+                        arguments["repo_path"],
+                        arguments["pr_number"],
+                        arguments.get("merge_method", "merge"),
+                        arguments.get("delete_branch", False),
+                        arguments.get("auto", False),
+                    )
+                    return [TextContent(type="text", text=result)]
+
+                case GitTools.GITHUB_CLI_CLOSE_PR:
+                    from mcp_server_git.github.cli import gh_close_pr
+                    result = gh_close_pr(
+                        arguments["repo_path"],
+                        arguments["pr_number"],
+                        arguments.get("comment"),
+                    )
+                    return [TextContent(type="text", text=result)]
+
+                case GitTools.GITHUB_CLI_REOPEN_PR:
+                    from mcp_server_git.github.cli import gh_reopen_pr
+                    result = gh_reopen_pr(
+                        arguments["repo_path"],
+                        arguments["pr_number"],
+                        arguments.get("comment"),
+                    )
+                    return [TextContent(type="text", text=result)]
+
+                case GitTools.GITHUB_CLI_READY_PR:
+                    from mcp_server_git.github.cli import gh_ready_pr
+                    result = gh_ready_pr(
+                        arguments["repo_path"],
+                        arguments["pr_number"],
                     )
                     return [TextContent(type="text", text=result)]
 
