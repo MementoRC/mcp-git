@@ -863,9 +863,9 @@ async def github_get_pr_details(
         output.append(f"State: {pr_data['state']}")
         output.append(f"Created: {pr_data['created_at']}")
         output.append(f"Updated: {pr_data['updated_at']}")
-        output.append(
-            f"Base: {pr_data['base']['ref']} ← Head: {pr_data['head']['ref']}"
-        )
+        base_ref = pr_data['base']['ref']
+        head_ref = pr_data['head']['ref']
+        output.append(f"Base: {base_ref} ← Head: {head_ref}")
         output.append(f"Commits: {pr_data['commits']}")
         output.append(
             f"Additions: +{pr_data['additions']}, Deletions: -{pr_data['deletions']}"
@@ -993,7 +993,9 @@ async def github_list_pull_requests(
             if pr.get("merged_at"):
                 output.append(f"   Merged: {pr['merged_at']}")
             output.append(f"   Created: {pr['created_at']}")
-            output.append(f"   Base: {pr['base']['ref']} ← Head: {pr['head']['ref']}")
+            base_ref = pr['base']['ref']
+            head_ref = pr['head']['ref']
+            output.append(f"   Base: {base_ref} ← Head: {head_ref}")
             output.append(f"   URL: {pr['html_url']}")
             output.append("")
 

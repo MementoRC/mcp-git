@@ -405,9 +405,9 @@ async def github_list_pull_requests(
             )
             output.append(f"{state_emoji} #{pr['number']}: {pr['title']}")
             output.append(f"   Author: {pr.get('user', {}).get('login', 'N/A')}")
-            output.append(
-                f"   Base: {pr.get('base', {}).get('ref', 'N/A')} ← Head: {pr.get('head', {}).get('ref', 'N/A')}"
-            )
+            base_ref = pr.get('base', {}).get('ref', 'N/A')
+            head_ref = pr.get('head', {}).get('ref', 'N/A')
+            output.append(f"   Base: {base_ref} ← Head: {head_ref}")
             output.append(f"   Created: {pr.get('created_at', 'N/A')}")
             output.append("")
 
