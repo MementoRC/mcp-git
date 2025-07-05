@@ -127,13 +127,13 @@ async def test_memory_leak_detection_extended_operations(
     memory_monitor.log_samples()
 
     # Assertions
-    assert (
-        memory_growth < max_growth_mb
-    ), f"Memory growth exceeds limit: {memory_growth:.2f} MB > {max_growth_mb} MB"
+    assert memory_growth < max_growth_mb, (
+        f"Memory growth exceeds limit: {memory_growth:.2f} MB > {max_growth_mb} MB"
+    )
 
-    assert (
-        abs(memory_slope) < max_slope
-    ), f"Memory leak detected: slope={memory_slope:.6f} > {max_slope}"
+    assert abs(memory_slope) < max_slope, (
+        f"Memory leak detected: slope={memory_slope:.6f} > {max_slope}"
+    )
 
     logger.info("✅ No memory leaks detected")
 
@@ -207,9 +207,9 @@ async def test_session_creation_destruction_memory(
     # Assertions
     assert memory_growth < 30, f"Session memory growth too high: {memory_growth:.2f} MB"
     assert abs(memory_slope) < 0.1, f"Session memory leak: slope={memory_slope:.6f}"
-    assert (
-        len(final_sessions) == 0
-    ), f"Sessions not properly cleaned up: {len(final_sessions)}"
+    assert len(final_sessions) == 0, (
+        f"Sessions not properly cleaned up: {len(final_sessions)}"
+    )
 
     logger.info("✅ Session memory management verified")
 
@@ -304,12 +304,12 @@ async def test_resource_cleanup_after_errors(
     logger.info(f"Remaining sessions: {len(final_sessions)}")
 
     # Assertions - errors should not cause memory leaks
-    assert (
-        memory_growth < 20
-    ), f"Error scenarios caused memory leak: {memory_growth:.2f} MB"
-    assert (
-        len(final_sessions) <= 1
-    ), f"Error scenarios left sessions: {len(final_sessions)}"
+    assert memory_growth < 20, (
+        f"Error scenarios caused memory leak: {memory_growth:.2f} MB"
+    )
+    assert len(final_sessions) <= 1, (
+        f"Error scenarios left sessions: {len(final_sessions)}"
+    )
 
     logger.info("✅ Resource cleanup after errors verified")
 
@@ -503,11 +503,11 @@ async def test_long_term_memory_stability(
     logger.info(f"Memory slope: {memory_slope:.6f} MB/sample")
 
     # Stability assertions
-    assert (
-        memory_growth < 75
-    ), f"Long-term memory growth too high: {memory_growth:.2f} MB"
-    assert (
-        abs(memory_slope) < 0.2
-    ), f"Memory instability detected: slope={memory_slope:.6f}"
+    assert memory_growth < 75, (
+        f"Long-term memory growth too high: {memory_growth:.2f} MB"
+    )
+    assert abs(memory_slope) < 0.2, (
+        f"Memory instability detected: slope={memory_slope:.6f}"
+    )
 
     logger.info("✅ Long-term memory stability verified")
