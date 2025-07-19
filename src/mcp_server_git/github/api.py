@@ -759,3 +759,52 @@ async def github_reopen_pr(repo_owner: str, repo_name: str, pr_number: int) -> s
     """Reopen a closed pull request."""
     logger.debug(f"🚀 Reopening PR #{pr_number} in {repo_owner}/{repo_name}")
     return await github_update_pr(repo_owner, repo_name, pr_number, state="open")
+
+
+async def github_create_issue(
+    repo_owner: str,
+    repo_name: str,
+    title: str,
+    body: Optional[str] = None,
+    labels: Optional[list[str]] = None,
+    assignees: Optional[list[str]] = None,
+) -> str:
+    """Create a new GitHub issue."""
+    logger.debug(f"🚀 Creating issue in {repo_owner}/{repo_name}")
+
+    client = None
+    try:
+        client = get_github_client()
+        if not client:
+            return (
+                "❌ GitHub token not configured. Set GITHUB_TOKEN environment variable."
+            )
+
+        payload = {"title": title}
+        if body is not None:
+            payload["body"] = body
+        if labels:
+            payload["labels"] = labels
+        if assignees:
+            payload["assignees"] = assignees
+
+        response = await client.post(
+            f"/repos/{repo_owner}/{repo_name}/issues", json=payload
+        )
+
+        if response.status != 201:
+            error_text = await response.text()
+            return f"❌ Failed to create issue: {response.status} - {error_text}"
+
+        result = await response.json()
+        logger.info(f"✅ Successfully created issue #{result['number']}")
+        return (
+            f"✅ Successfully created issue #{result['number']}: {result['html_url']}"
+        )
+
+    except Exception as e:
+        logger.error(f"❌ Failed to create issue: {e}", exc_info=True)
+        return f"❌ Error creating issue: {str(e)}"
+    finally:
+        if client and client.session:
+            await client.session.close()

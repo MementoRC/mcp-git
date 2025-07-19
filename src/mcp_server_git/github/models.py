@@ -110,3 +110,12 @@ class GitHubCLIReopenPR(BaseModel):
 class GitHubCLIReadyPR(BaseModel):
     repo_path: str
     pr_number: int
+
+
+class GitHubCreateIssue(BaseModel):
+    repo_owner: str
+    repo_name: str
+    title: str
+    body: Optional[str] = None
+    labels: Optional[list[str]] = None
+    assignees: Optional[list[str]] = None

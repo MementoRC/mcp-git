@@ -171,6 +171,7 @@ class CallToolHandler:
                 github_list_pull_requests,
                 github_get_pr_status,
                 github_get_pr_files,
+                github_create_issue,
             )
 
             logger.debug("Using modular GitHub API")
@@ -242,6 +243,17 @@ class CallToolHandler:
                     "per_page",
                     "page",
                     "include_patch",
+                ],
+            ),
+            "github_create_issue": self._create_github_handler(
+                github_create_issue,
+                [
+                    "repo_owner",
+                    "repo_name",
+                    "title",
+                    "body",
+                    "labels",
+                    "assignees",
                 ],
             ),
         }
