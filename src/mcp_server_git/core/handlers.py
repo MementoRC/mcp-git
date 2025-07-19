@@ -6,8 +6,22 @@ import time
 from pathlib import Path
 from typing import Dict, List, Any, Optional
 
-import git
-from git import Repo
+# Handle git import gracefully to avoid conflicts with git redirectors
+try:
+    import git
+    from git import Repo
+except ImportError as e:
+    # If GitPython fails to initialize due to git redirector or missing git,
+    # we'll handle this in the specific operations that need it
+    git = None
+    Repo = None
+    import warnings
+
+    warnings.warn(
+        f"GitPython initialization failed in handlers: {e}. Git operations may be limited.",
+        UserWarning,
+    )
+
 from mcp.types import TextContent
 
 from .tools import GitToolRouter, ToolRegistry
@@ -171,6 +185,10 @@ class CallToolHandler:
                 github_list_pull_requests,
                 github_get_pr_status,
                 github_get_pr_files,
+                github_create_issue,
+                github_edit_pr_description,
+                github_list_issues,
+                github_update_issue,
             )
 
             logger.debug("Using modular GitHub API")
@@ -244,6 +262,53 @@ class CallToolHandler:
                     "include_patch",
                 ],
             ),
+            "github_create_issue": self._create_github_handler(
+                github_create_issue,
+                [
+                    "repo_owner",
+                    "repo_name",
+                    "title",
+                    "body",
+                    "labels",
+                    "assignees",
+                ],
+            ),
+            "github_edit_pr_description": self._create_github_handler(
+                github_edit_pr_description,
+                [
+                    "repo_owner",
+                    "repo_name",
+                    "pr_number",
+                    "description",
+                ],
+            ),
+            "github_list_issues": self._create_github_handler(
+                github_list_issues,
+                [
+                    "repo_owner",
+                    "repo_name",
+                    "state",
+                    "labels",
+                    "assignee",
+                    "sort",
+                    "direction",
+                    "per_page",
+                    "page",
+                ],
+            ),
+            "github_update_issue": self._create_github_handler(
+                github_update_issue,
+                [
+                    "repo_owner",
+                    "repo_name",
+                    "issue_number",
+                    "state",
+                    "labels",
+                    "assignees",
+                    "title",
+                    "body",
+                ],
+            ),
         }
 
     def _get_security_handlers(self) -> Dict[str, Any]:
@@ -271,6 +336,8 @@ class CallToolHandler:
 
         def handler(**kwargs):
             if requires_repo:
+                if git is None or Repo is None:
+                    return "❌ Git operations unavailable: GitPython not properly initialized (possibly due to git redirector conflict)"
                 repo_path = Path(kwargs["repo_path"])
                 repo: Repo = git.Repo(repo_path)
 
@@ -368,6 +435,8 @@ class CallToolHandler:
         """Create a wrapper for security functions"""
 
         def handler(**kwargs):
+            if git is None or Repo is None:
+                return "❌ Git operations unavailable: GitPython not properly initialized (possibly due to git redirector conflict)"
             repo_path = Path(kwargs["repo_path"])
             repo: Repo = git.Repo(repo_path)
 
