@@ -18,7 +18,11 @@ except ImportError as e:
     Repo = None
     GitCommandError = Exception  # Fallback to base Exception
     import warnings
-    warnings.warn(f"GitPython initialization failed in operations: {e}. Git operations may be limited.", UserWarning)
+
+    warnings.warn(
+        f"GitPython initialization failed in operations: {e}. Git operations may be limited.",
+        UserWarning,
+    )
 
 logger = logging.getLogger(__name__)
 

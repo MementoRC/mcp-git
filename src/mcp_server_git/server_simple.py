@@ -21,7 +21,11 @@ except ImportError as e:
     Repo = None
     InvalidGitRepositoryError = Exception
     import warnings
-    warnings.warn(f"GitPython initialization failed in server_simple: {e}. Git operations may be limited.", UserWarning)
+
+    warnings.warn(
+        f"GitPython initialization failed in server_simple: {e}. Git operations may be limited.",
+        UserWarning,
+    )
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
 from mcp.types import TextContent, Tool

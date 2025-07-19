@@ -16,7 +16,11 @@ except ImportError as e:
     git = None
     Repo = None
     import warnings
-    warnings.warn(f"GitPython initialization failed in handlers: {e}. Git operations may be limited.", UserWarning)
+
+    warnings.warn(
+        f"GitPython initialization failed in handlers: {e}. Git operations may be limited.",
+        UserWarning,
+    )
 
 from mcp.types import TextContent
 

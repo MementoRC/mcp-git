@@ -13,7 +13,11 @@ except ImportError as e:
     # provide fallback implementation
     Repo = None
     import warnings
-    warnings.warn(f"GitPython initialization failed in security: {e}. Git security operations may be limited.", UserWarning)
+
+    warnings.warn(
+        f"GitPython initialization failed in security: {e}. Git security operations may be limited.",
+        UserWarning,
+    )
 
 logger = logging.getLogger(__name__)
 

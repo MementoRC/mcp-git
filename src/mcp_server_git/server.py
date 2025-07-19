@@ -17,7 +17,11 @@ except ImportError as e:
     # we'll handle this in the specific operations that need it
     git = None
     import warnings
-    warnings.warn(f"GitPython initialization failed: {e}. Git operations may be limited.", UserWarning)
+
+    warnings.warn(
+        f"GitPython initialization failed: {e}. Git operations may be limited.",
+        UserWarning,
+    )
 from mcp.server import Server
 from mcp.server.session import ServerSession
 from mcp.server.stdio import stdio_server
