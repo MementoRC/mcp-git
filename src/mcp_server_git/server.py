@@ -632,6 +632,8 @@ class GitTools(str, Enum):
     GITHUB_LIST_PULL_REQUESTS = "github_list_pull_requests"
     GITHUB_GET_PR_STATUS = "github_get_pr_status"
     GITHUB_GET_PR_FILES = "github_get_pr_files"
+    # GitHub API Tools (continued)
+    GITHUB_CREATE_ISSUE = "github_create_issue"
     # GitHub CLI Tools
     GITHUB_CLI_CREATE_PR = "github_cli_create_pr"
     GITHUB_CLI_EDIT_PR = "github_cli_edit_pr"
