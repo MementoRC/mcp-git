@@ -6,8 +6,18 @@ import time
 from pathlib import Path
 from typing import Dict, List, Any, Optional
 
-import git
-from git import Repo
+# Handle git import gracefully to avoid conflicts with git redirectors
+try:
+    import git
+    from git import Repo
+except ImportError as e:
+    # If GitPython fails to initialize due to git redirector or missing git,
+    # we'll handle this in the specific operations that need it
+    git = None
+    Repo = None
+    import warnings
+    warnings.warn(f"GitPython initialization failed in handlers: {e}. Git operations may be limited.", UserWarning)
+
 from mcp.types import TextContent
 
 from .tools import GitToolRouter, ToolRegistry
@@ -322,6 +332,8 @@ class CallToolHandler:
 
         def handler(**kwargs):
             if requires_repo:
+                if git is None or Repo is None:
+                    return "❌ Git operations unavailable: GitPython not properly initialized (possibly due to git redirector conflict)"
                 repo_path = Path(kwargs["repo_path"])
                 repo: Repo = git.Repo(repo_path)
 
@@ -419,6 +431,8 @@ class CallToolHandler:
         """Create a wrapper for security functions"""
 
         def handler(**kwargs):
+            if git is None or Repo is None:
+                return "❌ Git operations unavailable: GitPython not properly initialized (possibly due to git redirector conflict)"
             repo_path = Path(kwargs["repo_path"])
             repo: Repo = git.Repo(repo_path)
 

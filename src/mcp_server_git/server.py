@@ -7,8 +7,17 @@ from pathlib import Path
 from typing import Sequence, Optional
 
 import aiohttp
-import git
 from dotenv import load_dotenv
+
+# Handle git import gracefully to avoid conflicts with git redirectors
+try:
+    import git
+except ImportError as e:
+    # If GitPython fails to initialize due to git redirector or missing git,
+    # we'll handle this in the specific operations that need it
+    git = None
+    import warnings
+    warnings.warn(f"GitPython initialization failed: {e}. Git operations may be limited.", UserWarning)
 from mcp.server import Server
 from mcp.server.session import ServerSession
 from mcp.server.stdio import stdio_server
