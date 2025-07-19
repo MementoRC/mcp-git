@@ -119,3 +119,33 @@ class GitHubCreateIssue(BaseModel):
     body: Optional[str] = None
     labels: Optional[list[str]] = None
     assignees: Optional[list[str]] = None
+
+
+class GitHubEditPRDescription(BaseModel):
+    repo_owner: str
+    repo_name: str
+    pr_number: int
+    description: str
+
+
+class GitHubListIssues(BaseModel):
+    repo_owner: str
+    repo_name: str
+    state: str = "open"
+    labels: Optional[str] = None
+    assignee: Optional[str] = None
+    sort: str = "created"
+    direction: str = "desc"
+    per_page: int = 30
+    page: int = 1
+
+
+class GitHubUpdateIssue(BaseModel):
+    repo_owner: str
+    repo_name: str
+    issue_number: int
+    state: Optional[str] = None
+    labels: Optional[list[str]] = None
+    assignees: Optional[list[str]] = None
+    title: Optional[str] = None
+    body: Optional[str] = None

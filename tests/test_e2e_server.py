@@ -134,6 +134,9 @@ async def test_server_startup_and_initialization(mcp_server):
         "github_get_pr_status",
         "github_get_pr_files",
         "github_create_issue",
+        "github_edit_pr_description",
+        "github_list_issues",
+        "github_update_issue",
     ]
 
     for tool_name in github_tools:

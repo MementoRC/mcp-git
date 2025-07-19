@@ -46,6 +46,9 @@ def test_github_api_tools_no_repo_path_required():
         GitTools.GITHUB_GET_PR_STATUS,
         GitTools.GITHUB_GET_PR_FILES,
         GitTools.GITHUB_CREATE_ISSUE,
+        GitTools.GITHUB_EDIT_PR_DESCRIPTION,
+        GitTools.GITHUB_LIST_ISSUES,
+        GitTools.GITHUB_UPDATE_ISSUE,
     ]
 
     # Verify these are the GitHub tools that don't need repo_path
@@ -57,6 +60,9 @@ def test_github_api_tools_no_repo_path_required():
     assert GitTools.GITHUB_GET_PR_STATUS in github_tools
     assert GitTools.GITHUB_GET_PR_FILES in github_tools
     assert GitTools.GITHUB_CREATE_ISSUE in github_tools
+    assert GitTools.GITHUB_EDIT_PR_DESCRIPTION in github_tools
+    assert GitTools.GITHUB_LIST_ISSUES in github_tools
+    assert GitTools.GITHUB_UPDATE_ISSUE in github_tools
 
     # Verify regular git tools are NOT in the GitHub tools list
     assert GitTools.STATUS not in github_tools
@@ -351,3 +357,18 @@ def test_github_create_issue_tool_enum():
 
     # Test enum value
     assert GitTools.GITHUB_CREATE_ISSUE == "github_create_issue"
+
+
+def test_new_github_tools_enum():
+    """Test that new GitHub tools are properly defined in enum"""
+    # Test github_edit_pr_description
+    assert hasattr(GitTools, "GITHUB_EDIT_PR_DESCRIPTION")
+    assert GitTools.GITHUB_EDIT_PR_DESCRIPTION == "github_edit_pr_description"
+
+    # Test github_list_issues
+    assert hasattr(GitTools, "GITHUB_LIST_ISSUES")
+    assert GitTools.GITHUB_LIST_ISSUES == "github_list_issues"
+
+    # Test github_update_issue
+    assert hasattr(GitTools, "GITHUB_UPDATE_ISSUE")
+    assert GitTools.GITHUB_UPDATE_ISSUE == "github_update_issue"
