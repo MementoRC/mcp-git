@@ -12,7 +12,16 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, List
 
-from git import Repo, InvalidGitRepositoryError
+# Handle git import gracefully to avoid conflicts with git redirectors
+try:
+    from git import Repo, InvalidGitRepositoryError
+except ImportError as e:
+    # If GitPython fails to initialize due to git redirector or missing git,
+    # provide fallback implementations
+    Repo = None
+    InvalidGitRepositoryError = Exception
+    import warnings
+    warnings.warn(f"GitPython initialization failed in server_simple: {e}. Git operations may be limited.", UserWarning)
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
 from mcp.types import TextContent, Tool

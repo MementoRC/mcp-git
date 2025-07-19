@@ -6,10 +6,19 @@ import subprocess
 from pathlib import Path
 from typing import Optional
 
-from git import (
-    Repo,
-    GitCommandError,
-)  # Added Repo, GitCommandError, InvalidGitRepositoryError
+# Handle git import gracefully to avoid conflicts with git redirectors
+try:
+    from git import (
+        Repo,
+        GitCommandError,
+    )
+except ImportError as e:
+    # If GitPython fails to initialize due to git redirector or missing git,
+    # provide fallback implementations
+    Repo = None
+    GitCommandError = Exception  # Fallback to base Exception
+    import warnings
+    warnings.warn(f"GitPython initialization failed in operations: {e}. Git operations may be limited.", UserWarning)
 
 logger = logging.getLogger(__name__)
 
