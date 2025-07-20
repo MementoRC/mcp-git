@@ -338,7 +338,14 @@ async def serve_modular(repository: Path | None = None):
                         if USE_MODULAR_GIT:
                             status = modular_git_status(repo, porcelain)
                         else:
-                            status = git_status(repo, porcelain)
+                            status = git_status(
+                                repo,
+                                porcelain,
+                                arguments.get("status_filter"),
+                                arguments.get("path_filter"),
+                                arguments.get("include_ignored", False),
+                                arguments.get("include_untracked", True),
+                            )
                         prefix = (
                             "Repository status (porcelain):"
                             if porcelain

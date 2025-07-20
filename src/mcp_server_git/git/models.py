@@ -7,6 +7,12 @@ from typing import Optional
 class GitStatus(BaseModel):
     repo_path: str
     porcelain: bool = False
+    status_filter: Optional[str] = (
+        None  # Filter by status (staged, unstaged, untracked, ignored)
+    )
+    path_filter: Optional[str] = None  # Filter by file path pattern
+    include_ignored: bool = False  # Include ignored files
+    include_untracked: bool = True  # Include untracked files
 
 
 class GitDiffUnstaged(BaseModel):

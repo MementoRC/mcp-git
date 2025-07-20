@@ -2379,7 +2379,14 @@ Provide specific, actionable recommendations for each area."""
 
             match name:
                 case GitTools.STATUS:
-                    status = git_status(repo)
+                    status = git_status(
+                        repo,
+                        arguments.get("porcelain", False),
+                        arguments.get("status_filter"),
+                        arguments.get("path_filter"),
+                        arguments.get("include_ignored", False),
+                        arguments.get("include_untracked", True),
+                    )
                     return [
                         TextContent(type="text", text=f"Repository status:\n{status}")
                     ]
