@@ -194,7 +194,9 @@ class CallToolHandler:
                 git_remote_remove, requires_repo=True, extra_args=["name"]
             ),
             "git_remote_rename": self._create_git_handler(
-                git_remote_rename, requires_repo=True, extra_args=["old_name", "new_name"]
+                git_remote_rename,
+                requires_repo=True,
+                extra_args=["old_name", "new_name"],
             ),
             "git_remote_set_url": self._create_git_handler(
                 git_remote_set_url, requires_repo=True, extra_args=["name", "url"]
@@ -210,7 +212,9 @@ class CallToolHandler:
                 git_stash_list, requires_repo=True
             ),
             "git_stash_push": self._create_git_handler(
-                git_stash_push, requires_repo=True, extra_args=["message", "include_untracked"]
+                git_stash_push,
+                requires_repo=True,
+                extra_args=["message", "include_untracked"],
             ),
             "git_stash_pop": self._create_git_handler(
                 git_stash_pop, requires_repo=True, extra_args=["stash_id"]
