@@ -1,0 +1,21 @@
+{
+  "include": ["src"],
+  "exclude": ["**/__pycache__", "tests"],
+  "reportMissingImports": "error",
+  "reportMissingTypeStubs": "warning",
+  "reportUndefinedVariable": "error",
+  "reportGeneralTypeIssues": "warning",
+  "reportAttributeAccessIssue": "warning",
+  "reportCallIssue": "error",
+  "reportArgumentType": "warning",
+  "reportAssignmentType": "warning",
+  "reportReturnType": "warning",
+  "reportPossiblyUnboundVariable": "warning",
+  "pythonVersion": "3.10",
+  "typeCheckingMode": "basic",
+  "useLibraryCodeForTypes": false,
+  "reportUnusedImport": "warning",
+  "reportUnusedClass": "information",
+  "reportUnusedFunction": "information",
+  "reportUnusedVariable": "warning"
+}

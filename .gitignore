@@ -56,3 +56,9 @@ node_modules/
 # OS specific
 # Task files
 tasks.json
+
+# UV lock file (using pixi for package management)
+uv.lock
+
+# Data directory (temporary/cache files)
+data/

@@ -521,9 +521,9 @@ async def test_comprehensive_verification_report(mcp_client, test_repo):
 
         # Assert that all critical functionality works
         assert verification_results["basic_git_ops"], "Basic git operations must work"
-        assert verification_results[
-            "github_api"
-        ], "GitHub API must respond (even if no token)"
+        assert verification_results["github_api"], (
+            "GitHub API must respond (even if no token)"
+        )
         assert verification_results["advanced_ops"], "Advanced git operations must work"
         assert verification_results["error_handling"], "Error handling must work"
 

@@ -11,15 +11,21 @@ class GitStatus(BaseModel):
 
 class GitDiffUnstaged(BaseModel):
     repo_path: str
+    stat_only: Optional[bool] = False
+    max_lines: Optional[int] = None
 
 
 class GitDiffStaged(BaseModel):
     repo_path: str
+    stat_only: Optional[bool] = False
+    max_lines: Optional[int] = None
 
 
 class GitDiff(BaseModel):
     repo_path: str
     target: str
+    stat_only: Optional[bool] = False
+    max_lines: Optional[int] = None
 
 
 class GitCommit(BaseModel):
@@ -36,6 +42,9 @@ class GitAdd(BaseModel):
 
 class GitReset(BaseModel):
     repo_path: str
+    mode: Optional[str] = None  # --soft, --mixed, --hard
+    target: Optional[str] = None  # commit hash, branch, tag
+    files: Optional[list[str]] = None  # specific files to reset
 
 
 class GitLog(BaseModel):
@@ -60,6 +69,8 @@ class GitCheckout(BaseModel):
 class GitShow(BaseModel):
     repo_path: str
     revision: str
+    stat_only: Optional[bool] = False
+    max_lines: Optional[int] = None
 
 
 class GitInit(BaseModel):
@@ -84,12 +95,13 @@ class GitDiffBranches(BaseModel):
     repo_path: str
     base_branch: str
     compare_branch: str
+    stat_only: Optional[bool] = False
+    max_lines: Optional[int] = None
 
 
 class GitRebase(BaseModel):
     repo_path: str
     target_branch: str
-    interactive: bool = False
 
 
 class GitMerge(BaseModel):

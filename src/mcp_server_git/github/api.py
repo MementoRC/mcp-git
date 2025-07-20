@@ -341,13 +341,22 @@ async def github_list_pull_requests(
     page: int = 1,
 ) -> str:
     """List pull requests for a repository"""
+    logger.debug(f"🔍 Starting github_list_pull_requests for {repo_owner}/{repo_name}")
+
     client = None
     try:
+        logger.debug("🔑 Attempting to get GitHub client...")
         client = get_github_client()
         if not client:
+            logger.error("❌ GitHub client creation failed - no token available")
             return (
                 "❌ GitHub token not configured. Set GITHUB_TOKEN environment variable."
             )
+
+        logger.debug("✅ GitHub client obtained successfully")
+        logger.debug(
+            f"🔗 Token prefix: {client.token[:8]}..." if client.token else "No token"
+        )
 
         params = {
             "state": state,
@@ -362,11 +371,26 @@ async def github_list_pull_requests(
         if base:
             params["base"] = base
 
+        logger.debug(
+            f"📡 Making API call to /repos/{repo_owner}/{repo_name}/pulls with params: {params}"
+        )
+
         response = await client.get(
             f"/repos/{repo_owner}/{repo_name}/pulls", params=params
         )
-        if response.status != 200:
-            return f"❌ Failed to list pull requests: {response.status}"
+
+        logger.debug(f"📨 GitHub API response status: {response.status}")
+
+        if response.status == 401:
+            response_text = await response.text()
+            logger.error(f"🔒 GitHub API authentication failed (401): {response_text}")
+            return f"❌ GitHub API error 401: {response_text}"
+        elif response.status != 200:
+            response_text = await response.text()
+            logger.error(f"❌ GitHub API error {response.status}: {response_text}")
+            return (
+                f"❌ Failed to list pull requests: {response.status} - {response_text}"
+            )
 
         prs = await response.json()
 
@@ -381,9 +405,9 @@ async def github_list_pull_requests(
             )
             output.append(f"{state_emoji} #{pr['number']}: {pr['title']}")
             output.append(f"   Author: {pr.get('user', {}).get('login', 'N/A')}")
-            output.append(
-                f"   Base: {pr.get('base', {}).get('ref', 'N/A')} ← Head: {pr.get('head', {}).get('ref', 'N/A')}"
-            )
+            base_ref = pr.get("base", {}).get("ref", "N/A")
+            head_ref = pr.get("head", {}).get("ref", "N/A")
+            output.append(f"   Base: {base_ref} ← Head: {head_ref}")
             output.append(f"   Created: {pr.get('created_at', 'N/A')}")
             output.append("")
 
@@ -735,3 +759,204 @@ async def github_reopen_pr(repo_owner: str, repo_name: str, pr_number: int) -> s
     """Reopen a closed pull request."""
     logger.debug(f"🚀 Reopening PR #{pr_number} in {repo_owner}/{repo_name}")
     return await github_update_pr(repo_owner, repo_name, pr_number, state="open")
+
+
+async def github_create_issue(
+    repo_owner: str,
+    repo_name: str,
+    title: str,
+    body: Optional[str] = None,
+    labels: Optional[list[str]] = None,
+    assignees: Optional[list[str]] = None,
+) -> str:
+    """Create a new GitHub issue."""
+    logger.debug(f"🚀 Creating issue in {repo_owner}/{repo_name}")
+
+    client = None
+    try:
+        client = get_github_client()
+        if not client:
+            return (
+                "❌ GitHub token not configured. Set GITHUB_TOKEN environment variable."
+            )
+
+        payload = {"title": title}
+        if body is not None:
+            payload["body"] = body
+        if labels:
+            payload["labels"] = labels
+        if assignees:
+            payload["assignees"] = assignees
+
+        response = await client.post(
+            f"/repos/{repo_owner}/{repo_name}/issues", json=payload
+        )
+
+        if response.status != 201:
+            error_text = await response.text()
+            return f"❌ Failed to create issue: {response.status} - {error_text}"
+
+        result = await response.json()
+        logger.info(f"✅ Successfully created issue #{result['number']}")
+        return (
+            f"✅ Successfully created issue #{result['number']}: {result['html_url']}"
+        )
+
+    except Exception as e:
+        logger.error(f"❌ Failed to create issue: {e}", exc_info=True)
+        return f"❌ Error creating issue: {str(e)}"
+    finally:
+        if client and client.session:
+            await client.session.close()
+
+
+async def github_edit_pr_description(
+    repo_owner: str, repo_name: str, pr_number: int, description: str
+) -> str:
+    """Edit a pull request's description (body)."""
+    logger.debug(f"🚀 Editing PR #{pr_number} description in {repo_owner}/{repo_name}")
+    return await github_update_pr(repo_owner, repo_name, pr_number, body=description)
+
+
+async def github_list_issues(
+    repo_owner: str,
+    repo_name: str,
+    state: str = "open",
+    labels: Optional[str] = None,
+    assignee: Optional[str] = None,
+    sort: str = "created",
+    direction: str = "desc",
+    per_page: int = 30,
+    page: int = 1,
+) -> str:
+    """List issues for a repository with filtering options."""
+    logger.debug(f"🔍 Listing issues for {repo_owner}/{repo_name}")
+
+    client = None
+    try:
+        client = get_github_client()
+        if not client:
+            return (
+                "❌ GitHub token not configured. Set GITHUB_TOKEN environment variable."
+            )
+
+        params = {
+            "state": state,
+            "sort": sort,
+            "direction": direction,
+            "per_page": per_page,
+            "page": page,
+        }
+
+        if labels:
+            params["labels"] = labels
+        if assignee:
+            params["assignee"] = assignee
+
+        response = await client.get(
+            f"/repos/{repo_owner}/{repo_name}/issues", params=params
+        )
+
+        if response.status != 200:
+            error_text = await response.text()
+            return f"❌ Failed to list issues: {response.status} - {error_text}"
+
+        issues = await response.json()
+
+        if not issues:
+            return f"No {state} issues found"
+
+        output = [f"{state.title()} Issues for {repo_owner}/{repo_name}:\n"]
+
+        for issue in issues:
+            # Skip pull requests (GitHub API includes PRs in issues endpoint)
+            if issue.get("pull_request"):
+                continue
+
+            state_emoji = {"open": "🟢", "closed": "🔴"}.get(issue.get("state"), "❓")
+            output.append(f"{state_emoji} #{issue['number']}: {issue['title']}")
+            output.append(f"   Author: {issue.get('user', {}).get('login', 'N/A')}")
+
+            # Show labels if present
+            issue_labels = issue.get("labels", [])
+            if issue_labels:
+                label_names = [label["name"] for label in issue_labels]
+                output.append(f"   Labels: {', '.join(label_names)}")
+
+            # Show assignee if present
+            assignees = issue.get("assignees", [])
+            if assignees:
+                assignee_names = [assignee["login"] for assignee in assignees]
+                output.append(f"   Assignees: {', '.join(assignee_names)}")
+
+            output.append(f"   Created: {issue.get('created_at', 'N/A')}")
+            output.append("")
+
+        return "\n".join(output)
+
+    except Exception as e:
+        logger.error(f"❌ Failed to list issues: {e}", exc_info=True)
+        return f"❌ Error listing issues: {str(e)}"
+    finally:
+        if client and client.session:
+            await client.session.close()
+
+
+async def github_update_issue(
+    repo_owner: str,
+    repo_name: str,
+    issue_number: int,
+    state: Optional[str] = None,
+    labels: Optional[list[str]] = None,
+    assignees: Optional[list[str]] = None,
+    title: Optional[str] = None,
+    body: Optional[str] = None,
+) -> str:
+    """Update a GitHub issue's properties."""
+    logger.debug(f"🚀 Updating issue #{issue_number} in {repo_owner}/{repo_name}")
+
+    client = None
+    try:
+        client = get_github_client()
+        if not client:
+            return (
+                "❌ GitHub token not configured. Set GITHUB_TOKEN environment variable."
+            )
+
+        payload = {}
+        if state is not None:
+            if state not in ["open", "closed"]:
+                return "❌ State must be 'open' or 'closed'"
+            payload["state"] = state
+        if labels is not None:
+            payload["labels"] = labels
+        if assignees is not None:
+            payload["assignees"] = assignees
+        if title is not None:
+            payload["title"] = title
+        if body is not None:
+            payload["body"] = body
+
+        if not payload:
+            return "⚠️ No update parameters provided. Please specify state, labels, assignees, title, or body."
+
+        response = await client.patch(
+            f"/repos/{repo_owner}/{repo_name}/issues/{issue_number}", json=payload
+        )
+
+        if response.status != 200:
+            error_text = await response.text()
+            return f"❌ Failed to update issue #{issue_number}: {response.status} - {error_text}"
+
+        result = await response.json()
+        logger.info(f"✅ Successfully updated issue #{issue_number}")
+        return (
+            f"✅ Successfully updated issue #{result['number']}: {result['html_url']}"
+        )
+
+    except Exception as e:
+        logger.error(f"❌ Failed to update issue #{issue_number}: {e}", exc_info=True)
+        return f"❌ Error updating issue: {str(e)}"
+    finally:
+        if client and client.session:
+            await client.session.close()

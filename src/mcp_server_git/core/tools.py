@@ -44,6 +44,10 @@ class GitTools(str, Enum):
     GITHUB_LIST_PULL_REQUESTS = "github_list_pull_requests"
     GITHUB_GET_PR_STATUS = "github_get_pr_status"
     GITHUB_GET_PR_FILES = "github_get_pr_files"
+    GITHUB_CREATE_ISSUE = "github_create_issue"
+    GITHUB_EDIT_PR_DESCRIPTION = "github_edit_pr_description"
+    GITHUB_LIST_ISSUES = "github_list_issues"
+    GITHUB_UPDATE_ISSUE = "github_update_issue"
 
     # Security tools
     GIT_SECURITY_VALIDATE = "git_security_validate"
@@ -144,6 +148,10 @@ class ToolRegistry:
             GitHubListPullRequests,
             GitHubGetPRStatus,
             GitHubGetPRFiles,
+            GitHubCreateIssue,
+            GitHubEditPRDescription,
+            GitHubListIssues,
+            GitHubUpdateIssue,
         )
 
         # Import handlers (will be set by the router)
@@ -375,6 +383,42 @@ class ToolRegistry:
                 category=ToolCategory.GITHUB,
                 description="Get files changed in a pull request",
                 schema=GitHubGetPRFiles,
+                handler=placeholder_handler,
+                requires_repo=False,
+                requires_github_token=True,
+            ),
+            ToolDefinition(
+                name=GitTools.GITHUB_CREATE_ISSUE,
+                category=ToolCategory.GITHUB,
+                description="Create a new GitHub issue",
+                schema=GitHubCreateIssue,
+                handler=placeholder_handler,
+                requires_repo=False,
+                requires_github_token=True,
+            ),
+            ToolDefinition(
+                name=GitTools.GITHUB_EDIT_PR_DESCRIPTION,
+                category=ToolCategory.GITHUB,
+                description="Edit a pull request's description",
+                schema=GitHubEditPRDescription,
+                handler=placeholder_handler,
+                requires_repo=False,
+                requires_github_token=True,
+            ),
+            ToolDefinition(
+                name=GitTools.GITHUB_LIST_ISSUES,
+                category=ToolCategory.GITHUB,
+                description="List issues for a repository with filtering options",
+                schema=GitHubListIssues,
+                handler=placeholder_handler,
+                requires_repo=False,
+                requires_github_token=True,
+            ),
+            ToolDefinition(
+                name=GitTools.GITHUB_UPDATE_ISSUE,
+                category=ToolCategory.GITHUB,
+                description="Update a GitHub issue's properties",
+                schema=GitHubUpdateIssue,
                 handler=placeholder_handler,
                 requires_repo=False,
                 requires_github_token=True,

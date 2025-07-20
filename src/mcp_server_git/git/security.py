@@ -5,12 +5,24 @@ import os
 import subprocess
 from typing import Dict, Any
 
-from git import Repo  # Added GitCommandError, InvalidGitRepositoryError
+# Handle git import gracefully to avoid conflicts with git redirectors
+try:
+    from git import Repo
+except ImportError as e:
+    # If GitPython fails to initialize due to git redirector or missing git,
+    # provide fallback implementation
+    Repo = None
+    import warnings
+
+    warnings.warn(
+        f"GitPython initialization failed in security: {e}. Git security operations may be limited.",
+        UserWarning,
+    )
 
 logger = logging.getLogger(__name__)
 
 
-def validate_git_security_config(repo: Repo) -> Dict[str, Any]:
+def validate_git_security_config(repo) -> Dict[str, Any]:
     """Validate Git security configuration for the repository"""
 
     warnings = []

@@ -28,8 +28,9 @@ def test_git_checkout_existing_branch(test_repository):
 
 
 def test_git_checkout_nonexistent_branch(test_repository):
-    with pytest.raises(git.GitCommandError):
-        git_checkout(test_repository, "nonexistent-branch")
+    result = git_checkout(test_repository, "nonexistent-branch")
+    assert "not found" in result
+    assert "❌" in result
 
 
 def test_github_api_tools_no_repo_path_required():
@@ -44,6 +45,10 @@ def test_github_api_tools_no_repo_path_required():
         GitTools.GITHUB_LIST_PULL_REQUESTS,
         GitTools.GITHUB_GET_PR_STATUS,
         GitTools.GITHUB_GET_PR_FILES,
+        GitTools.GITHUB_CREATE_ISSUE,
+        GitTools.GITHUB_EDIT_PR_DESCRIPTION,
+        GitTools.GITHUB_LIST_ISSUES,
+        GitTools.GITHUB_UPDATE_ISSUE,
     ]
 
     # Verify these are the GitHub tools that don't need repo_path
@@ -54,6 +59,10 @@ def test_github_api_tools_no_repo_path_required():
     assert GitTools.GITHUB_LIST_PULL_REQUESTS in github_tools
     assert GitTools.GITHUB_GET_PR_STATUS in github_tools
     assert GitTools.GITHUB_GET_PR_FILES in github_tools
+    assert GitTools.GITHUB_CREATE_ISSUE in github_tools
+    assert GitTools.GITHUB_EDIT_PR_DESCRIPTION in github_tools
+    assert GitTools.GITHUB_LIST_ISSUES in github_tools
+    assert GitTools.GITHUB_UPDATE_ISSUE in github_tools
 
     # Verify regular git tools are NOT in the GitHub tools list
     assert GitTools.STATUS not in github_tools
@@ -295,8 +304,8 @@ def test_git_abort_invalid_operation(test_repository):
 
     result = git_abort(test_repository, "invalid-operation")
 
-    assert "❌ Unknown operation" in result
-    assert "Supported: rebase, merge, cherry-pick" in result
+    assert "❌ Invalid operation" in result
+    assert "Valid operations: rebase, merge, cherry-pick" in result
 
 
 def test_git_continue_rebase(test_repository):
@@ -320,8 +329,8 @@ def test_git_continue_invalid_operation(test_repository):
 
     result = git_continue(test_repository, "invalid-operation")
 
-    assert "❌ Unknown operation" in result
-    assert "Supported: rebase, merge, cherry-pick" in result
+    assert "❌ Invalid operation" in result
+    assert "Valid operations: rebase, merge, cherry-pick" in result
 
 
 def test_advanced_git_tools_enum():
@@ -339,3 +348,27 @@ def test_advanced_git_tools_enum():
     assert GitTools.CHERRY_PICK == "git_cherry_pick"
     assert GitTools.ABORT == "git_abort"
     assert GitTools.CONTINUE == "git_continue"
+
+
+def test_github_create_issue_tool_enum():
+    """Test that github_create_issue tool is properly defined in enum"""
+    # Test that the tool is in the enum
+    assert hasattr(GitTools, "GITHUB_CREATE_ISSUE")
+
+    # Test enum value
+    assert GitTools.GITHUB_CREATE_ISSUE == "github_create_issue"
+
+
+def test_new_github_tools_enum():
+    """Test that new GitHub tools are properly defined in enum"""
+    # Test github_edit_pr_description
+    assert hasattr(GitTools, "GITHUB_EDIT_PR_DESCRIPTION")
+    assert GitTools.GITHUB_EDIT_PR_DESCRIPTION == "github_edit_pr_description"
+
+    # Test github_list_issues
+    assert hasattr(GitTools, "GITHUB_LIST_ISSUES")
+    assert GitTools.GITHUB_LIST_ISSUES == "github_list_issues"
+
+    # Test github_update_issue
+    assert hasattr(GitTools, "GITHUB_UPDATE_ISSUE")
+    assert GitTools.GITHUB_UPDATE_ISSUE == "github_update_issue"

@@ -60,3 +60,92 @@ class GitHubGetPRFiles(BaseModel):
     per_page: int = 30
     page: int = 1
     include_patch: bool = False
+
+
+# GitHub CLI Models
+class GitHubCLICreatePR(BaseModel):
+    repo_path: str
+    title: str
+    body: Optional[str] = None
+    base: Optional[str] = None
+    head: Optional[str] = None
+    draft: bool = False
+    web: bool = False
+
+
+class GitHubCLIEditPR(BaseModel):
+    repo_path: str
+    pr_number: int
+    title: Optional[str] = None
+    body: Optional[str] = None
+    base: Optional[str] = None
+    add_assignee: Optional[list[str]] = None
+    remove_assignee: Optional[list[str]] = None
+    add_label: Optional[list[str]] = None
+    remove_label: Optional[list[str]] = None
+    add_reviewer: Optional[list[str]] = None
+    remove_reviewer: Optional[list[str]] = None
+
+
+class GitHubCLIMergePR(BaseModel):
+    repo_path: str
+    pr_number: int
+    merge_method: str = "merge"  # merge, squash, rebase
+    delete_branch: bool = False
+    auto: bool = False
+
+
+class GitHubCLIClosePR(BaseModel):
+    repo_path: str
+    pr_number: int
+    comment: Optional[str] = None
+
+
+class GitHubCLIReopenPR(BaseModel):
+    repo_path: str
+    pr_number: int
+    comment: Optional[str] = None
+
+
+class GitHubCLIReadyPR(BaseModel):
+    repo_path: str
+    pr_number: int
+
+
+class GitHubCreateIssue(BaseModel):
+    repo_owner: str
+    repo_name: str
+    title: str
+    body: Optional[str] = None
+    labels: Optional[list[str]] = None
+    assignees: Optional[list[str]] = None
+
+
+class GitHubEditPRDescription(BaseModel):
+    repo_owner: str
+    repo_name: str
+    pr_number: int
+    description: str
+
+
+class GitHubListIssues(BaseModel):
+    repo_owner: str
+    repo_name: str
+    state: str = "open"
+    labels: Optional[str] = None
+    assignee: Optional[str] = None
+    sort: str = "created"
+    direction: str = "desc"
+    per_page: int = 30
+    page: int = 1
+
+
+class GitHubUpdateIssue(BaseModel):
+    repo_owner: str
+    repo_name: str
+    issue_number: int
+    state: Optional[str] = None
+    labels: Optional[list[str]] = None
+    assignees: Optional[list[str]] = None
+    title: Optional[str] = None
+    body: Optional[str] = None

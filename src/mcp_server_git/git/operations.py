@@ -6,12 +6,60 @@ import subprocess
 from pathlib import Path
 from typing import Optional
 
-from git import (
-    Repo,
-    GitCommandError,
-)  # Added Repo, GitCommandError, InvalidGitRepositoryError
+# Handle git import gracefully to avoid conflicts with git redirectors
+try:
+    from git import (
+        Repo,
+        GitCommandError,
+    )
+except ImportError as e:
+    # If GitPython fails to initialize due to git redirector or missing git,
+    # provide fallback implementations
+    Repo = None
+    GitCommandError = Exception  # Fallback to base Exception
+    import warnings
+
+    warnings.warn(
+        f"GitPython initialization failed in operations: {e}. Git operations may be limited.",
+        UserWarning,
+    )
 
 logger = logging.getLogger(__name__)
+
+
+def _apply_diff_size_limiting(
+    diff_output: str,
+    operation_name: str,
+    stat_only: bool = False,
+    max_lines: Optional[int] = None,
+) -> str:
+    """Apply size limiting to diff outputs with consistent formatting"""
+    if not diff_output.strip():
+        return f"No changes detected in {operation_name}"
+
+    if stat_only:
+        # This should be handled by the caller using --stat flag
+        return diff_output
+
+    # Apply line limit if specified
+    if max_lines and max_lines > 0:
+        lines = diff_output.split("\n")
+        if len(lines) > max_lines:
+            truncated_output = "\n".join(lines[:max_lines])
+            truncated_output += (
+                f"\n\n... [Truncated: showing {max_lines} of {len(lines)} lines]"
+            )
+            truncated_output += "\nUse stat_only=true for summary or increase max_lines for more content"
+            return truncated_output
+
+    # Check if output is extremely large and warn
+    if len(diff_output) > 50000:  # 50KB threshold
+        lines_count = len(diff_output.split("\n"))
+        warning = f"⚠️  Large diff detected ({lines_count} lines, ~{len(diff_output) // 1000}KB)\n"
+        warning += "Consider using stat_only=true for summary or max_lines parameter to limit output\n\n"
+        return warning + diff_output
+
+    return diff_output
 
 
 def git_status(repo: Repo, porcelain: bool = False) -> str:
@@ -30,19 +78,76 @@ def git_status(repo: Repo, porcelain: bool = False) -> str:
         return repo.git.status()
 
 
-def git_diff_unstaged(repo: Repo) -> str:
-    """Get unstaged changes diff"""
-    return repo.git.diff()
+def git_diff_unstaged(
+    repo: Repo, stat_only: bool = False, max_lines: Optional[int] = None
+) -> str:
+    """Get unstaged changes diff with size limiting options"""
+    try:
+        if stat_only:
+            diff_output = repo.git.diff("--stat")
+            return (
+                f"Unstaged changes summary:\n{diff_output}"
+                if diff_output.strip()
+                else "No unstaged changes"
+            )
+
+        diff_output = repo.git.diff()
+        return _apply_diff_size_limiting(
+            diff_output, "unstaged changes", stat_only, max_lines
+        )
+
+    except GitCommandError as e:
+        return f"❌ Diff unstaged failed: {str(e)}"
+    except Exception as e:
+        return f"❌ Diff unstaged error: {str(e)}"
 
 
-def git_diff_staged(repo: Repo) -> str:
-    """Get staged changes diff"""
-    return repo.git.diff("--cached")
+def git_diff_staged(
+    repo: Repo, stat_only: bool = False, max_lines: Optional[int] = None
+) -> str:
+    """Get staged changes diff with size limiting options"""
+    try:
+        if stat_only:
+            diff_output = repo.git.diff("--cached", "--stat")
+            return (
+                f"Staged changes summary:\n{diff_output}"
+                if diff_output.strip()
+                else "No staged changes"
+            )
+
+        diff_output = repo.git.diff("--cached")
+        return _apply_diff_size_limiting(
+            diff_output, "staged changes", stat_only, max_lines
+        )
+
+    except GitCommandError as e:
+        return f"❌ Diff staged failed: {str(e)}"
+    except Exception as e:
+        return f"❌ Diff staged error: {str(e)}"
 
 
-def git_diff(repo: Repo, target: str) -> str:
-    """Get diff against target ref"""
-    return repo.git.diff(target)
+def git_diff(
+    repo: Repo, target: str, stat_only: bool = False, max_lines: Optional[int] = None
+) -> str:
+    """Get diff against target ref with size limiting options"""
+    try:
+        if stat_only:
+            diff_output = repo.git.diff("--stat", target)
+            return (
+                f"Diff against {target} summary:\n{diff_output}"
+                if diff_output.strip()
+                else f"No differences against {target}"
+            )
+
+        diff_output = repo.git.diff(target)
+        return _apply_diff_size_limiting(
+            diff_output, f"diff against {target}", stat_only, max_lines
+        )
+
+    except GitCommandError as e:
+        return f"❌ Diff failed: {str(e)}"
+    except Exception as e:
+        return f"❌ Diff error: {str(e)}"
 
 
 def git_commit(
@@ -77,7 +182,7 @@ def git_commit(
                 # Fall back to git config
                 try:
                     config_key = repo.config_reader().get_value("user", "signingkey")
-                    force_key_id = config_key
+                    force_key_id = str(config_key)
                 except Exception:
                     return "❌ Could not determine GPG signing key. Please configure GPG_SIGNING_KEY env var"
 
@@ -161,19 +266,101 @@ def git_add(repo: Repo, files: list[str]) -> str:
         return f"❌ Add error: {str(e)}"
 
 
-def git_reset(repo: Repo) -> str:
-    """Reset all staged changes"""
+def git_reset(
+    repo: Repo,
+    mode: Optional[str] = None,
+    target: Optional[str] = None,
+    files: Optional[list[str]] = None,
+) -> str:
+    """Reset repository with advanced options (--soft, --mixed, --hard)"""
     try:
-        # Get list of staged files before reset
-        staged_files = [item.a_path for item in repo.index.diff("HEAD")]
+        # Validate reset mode
+        valid_modes = ["soft", "mixed", "hard"]
+        if mode and mode not in valid_modes:
+            return (
+                f"❌ Invalid reset mode '{mode}'. Valid modes: {', '.join(valid_modes)}"
+            )
 
-        if not staged_files:
-            return "ℹ️ No staged changes to reset"
+        # Build git reset command
+        reset_args = []
 
-        # Reset the index
-        repo.git.reset()
+        # Add mode flag if specified
+        if mode:
+            reset_args.append(f"--{mode}")
 
-        return f"✅ Reset {len(staged_files)} staged file(s): {', '.join(staged_files)}"
+        # Add target if specified
+        if target:
+            # Validate target exists
+            try:
+                repo.git.rev_parse(target)
+            except GitCommandError:
+                return f"❌ Target '{target}' does not exist"
+            reset_args.append(target)
+
+        # Add files if specified
+        if files:
+            # Validate files exist
+            for file in files:
+                if not os.path.exists(os.path.join(repo.working_dir, file)):
+                    return f"❌ File '{file}' does not exist"
+            reset_args.extend(files)
+
+        # Special handling for file-specific reset
+        if files and not mode and not target:
+            # Default to mixed reset for files
+            reset_args.insert(0, "HEAD")
+
+        # Get status before reset for informative message
+        status_before = ""
+        if mode in ["mixed", "hard"] or not mode:
+            try:
+                staged_files = [
+                    item.a_path for item in repo.index.diff("HEAD") if item.a_path
+                ]
+                if staged_files:
+                    status_before = f"staged files: {', '.join(staged_files[:5])}"
+                    if len(staged_files) > 5:
+                        status_before += f" (and {len(staged_files) - 5} more)"
+            except Exception:
+                pass
+
+        if mode == "hard":
+            try:
+                modified_files = [
+                    item.a_path for item in repo.index.diff(None) if item.a_path
+                ]
+                if modified_files:
+                    mod_status = f"modified files: {', '.join(modified_files[:5])}"
+                    if len(modified_files) > 5:
+                        mod_status += f" (and {len(modified_files) - 5} more)"
+                    status_before = (
+                        f"{status_before}, {mod_status}"
+                        if status_before
+                        else mod_status
+                    )
+            except Exception:
+                pass
+
+        # Execute reset
+        if reset_args:
+            repo.git.reset(*reset_args)
+        else:
+            repo.git.reset()
+
+        # Build success message
+        if files:
+            return f"✅ Reset {len(files)} file(s): {', '.join(files)}"
+        elif mode == "soft":
+            return f"✅ Soft reset to {target if target else 'HEAD'} - keeping changes in index"
+        elif mode == "mixed" or not mode:
+            target_msg = f" to {target}" if target else ""
+            return f"✅ Mixed reset{target_msg} - {status_before if status_before else 'no staged changes'}"
+        elif mode == "hard":
+            target_msg = f" to {target}" if target else ""
+            return f"✅ Hard reset{target_msg} - {status_before if status_before else 'no changes'} discarded"
+        else:
+            # Fallback return (should not reach here)
+            return "✅ Reset completed"
 
     except GitCommandError as e:
         return f"❌ Reset failed: {str(e)}"
@@ -278,11 +465,37 @@ def git_checkout(repo: Repo, branch_name: str) -> str:
         return f"❌ Checkout error: {str(e)}"
 
 
-def git_show(repo: Repo, revision: str) -> str:
-    """Show commit details with diff"""
+def git_show(
+    repo: Repo, revision: str, stat_only: bool = False, max_lines: Optional[int] = None
+) -> str:
+    """Show commit details with diff and size limiting options"""
     try:
-        # Get commit details
+        if stat_only:
+            # Return only commit info and file statistics
+            show_output = repo.git.show("--stat", revision)
+            return f"Commit details for {revision}:\n{show_output}"
+
+        # Get full commit details
         show_output = repo.git.show(revision)
+
+        # Apply line limit if specified
+        if max_lines and max_lines > 0:
+            lines = show_output.split("\n")
+            if len(lines) > max_lines:
+                truncated_output = "\n".join(lines[:max_lines])
+                truncated_output += (
+                    f"\n\n... [Truncated: showing {max_lines} of {len(lines)} lines]"
+                )
+                truncated_output += "\nUse stat_only=true for summary or increase max_lines for more content"
+                return truncated_output
+
+        # Check if output is extremely large and warn
+        if len(show_output) > 50000:  # 50KB threshold
+            lines_count = len(show_output.split("\n"))
+            warning = f"⚠️  Large commit detected ({lines_count} lines, ~{len(show_output) // 1000}KB)\n"
+            warning += "Consider using stat_only=true for summary or max_lines parameter to limit output\n\n"
+            return warning + show_output
+
         return show_output
 
     except GitCommandError as e:
@@ -418,8 +631,14 @@ def git_pull(repo: Repo, remote: str = "origin", branch: Optional[str] = None) -
         return f"❌ Pull error: {str(e)}"
 
 
-def git_diff_branches(repo: Repo, base_branch: str, compare_branch: str) -> str:
-    """Show differences between two branches"""
+def git_diff_branches(
+    repo: Repo,
+    base_branch: str,
+    compare_branch: str,
+    stat_only: bool = False,
+    max_lines: Optional[int] = None,
+) -> str:
+    """Show differences between two branches with size limiting options"""
     try:
         # Verify branches exist
         all_branches = [branch.name for branch in repo.branches] + [
@@ -431,11 +650,39 @@ def git_diff_branches(repo: Repo, base_branch: str, compare_branch: str) -> str:
         if compare_branch not in all_branches:
             return f"❌ Compare branch '{compare_branch}' not found"
 
-        # Get diff between branches
-        diff_output = repo.git.diff(f"{base_branch}...{compare_branch}")
+        # Build diff command arguments
+        diff_range = f"{base_branch}...{compare_branch}"
+
+        if stat_only:
+            # Return only file statistics
+            diff_output = repo.git.diff("--stat", diff_range)
+            if not diff_output.strip():
+                return f"No differences between {base_branch} and {compare_branch}"
+            return f"Diff statistics between {base_branch} and {compare_branch}:\n{diff_output}"
+
+        # Get full diff
+        diff_output = repo.git.diff(diff_range)
 
         if not diff_output.strip():
             return f"No differences between {base_branch} and {compare_branch}"
+
+        # Apply line limit if specified
+        if max_lines and max_lines > 0:
+            lines = diff_output.split("\n")
+            if len(lines) > max_lines:
+                truncated_output = "\n".join(lines[:max_lines])
+                truncated_output += (
+                    f"\n\n... [Truncated: showing {max_lines} of {len(lines)} lines]"
+                )
+                truncated_output += "\nUse --stat flag for summary or increase max_lines for more content"
+                return truncated_output
+
+        # Check if output is extremely large and warn
+        if len(diff_output) > 50000:  # 50KB threshold
+            lines_count = len(diff_output.split("\n"))
+            warning = f"⚠️  Large diff detected ({lines_count} lines, ~{len(diff_output) // 1000}KB)\n"
+            warning += "Consider using stat_only=true for summary or max_lines parameter to limit output\n\n"
+            return warning + diff_output
 
         return diff_output
 
@@ -445,26 +692,30 @@ def git_diff_branches(repo: Repo, base_branch: str, compare_branch: str) -> str:
         return f"❌ Diff error: {str(e)}"
 
 
-def git_rebase(repo: Repo, target_branch: str, interactive: bool = False) -> str:
+def git_rebase(repo: Repo, target_branch: str) -> str:
     """Rebase current branch onto target branch"""
     try:
         # Get current branch
         current_branch = repo.active_branch.name
 
         # Check if target branch exists
-        all_branches = [branch.name for branch in repo.branches] + [
-            ref.name.split("/")[-1] for ref in repo.remote().refs
-        ]
+        all_branches = [branch.name for branch in repo.branches]
+
+        # Add remote branches if remotes exist
+        try:
+            if repo.remotes:
+                for remote in repo.remotes:
+                    all_branches.extend(
+                        [ref.name.split("/")[-1] for ref in remote.refs]
+                    )
+        except Exception:
+            # Ignore remote access errors (e.g., no remotes configured)
+            pass
         if target_branch not in all_branches:
             return f"❌ Target branch '{target_branch}' not found"
 
-        # Build rebase command
-        rebase_args = [target_branch]
-        if interactive:
-            rebase_args.insert(0, "--interactive")
-
-        # Perform rebase
-        result = repo.git.rebase(*rebase_args)
+        # Perform rebase (non-interactive only)
+        result = repo.git.rebase(target_branch)
 
         return (
             f"✅ Successfully rebased {current_branch} onto {target_branch}\n{result}"
@@ -491,9 +742,18 @@ def git_merge(
         current_branch = repo.active_branch.name
 
         # Check if source branch exists
-        all_branches = [branch.name for branch in repo.branches] + [
-            ref.name.split("/")[-1] for ref in repo.remote().refs
-        ]
+        all_branches = [branch.name for branch in repo.branches]
+
+        # Add remote branches if remotes exist
+        try:
+            if repo.remotes:
+                for remote in repo.remotes:
+                    all_branches.extend(
+                        [ref.name.split("/")[-1] for ref in remote.refs]
+                    )
+        except Exception:
+            # Ignore remote access errors (e.g., no remotes configured)
+            pass
         if source_branch not in all_branches:
             return f"❌ Source branch '{source_branch}' not found"
 
@@ -548,8 +808,13 @@ def git_abort(repo: Repo, operation: str) -> str:
         if operation not in valid_operations:
             return f"❌ Invalid operation '{operation}'. Valid operations: {', '.join(valid_operations)}"
 
-        # Perform abort
-        repo.git.execute(["git", f"{operation}", "--abort"])
+        # Perform abort using the same pattern as other operations
+        if operation == "rebase":
+            repo.git.rebase("--abort")
+        elif operation == "merge":
+            repo.git.merge("--abort")
+        elif operation == "cherry-pick":
+            repo.git.cherry_pick("--abort")
 
         return f"✅ Successfully aborted {operation}"
 
@@ -566,8 +831,13 @@ def git_continue(repo: Repo, operation: str) -> str:
         if operation not in valid_operations:
             return f"❌ Invalid operation '{operation}'. Valid operations: {', '.join(valid_operations)}"
 
-        # Perform continue
-        repo.git.execute(["git", f"{operation}", "--continue"])
+        # Perform continue using the same pattern as other operations
+        if operation == "rebase":
+            repo.git.rebase("--continue")
+        elif operation == "merge":
+            repo.git.merge("--continue")
+        elif operation == "cherry-pick":
+            repo.git.cherry_pick("--continue")
 
         return f"✅ Successfully continued {operation}"
 
@@ -575,3 +845,233 @@ def git_continue(repo: Repo, operation: str) -> str:
         return f"❌ Continue {operation} failed: {str(e)}"
     except Exception as e:
         return f"❌ Continue error: {str(e)}"
+
+
+def git_remote_list(repo: Repo, verbose: bool = False) -> str:
+    """List all remote repositories"""
+    try:
+        if verbose:
+            return repo.git.remote("-v")
+        else:
+            return repo.git.remote()
+    except GitCommandError as e:
+        return f"❌ Remote list failed: {str(e)}"
+    except Exception as e:
+        return f"❌ Remote list error: {str(e)}"
+
+
+def git_remote_add(repo: Repo, name: str, url: str) -> str:
+    """Add a new remote repository"""
+    try:
+        repo.git.remote("add", name, url)
+        return f"✅ Successfully added remote '{name}' -> {url}"
+    except GitCommandError as e:
+        return f"❌ Remote add failed: {str(e)}"
+    except Exception as e:
+        return f"❌ Remote add error: {str(e)}"
+
+
+def git_remote_remove(repo: Repo, name: str) -> str:
+    """Remove a remote repository"""
+    try:
+        repo.git.remote("remove", name)
+        return f"✅ Successfully removed remote '{name}'"
+    except GitCommandError as e:
+        return f"❌ Remote remove failed: {str(e)}"
+    except Exception as e:
+        return f"❌ Remote remove error: {str(e)}"
+
+
+def git_remote_rename(repo: Repo, old_name: str, new_name: str) -> str:
+    """Rename a remote repository"""
+    try:
+        repo.git.remote("rename", old_name, new_name)
+        return f"✅ Successfully renamed remote '{old_name}' to '{new_name}'"
+    except GitCommandError as e:
+        return f"❌ Remote rename failed: {str(e)}"
+    except Exception as e:
+        return f"❌ Remote rename error: {str(e)}"
+
+
+def git_remote_set_url(repo: Repo, name: str, url: str) -> str:
+    """Set URL for a remote repository"""
+    try:
+        repo.git.remote("set-url", name, url)
+        return f"✅ Successfully set URL for remote '{name}' -> {url}"
+    except GitCommandError as e:
+        return f"❌ Remote set-url failed: {str(e)}"
+    except Exception as e:
+        return f"❌ Remote set-url error: {str(e)}"
+
+
+def git_remote_get_url(repo: Repo, name: str) -> str:
+    """Get URL for a remote repository"""
+    try:
+        url = repo.git.remote("get-url", name)
+        return f"Remote '{name}' URL: {url}"
+    except GitCommandError as e:
+        return f"❌ Remote get-url failed: {str(e)}"
+    except Exception as e:
+        return f"❌ Remote get-url error: {str(e)}"
+
+
+def git_fetch(
+    repo: Repo,
+    remote: str = "origin",
+    branch: Optional[str] = None,
+    prune: bool = False,
+) -> str:
+    """Fetch changes from remote repository"""
+    try:
+        args = [remote]
+        if branch:
+            args.append(branch)
+        if prune:
+            args.append("--prune")
+
+        repo.git.fetch(*args)
+
+        if branch:
+            return f"✅ Successfully fetched {remote}/{branch}" + (
+                " (with prune)" if prune else ""
+            )
+        else:
+            return f"✅ Successfully fetched from {remote}" + (
+                " (with prune)" if prune else ""
+            )
+    except GitCommandError as e:
+        return f"❌ Fetch failed: {str(e)}"
+    except Exception as e:
+        return f"❌ Fetch error: {str(e)}"
+
+
+def git_stash_list(repo: Repo) -> str:
+    """List all stashes"""
+    try:
+        stash_list = repo.git.stash("list")
+        if not stash_list.strip():
+            return "No stashes found"
+        return f"Stash list:\n{stash_list}"
+    except GitCommandError as e:
+        return f"❌ Stash list failed: {str(e)}"
+    except Exception as e:
+        return f"❌ Stash list error: {str(e)}"
+
+
+def git_stash_push(
+    repo: Repo, message: Optional[str] = None, include_untracked: bool = False
+) -> str:
+    """Create a new stash"""
+    try:
+        args = ["push"]
+        if include_untracked:
+            args.append("--include-untracked")
+        if message:
+            args.extend(["-m", message])
+
+        repo.git.stash(*args)
+        return "✅ Successfully created stash" + (f": {message}" if message else "")
+    except GitCommandError as e:
+        return f"❌ Stash push failed: {str(e)}"
+    except Exception as e:
+        return f"❌ Stash push error: {str(e)}"
+
+
+def git_stash_pop(repo: Repo, stash_id: Optional[str] = None) -> str:
+    """Apply and remove a stash"""
+    try:
+        if stash_id:
+            repo.git.stash("pop", stash_id)
+            return f"✅ Successfully popped stash {stash_id}"
+        else:
+            repo.git.stash("pop")
+            return "✅ Successfully popped latest stash"
+    except GitCommandError as e:
+        return f"❌ Stash pop failed: {str(e)}"
+    except Exception as e:
+        return f"❌ Stash pop error: {str(e)}"
+
+
+def git_stash_drop(repo: Repo, stash_id: Optional[str] = None) -> str:
+    """Remove a stash without applying it"""
+    try:
+        if stash_id:
+            repo.git.stash("drop", stash_id)
+            return f"✅ Successfully dropped stash {stash_id}"
+        else:
+            repo.git.stash("drop")
+            return "✅ Successfully dropped latest stash"
+    except GitCommandError as e:
+        return f"❌ Stash drop failed: {str(e)}"
+    except Exception as e:
+        return f"❌ Stash drop error: {str(e)}"
+
+
+def git_tag_list(repo: Repo) -> str:
+    """List all tags"""
+    try:
+        tag_list = repo.git.tag("-l")
+        if not tag_list.strip():
+            return "No tags found"
+        return f"Tags:\n{tag_list}"
+    except GitCommandError as e:
+        return f"❌ Tag list failed: {str(e)}"
+    except Exception as e:
+        return f"❌ Tag list error: {str(e)}"
+
+
+def git_tag_create(
+    repo: Repo,
+    tag_name: str,
+    message: Optional[str] = None,
+    commit: Optional[str] = None,
+) -> str:
+    """Create a new tag"""
+    try:
+        args = [tag_name]
+        if message:
+            args.extend(["-m", message])
+        if commit:
+            args.append(commit)
+
+        repo.git.tag(*args)
+        return f"✅ Successfully created tag '{tag_name}'" + (
+            f" on {commit}" if commit else ""
+        )
+    except GitCommandError as e:
+        return f"❌ Tag create failed: {str(e)}"
+    except Exception as e:
+        return f"❌ Tag create error: {str(e)}"
+
+
+def git_tag_delete(repo: Repo, tag_name: str) -> str:
+    """Delete a tag"""
+    try:
+        repo.git.tag("-d", tag_name)
+        return f"✅ Successfully deleted tag '{tag_name}'"
+    except GitCommandError as e:
+        return f"❌ Tag delete failed: {str(e)}"
+    except Exception as e:
+        return f"❌ Tag delete error: {str(e)}"
+
+
+def git_blame(
+    repo: Repo,
+    file_path: str,
+    line_start: Optional[int] = None,
+    line_end: Optional[int] = None,
+) -> str:
+    """Show blame information for a file"""
+    try:
+        args = [file_path]
+        if line_start and line_end:
+            args.extend(["-L", f"{line_start},{line_end}"])
+        elif line_start:
+            args.extend(["-L", f"{line_start},+1"])
+
+        blame_output = repo.git.blame(*args)
+        return f"Blame for {file_path}:\n{blame_output}"
+    except GitCommandError as e:
+        return f"❌ Blame failed: {str(e)}"
+    except Exception as e:
+        return f"❌ Blame error: {str(e)}"

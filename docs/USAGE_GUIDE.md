@@ -24,7 +24,7 @@ async def main():
     server = MCPGitServer()
     await server.start()
     print("MCP Git Server is running...")
-    
+
     # Keep server running until interrupted
     try:
         await asyncio.Event().wait()
@@ -59,7 +59,7 @@ async def connect_to_server():
             }
         }
         await websocket.send(json.dumps(init_message))
-        
+
         # Receive response
         response = await websocket.recv()
         print(f"Server response: {response}")
@@ -182,33 +182,33 @@ from mcp_server_git.error_handling import CircuitBreaker
 class CustomMCPServer(MCPGitServer):
     def __init__(self):
         super().__init__()
-        
+
         # Custom session manager
         self.session_manager = SessionManager(
             max_sessions=500,
             session_timeout=7200  # 2 hours
         )
-        
+
         # Custom heartbeat manager
         self.heartbeat_manager = HeartbeatManager(
             session_manager=self.session_manager,
             heartbeat_interval=15.0,  # More frequent heartbeats
             missed_heartbeat_threshold=5  # More tolerant of missed beats
         )
-        
+
         # Circuit breakers for different operations
         self.git_circuit = CircuitBreaker(
             name="git_operations",
             failure_threshold=10,
             recovery_timeout=60.0
         )
-        
+
         self.network_circuit = CircuitBreaker(
-            name="network_operations", 
+            name="network_operations",
             failure_threshold=5,
             recovery_timeout=30.0
         )
-    
+
     async def start(self):
         await super().start()
         await self.heartbeat_manager.start()
@@ -244,27 +244,27 @@ from mcp_server_git.models.enhanced_validation import enhanced_validate_message
 
 async def handle_message_with_fallback(self, raw_message, session):
     """Handle message with graceful degradation on validation errors."""
-    
+
     # Try strict validation first
     result = enhanced_validate_message(raw_message, strict_mode=True)
-    
+
     if result.is_valid:
         return await self.process_validated_message(result.model, session)
-    
+
     # Fall back to lenient validation
     result = enhanced_validate_message(raw_message, strict_mode=False)
-    
+
     if result.is_valid:
         # Log warning about non-strict validation
         logger.warning(f"Message validated with fallback: {result.validation_warnings}")
         return await self.process_validated_message(result.model, session)
-    
+
     # Final fallback: extract critical fields manually
     message_type = raw_message.get("type", "unknown")
     message_id = raw_message.get("id", "unknown")
-    
+
     logger.error(f"Failed to validate {message_type} message {message_id}")
-    
+
     # Send error response to client
     await self.send_error_response(session.session_id, {
         "error": "validation_failed",
@@ -281,7 +281,7 @@ from mcp_server_git.error_handling import with_circuit_breaker, CircuitOpenError
 class RobustGitOperations:
     def __init__(self):
         self.git_circuit = CircuitBreaker("git_ops", failure_threshold=5)
-    
+
     @with_circuit_breaker(self.git_circuit)
     async def perform_git_operation(self, operation_type, **kwargs):
         """Perform git operation with circuit breaker protection."""
@@ -290,7 +290,7 @@ class RobustGitOperations:
         except Exception as e:
             logger.error(f"Git operation failed: {e}")
             raise
-    
+
     async def safe_git_operation(self, operation_type, **kwargs):
         """Perform git operation with circuit breaker fallback."""
         try:
@@ -313,7 +313,7 @@ async def log_cache_stats_periodically():
     while True:
         await asyncio.sleep(300)  # Every 5 minutes
         stats = get_validation_cache_stats()
-        
+
         if stats['total'] > 0:
             hit_rate = stats['hits'] / stats['total']
             logger.info(f"Validation cache hit rate: {hit_rate:.2%}", extra={
@@ -333,22 +333,22 @@ class MemoryEfficientServer(MCPGitServer):
     def __init__(self):
         super().__init__()
         self.memory_monitor = MemoryMonitor()
-        
+
     async def start(self):
         await super().start()
         # Start memory monitoring
         asyncio.create_task(self._monitor_memory())
-    
+
     async def _monitor_memory(self):
         """Monitor memory usage and trigger cleanup when needed."""
         while True:
             current_memory = self.memory_monitor.take_sample("periodic")
-            
+
             # If memory usage is high, force garbage collection
             if current_memory > 100:  # 100MB threshold
                 gc.collect()
                 logger.warning(f"High memory usage detected: {current_memory:.2f}MB")
-            
+
             await asyncio.sleep(60)  # Check every minute
 ```
 
@@ -365,7 +365,7 @@ setup_structured_logging()
 logger = structlog.get_logger()
 
 # Log with structured data
-logger.info("Message processed", 
+logger.info("Message processed",
     message_type="notifications/cancelled",
     session_id="session_123",
     processing_time_ms=45,
@@ -383,34 +383,34 @@ class MonitoredMCPServer(MCPGitServer):
     def __init__(self):
         super().__init__()
         self.metrics = ServerMetrics()
-        
+
         # Prometheus metrics
         self.message_counter = prometheus_client.Counter(
             'mcp_messages_total',
             'Total number of messages processed',
             ['message_type', 'status']
         )
-        
+
         self.operation_histogram = prometheus_client.Histogram(
             'mcp_operation_duration_seconds',
             'Time spent processing operations',
             ['operation_type']
         )
-    
+
     async def handle_message(self, message, session):
         message_type = message.get('type', 'unknown')
-        
+
         with self.operation_histogram.labels(operation_type=message_type).time():
             try:
                 result = await super().handle_message(message, session)
                 self.message_counter.labels(
-                    message_type=message_type, 
+                    message_type=message_type,
                     status='success'
                 ).inc()
                 return result
             except Exception as e:
                 self.message_counter.labels(
-                    message_type=message_type, 
+                    message_type=message_type,
                     status='error'
                 ).inc()
                 raise
@@ -426,7 +426,7 @@ class HealthCheckMCPServer(MCPGitServer):
         super().__init__()
         self.start_time = datetime.now()
         self.last_health_check = datetime.now()
-    
+
     async def health_check(self):
         """Perform comprehensive health check."""
         health_status = {
@@ -434,27 +434,27 @@ class HealthCheckMCPServer(MCPGitServer):
             "uptime_seconds": (datetime.now() - self.start_time).total_seconds(),
             "checks": {}
         }
-        
+
         # Check session manager
         sessions = await self.session_manager.get_all_sessions()
         health_status["checks"]["sessions"] = {
             "active_count": len(sessions),
             "status": "ok" if len(sessions) < 1000 else "warning"
         }
-        
+
         # Check circuit breaker status
         health_status["checks"]["circuit_breakers"] = {
             "git_operations": self.git_circuit.state.value,
             "status": "ok" if self.git_circuit.state != CircuitState.OPEN else "error"
         }
-        
+
         # Check memory usage
         memory_mb = self.memory_monitor.take_sample("health_check")
         health_status["checks"]["memory"] = {
             "usage_mb": memory_mb,
             "status": "ok" if memory_mb < 200 else "warning"
         }
-        
+
         self.last_health_check = datetime.now()
         return health_status
 ```
@@ -533,7 +533,7 @@ async def cleanup_session(self, session_id):
     session = await self.session_manager.get_session(session_id)
     for op_id in session.active_operations:
         await self.cancel_operation(op_id)
-    
+
     # Close session
     await self.session_manager.close_session(session_id)
 ```
@@ -571,7 +571,7 @@ if circuit.state == CircuitState.OPEN:
         "last_failure_time": circuit.last_failure_time,
         "recovery_timeout": circuit.recovery_timeout
     })
-    
+
     # Wait for recovery or manually reset if needed
     if manual_reset_needed:
         circuit.reset()
