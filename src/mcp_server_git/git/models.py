@@ -134,3 +134,63 @@ class GitSecurityValidate(BaseModel):
 class GitSecurityEnforce(BaseModel):
     repo_path: str
     strict_mode: bool = True
+
+
+class GitRemoteList(BaseModel):
+    repo_path: str
+    verbose: bool = False
+
+
+class GitRemoteAdd(BaseModel):
+    repo_path: str
+    name: str
+    url: str
+
+
+class GitRemoteRemove(BaseModel):
+    repo_path: str
+    name: str
+
+
+class GitRemoteRename(BaseModel):
+    repo_path: str
+    old_name: str
+    new_name: str
+
+
+class GitRemoteSetUrl(BaseModel):
+    repo_path: str
+    name: str
+    url: str
+
+
+class GitRemoteGetUrl(BaseModel):
+    repo_path: str
+    name: str
+
+
+class GitFetch(BaseModel):
+    repo_path: str
+    remote: str = "origin"
+    branch: Optional[str] = None
+    prune: bool = False
+
+
+class GitStashList(BaseModel):
+    repo_path: str
+
+
+class GitStashPush(BaseModel):
+    repo_path: str
+    message: Optional[str] = None
+    include_untracked: bool = False
+
+
+class GitStashPop(BaseModel):
+    repo_path: str
+    stash_id: Optional[str] = None
+
+
+class GitStashDrop(BaseModel):
+    repo_path: str
+    stash_id: Optional[str] = None

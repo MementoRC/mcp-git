@@ -72,6 +72,17 @@ class CallToolHandler:
                 git_cherry_pick,
                 git_abort,
                 git_continue,
+                git_remote_list,
+                git_remote_add,
+                git_remote_remove,
+                git_remote_rename,
+                git_remote_set_url,
+                git_remote_get_url,
+                git_fetch,
+                git_stash_list,
+                git_stash_push,
+                git_stash_pop,
+                git_stash_drop,
             )
 
             logger.debug("Using modular Git operations")
@@ -171,6 +182,41 @@ class CallToolHandler:
             ),
             "git_continue": self._create_git_handler(
                 git_continue, requires_repo=True, extra_args=["operation"]
+            ),
+            # Remote operations
+            "git_remote_list": self._create_git_handler(
+                git_remote_list, requires_repo=True, extra_args=["verbose"]
+            ),
+            "git_remote_add": self._create_git_handler(
+                git_remote_add, requires_repo=True, extra_args=["name", "url"]
+            ),
+            "git_remote_remove": self._create_git_handler(
+                git_remote_remove, requires_repo=True, extra_args=["name"]
+            ),
+            "git_remote_rename": self._create_git_handler(
+                git_remote_rename, requires_repo=True, extra_args=["old_name", "new_name"]
+            ),
+            "git_remote_set_url": self._create_git_handler(
+                git_remote_set_url, requires_repo=True, extra_args=["name", "url"]
+            ),
+            "git_remote_get_url": self._create_git_handler(
+                git_remote_get_url, requires_repo=True, extra_args=["name"]
+            ),
+            "git_fetch": self._create_git_handler(
+                git_fetch, requires_repo=True, extra_args=["remote", "branch", "prune"]
+            ),
+            # Stash operations
+            "git_stash_list": self._create_git_handler(
+                git_stash_list, requires_repo=True
+            ),
+            "git_stash_push": self._create_git_handler(
+                git_stash_push, requires_repo=True, extra_args=["message", "include_untracked"]
+            ),
+            "git_stash_pop": self._create_git_handler(
+                git_stash_pop, requires_repo=True, extra_args=["stash_id"]
+            ),
+            "git_stash_drop": self._create_git_handler(
+                git_stash_drop, requires_repo=True, extra_args=["stash_id"]
             ),
         }
 
@@ -361,6 +407,9 @@ class CallToolHandler:
                             "set_upstream",
                             "force",
                             "no_commit",
+                            "include_untracked",
+                            "verbose",
+                            "prune",
                         ]:
                             args.append(kwargs.get(arg, False))
                         elif arg in ["remote"]:

@@ -36,6 +36,21 @@ class GitTools(str, Enum):
     ABORT = "git_abort"
     CONTINUE = "git_continue"
 
+    # Remote operations
+    REMOTE_LIST = "git_remote_list"
+    REMOTE_ADD = "git_remote_add"
+    REMOTE_REMOVE = "git_remote_remove"
+    REMOTE_RENAME = "git_remote_rename"
+    REMOTE_SET_URL = "git_remote_set_url"
+    REMOTE_GET_URL = "git_remote_get_url"
+    FETCH = "git_fetch"
+
+    # Stash operations
+    STASH_LIST = "git_stash_list"
+    STASH_PUSH = "git_stash_push"
+    STASH_POP = "git_stash_pop"
+    STASH_DROP = "git_stash_drop"
+
     # GitHub API tools
     GITHUB_GET_PR_CHECKS = "github_get_pr_checks"
     GITHUB_GET_FAILING_JOBS = "github_get_failing_jobs"
@@ -137,6 +152,17 @@ class ToolRegistry:
             GitCherryPick,
             GitAbort,
             GitContinue,
+            GitRemoteList,
+            GitRemoteAdd,
+            GitRemoteRemove,
+            GitRemoteRename,
+            GitRemoteSetUrl,
+            GitRemoteGetUrl,
+            GitFetch,
+            GitStashList,
+            GitStashPush,
+            GitStashPop,
+            GitStashDrop,
             GitSecurityValidate,
             GitSecurityEnforce,
         )
@@ -317,6 +343,96 @@ class ToolRegistry:
                 category=ToolCategory.GIT,
                 description="Continue an ongoing git operation after resolving conflicts",
                 schema=GitContinue,
+                handler=placeholder_handler,
+                requires_repo=True,
+            ),
+            # Remote operations
+            ToolDefinition(
+                name=GitTools.REMOTE_LIST,
+                category=ToolCategory.GIT,
+                description="List remote repositories",
+                schema=GitRemoteList,
+                handler=placeholder_handler,
+                requires_repo=True,
+            ),
+            ToolDefinition(
+                name=GitTools.REMOTE_ADD,
+                category=ToolCategory.GIT,
+                description="Add a new remote repository",
+                schema=GitRemoteAdd,
+                handler=placeholder_handler,
+                requires_repo=True,
+            ),
+            ToolDefinition(
+                name=GitTools.REMOTE_REMOVE,
+                category=ToolCategory.GIT,
+                description="Remove a remote repository",
+                schema=GitRemoteRemove,
+                handler=placeholder_handler,
+                requires_repo=True,
+            ),
+            ToolDefinition(
+                name=GitTools.REMOTE_RENAME,
+                category=ToolCategory.GIT,
+                description="Rename a remote repository",
+                schema=GitRemoteRename,
+                handler=placeholder_handler,
+                requires_repo=True,
+            ),
+            ToolDefinition(
+                name=GitTools.REMOTE_SET_URL,
+                category=ToolCategory.GIT,
+                description="Set URL for a remote repository",
+                schema=GitRemoteSetUrl,
+                handler=placeholder_handler,
+                requires_repo=True,
+            ),
+            ToolDefinition(
+                name=GitTools.REMOTE_GET_URL,
+                category=ToolCategory.GIT,
+                description="Get URL of a remote repository",
+                schema=GitRemoteGetUrl,
+                handler=placeholder_handler,
+                requires_repo=True,
+            ),
+            ToolDefinition(
+                name=GitTools.FETCH,
+                category=ToolCategory.GIT,
+                description="Fetch changes from remote repository",
+                schema=GitFetch,
+                handler=placeholder_handler,
+                requires_repo=True,
+            ),
+            # Stash operations
+            ToolDefinition(
+                name=GitTools.STASH_LIST,
+                category=ToolCategory.GIT,
+                description="List all stashes",
+                schema=GitStashList,
+                handler=placeholder_handler,
+                requires_repo=True,
+            ),
+            ToolDefinition(
+                name=GitTools.STASH_PUSH,
+                category=ToolCategory.GIT,
+                description="Create a new stash",
+                schema=GitStashPush,
+                handler=placeholder_handler,
+                requires_repo=True,
+            ),
+            ToolDefinition(
+                name=GitTools.STASH_POP,
+                category=ToolCategory.GIT,
+                description="Apply and remove a stash",
+                schema=GitStashPop,
+                handler=placeholder_handler,
+                requires_repo=True,
+            ),
+            ToolDefinition(
+                name=GitTools.STASH_DROP,
+                category=ToolCategory.GIT,
+                description="Remove a stash without applying it",
+                schema=GitStashDrop,
                 handler=placeholder_handler,
                 requires_repo=True,
             ),
