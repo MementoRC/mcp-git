@@ -20,6 +20,17 @@ import tempfile
 from pathlib import Path
 
 import pytest
+
+# Skip this entire module if we're in Claude Code environment
+# or if git redirector is active (CLAUDECODE env var set)
+pytestmark = [
+    pytest.mark.e2e,
+    pytest.mark.skipif(
+        os.getenv("CLAUDECODE") == "1",
+        reason="Skipping GitPython tests in Claude Code environment"
+    )
+]
+
 from git import Repo
 
 
