@@ -164,7 +164,11 @@ def _apply_status_filters(
 
                 if status_lower == "staged" and staged_status not in [" ", "?"]:
                     include_line = True
-                elif status_lower == "unstaged" and unstaged_status not in [" ", "?"] and staged_status != "?":
+                elif (
+                    status_lower == "unstaged"
+                    and unstaged_status not in [" ", "?"]
+                    and staged_status != "?"
+                ):
                     include_line = True
                 elif (
                     status_lower == "untracked"

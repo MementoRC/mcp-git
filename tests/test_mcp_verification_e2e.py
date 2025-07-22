@@ -33,8 +33,8 @@ pytestmark = [
     pytest.mark.e2e,
     pytest.mark.skipif(
         os.getenv("CLAUDECODE") == "1",
-        reason="Skipping GitPython tests in Claude Code environment"
-    )
+        reason="Skipping GitPython tests in Claude Code environment",
+    ),
 ]
 
 

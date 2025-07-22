@@ -14,6 +14,7 @@ else:
             @staticmethod
             def init(*args, **kwargs):
                 return None
+
     git = MockGit()
 
 
