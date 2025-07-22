@@ -93,6 +93,7 @@ dev = ["dev"]
 
 [tool.pixi.tasks]
 test = "pytest tests/ -v --tb=short"
+test-claude = { cmd = "export CLAUDECODE=0 && pytest tests/ -v --tb=short" }
 test-unit = "pytest tests/unit/ -v"
 test-integration = "pytest tests/integration/ -v"
 test-e2e = "pytest tests/ -k 'e2e' -v"
@@ -102,7 +103,8 @@ lint-fix = "ruff check --fix src/ tests/"
 format = "ruff format src/ tests/"
 format-check = "ruff format --check src/ tests/"
 typecheck = "pyright src/"
-quality = { depends-on = ["test", "lint", "typecheck"] }
+quality = { depends-on = ["lint", "typecheck"] }
+quality-full = { depends-on = ["test", "lint", "typecheck"] }
 pre-commit = "pre-commit run --all-files"
 install-pre-commit = "pre-commit install"
 clean = "rm -rf __pycache__ .pytest_cache .coverage htmlcov .ruff_cache"

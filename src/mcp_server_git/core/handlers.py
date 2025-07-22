@@ -113,7 +113,17 @@ class CallToolHandler:
             logger.debug("Using original Git operations")
 
         return {
-            "git_status": self._create_git_handler(git_status, requires_repo=True),
+            "git_status": self._create_git_handler(
+                git_status,
+                requires_repo=True,
+                extra_args=[
+                    "porcelain",
+                    "status_filter",
+                    "path_filter",
+                    "include_ignored",
+                    "include_untracked",
+                ],
+            ),
             "git_diff_unstaged": self._create_git_handler(
                 git_diff_unstaged, requires_repo=True
             ),
@@ -411,11 +421,14 @@ class CallToolHandler:
                             "set_upstream",
                             "force",
                             "no_commit",
-                            "include_untracked",
+                            "include_ignored",
+                            "porcelain",
                             "verbose",
                             "prune",
                         ]:
                             args.append(kwargs.get(arg, False))
+                        elif arg == "include_untracked":
+                            args.append(kwargs.get(arg, True))
                         elif arg in ["remote"]:
                             args.append(kwargs.get(arg, "origin"))
                         elif arg in ["strategy"]:

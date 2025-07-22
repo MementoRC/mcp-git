@@ -62,20 +62,238 @@ def _apply_diff_size_limiting(
     return diff_output
 
 
-def git_status(repo: Repo, porcelain: bool = False) -> str:
-    """Get repository status in either human-readable or machine-readable format.
+def git_status(
+    repo: Repo,
+    porcelain: bool = False,
+    status_filter: Optional[str] = None,
+    path_filter: Optional[str] = None,
+    include_ignored: bool = False,
+    include_untracked: bool = True,
+) -> str:
+    """Get repository status with advanced filtering options.
 
     Args:
         repo: Git repository object
         porcelain: If True, return porcelain (machine-readable) format
+        status_filter: Filter by status (staged, unstaged, untracked, ignored)
+        path_filter: Filter by file path pattern (glob-style)
+        include_ignored: Include ignored files in output
+        include_untracked: Include untracked files in output
 
     Returns:
-        Status output string
+        Status output string with applied filters
     """
+    try:
+        # Build git status command arguments
+        args = []
+
+        if porcelain:
+            args.append("--porcelain")
+
+        if include_ignored:
+            args.append("--ignored")
+
+        if not include_untracked:
+            args.append("--untracked-files=no")
+
+        # Get raw status output
+        status_output = repo.git.status(*args)
+
+        # Apply filters if specified
+        if status_filter or path_filter:
+            status_output = _apply_status_filters(
+                status_output, status_filter, path_filter, porcelain
+            )
+
+        return (
+            status_output
+            if status_output.strip()
+            else "No files match the specified filters"
+        )
+
+    except GitCommandError as e:
+        return f"❌ Status failed: {str(e)}"
+    except Exception as e:
+        return f"❌ Status error: {str(e)}"
+
+
+def _apply_status_filters(
+    status_output: str,
+    status_filter: Optional[str] = None,
+    path_filter: Optional[str] = None,
+    porcelain: bool = False,
+) -> str:
+    """Apply status and path filters to git status output.
+
+    Args:
+        status_output: Raw git status output
+        status_filter: Filter by status (staged, unstaged, untracked, ignored)
+        path_filter: Filter by file path pattern (glob-style)
+        porcelain: Whether output is in porcelain format
+
+    Returns:
+        Filtered status output
+    """
+    import fnmatch
+
+    if not status_output.strip():
+        return status_output
+
+    lines = status_output.split("\n")
+    filtered_lines = []
+
     if porcelain:
-        return repo.git.status("--porcelain")
+        # Porcelain format: XY filename
+        # X = staged status, Y = unstaged status
+        # Status codes: M=modified, A=added, D=deleted, R=renamed, C=copied, U=unmerged, ?=untracked, !=ignored
+        for line in lines:
+            if not line.strip():
+                continue
+
+            if len(line) < 3:
+                continue
+
+            staged_status = line[0]
+            unstaged_status = line[1]
+            filepath = line[3:]  # Skip XY and space
+
+            # Apply status filter
+            if status_filter:
+                status_lower = status_filter.lower()
+                include_line = False
+
+                if status_lower == "staged" and staged_status not in [" ", "?"]:
+                    include_line = True
+                elif (
+                    status_lower == "unstaged"
+                    and unstaged_status not in [" ", "?"]
+                    and staged_status != "?"
+                ):
+                    include_line = True
+                elif (
+                    status_lower == "untracked"
+                    and staged_status == "?"
+                    and unstaged_status == "?"
+                ):
+                    include_line = True
+                elif (
+                    status_lower == "ignored"
+                    and staged_status == "!"
+                    and unstaged_status == "!"
+                ):
+                    include_line = True
+                elif status_lower == "modified" and (
+                    staged_status == "M" or unstaged_status == "M"
+                ):
+                    include_line = True
+                elif status_lower == "added" and staged_status == "A":
+                    include_line = True
+                elif status_lower == "deleted" and (
+                    staged_status == "D" or unstaged_status == "D"
+                ):
+                    include_line = True
+
+                if not include_line:
+                    continue
+
+            # Apply path filter
+            if path_filter:
+                if not fnmatch.fnmatch(filepath, path_filter):
+                    continue
+
+            filtered_lines.append(line)
     else:
-        return repo.git.status()
+        # Human-readable format - parse sections
+        in_staged_section = False
+        in_unstaged_section = False
+        in_untracked_section = False
+        in_ignored_section = False
+
+        for line in lines:
+            line_lower = line.lower()
+
+            # Detect sections
+            if "changes to be committed:" in line_lower:
+                in_staged_section = True
+                in_unstaged_section = False
+                in_untracked_section = False
+                in_ignored_section = False
+                if not status_filter or status_filter.lower() == "staged":
+                    filtered_lines.append(line)
+                continue
+            elif "changes not staged for commit:" in line_lower:
+                in_staged_section = False
+                in_unstaged_section = True
+                in_untracked_section = False
+                in_ignored_section = False
+                if not status_filter or status_filter.lower() == "unstaged":
+                    filtered_lines.append(line)
+                continue
+            elif "untracked files:" in line_lower:
+                in_staged_section = False
+                in_unstaged_section = False
+                in_untracked_section = True
+                in_ignored_section = False
+                if not status_filter or status_filter.lower() == "untracked":
+                    filtered_lines.append(line)
+                continue
+            elif "ignored files:" in line_lower:
+                in_staged_section = False
+                in_unstaged_section = False
+                in_untracked_section = False
+                in_ignored_section = True
+                if not status_filter or status_filter.lower() == "ignored":
+                    filtered_lines.append(line)
+                continue
+
+            # Process file lines based on current section
+            if line.strip() and (line.startswith("\t") or line.startswith("  ")):
+                # This is a file line
+                filepath = line.strip()
+
+                # Remove git status prefixes
+                if filepath.startswith("modified:"):
+                    filepath = filepath[9:].strip()
+                elif filepath.startswith("new file:"):
+                    filepath = filepath[9:].strip()
+                elif filepath.startswith("deleted:"):
+                    filepath = filepath[8:].strip()
+                elif filepath.startswith("renamed:"):
+                    filepath = filepath[8:].strip()
+                elif filepath.startswith("copied:"):
+                    filepath = filepath[7:].strip()
+
+                # Apply status filter
+                if status_filter:
+                    status_lower = status_filter.lower()
+                    include_line = False
+
+                    if status_lower == "staged" and in_staged_section:
+                        include_line = True
+                    elif status_lower == "unstaged" and in_unstaged_section:
+                        include_line = True
+                    elif status_lower == "untracked" and in_untracked_section:
+                        include_line = True
+                    elif status_lower == "ignored" and in_ignored_section:
+                        include_line = True
+
+                    if not include_line:
+                        continue
+
+                # Apply path filter
+                if path_filter:
+                    if not fnmatch.fnmatch(filepath, path_filter):
+                        continue
+
+                filtered_lines.append(line)
+            else:
+                # Header lines, empty lines, etc.
+                if not status_filter:
+                    filtered_lines.append(line)
+                elif line.strip() == "":
+                    filtered_lines.append(line)
+
+    return "\n".join(filtered_lines)
 
 
 def git_diff_unstaged(

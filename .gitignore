@@ -33,7 +33,6 @@ wheels/
 .mcp.json
 .mcp.json.backup
 .taskmaster/
-tasks/
 
 # Added by Claude Task Master
 # Logs
@@ -54,11 +53,12 @@ node_modules/
 *.sln
 *.sw?
 # OS specific
-# Task files
-tasks.json
-
 # UV lock file (using pixi for package management)
 uv.lock
 
 # Data directory (temporary/cache files)
 data/
+
+# Task files
+# tasks.json
+# tasks/ 
