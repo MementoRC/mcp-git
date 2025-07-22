@@ -99,8 +99,15 @@ jobs:
 
     - name: Run pytest with coverage
       run: |
-        # Use pixi test task which sets CLAUDECODE=0 to disable git redirector
-        pixi run -e dev test-cov
+        # Run tests with pixi environment (includes all dependencies)
+        pixi run -e dev python -m pytest --verbose --tb=short \
+          --timeout=300 \
+          --cov=src/mcp_server_git \
+          --cov-report=xml \
+          --cov-report=term-missing \
+          --junit-xml=pytest-results.xml \
+          -m "not ci_skip and not e2e and not slow and not stress" \
+          -x
 
     - name: Upload test results
       uses: actions/upload-artifact@v4
