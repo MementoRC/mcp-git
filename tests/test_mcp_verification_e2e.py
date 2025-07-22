@@ -21,6 +21,12 @@ from pathlib import Path
 
 import pytest
 
+try:
+    from git import Repo
+except ImportError:
+    # Handle import error gracefully if git redirector interferes
+    Repo = None
+
 # Skip this entire module if we're in Claude Code environment
 # or if git redirector is active (CLAUDECODE env var set)
 pytestmark = [
@@ -30,8 +36,6 @@ pytestmark = [
         reason="Skipping GitPython tests in Claude Code environment"
     )
 ]
-
-from git import Repo
 
 
 # Fixtures for E2E verification tests
