@@ -92,11 +92,11 @@ pyright = ">=1.1.389"
 dev = ["dev"]
 
 [tool.pixi.tasks]
-test = "pytest tests/ -v --tb=short"
-test-unit = "pytest tests/unit/ -v"
-test-integration = "pytest tests/integration/ -v"
-test-e2e = "pytest tests/ -k 'e2e' -v"
-test-cov = "pytest tests/ --cov=src/mcp_server_git --cov-report=html --cov-report=term"
+test = { cmd = "export CLAUDECODE=0 && pytest tests/ -v --tb=short" }
+test-unit = { cmd = "pytest tests/unit/ -v", env = { CLAUDECODE = "0" } }
+test-integration = { cmd = "pytest tests/integration/ -v", env = { CLAUDECODE = "0" } }
+test-e2e = { cmd = "pytest tests/ -k 'e2e' -v", env = { CLAUDECODE = "0" } }
+test-cov = { cmd = "pytest tests/ --cov=src/mcp_server_git --cov-report=html --cov-report=term", env = { CLAUDECODE = "0" } }
 lint = "ruff check src/ tests/ --select=F,E9"
 lint-fix = "ruff check --fix src/ tests/"
 format = "ruff format src/ tests/"
