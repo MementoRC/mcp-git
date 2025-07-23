@@ -22,6 +22,13 @@ except ImportError as e:
         UserWarning,
     )
 
+# Type imports for annotations
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from git import Repo as GitRepo
+else:
+    GitRepo = Any
+
 from mcp.types import TextContent
 
 from .tools import GitToolRouter, ToolRegistry
@@ -399,7 +406,7 @@ class CallToolHandler:
                 if git is None or Repo is None:
                     return "❌ Git operations unavailable: GitPython not properly initialized (possibly due to git redirector conflict)"
                 repo_path = Path(kwargs["repo_path"])
-                repo: Repo = git.Repo(repo_path)
+                repo: "GitRepo" = git.Repo(repo_path)
 
                 # Build arguments
                 args: List[Any] = [repo]
@@ -504,7 +511,7 @@ class CallToolHandler:
             if git is None or Repo is None:
                 return "❌ Git operations unavailable: GitPython not properly initialized (possibly due to git redirector conflict)"
             repo_path = Path(kwargs["repo_path"])
-            repo: Repo = git.Repo(repo_path)
+            repo: "GitRepo" = git.Repo(repo_path)
 
             args: List[Any] = [repo]
             if extra_args:

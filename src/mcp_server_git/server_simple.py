@@ -10,7 +10,13 @@ import logging
 import os
 import sys
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from git import Repo as GitRepo, InvalidGitRepositoryError as GitInvalidRepoError
+else:
+    GitRepo = Any
+    GitInvalidRepoError = Exception
 
 # Handle git import gracefully to avoid conflicts with git redirectors
 try:
@@ -62,9 +68,9 @@ async def main_simple(repository: Path | None, test_mode: bool = False) -> None:
     # Validate repository if provided
     if repository is not None:
         try:
-            Repo(repository)
+            (Repo if Repo else lambda x: None)(repository)
             logger.info(f"✅ Using repository at {repository}")
-        except InvalidGitRepositoryError:
+        except (InvalidGitRepositoryError if InvalidGitRepositoryError else Exception):
             logger.error(f"{repository} is not a valid Git repository")
             return
 

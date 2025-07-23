@@ -4,7 +4,13 @@ import logging
 import os
 import subprocess
 from pathlib import Path
-from typing import Optional
+from typing import Optional, TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from git import Repo as GitRepo, GitCommandError
+else:
+    GitRepo = Any
+    GitCommandError = Exception
 
 # Handle git import gracefully to avoid conflicts with git redirectors
 try:
@@ -63,7 +69,7 @@ def _apply_diff_size_limiting(
 
 
 def git_status(
-    repo: Repo,
+    repo: "GitRepo",
     porcelain: bool = False,
     status_filter: Optional[str] = None,
     path_filter: Optional[str] = None,
@@ -297,7 +303,7 @@ def _apply_status_filters(
 
 
 def git_diff_unstaged(
-    repo: Repo, stat_only: bool = False, max_lines: Optional[int] = None
+    repo: "GitRepo", stat_only: bool = False, max_lines: Optional[int] = None
 ) -> str:
     """Get unstaged changes diff with size limiting options"""
     try:
@@ -321,7 +327,7 @@ def git_diff_unstaged(
 
 
 def git_diff_staged(
-    repo: Repo, stat_only: bool = False, max_lines: Optional[int] = None
+    repo: "GitRepo", stat_only: bool = False, max_lines: Optional[int] = None
 ) -> str:
     """Get staged changes diff with size limiting options"""
     try:
@@ -345,7 +351,7 @@ def git_diff_staged(
 
 
 def git_diff(
-    repo: Repo, target: str, stat_only: bool = False, max_lines: Optional[int] = None
+    repo: "GitRepo", target: str, stat_only: bool = False, max_lines: Optional[int] = None
 ) -> str:
     """Get diff against target ref with size limiting options"""
     try:
@@ -369,7 +375,7 @@ def git_diff(
 
 
 def git_commit(
-    repo: Repo,
+    repo: "GitRepo",
     message: str,
     gpg_sign: bool = False,
     gpg_key_id: Optional[str] = None,
@@ -452,7 +458,7 @@ def git_commit(
         return f"❌ Commit error: {str(e)}\n🔒 Verify repository security configuration"
 
 
-def git_add(repo: Repo, files: list[str]) -> str:
+def git_add(repo: "GitRepo", files: list[str]) -> str:
     """Add files to git staging area with robust error handling"""
     try:
         # Validate files exist
@@ -485,7 +491,7 @@ def git_add(repo: Repo, files: list[str]) -> str:
 
 
 def git_reset(
-    repo: Repo,
+    repo: "GitRepo",
     mode: Optional[str] = None,
     target: Optional[str] = None,
     files: Optional[list[str]] = None,
@@ -587,7 +593,7 @@ def git_reset(
 
 
 def git_log(
-    repo: Repo,
+    repo: "GitRepo",
     max_count: int = 10,
     oneline: bool = False,
     graph: bool = False,
@@ -623,7 +629,7 @@ def git_log(
 
 
 def git_create_branch(
-    repo: Repo, branch_name: str, base_branch: Optional[str] = None
+    repo: "GitRepo", branch_name: str, base_branch: Optional[str] = None
 ) -> str:
     """Create new branch from base"""
     try:
@@ -652,7 +658,7 @@ def git_create_branch(
         return f"❌ Branch creation error: {str(e)}"
 
 
-def git_checkout(repo: Repo, branch_name: str) -> str:
+def git_checkout(repo: "GitRepo", branch_name: str) -> str:
     """Switch to a branch"""
     try:
         # Check if branch exists locally
@@ -684,7 +690,7 @@ def git_checkout(repo: Repo, branch_name: str) -> str:
 
 
 def git_show(
-    repo: Repo, revision: str, stat_only: bool = False, max_lines: Optional[int] = None
+    repo: "GitRepo", revision: str, stat_only: bool = False, max_lines: Optional[int] = None
 ) -> str:
     """Show commit details with diff and size limiting options"""
     try:
@@ -729,7 +735,11 @@ def git_init(repo_path: str) -> str:
         path.mkdir(parents=True, exist_ok=True)
 
         # Initialize repository
-        Repo.init(path)
+        if Repo:
+            Repo.init(path)
+        else:
+            # Fallback to subprocess if GitPython unavailable
+            subprocess.run(["git", "init"], cwd=path, check=True)
 
         return f"✅ Initialized empty Git repository in {repo_path}"
 
@@ -738,7 +748,7 @@ def git_init(repo_path: str) -> str:
 
 
 def git_push(
-    repo: Repo,
+    repo: "GitRepo",
     remote: str = "origin",
     branch: Optional[str] = None,
     set_upstream: bool = False,
@@ -820,7 +830,7 @@ def git_push(
         return f"❌ Push error: {str(e)}"
 
 
-def git_pull(repo: Repo, remote: str = "origin", branch: Optional[str] = None) -> str:
+def git_pull(repo: "GitRepo", remote: str = "origin", branch: Optional[str] = None) -> str:
     """Pull changes from remote repository"""
     try:
         # Get current branch if not specified
@@ -850,7 +860,7 @@ def git_pull(repo: Repo, remote: str = "origin", branch: Optional[str] = None) -
 
 
 def git_diff_branches(
-    repo: Repo,
+    repo: "GitRepo",
     base_branch: str,
     compare_branch: str,
     stat_only: bool = False,
@@ -910,7 +920,7 @@ def git_diff_branches(
         return f"❌ Diff error: {str(e)}"
 
 
-def git_rebase(repo: Repo, target_branch: str) -> str:
+def git_rebase(repo: "GitRepo", target_branch: str) -> str:
     """Rebase current branch onto target branch"""
     try:
         # Get current branch
@@ -949,7 +959,7 @@ def git_rebase(repo: Repo, target_branch: str) -> str:
 
 
 def git_merge(
-    repo: Repo,
+    repo: "GitRepo",
     source_branch: str,
     strategy: str = "merge",
     message: Optional[str] = None,
@@ -994,7 +1004,7 @@ def git_merge(
         return f"❌ Merge error: {str(e)}"
 
 
-def git_cherry_pick(repo: Repo, commit_hash: str, no_commit: bool = False) -> str:
+def git_cherry_pick(repo: "GitRepo", commit_hash: str, no_commit: bool = False) -> str:
     """Cherry-pick commits"""
     try:
         # Build cherry-pick command
@@ -1019,7 +1029,7 @@ def git_cherry_pick(repo: Repo, commit_hash: str, no_commit: bool = False) -> st
         return f"❌ Cherry-pick error: {str(e)}"
 
 
-def git_abort(repo: Repo, operation: str) -> str:
+def git_abort(repo: "GitRepo", operation: str) -> str:
     """Abort ongoing operations (rebase, merge, cherry-pick)"""
     try:
         valid_operations = ["rebase", "merge", "cherry-pick"]
@@ -1042,7 +1052,7 @@ def git_abort(repo: Repo, operation: str) -> str:
         return f"❌ Abort error: {str(e)}"
 
 
-def git_continue(repo: Repo, operation: str) -> str:
+def git_continue(repo: "GitRepo", operation: str) -> str:
     """Continue operations after resolving conflicts"""
     try:
         valid_operations = ["rebase", "merge", "cherry-pick"]
@@ -1065,7 +1075,7 @@ def git_continue(repo: Repo, operation: str) -> str:
         return f"❌ Continue error: {str(e)}"
 
 
-def git_remote_list(repo: Repo, verbose: bool = False) -> str:
+def git_remote_list(repo: "GitRepo", verbose: bool = False) -> str:
     """List all remote repositories"""
     try:
         if verbose:
@@ -1078,7 +1088,7 @@ def git_remote_list(repo: Repo, verbose: bool = False) -> str:
         return f"❌ Remote list error: {str(e)}"
 
 
-def git_remote_add(repo: Repo, name: str, url: str) -> str:
+def git_remote_add(repo: "GitRepo", name: str, url: str) -> str:
     """Add a new remote repository"""
     try:
         repo.git.remote("add", name, url)
@@ -1089,7 +1099,7 @@ def git_remote_add(repo: Repo, name: str, url: str) -> str:
         return f"❌ Remote add error: {str(e)}"
 
 
-def git_remote_remove(repo: Repo, name: str) -> str:
+def git_remote_remove(repo: "GitRepo", name: str) -> str:
     """Remove a remote repository"""
     try:
         repo.git.remote("remove", name)
@@ -1100,7 +1110,7 @@ def git_remote_remove(repo: Repo, name: str) -> str:
         return f"❌ Remote remove error: {str(e)}"
 
 
-def git_remote_rename(repo: Repo, old_name: str, new_name: str) -> str:
+def git_remote_rename(repo: "GitRepo", old_name: str, new_name: str) -> str:
     """Rename a remote repository"""
     try:
         repo.git.remote("rename", old_name, new_name)
@@ -1111,7 +1121,7 @@ def git_remote_rename(repo: Repo, old_name: str, new_name: str) -> str:
         return f"❌ Remote rename error: {str(e)}"
 
 
-def git_remote_set_url(repo: Repo, name: str, url: str) -> str:
+def git_remote_set_url(repo: "GitRepo", name: str, url: str) -> str:
     """Set URL for a remote repository"""
     try:
         repo.git.remote("set-url", name, url)
@@ -1122,7 +1132,7 @@ def git_remote_set_url(repo: Repo, name: str, url: str) -> str:
         return f"❌ Remote set-url error: {str(e)}"
 
 
-def git_remote_get_url(repo: Repo, name: str) -> str:
+def git_remote_get_url(repo: "GitRepo", name: str) -> str:
     """Get URL for a remote repository"""
     try:
         url = repo.git.remote("get-url", name)
@@ -1134,7 +1144,7 @@ def git_remote_get_url(repo: Repo, name: str) -> str:
 
 
 def git_fetch(
-    repo: Repo,
+    repo: "GitRepo",
     remote: str = "origin",
     branch: Optional[str] = None,
     prune: bool = False,
@@ -1163,7 +1173,7 @@ def git_fetch(
         return f"❌ Fetch error: {str(e)}"
 
 
-def git_stash_list(repo: Repo) -> str:
+def git_stash_list(repo: "GitRepo") -> str:
     """List all stashes"""
     try:
         stash_list = repo.git.stash("list")
@@ -1177,7 +1187,7 @@ def git_stash_list(repo: Repo) -> str:
 
 
 def git_stash_push(
-    repo: Repo, message: Optional[str] = None, include_untracked: bool = False
+    repo: "GitRepo", message: Optional[str] = None, include_untracked: bool = False
 ) -> str:
     """Create a new stash"""
     try:
@@ -1195,7 +1205,7 @@ def git_stash_push(
         return f"❌ Stash push error: {str(e)}"
 
 
-def git_stash_pop(repo: Repo, stash_id: Optional[str] = None) -> str:
+def git_stash_pop(repo: "GitRepo", stash_id: Optional[str] = None) -> str:
     """Apply and remove a stash"""
     try:
         if stash_id:
@@ -1210,7 +1220,7 @@ def git_stash_pop(repo: Repo, stash_id: Optional[str] = None) -> str:
         return f"❌ Stash pop error: {str(e)}"
 
 
-def git_stash_drop(repo: Repo, stash_id: Optional[str] = None) -> str:
+def git_stash_drop(repo: "GitRepo", stash_id: Optional[str] = None) -> str:
     """Remove a stash without applying it"""
     try:
         if stash_id:
@@ -1225,7 +1235,7 @@ def git_stash_drop(repo: Repo, stash_id: Optional[str] = None) -> str:
         return f"❌ Stash drop error: {str(e)}"
 
 
-def git_tag_list(repo: Repo) -> str:
+def git_tag_list(repo: "GitRepo") -> str:
     """List all tags"""
     try:
         tag_list = repo.git.tag("-l")
@@ -1239,7 +1249,7 @@ def git_tag_list(repo: Repo) -> str:
 
 
 def git_tag_create(
-    repo: Repo,
+    repo: "GitRepo",
     tag_name: str,
     message: Optional[str] = None,
     commit: Optional[str] = None,
@@ -1262,7 +1272,7 @@ def git_tag_create(
         return f"❌ Tag create error: {str(e)}"
 
 
-def git_tag_delete(repo: Repo, tag_name: str) -> str:
+def git_tag_delete(repo: "GitRepo", tag_name: str) -> str:
     """Delete a tag"""
     try:
         repo.git.tag("-d", tag_name)
@@ -1274,7 +1284,7 @@ def git_tag_delete(repo: Repo, tag_name: str) -> str:
 
 
 def git_blame(
-    repo: Repo,
+    repo: "GitRepo",
     file_path: str,
     line_start: Optional[int] = None,
     line_end: Optional[int] = None,

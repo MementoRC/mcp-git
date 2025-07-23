@@ -4,7 +4,14 @@ import sys
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Sequence, Optional
+from typing import Sequence, Optional, TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from git import Repo as GitRepo, InvalidGitRepositoryError, GitCommandError
+else:
+    GitRepo = Any
+    InvalidGitRepositoryError = Exception
+    GitCommandError = Exception
 
 import aiohttp
 from dotenv import load_dotenv
@@ -1203,9 +1210,9 @@ async def serve(repository: Path | None, test_mode: bool = False) -> None:
 
     if repository is not None:
         try:
-            git.Repo(repository)
+            (git.Repo if git else lambda x: None)(repository)
             logger.info(f"Using repository at {repository}")
-        except git.InvalidGitRepositoryError:
+        except (git.InvalidGitRepositoryError if git else Exception):
             logger.error(f"{repository} is not a valid Git repository")
             return
 
@@ -2309,9 +2316,9 @@ Provide specific, actionable recommendations for each area."""
             for root in roots_result.roots:
                 path = root.uri.path
                 try:
-                    git.Repo(path)
+                    (git.Repo if git else lambda x: None)(path)
                     repo_paths.append(str(path))
-                except git.InvalidGitRepositoryError:
+                except (git.InvalidGitRepositoryError if git else Exception):
                     pass
             return repo_paths
 

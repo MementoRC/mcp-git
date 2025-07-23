@@ -55,7 +55,6 @@ jobs:
 
     - name: Run type checking with pyright
       run: pixi run -e dev typecheck
-      continue-on-error: true
 
     - name: Check code formatting
       run: pixi run -e dev format-check

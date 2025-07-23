@@ -3,7 +3,12 @@
 import logging
 import os
 import subprocess
-from typing import Dict, Any
+from typing import Dict, Any, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from git import Repo as GitRepo
+else:
+    GitRepo = Any
 
 # Handle git import gracefully to avoid conflicts with git redirectors
 try:
@@ -128,7 +133,7 @@ def validate_git_security_config(repo) -> Dict[str, Any]:
         }
 
 
-def enforce_secure_git_config(repo: Repo, strict_mode: bool = True) -> str:
+def enforce_secure_git_config(repo: "GitRepo", strict_mode: bool = True) -> str:
     """Enforce secure Git configuration (GPG signing, proper user config)"""
 
     try:
