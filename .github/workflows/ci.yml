@@ -19,7 +19,7 @@ jobs:
   quality:
     name: Code Quality & Static Analysis
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
 
     steps:
     - name: Checkout repository
