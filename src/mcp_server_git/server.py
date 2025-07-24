@@ -4,7 +4,7 @@ import sys
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Sequence, Optional, TYPE_CHECKING, Any
+from typing import Sequence, TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from git import Repo as GitRepo, InvalidGitRepositoryError, GitCommandError
@@ -79,6 +79,42 @@ from mcp_server_git.git.operations import (
     git_stash_pop,
     git_stash_drop,
     git_clean,
+)
+
+# Import git models
+from mcp_server_git.git.models import (
+    GitStatus,
+    GitDiffUnstaged,
+    GitDiffStaged,
+    GitDiff,
+    GitCommit,
+    GitAdd,
+    GitReset,
+    GitLog,
+    GitCreateBranch,
+    GitCheckout,
+    GitShow,
+    GitInit,
+    GitPush,
+    GitPull,
+    GitDiffBranches,
+    GitRebase,
+    GitMerge,
+    GitCherryPick,
+    GitAbort,
+    GitContinue,
+    GitRemoteList,
+    GitRemoteAdd,
+    GitRemoteRemove,
+    GitRemoteRename,
+    GitRemoteSetUrl,
+    GitRemoteGetUrl,
+    GitFetch,
+    GitStashList,
+    GitStashPush,
+    GitStashPop,
+    GitStashDrop,
+    GitClean,
 )
 
 # Import GitHub CLI models
@@ -400,156 +436,6 @@ def validate_gpg_environment() -> dict:
             "GNUPG_HOME": gnupg_dir if os.path.exists(gnupg_dir) else None,
         },
     }
-
-
-class GitStatus(BaseModel):
-    repo_path: str
-
-
-class GitDiffUnstaged(BaseModel):
-    repo_path: str
-
-
-class GitDiffStaged(BaseModel):
-    repo_path: str
-
-
-class GitDiff(BaseModel):
-    repo_path: str
-    target: str
-
-
-class GitCommit(BaseModel):
-    repo_path: str
-    message: str
-    gpg_sign: bool = False
-    gpg_key_id: str | None = None
-
-
-class GitAdd(BaseModel):
-    repo_path: str
-    files: list[str]
-
-
-class GitReset(BaseModel):
-    repo_path: str
-
-
-class GitLog(BaseModel):
-    repo_path: str
-    max_count: int = 10
-    oneline: bool = False
-    graph: bool = False
-    format: str | None = None
-
-
-class GitCreateBranch(BaseModel):
-    repo_path: str
-    branch_name: str
-    base_branch: str | None = None
-
-
-class GitCheckout(BaseModel):
-    repo_path: str
-    branch_name: str
-
-
-class GitShow(BaseModel):
-    repo_path: str
-    revision: str
-
-
-class GitInit(BaseModel):
-    repo_path: str
-
-
-class GitPush(BaseModel):
-    repo_path: str
-    remote: str = "origin"
-    branch: str | None = None
-    force: bool = False
-    set_upstream: bool = False
-
-
-class GitPull(BaseModel):
-    repo_path: str
-    remote: str = "origin"
-    branch: str | None = None
-
-
-class GitDiffBranches(BaseModel):
-    repo_path: str
-    base_branch: str
-    compare_branch: str
-
-
-# Git Remote Models
-class GitRemoteList(BaseModel):
-    repo_path: str
-    verbose: bool = False
-
-
-class GitRemoteAdd(BaseModel):
-    repo_path: str
-    name: str
-    url: str
-
-
-class GitRemoteRemove(BaseModel):
-    repo_path: str
-    name: str
-
-
-class GitRemoteRename(BaseModel):
-    repo_path: str
-    old_name: str
-    new_name: str
-
-
-class GitRemoteSetUrl(BaseModel):
-    repo_path: str
-    name: str
-    url: str
-
-
-class GitRemoteGetUrl(BaseModel):
-    repo_path: str
-    name: str
-
-
-class GitFetch(BaseModel):
-    repo_path: str
-    remote: str = "origin"
-    branch: Optional[str] = None
-    prune: bool = False
-
-
-class GitRebase(BaseModel):
-    repo_path: str
-    target_branch: str
-
-
-class GitMerge(BaseModel):
-    repo_path: str
-    source_branch: str
-    strategy: str = "merge"
-    message: Optional[str] = None
-
-
-class GitCherryPick(BaseModel):
-    repo_path: str
-    commit_hash: str
-    no_commit: bool = False
-
-
-class GitAbort(BaseModel):
-    repo_path: str
-    operation: str
-
-
-class GitContinue(BaseModel):
-    repo_path: str
-    operation: str
 
 
 # GitHub API Models
@@ -2239,6 +2125,31 @@ Provide specific, actionable recommendations for each area."""
                 description="Fetch changes from remote repository",
                 inputSchema=GitFetch.model_json_schema(),
             ),
+            Tool(
+                name=GitTools.STASH_LIST,
+                description="List stashed changes",
+                inputSchema=GitStashList.model_json_schema(),
+            ),
+            Tool(
+                name=GitTools.STASH_PUSH,
+                description="Stash current changes",
+                inputSchema=GitStashPush.model_json_schema(),
+            ),
+            Tool(
+                name=GitTools.STASH_POP,
+                description="Apply and remove stashed changes",
+                inputSchema=GitStashPop.model_json_schema(),
+            ),
+            Tool(
+                name=GitTools.STASH_DROP,
+                description="Delete stashed changes without applying",
+                inputSchema=GitStashDrop.model_json_schema(),
+            ),
+            Tool(
+                name=GitTools.CLEAN,
+                description="Remove untracked files and directories",
+                inputSchema=GitClean.model_json_schema(),
+            ),
             # GitHub API Tools
             Tool(
                 name=GitTools.GITHUB_GET_PR_CHECKS,
@@ -2590,6 +2501,38 @@ Provide specific, actionable recommendations for each area."""
                         arguments.get("remote", "origin"),
                         arguments.get("branch"),
                         arguments.get("prune", False),
+                    )
+                    return [TextContent(type="text", text=result)]
+
+                case GitTools.STASH_LIST:
+                    result = git_stash_list(repo)
+                    return [TextContent(type="text", text=result)]
+
+                case GitTools.STASH_PUSH:
+                    result = git_stash_push(
+                        repo,
+                        arguments.get("message"),
+                        arguments.get("include_untracked", False),
+                        arguments.get("keep_index", False),
+                        arguments.get("pathspec")
+                    )
+                    return [TextContent(type="text", text=result)]
+
+                case GitTools.STASH_POP:
+                    result = git_stash_pop(repo, arguments.get("stash_id"))
+                    return [TextContent(type="text", text=result)]
+
+                case GitTools.STASH_DROP:
+                    result = git_stash_drop(repo, arguments.get("stash_id"))
+                    return [TextContent(type="text", text=result)]
+
+                case GitTools.CLEAN:
+                    result = git_clean(
+                        repo,
+                        arguments.get("dry_run", True),
+                        arguments.get("force", False),
+                        arguments.get("include_directories", False),
+                        arguments.get("patterns", [])
                     )
                     return [TextContent(type="text", text=result)]
 
