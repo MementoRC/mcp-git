@@ -50,6 +50,9 @@ class GitTools(str, Enum):
     STASH_PUSH = "git_stash_push"
     STASH_POP = "git_stash_pop"
     STASH_DROP = "git_stash_drop"
+    
+    # Clean operations
+    CLEAN = "git_clean"
 
     # GitHub API tools
     GITHUB_GET_PR_CHECKS = "github_get_pr_checks"
@@ -163,6 +166,7 @@ class ToolRegistry:
             GitStashPush,
             GitStashPop,
             GitStashDrop,
+            GitClean,
             GitSecurityValidate,
             GitSecurityEnforce,
         )
@@ -433,6 +437,14 @@ class ToolRegistry:
                 category=ToolCategory.GIT,
                 description="Remove a stash without applying it",
                 schema=GitStashDrop,
+                handler=placeholder_handler,
+                requires_repo=True,
+            ),
+            ToolDefinition(
+                name=GitTools.CLEAN,
+                category=ToolCategory.GIT,
+                description="Clean untracked files and directories (default: dry-run for safety)",
+                schema=GitClean,
                 handler=placeholder_handler,
                 requires_repo=True,
             ),

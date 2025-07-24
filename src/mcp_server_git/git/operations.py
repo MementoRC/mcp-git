@@ -1311,3 +1311,87 @@ def git_blame(
         return f"❌ Blame failed: {str(e)}"
     except Exception as e:
         return f"❌ Blame error: {str(e)}"
+
+
+def git_clean(
+    repo: "GitRepo",
+    dry_run: bool = True,
+    force: bool = False,
+    directories: bool = False,
+    ignored: bool = False,
+    exclude_pattern: Optional[str] = None,
+    include_pattern: Optional[str] = None,
+) -> str:
+    """Clean untracked files and directories with safety controls.
+    
+    Args:
+        repo: Git repository object
+        dry_run: If True, show what would be removed without actually removing (safety default)
+        force: Force removal of files and directories (required for __pycache__ dirs)
+        directories: Remove untracked directories in addition to files
+        ignored: Remove ignored files (files matching patterns in .gitignore)  
+        exclude_pattern: Pattern to exclude from cleaning (e.g., "*.log")
+        include_pattern: Pattern to include in cleaning (e.g., "__pycache__")
+        
+    Returns:
+        Status message with cleaned files/directories or dry-run preview
+    """
+    try:
+        # Build git clean command arguments
+        args = []
+        
+        # Safety: Always start with dry run info if not explicitly disabled
+        if dry_run:
+            args.append("-n")  # Dry run - show what would be removed
+            
+        # Force flag - required for directories like __pycache__
+        if force:
+            args.append("-f")
+            
+        # Remove directories flag
+        if directories:
+            args.append("-d")
+            
+        # Remove ignored files flag  
+        if ignored:
+            args.append("-x")
+            
+        # Add pattern exclusions/inclusions
+        if exclude_pattern:
+            args.extend(["-e", exclude_pattern])
+            
+        # Git clean doesn't have native include patterns, but we can simulate
+        # by using path specification at the end
+        if include_pattern:
+            args.append(include_pattern)
+            
+        # Safety check: Ensure we have either dry_run OR force for actual removal
+        if not dry_run and not force:
+            return "❌ Safety check failed: git clean requires either dry_run=True or force=True for actual removal"
+            
+        # Execute git clean command
+        clean_output = repo.git.clean(*args)
+        
+        # Format output based on operation type
+        if dry_run:
+            if clean_output.strip():
+                return f"🔍 Dry run - Files/directories that would be removed:\n{clean_output}"
+            else:
+                return "✅ Dry run - No untracked files to clean"
+        else:
+            if clean_output.strip():
+                return f"✅ Successfully cleaned untracked files:\n{clean_output}"
+            else:
+                return "✅ No untracked files found to clean"
+                
+    except GitCommandError as e:
+        # Provide helpful error context
+        error_msg = str(e)
+        if "not removing" in error_msg.lower():
+            return f"❌ Clean failed - Use force=True for directory removal: {error_msg}"
+        elif "clean.requireForce" in error_msg:
+            return f"❌ Clean failed - Repository requires force=True: {error_msg}"
+        else:
+            return f"❌ Git clean failed: {error_msg}"
+    except Exception as e:
+        return f"❌ Clean operation error: {str(e)}"

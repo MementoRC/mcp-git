@@ -200,3 +200,13 @@ class GitStashPop(BaseModel):
 class GitStashDrop(BaseModel):
     repo_path: str
     stash_id: Optional[str] = None
+
+
+class GitClean(BaseModel):
+    repo_path: str
+    dry_run: bool = True  # Safety first - default to dry run
+    force: bool = False  # Force removal (required for directories like __pycache__)
+    directories: bool = False  # Remove untracked directories
+    ignored: bool = False  # Remove ignored files (e.g., files in .gitignore)
+    exclude_pattern: Optional[str] = None  # Pattern to exclude from cleaning
+    include_pattern: Optional[str] = None  # Pattern to include in cleaning (e.g., "__pycache__")
