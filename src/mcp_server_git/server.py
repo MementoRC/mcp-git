@@ -74,6 +74,11 @@ from mcp_server_git.git.operations import (
     git_remote_set_url,
     git_remote_get_url,
     git_fetch,
+    git_stash_list,
+    git_stash_push,
+    git_stash_pop,
+    git_stash_drop,
+    git_clean,
 )
 
 # Import GitHub CLI models
@@ -635,6 +640,13 @@ class GitTools(str, Enum):
     REMOTE_SET_URL = "git_remote_set_url"
     REMOTE_GET_URL = "git_remote_get_url"
     FETCH = "git_fetch"
+    # Stash operations
+    STASH_LIST = "git_stash_list"
+    STASH_PUSH = "git_stash_push"
+    STASH_POP = "git_stash_pop"
+    STASH_DROP = "git_stash_drop"
+    # Clean operations
+    CLEAN = "git_clean"
     # GitHub API Tools
     GITHUB_GET_PR_CHECKS = "github_get_pr_checks"
     GITHUB_GET_FAILING_JOBS = "github_get_failing_jobs"
