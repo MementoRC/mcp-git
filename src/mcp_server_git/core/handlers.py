@@ -24,6 +24,7 @@ except ImportError as e:
 
 # Type imports for annotations
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from git import Repo as GitRepo
 else:

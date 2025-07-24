@@ -70,7 +70,7 @@ async def main_simple(repository: Path | None, test_mode: bool = False) -> None:
         try:
             (Repo if Repo else lambda x: None)(repository)
             logger.info(f"✅ Using repository at {repository}")
-        except (InvalidGitRepositoryError if InvalidGitRepositoryError else Exception):
+        except InvalidGitRepositoryError if InvalidGitRepositoryError else Exception:
             logger.error(f"{repository} is not a valid Git repository")
             return
 

@@ -1212,7 +1212,7 @@ async def serve(repository: Path | None, test_mode: bool = False) -> None:
         try:
             (git.Repo if git else lambda x: None)(repository)
             logger.info(f"Using repository at {repository}")
-        except (git.InvalidGitRepositoryError if git else Exception):
+        except git.InvalidGitRepositoryError if git else Exception:
             logger.error(f"{repository} is not a valid Git repository")
             return
 
@@ -2318,7 +2318,7 @@ Provide specific, actionable recommendations for each area."""
                 try:
                     (git.Repo if git else lambda x: None)(path)
                     repo_paths.append(str(path))
-                except (git.InvalidGitRepositoryError if git else Exception):
+                except git.InvalidGitRepositoryError if git else Exception:
                     pass
             return repo_paths
 

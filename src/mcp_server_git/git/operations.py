@@ -351,7 +351,10 @@ def git_diff_staged(
 
 
 def git_diff(
-    repo: "GitRepo", target: str, stat_only: bool = False, max_lines: Optional[int] = None
+    repo: "GitRepo",
+    target: str,
+    stat_only: bool = False,
+    max_lines: Optional[int] = None,
 ) -> str:
     """Get diff against target ref with size limiting options"""
     try:
@@ -690,7 +693,10 @@ def git_checkout(repo: "GitRepo", branch_name: str) -> str:
 
 
 def git_show(
-    repo: "GitRepo", revision: str, stat_only: bool = False, max_lines: Optional[int] = None
+    repo: "GitRepo",
+    revision: str,
+    stat_only: bool = False,
+    max_lines: Optional[int] = None,
 ) -> str:
     """Show commit details with diff and size limiting options"""
     try:
@@ -830,7 +836,9 @@ def git_push(
         return f"❌ Push error: {str(e)}"
 
 
-def git_pull(repo: "GitRepo", remote: str = "origin", branch: Optional[str] = None) -> str:
+def git_pull(
+    repo: "GitRepo", remote: str = "origin", branch: Optional[str] = None
+) -> str:
     """Pull changes from remote repository"""
     try:
         # Get current branch if not specified
