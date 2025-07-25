@@ -50,7 +50,7 @@ class GitTools(str, Enum):
     STASH_PUSH = "git_stash_push"
     STASH_POP = "git_stash_pop"
     STASH_DROP = "git_stash_drop"
-    
+
     # Clean operations
     CLEAN = "git_clean"
 

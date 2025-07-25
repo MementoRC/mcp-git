@@ -242,9 +242,16 @@ class CallToolHandler:
                 git_stash_drop, requires_repo=True, extra_args=["stash_id"]
             ),
             "git_clean": self._create_git_handler(
-                git_clean, 
-                requires_repo=True, 
-                extra_args=["dry_run", "force", "directories", "ignored", "exclude_pattern", "include_pattern"]
+                git_clean,
+                requires_repo=True,
+                extra_args=[
+                    "dry_run",
+                    "force",
+                    "directories",
+                    "ignored",
+                    "exclude_pattern",
+                    "include_pattern",
+                ],
             ),
         }
 

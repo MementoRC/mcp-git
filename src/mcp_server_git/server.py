@@ -2514,7 +2514,7 @@ Provide specific, actionable recommendations for each area."""
                         arguments.get("message"),
                         arguments.get("include_untracked", False),
                         arguments.get("keep_index", False),
-                        arguments.get("pathspec")
+                        arguments.get("pathspec"),
                     )
                     return [TextContent(type="text", text=result)]
 
@@ -2532,7 +2532,7 @@ Provide specific, actionable recommendations for each area."""
                         arguments.get("dry_run", True),
                         arguments.get("force", False),
                         arguments.get("include_directories", False),
-                        arguments.get("patterns", [])
+                        arguments.get("patterns", []),
                     )
                     return [TextContent(type="text", text=result)]
 

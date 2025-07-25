@@ -470,24 +470,26 @@ def test_git_status_with_include_options(test_repository):
 
 def test_git_clean_dry_run(test_repository):
     """Test git_clean function with dry run (default safety mode)"""
-    
+
     repo_path = Path(test_repository.working_dir)
-    
+
     # Create some untracked files
     untracked_file = repo_path / "untracked.txt"
     untracked_file.write_text("untracked content")
-    
+
     # Create __pycache__ directory (common use case from issue)
     pycache_dir = repo_path / "__pycache__"
     pycache_dir.mkdir()
     (pycache_dir / "module.pyc").write_text("compiled python")
-    
+
     # Test dry run (default safety mode)
     result = git_clean(test_repository, dry_run=True, directories=True)
-    
+
     # Should show what would be removed without actually removing
-    assert "🔍 Dry run" in result or "✅ Dry run" in result or "would be removed" in result
-    
+    assert (
+        "🔍 Dry run" in result or "✅ Dry run" in result or "would be removed" in result
+    )
+
     # Files should still exist after dry run
     assert untracked_file.exists()
     assert pycache_dir.exists()
@@ -495,26 +497,26 @@ def test_git_clean_dry_run(test_repository):
 
 def test_git_clean_safety_check(test_repository):
     """Test git_clean safety check (requires either dry_run or force)"""
-    
+
     # Test safety check: no dry_run, no force should fail
     result = git_clean(test_repository, dry_run=False, force=False)
-    
+
     assert "❌ Safety check failed" in result
     assert "git clean requires either dry_run=True or force=True" in result
 
 
 def test_git_clean_with_force(test_repository):
     """Test git_clean with force parameter"""
-    
+
     repo_path = Path(test_repository.working_dir)
-    
+
     # Create an untracked file
     untracked_file = repo_path / "temp_file.txt"
     untracked_file.write_text("temporary content")
-    
+
     # Test with force=True (actual removal)
     result = git_clean(test_repository, dry_run=False, force=True)
-    
+
     # Should either show successful cleaning or no files to clean
     assert "✅" in result  # Success indicator
     assert "❌" not in result  # No errors
@@ -522,42 +524,44 @@ def test_git_clean_with_force(test_repository):
 
 def test_git_clean_with_directories(test_repository):
     """Test git_clean with directories flag for __pycache__ removal"""
-    
+
     repo_path = Path(test_repository.working_dir)
-    
+
     # Create __pycache__ directory (main use case from issue)
     pycache_dir = repo_path / "__pycache__"
     pycache_dir.mkdir()
     (pycache_dir / "module.pyc").write_text("compiled python")
-    
+
     # Test dry run with directories=True
     result = git_clean(test_repository, dry_run=True, directories=True)
-    
+
     # Should indicate __pycache__ would be cleaned
-    assert "🔍 Dry run" in result or "✅ Dry run" in result or "would be removed" in result
+    assert (
+        "🔍 Dry run" in result or "✅ Dry run" in result or "would be removed" in result
+    )
 
 
 def test_git_clean_with_patterns(test_repository):
     """Test git_clean with include/exclude patterns"""
-    
+
     repo_path = Path(test_repository.working_dir)
-    
+
     # Create various untracked files
     log_file = repo_path / "debug.log"
     log_file.write_text("log content")
-    
+
     temp_file = repo_path / "temp.txt"
     temp_file.write_text("temp content")
-    
+
     # Test with exclude pattern (dry run for safety)
     result = git_clean(test_repository, dry_run=True, exclude_pattern="*.log")
-    
+
     # Should exclude .log files
     assert "✅" in result or "🔍" in result  # Success or dry run indicator
-    
+
     # Test with include pattern for specific files
     result = git_clean(test_repository, dry_run=True, include_pattern="*.txt")
-    
+
     # Should process the command successfully
     assert "✅" in result or "🔍" in result  # Success or dry run indicator
 
@@ -566,6 +570,6 @@ def test_git_clean_tools_enum():
     """Test that git_clean tool is properly defined in enum"""
     # Test that the tool is in the enum
     assert hasattr(GitTools, "CLEAN")
-    
+
     # Test enum value
     assert GitTools.CLEAN == "git_clean"

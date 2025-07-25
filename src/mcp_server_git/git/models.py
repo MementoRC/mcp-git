@@ -209,4 +209,6 @@ class GitClean(BaseModel):
     directories: bool = False  # Remove untracked directories
     ignored: bool = False  # Remove ignored files (e.g., files in .gitignore)
     exclude_pattern: Optional[str] = None  # Pattern to exclude from cleaning
-    include_pattern: Optional[str] = None  # Pattern to include in cleaning (e.g., "__pycache__")
+    include_pattern: Optional[str] = (
+        None  # Pattern to include in cleaning (e.g., "__pycache__")
+    )
