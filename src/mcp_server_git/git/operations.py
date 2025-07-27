@@ -462,28 +462,98 @@ def git_commit(
 
 
 def git_add(repo: "GitRepo", files: list[str]) -> str:
-    """Add files to git staging area with robust error handling"""
+    """Add files to git staging area with robust error handling and batch operations support"""
     try:
-        # Validate files exist
+        # Handle batch operations
+        if len(files) == 1:
+            file = files[0]
+            if file == "-A" or file == "--all":
+                # Add all files (new, modified, deleted)
+                repo.git.add("-A")
+                return "✅ Added all files to staging area (new, modified, and deleted)"
+            elif file == "-u" or file == "--update":
+                # Add only tracked files that have been modified or deleted
+                repo.git.add("-u")
+                return "✅ Added all modified and deleted tracked files to staging area"
+            elif file == ".":
+                # Add all files in current directory and subdirectories
+                repo.git.add(".")
+                return "✅ Added all files in current directory to staging area"
+
+        # Get current git status to identify deleted files
+        status_output = repo.git.status("--porcelain")
+        deleted_files = set()
+        
+        # Parse porcelain status to find deleted files
+        for line in status_output.split('\n'):
+            if line.strip() and len(line) >= 3:
+                # Status format: XY filename (where X=staged, Y=unstaged)
+                staged_status = line[0]
+                unstaged_status = line[1]
+                filepath = line[3:].strip()
+                
+                # Check if file is deleted (D in staged or unstaged position)
+                if staged_status == 'D' or unstaged_status == 'D':
+                    deleted_files.add(filepath)
+
+        # Validate files exist or are known deleted files
         repo_path = Path(repo.working_dir)
         missing_files = []
+        valid_files = []
+        
         for file in files:
             file_path = repo_path / file
-            if not file_path.exists() and not file_path.is_symlink():
+            if file_path.exists() or file_path.is_symlink():
+                # File exists, can be added normally
+                valid_files.append(file)
+            elif file in deleted_files:
+                # File is deleted but known to git, can be staged for deletion
+                valid_files.append(file)
+            else:
+                # File doesn't exist and isn't a known deleted file
                 missing_files.append(file)
 
         if missing_files:
             return f"❌ Files not found: {', '.join(missing_files)}"
 
-        # Add files to staging area
-        repo.index.add(files)
+        if not valid_files:
+            return "⚠️ No valid files to add"
 
-        # Verify files were added
-        staged_files = [item.a_path for item in repo.index.diff("HEAD")]
-        added_files = [f for f in files if f in staged_files]
+        # Add files to staging area using git command directly to handle deleted files
+        repo.git.add(*valid_files)
 
-        if added_files:
-            return f"✅ Added {len(added_files)} file(s) to staging area: {', '.join(added_files)}"
+        # Get detailed information about what was staged
+        result_messages = []
+        
+        # Check what actually got staged
+        try:
+            staged_diff = repo.index.diff("HEAD")
+            if staged_diff:
+                added_count = 0
+                modified_count = 0
+                deleted_count = 0
+                
+                for item in staged_diff:
+                    if item.change_type == 'A':
+                        added_count += 1
+                    elif item.change_type == 'M':
+                        modified_count += 1
+                    elif item.change_type == 'D':
+                        deleted_count += 1
+                
+                if added_count > 0:
+                    result_messages.append(f"{added_count} new file(s)")
+                if modified_count > 0:
+                    result_messages.append(f"{modified_count} modified file(s)")
+                if deleted_count > 0:
+                    result_messages.append(f"{deleted_count} deleted file(s)")
+                    
+        except Exception:
+            # Fallback to simpler message if detailed analysis fails
+            result_messages = [f"{len(valid_files)} file(s)"]
+
+        if result_messages:
+            return f"✅ Added {', '.join(result_messages)} to staging area: {', '.join(valid_files)}"
         else:
             return "⚠️ No changes detected in specified files"
 
