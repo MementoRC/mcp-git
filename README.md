@@ -85,6 +85,67 @@ Please note that mcp-server-git is currently in early development. The functiona
      - `repo_path` (string): Path to directory to initialize git repo
    - Returns: Confirmation of repository initialization
 
+### GitHub Repository Settings Management
+
+13. `github_repo_settings`
+   - Update repository settings like merge options, wikis, etc.
+   - Inputs:
+     - `repo_owner` (string): Repository owner
+     - `repo_name` (string): Repository name
+     - `has_issues` (boolean, optional): Enable/disable issues
+     - `has_projects` (boolean, optional): Enable/disable projects
+     - `has_wiki` (boolean, optional): Enable/disable wiki
+     - `allow_squash_merge` (boolean, optional): Allow squash merging
+     - `allow_merge_commit` (boolean, optional): Allow merge commits
+     - `allow_rebase_merge` (boolean, optional): Allow rebase merging
+     - `delete_branch_on_merge` (boolean, optional): Auto-delete head branches
+     - `allow_auto_merge` (boolean, optional): Allow auto-merge
+   - Returns: Confirmation of updated settings
+
+14. `github_actions_settings`
+   - Configure GitHub Actions permissions and settings
+   - Inputs:
+     - `repo_owner` (string): Repository owner
+     - `repo_name` (string): Repository name
+     - `enabled` (boolean, optional): Enable/disable Actions
+     - `allowed_actions` (string, optional): "all", "disabled", "selected", "local_only"
+     - `github_owned_allowed` (boolean, optional): Allow GitHub-owned actions
+     - `verified_allowed` (boolean, optional): Allow verified actions
+     - `patterns_allowed` (array, optional): List of allowed action patterns
+   - Returns: Confirmation of updated Actions settings
+
+15. `github_workflow_permissions`
+   - Configure default workflow permissions
+   - Inputs:
+     - `repo_owner` (string): Repository owner
+     - `repo_name` (string): Repository name
+     - `default_workflow_permissions` (string, optional): "read" or "write"
+     - `can_approve_pull_request_reviews` (boolean, optional): Allow PR approval
+   - Returns: Confirmation of updated workflow permissions
+
+16. `github_branch_protection`
+   - Configure branch protection rules
+   - Inputs:
+     - `repo_owner` (string): Repository owner
+     - `repo_name` (string): Repository name
+     - `branch` (string): Branch name to protect
+     - `required_status_checks` (object, optional): Status check requirements
+     - `enforce_admins` (boolean, optional): Enforce rules for admins
+     - `required_pull_request_reviews` (object, optional): PR review requirements
+     - `allow_force_pushes` (boolean, optional): Allow force pushes
+     - `allow_deletions` (boolean, optional): Allow branch deletions
+   - Returns: Confirmation of updated branch protection
+
+17. `github_security_settings`
+   - Configure repository security settings
+   - Inputs:
+     - `repo_owner` (string): Repository owner
+     - `repo_name` (string): Repository name
+     - `vulnerability_alerts` (boolean, optional): Enable vulnerability alerts
+     - `automated_security_fixes` (boolean, optional): Enable automated security fixes
+     - `security_and_analysis` (object, optional): Security analysis settings
+   - Returns: Confirmation of updated security settings
+
 ## Installation
 
 ### Using uv (recommended)

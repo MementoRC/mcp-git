@@ -960,3 +960,423 @@ async def github_update_issue(
     finally:
         if client and client.session:
             await client.session.close()
+
+
+# GitHub Repository Settings Management Functions
+
+async def github_repo_settings(
+    repo_owner: str,
+    repo_name: str,
+    has_issues: Optional[bool] = None,
+    has_projects: Optional[bool] = None,
+    has_wiki: Optional[bool] = None,
+    allow_squash_merge: Optional[bool] = None,
+    allow_merge_commit: Optional[bool] = None,
+    allow_rebase_merge: Optional[bool] = None,
+    delete_branch_on_merge: Optional[bool] = None,
+    allow_auto_merge: Optional[bool] = None,
+    allow_update_branch: Optional[bool] = None,
+    use_squash_pr_title_as_default: Optional[bool] = None,
+    squash_merge_commit_title: Optional[str] = None,
+    squash_merge_commit_message: Optional[str] = None,
+    merge_commit_title: Optional[str] = None,
+    merge_commit_message: Optional[str] = None,
+) -> str:
+    """Update repository settings like merge options, wikis, etc."""
+    logger.debug(f"🚀 Updating repository settings for {repo_owner}/{repo_name}")
+
+    client = None
+    try:
+        client = get_github_client()
+        if not client:
+            return (
+                "❌ GitHub token not configured. Set GITHUB_TOKEN environment variable."
+            )
+
+        payload = {}
+        
+        # Repository features
+        if has_issues is not None:
+            payload["has_issues"] = has_issues
+        if has_projects is not None:
+            payload["has_projects"] = has_projects  
+        if has_wiki is not None:
+            payload["has_wiki"] = has_wiki
+
+        # Merge settings
+        if allow_squash_merge is not None:
+            payload["allow_squash_merge"] = allow_squash_merge
+        if allow_merge_commit is not None:
+            payload["allow_merge_commit"] = allow_merge_commit
+        if allow_rebase_merge is not None:
+            payload["allow_rebase_merge"] = allow_rebase_merge
+        if delete_branch_on_merge is not None:
+            payload["delete_branch_on_merge"] = delete_branch_on_merge
+        if allow_auto_merge is not None:
+            payload["allow_auto_merge"] = allow_auto_merge
+        if allow_update_branch is not None:
+            payload["allow_update_branch"] = allow_update_branch
+        if use_squash_pr_title_as_default is not None:
+            payload["use_squash_pr_title_as_default"] = use_squash_pr_title_as_default
+
+        # Merge commit settings
+        if squash_merge_commit_title is not None:
+            if squash_merge_commit_title not in ["PR_TITLE", "COMMIT_OR_PR_TITLE"]:
+                return "❌ squash_merge_commit_title must be 'PR_TITLE' or 'COMMIT_OR_PR_TITLE'"
+            payload["squash_merge_commit_title"] = squash_merge_commit_title
+        if squash_merge_commit_message is not None:
+            if squash_merge_commit_message not in ["PR_BODY", "COMMIT_MESSAGES", "BLANK"]:
+                return "❌ squash_merge_commit_message must be 'PR_BODY', 'COMMIT_MESSAGES', or 'BLANK'"
+            payload["squash_merge_commit_message"] = squash_merge_commit_message
+        if merge_commit_title is not None:
+            if merge_commit_title not in ["PR_TITLE", "MERGE_MESSAGE"]:
+                return "❌ merge_commit_title must be 'PR_TITLE' or 'MERGE_MESSAGE'"
+            payload["merge_commit_title"] = merge_commit_title
+        if merge_commit_message is not None:
+            if merge_commit_message not in ["PR_TITLE", "PR_BODY", "BLANK"]:
+                return "❌ merge_commit_message must be 'PR_TITLE', 'PR_BODY', or 'BLANK'"
+            payload["merge_commit_message"] = merge_commit_message
+
+        if not payload:
+            return "⚠️ No settings provided to update."
+
+        response = await client.patch(
+            f"/repos/{repo_owner}/{repo_name}", json=payload
+        )
+
+        if response.status != 200:
+            error_text = await response.text()
+            return f"❌ Failed to update repository settings: {response.status} - {error_text}"
+
+        result = await response.json()
+        logger.info(f"✅ Successfully updated repository settings for {repo_owner}/{repo_name}")
+        
+        # Build response summary
+        updated_settings = []
+        for key, value in payload.items():
+            updated_settings.append(f"  {key}: {value}")
+        
+        return f"✅ Successfully updated repository settings for {repo_owner}/{repo_name}:\n" + "\n".join(updated_settings)
+
+    except Exception as e:
+        logger.error(f"❌ Failed to update repository settings: {e}", exc_info=True)
+        return f"❌ Error updating repository settings: {str(e)}"
+    finally:
+        if client and client.session:
+            await client.session.close()
+
+
+async def github_actions_settings(
+    repo_owner: str,
+    repo_name: str,
+    enabled: Optional[bool] = None,
+    allowed_actions: Optional[str] = None,
+    github_owned_allowed: Optional[bool] = None,
+    verified_allowed: Optional[bool] = None,
+    patterns_allowed: Optional[list[str]] = None,
+) -> str:
+    """Configure GitHub Actions permissions and settings."""
+    logger.debug(f"🚀 Updating Actions settings for {repo_owner}/{repo_name}")
+
+    client = None
+    try:
+        client = get_github_client()
+        if not client:
+            return (
+                "❌ GitHub token not configured. Set GITHUB_TOKEN environment variable."
+            )
+
+        # First handle Actions enablement
+        if enabled is not None:
+            payload = {"enabled": enabled}
+            response = await client.put(
+                f"/repos/{repo_owner}/{repo_name}/actions/permissions", json=payload
+            )
+            if response.status not in [200, 204]:
+                error_text = await response.text()
+                return f"❌ Failed to update Actions enablement: {response.status} - {error_text}"
+
+        # Handle allowed actions configuration
+        if allowed_actions is not None:
+            if allowed_actions not in ["all", "disabled", "selected", "local_only"]:
+                return "❌ allowed_actions must be 'all', 'disabled', 'selected', or 'local_only'"
+            
+            payload = {"allowed_actions": allowed_actions}
+            
+            # If selected, configure additional permissions
+            if allowed_actions == "selected":
+                if github_owned_allowed is not None or verified_allowed is not None or patterns_allowed is not None:
+                    selected_actions_config = {}
+                    if github_owned_allowed is not None:
+                        selected_actions_config["github_owned_allowed"] = github_owned_allowed
+                    if verified_allowed is not None:
+                        selected_actions_config["verified_allowed"] = verified_allowed
+                    if patterns_allowed is not None:
+                        selected_actions_config["patterns_allowed"] = patterns_allowed
+                    payload["allowed_actions_config"] = selected_actions_config
+
+            response = await client.put(
+                f"/repos/{repo_owner}/{repo_name}/actions/permissions/selected-actions", json=payload
+            )
+            if response.status not in [200, 204]:
+                error_text = await response.text()
+                return f"❌ Failed to update Actions permissions: {response.status} - {error_text}"
+
+        logger.info(f"✅ Successfully updated Actions settings for {repo_owner}/{repo_name}")
+        
+        settings_summary = []
+        if enabled is not None:
+            settings_summary.append(f"  enabled: {enabled}")
+        if allowed_actions is not None:
+            settings_summary.append(f"  allowed_actions: {allowed_actions}")
+            if allowed_actions == "selected":
+                if github_owned_allowed is not None:
+                    settings_summary.append(f"  github_owned_allowed: {github_owned_allowed}")
+                if verified_allowed is not None:
+                    settings_summary.append(f"  verified_allowed: {verified_allowed}")
+                if patterns_allowed is not None:
+                    settings_summary.append(f"  patterns_allowed: {patterns_allowed}")
+        
+        return f"✅ Successfully updated GitHub Actions settings for {repo_owner}/{repo_name}:\n" + "\n".join(settings_summary)
+
+    except Exception as e:
+        logger.error(f"❌ Failed to update Actions settings: {e}", exc_info=True)
+        return f"❌ Error updating Actions settings: {str(e)}"
+    finally:
+        if client and client.session:
+            await client.session.close()
+
+
+async def github_workflow_permissions(
+    repo_owner: str,
+    repo_name: str,
+    default_workflow_permissions: Optional[str] = None,
+    can_approve_pull_request_reviews: Optional[bool] = None,
+) -> str:
+    """Configure default workflow permissions."""
+    logger.debug(f"🚀 Updating workflow permissions for {repo_owner}/{repo_name}")
+
+    client = None
+    try:
+        client = get_github_client()
+        if not client:
+            return (
+                "❌ GitHub token not configured. Set GITHUB_TOKEN environment variable."
+            )
+
+        payload = {}
+        
+        if default_workflow_permissions is not None:
+            if default_workflow_permissions not in ["read", "write"]:
+                return "❌ default_workflow_permissions must be 'read' or 'write'"
+            payload["default_workflow_permissions"] = default_workflow_permissions
+            
+        if can_approve_pull_request_reviews is not None:
+            payload["can_approve_pull_request_reviews"] = can_approve_pull_request_reviews
+
+        if not payload:
+            return "⚠️ No workflow permissions provided to update."
+
+        response = await client.put(
+            f"/repos/{repo_owner}/{repo_name}/actions/permissions/workflow", json=payload
+        )
+
+        if response.status not in [200, 204]:
+            error_text = await response.text()
+            return f"❌ Failed to update workflow permissions: {response.status} - {error_text}"
+
+        logger.info(f"✅ Successfully updated workflow permissions for {repo_owner}/{repo_name}")
+        
+        settings_summary = []
+        for key, value in payload.items():
+            settings_summary.append(f"  {key}: {value}")
+        
+        return f"✅ Successfully updated workflow permissions for {repo_owner}/{repo_name}:\n" + "\n".join(settings_summary)
+
+    except Exception as e:
+        logger.error(f"❌ Failed to update workflow permissions: {e}", exc_info=True)
+        return f"❌ Error updating workflow permissions: {str(e)}"
+    finally:
+        if client and client.session:
+            await client.session.close()
+
+
+async def github_branch_protection(
+    repo_owner: str,
+    repo_name: str,
+    branch: str,
+    required_status_checks: Optional[dict] = None,
+    enforce_admins: Optional[bool] = None,
+    required_pull_request_reviews: Optional[dict] = None,
+    restrictions: Optional[dict] = None,
+    allow_force_pushes: Optional[bool] = None,
+    allow_deletions: Optional[bool] = None,
+    block_creations: Optional[bool] = None,
+    required_linear_history: Optional[bool] = None,
+    allow_fork_syncing: Optional[bool] = None,
+    lock_branch: Optional[bool] = None,
+    required_conversation_resolution: Optional[bool] = None,
+) -> str:
+    """Configure branch protection rules."""
+    logger.debug(f"🚀 Updating branch protection for {repo_owner}/{repo_name}:{branch}")
+
+    client = None
+    try:
+        client = get_github_client()
+        if not client:
+            return (
+                "❌ GitHub token not configured. Set GITHUB_TOKEN environment variable."
+            )
+
+        payload = {}
+        
+        # Required status checks
+        if required_status_checks is not None:
+            payload["required_status_checks"] = required_status_checks
+        
+        # Admin enforcement  
+        if enforce_admins is not None:
+            payload["enforce_admins"] = enforce_admins
+            
+        # Pull request reviews
+        if required_pull_request_reviews is not None:
+            payload["required_pull_request_reviews"] = required_pull_request_reviews
+            
+        # Push restrictions
+        if restrictions is not None:
+            payload["restrictions"] = restrictions
+            
+        # Other protections
+        if allow_force_pushes is not None:
+            payload["allow_force_pushes"] = allow_force_pushes
+        if allow_deletions is not None:
+            payload["allow_deletions"] = allow_deletions
+        if block_creations is not None:
+            payload["block_creations"] = block_creations
+        if required_linear_history is not None:
+            payload["required_linear_history"] = required_linear_history
+        if allow_fork_syncing is not None:
+            payload["allow_fork_syncing"] = allow_fork_syncing
+        if lock_branch is not None:
+            payload["lock_branch"] = lock_branch
+        if required_conversation_resolution is not None:
+            payload["required_conversation_resolution"] = required_conversation_resolution
+
+        if not payload:
+            return "⚠️ No branch protection rules provided to update."
+
+        response = await client.put(
+            f"/repos/{repo_owner}/{repo_name}/branches/{branch}/protection", json=payload
+        )
+
+        if response.status not in [200, 201]:
+            error_text = await response.text()
+            return f"❌ Failed to update branch protection: {response.status} - {error_text}"
+
+        logger.info(f"✅ Successfully updated branch protection for {repo_owner}/{repo_name}:{branch}")
+        
+        settings_summary = []
+        for key, value in payload.items():
+            if isinstance(value, dict):
+                settings_summary.append(f"  {key}: {list(value.keys())}")
+            else:
+                settings_summary.append(f"  {key}: {value}")
+        
+        return f"✅ Successfully updated branch protection for {repo_owner}/{repo_name}:{branch}:\n" + "\n".join(settings_summary)
+
+    except Exception as e:
+        logger.error(f"❌ Failed to update branch protection: {e}", exc_info=True)
+        return f"❌ Error updating branch protection: {str(e)}"
+    finally:
+        if client and client.session:
+            await client.session.close()
+
+
+async def github_security_settings(
+    repo_owner: str,
+    repo_name: str,
+    security_and_analysis: Optional[dict] = None,
+    vulnerability_alerts: Optional[bool] = None,
+    automated_security_fixes: Optional[bool] = None,
+) -> str:
+    """Configure repository security settings."""
+    logger.debug(f"🚀 Updating security settings for {repo_owner}/{repo_name}")
+
+    client = None
+    try:
+        client = get_github_client()
+        if not client:
+            return (
+                "❌ GitHub token not configured. Set GITHUB_TOKEN environment variable."
+            )
+
+        # Get current repository settings first
+        repo_response = await client.get(f"/repos/{repo_owner}/{repo_name}")
+        if repo_response.status != 200:
+            error_text = await repo_response.text()
+            return f"❌ Failed to get repository info: {repo_response.status} - {error_text}"
+
+        repo_data = await repo_response.json()
+        payload = {}
+
+        # Security and analysis settings
+        if security_and_analysis is not None:
+            payload["security_and_analysis"] = security_and_analysis
+
+        # Update main repository settings if needed
+        if payload:
+            response = await client.patch(
+                f"/repos/{repo_owner}/{repo_name}", json=payload
+            )
+            if response.status != 200:
+                error_text = await response.text()
+                return f"❌ Failed to update security settings: {response.status} - {error_text}"
+
+        # Handle vulnerability alerts separately
+        if vulnerability_alerts is not None:
+            if vulnerability_alerts:
+                response = await client.put(
+                    f"/repos/{repo_owner}/{repo_name}/vulnerability-alerts"
+                )
+            else:
+                response = await client.delete(
+                    f"/repos/{repo_owner}/{repo_name}/vulnerability-alerts"
+                )
+            
+            if response.status not in [200, 204]:
+                error_text = await response.text()
+                return f"❌ Failed to update vulnerability alerts: {response.status} - {error_text}"
+
+        # Handle automated security fixes separately  
+        if automated_security_fixes is not None:
+            if automated_security_fixes:
+                response = await client.put(
+                    f"/repos/{repo_owner}/{repo_name}/automated-security-fixes"
+                )
+            else:
+                response = await client.delete(
+                    f"/repos/{repo_owner}/{repo_name}/automated-security-fixes"
+                )
+            
+            if response.status not in [200, 204]:
+                error_text = await response.text()
+                return f"❌ Failed to update automated security fixes: {response.status} - {error_text}"
+
+        logger.info(f"✅ Successfully updated security settings for {repo_owner}/{repo_name}")
+        
+        settings_summary = []
+        if security_and_analysis is not None:
+            settings_summary.append(f"  security_and_analysis: {list(security_and_analysis.keys()) if isinstance(security_and_analysis, dict) else security_and_analysis}")
+        if vulnerability_alerts is not None:
+            settings_summary.append(f"  vulnerability_alerts: {vulnerability_alerts}")
+        if automated_security_fixes is not None:
+            settings_summary.append(f"  automated_security_fixes: {automated_security_fixes}")
+        
+        return f"✅ Successfully updated security settings for {repo_owner}/{repo_name}:\n" + "\n".join(settings_summary)
+
+    except Exception as e:
+        logger.error(f"❌ Failed to update security settings: {e}", exc_info=True)
+        return f"❌ Error updating security settings: {str(e)}"
+    finally:
+        if client and client.session:
+            await client.session.close()

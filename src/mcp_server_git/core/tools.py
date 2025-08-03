@@ -67,6 +67,13 @@ class GitTools(str, Enum):
     GITHUB_LIST_ISSUES = "github_list_issues"
     GITHUB_UPDATE_ISSUE = "github_update_issue"
 
+    # GitHub Repository Settings Management
+    GITHUB_REPO_SETTINGS = "github_repo_settings"
+    GITHUB_ACTIONS_SETTINGS = "github_actions_settings"
+    GITHUB_WORKFLOW_PERMISSIONS = "github_workflow_permissions"
+    GITHUB_BRANCH_PROTECTION = "github_branch_protection"
+    GITHUB_SECURITY_SETTINGS = "github_security_settings"
+
     # Security tools
     GIT_SECURITY_VALIDATE = "git_security_validate"
     GIT_SECURITY_ENFORCE = "git_security_enforce"
@@ -182,6 +189,11 @@ class ToolRegistry:
             GitHubEditPRDescription,
             GitHubListIssues,
             GitHubUpdateIssue,
+            GitHubRepoSettings,
+            GitHubActionsSettings,
+            GitHubWorkflowPermissions,
+            GitHubBranchProtection,
+            GitHubSecuritySettings,
         )
 
         # Import handlers (will be set by the router)
@@ -547,6 +559,52 @@ class ToolRegistry:
                 category=ToolCategory.GITHUB,
                 description="Update a GitHub issue's properties",
                 schema=GitHubUpdateIssue,
+                handler=placeholder_handler,
+                requires_repo=False,
+                requires_github_token=True,
+            ),
+            # GitHub Repository Settings Management Tools
+            ToolDefinition(
+                name=GitTools.GITHUB_REPO_SETTINGS,
+                category=ToolCategory.GITHUB,
+                description="Update repository settings like merge options, wikis, etc.",
+                schema=GitHubRepoSettings,
+                handler=placeholder_handler,
+                requires_repo=False,
+                requires_github_token=True,
+            ),
+            ToolDefinition(
+                name=GitTools.GITHUB_ACTIONS_SETTINGS,
+                category=ToolCategory.GITHUB,
+                description="Configure GitHub Actions permissions and settings",
+                schema=GitHubActionsSettings,
+                handler=placeholder_handler,
+                requires_repo=False,
+                requires_github_token=True,
+            ),
+            ToolDefinition(
+                name=GitTools.GITHUB_WORKFLOW_PERMISSIONS,
+                category=ToolCategory.GITHUB,
+                description="Configure default workflow permissions",
+                schema=GitHubWorkflowPermissions,
+                handler=placeholder_handler,
+                requires_repo=False,
+                requires_github_token=True,
+            ),
+            ToolDefinition(
+                name=GitTools.GITHUB_BRANCH_PROTECTION,
+                category=ToolCategory.GITHUB,
+                description="Configure branch protection rules",
+                schema=GitHubBranchProtection,
+                handler=placeholder_handler,
+                requires_repo=False,
+                requires_github_token=True,
+            ),
+            ToolDefinition(
+                name=GitTools.GITHUB_SECURITY_SETTINGS,
+                category=ToolCategory.GITHUB,
+                description="Configure repository security settings",
+                schema=GitHubSecuritySettings,
                 handler=placeholder_handler,
                 requires_repo=False,
                 requires_github_token=True,

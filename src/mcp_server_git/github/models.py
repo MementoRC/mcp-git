@@ -149,3 +149,71 @@ class GitHubUpdateIssue(BaseModel):
     assignees: Optional[list[str]] = None
     title: Optional[str] = None
     body: Optional[str] = None
+
+
+# GitHub Repository Settings Management Models
+
+class GitHubRepoSettings(BaseModel):
+    """Update repository settings like merge options, wikis, etc."""
+    repo_owner: str
+    repo_name: str
+    has_issues: Optional[bool] = None
+    has_projects: Optional[bool] = None
+    has_wiki: Optional[bool] = None
+    allow_squash_merge: Optional[bool] = None
+    allow_merge_commit: Optional[bool] = None
+    allow_rebase_merge: Optional[bool] = None
+    delete_branch_on_merge: Optional[bool] = None
+    allow_auto_merge: Optional[bool] = None
+    allow_update_branch: Optional[bool] = None
+    use_squash_pr_title_as_default: Optional[bool] = None
+    squash_merge_commit_title: Optional[str] = None  # "PR_TITLE" or "COMMIT_OR_PR_TITLE"
+    squash_merge_commit_message: Optional[str] = None  # "PR_BODY", "COMMIT_MESSAGES", or "BLANK"
+    merge_commit_title: Optional[str] = None  # "PR_TITLE" or "MERGE_MESSAGE"
+    merge_commit_message: Optional[str] = None  # "PR_TITLE", "PR_BODY", or "BLANK"
+
+
+class GitHubActionsSettings(BaseModel):
+    """Configure GitHub Actions permissions and settings."""
+    repo_owner: str
+    repo_name: str
+    enabled: Optional[bool] = None
+    allowed_actions: Optional[str] = None  # "all", "disabled", "selected", "local_only"
+    github_owned_allowed: Optional[bool] = None
+    verified_allowed: Optional[bool] = None
+    patterns_allowed: Optional[list[str]] = None
+
+
+class GitHubWorkflowPermissions(BaseModel):
+    """Configure default workflow permissions."""
+    repo_owner: str
+    repo_name: str
+    default_workflow_permissions: Optional[str] = None  # "read" or "write"
+    can_approve_pull_request_reviews: Optional[bool] = None
+
+
+class GitHubBranchProtection(BaseModel):
+    """Configure branch protection rules."""
+    repo_owner: str
+    repo_name: str
+    branch: str
+    required_status_checks: Optional[dict] = None
+    enforce_admins: Optional[bool] = None
+    required_pull_request_reviews: Optional[dict] = None
+    restrictions: Optional[dict] = None
+    allow_force_pushes: Optional[bool] = None
+    allow_deletions: Optional[bool] = None
+    block_creations: Optional[bool] = None
+    required_linear_history: Optional[bool] = None
+    allow_fork_syncing: Optional[bool] = None
+    lock_branch: Optional[bool] = None
+    required_conversation_resolution: Optional[bool] = None
+
+
+class GitHubSecuritySettings(BaseModel):
+    """Configure repository security settings."""
+    repo_owner: str
+    repo_name: str
+    security_and_analysis: Optional[dict] = None
+    vulnerability_alerts: Optional[bool] = None
+    automated_security_fixes: Optional[bool] = None
