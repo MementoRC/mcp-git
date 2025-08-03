@@ -462,28 +462,81 @@ def git_commit(
 
 
 def git_add(repo: "GitRepo", files: list[str]) -> str:
-    """Add files to git staging area with robust error handling"""
+    """Add files to git staging area with robust error handling
+    
+    Supports staging both existing files and deleted tracked files
+    """
     try:
-        # Validate files exist
+        # Get git status to identify deleted tracked files
+        status_output = repo.git.status("--porcelain")
+        status_lines = status_output.strip().split('\n') if status_output.strip() else []
+        
+        # Parse deleted files from status
+        deleted_tracked_files = set()
+        for line in status_lines:
+            if len(line) >= 3:
+                # In porcelain format, but after split the format might be altered
+                # Original: "XY filename" where X=staging, Y=working directory
+                # After split on lines that start with space: "Y filename" 
+                if line.startswith('D '):  # Deleted in working directory
+                    deleted_tracked_files.add(line[2:])  # Remove "D " prefix
+                elif len(line) >= 4 and line[0] != ' ' and line[1] == 'D':  # Original XY format with Y=D
+                    deleted_tracked_files.add(line[3:])  # Remove "XY " prefix
+        
+        # Validate files exist or are tracked deleted files
         repo_path = Path(repo.working_dir)
         missing_files = []
         for file in files:
             file_path = repo_path / file
-            if not file_path.exists() and not file_path.is_symlink():
+            # Allow file if it exists OR if it's a tracked deleted file
+            if not (file_path.exists() or file_path.is_symlink() or file in deleted_tracked_files):
                 missing_files.append(file)
 
         if missing_files:
             return f"❌ Files not found: {', '.join(missing_files)}"
 
         # Add files to staging area
-        repo.index.add(files)
+        # For deleted tracked files, use git.add() which handles deletions properly
+        # For existing files, use index.add() which is more reliable
+        existing_files_to_add = [f for f in files if f not in deleted_tracked_files]
+        deleted_files_to_add = [f for f in files if f in deleted_tracked_files]
+        
+        try:
+            # Add existing files using index.add
+            if existing_files_to_add:
+                repo.index.add(existing_files_to_add)
+            
+            # Add deleted files using git.add (handles deletions)
+            if deleted_files_to_add:
+                for deleted_file in deleted_files_to_add:
+                    repo.git.add(deleted_file)
+        except Exception as e:
+            return f"❌ Git add failed: {str(e)}"
 
-        # Verify files were added
-        staged_files = [item.a_path for item in repo.index.diff("HEAD")]
+        # Verify files were added by checking staged changes
+        staged_files = []
+        try:
+            # Try to diff against HEAD (works when commits exist)
+            staged_files = [item.a_path for item in repo.index.diff("HEAD")]
+        except Exception:
+            # In fresh repos with no commits, check index entries directly
+            staged_files = [entry[0] for entry in repo.index.entries.keys() if entry[0] in files]
+        
         added_files = [f for f in files if f in staged_files]
 
         if added_files:
-            return f"✅ Added {len(added_files)} file(s) to staging area: {', '.join(added_files)}"
+            # Separate existing vs deleted files for better messaging
+            existing_files = [f for f in added_files if f not in deleted_tracked_files]
+            deleted_files = [f for f in added_files if f in deleted_tracked_files]
+            
+            message = f"✅ Added {len(added_files)} file(s) to staging area"
+            if existing_files and deleted_files:
+                message += f": {len(existing_files)} existing, {len(deleted_files)} deleted"
+            elif deleted_files:
+                message += f" (staged {len(deleted_files)} deletion(s))"
+            
+            message += f": {', '.join(added_files)}"
+            return message
         else:
             return "⚠️ No changes detected in specified files"
 
