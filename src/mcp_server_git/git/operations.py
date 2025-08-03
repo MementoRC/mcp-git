@@ -483,7 +483,6 @@ def git_add(repo: "GitRepo", files: list[str]) -> str:
         # Get current git status to identify deleted files
         status_output = repo.git.status("--porcelain")
         deleted_files = set()
-        
         # Parse porcelain status to find deleted files
         for line in status_output.split('\n'):
             if line.strip() and len(line) >= 3:
@@ -491,7 +490,6 @@ def git_add(repo: "GitRepo", files: list[str]) -> str:
                 staged_status = line[0]
                 unstaged_status = line[1]
                 filepath = line[3:].strip()
-                
                 # Check if file is deleted (D in staged or unstaged position)
                 if staged_status == 'D' or unstaged_status == 'D':
                     deleted_files.add(filepath)
@@ -500,7 +498,6 @@ def git_add(repo: "GitRepo", files: list[str]) -> str:
         repo_path = Path(repo.working_dir)
         missing_files = []
         valid_files = []
-        
         for file in files:
             file_path = repo_path / file
             if file_path.exists() or file_path.is_symlink():
@@ -524,7 +521,6 @@ def git_add(repo: "GitRepo", files: list[str]) -> str:
 
         # Get detailed information about what was staged
         result_messages = []
-        
         # Check what actually got staged
         try:
             staged_diff = repo.index.diff("HEAD")
@@ -532,7 +528,6 @@ def git_add(repo: "GitRepo", files: list[str]) -> str:
                 added_count = 0
                 modified_count = 0
                 deleted_count = 0
-                
                 for item in staged_diff:
                     if item.change_type == 'A':
                         added_count += 1
@@ -540,14 +535,12 @@ def git_add(repo: "GitRepo", files: list[str]) -> str:
                         modified_count += 1
                     elif item.change_type == 'D':
                         deleted_count += 1
-                
                 if added_count > 0:
                     result_messages.append(f"{added_count} new file(s)")
                 if modified_count > 0:
                     result_messages.append(f"{modified_count} modified file(s)")
                 if deleted_count > 0:
                     result_messages.append(f"{deleted_count} deleted file(s)")
-                    
         except Exception:
             # Fallback to simpler message if detailed analysis fails
             result_messages = [f"{len(valid_files)} file(s)"]
