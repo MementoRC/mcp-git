@@ -201,7 +201,7 @@ class ToolRegistry:
             ToolDefinition(
                 name=GitTools.DIFF_UNSTAGED,
                 category=ToolCategory.GIT,
-                description="Show changes in the working directory that are not yet staged",
+                description="Show changes in the working directory that are not yet staged. Supports file-specific diffs, name-only output, and directory filtering.",
                 schema=GitDiffUnstaged,
                 handler=placeholder_handler,
                 requires_repo=True,
@@ -209,7 +209,7 @@ class ToolRegistry:
             ToolDefinition(
                 name=GitTools.DIFF_STAGED,
                 category=ToolCategory.GIT,
-                description="Show changes that are staged for commit",
+                description="Show changes that are staged for commit. Supports file-specific diffs, name-only output, and directory filtering.",
                 schema=GitDiffStaged,
                 handler=placeholder_handler,
                 requires_repo=True,
@@ -217,7 +217,7 @@ class ToolRegistry:
             ToolDefinition(
                 name=GitTools.DIFF,
                 category=ToolCategory.GIT,
-                description="Show differences between branches or commits",
+                description="Show differences between branches, commits, or commit ranges. Supports file-specific diffs, commit ranges (HEAD~1..HEAD), commit-to-commit diffs, name-only output, and directory filtering.",
                 schema=GitDiff,
                 handler=placeholder_handler,
                 requires_repo=True,

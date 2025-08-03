@@ -303,19 +303,49 @@ def _apply_status_filters(
 
 
 def git_diff_unstaged(
-    repo: "GitRepo", stat_only: bool = False, max_lines: Optional[int] = None
+    repo: "GitRepo", 
+    stat_only: bool = False, 
+    max_lines: Optional[int] = None,
+    files: Optional[list[str]] = None,
+    name_only: bool = False,
+    paths: Optional[list[str]] = None,
 ) -> str:
-    """Get unstaged changes diff with size limiting options"""
+    """Get unstaged changes diff with advanced filtering options"""
     try:
-        if stat_only:
-            diff_output = repo.git.diff("--stat")
+        # Build git diff command arguments
+        args = []
+        
+        if name_only:
+            args.append("--name-only")
+        elif stat_only:
+            args.append("--stat")
+        
+        # Add file-specific or path filtering
+        diff_paths = []
+        if files:
+            diff_paths.extend(files)
+        if paths:
+            diff_paths.extend(paths)
+        
+        if diff_paths:
+            args.append("--")
+            args.extend(diff_paths)
+        
+        diff_output = repo.git.diff(*args)
+        
+        if name_only:
+            return (
+                f"Modified files (unstaged):\n{diff_output}"
+                if diff_output.strip()
+                else "No unstaged changes"
+            )
+        elif stat_only:
             return (
                 f"Unstaged changes summary:\n{diff_output}"
                 if diff_output.strip()
                 else "No unstaged changes"
             )
 
-        diff_output = repo.git.diff()
         return _apply_diff_size_limiting(
             diff_output, "unstaged changes", stat_only, max_lines
         )
@@ -327,19 +357,49 @@ def git_diff_unstaged(
 
 
 def git_diff_staged(
-    repo: "GitRepo", stat_only: bool = False, max_lines: Optional[int] = None
+    repo: "GitRepo", 
+    stat_only: bool = False, 
+    max_lines: Optional[int] = None,
+    files: Optional[list[str]] = None,
+    name_only: bool = False,
+    paths: Optional[list[str]] = None,
 ) -> str:
-    """Get staged changes diff with size limiting options"""
+    """Get staged changes diff with advanced filtering options"""
     try:
-        if stat_only:
-            diff_output = repo.git.diff("--cached", "--stat")
+        # Build git diff command arguments
+        args = ["--cached"]
+        
+        if name_only:
+            args.append("--name-only")
+        elif stat_only:
+            args.append("--stat")
+        
+        # Add file-specific or path filtering
+        diff_paths = []
+        if files:
+            diff_paths.extend(files)
+        if paths:
+            diff_paths.extend(paths)
+        
+        if diff_paths:
+            args.append("--")
+            args.extend(diff_paths)
+        
+        diff_output = repo.git.diff(*args)
+        
+        if name_only:
+            return (
+                f"Modified files (staged):\n{diff_output}"
+                if diff_output.strip()
+                else "No staged changes"
+            )
+        elif stat_only:
             return (
                 f"Staged changes summary:\n{diff_output}"
                 if diff_output.strip()
                 else "No staged changes"
             )
 
-        diff_output = repo.git.diff("--cached")
         return _apply_diff_size_limiting(
             diff_output, "staged changes", stat_only, max_lines
         )
@@ -355,20 +415,70 @@ def git_diff(
     target: str,
     stat_only: bool = False,
     max_lines: Optional[int] = None,
+    files: Optional[list[str]] = None,
+    name_only: bool = False,
+    commit_range: Optional[str] = None,
+    base_commit: Optional[str] = None,
+    target_commit: Optional[str] = None,
+    paths: Optional[list[str]] = None,
 ) -> str:
-    """Get diff against target ref with size limiting options"""
+    """Get diff with advanced options for commit ranges, file filtering, and output formats"""
     try:
-        if stat_only:
-            diff_output = repo.git.diff("--stat", target)
+        # Build git diff command arguments
+        args = []
+        
+        # Determine what to diff based on provided parameters
+        diff_target = None
+        if commit_range:
+            # Handle commit range syntax like "HEAD~1..HEAD"
+            diff_target = commit_range
+        elif base_commit and target_commit:
+            # Handle commit-to-commit diffs
+            diff_target = f"{base_commit}..{target_commit}"
+        else:
+            # Default to original target parameter
+            diff_target = target
+        
+        # Add diff target
+        if diff_target:
+            args.append(diff_target)
+        
+        # Add output format options
+        if name_only:
+            args.append("--name-only")
+        elif stat_only:
+            args.append("--stat")
+        
+        # Add file-specific or path filtering
+        diff_paths = []
+        if files:
+            diff_paths.extend(files)
+        if paths:
+            diff_paths.extend(paths)
+        
+        if diff_paths:
+            args.append("--")
+            args.extend(diff_paths)
+        
+        diff_output = repo.git.diff(*args)
+        
+        # Format output based on operation type
+        operation_description = diff_target or target
+        if name_only:
             return (
-                f"Diff against {target} summary:\n{diff_output}"
+                f"Modified files against {operation_description}:\n{diff_output}"
                 if diff_output.strip()
-                else f"No differences against {target}"
+                else f"No differences against {operation_description}"
+            )
+        elif stat_only:
+            return (
+                f"Diff against {operation_description} summary:\n{diff_output}"
+                if diff_output.strip()
+                else f"No differences against {operation_description}"
             )
 
-        diff_output = repo.git.diff(target)
         return _apply_diff_size_limiting(
-            diff_output, f"diff against {target}", stat_only, max_lines
+            diff_output, f"diff against {operation_description}", stat_only, max_lines
         )
 
     except GitCommandError as e:

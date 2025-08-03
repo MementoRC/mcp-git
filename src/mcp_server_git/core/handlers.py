@@ -134,13 +134,20 @@ class CallToolHandler:
                 ],
             ),
             "git_diff_unstaged": self._create_git_handler(
-                git_diff_unstaged, requires_repo=True
+                git_diff_unstaged, requires_repo=True, extra_args=[
+                    "stat_only", "max_lines", "files", "name_only", "paths"
+                ]
             ),
             "git_diff_staged": self._create_git_handler(
-                git_diff_staged, requires_repo=True
+                git_diff_staged, requires_repo=True, extra_args=[
+                    "stat_only", "max_lines", "files", "name_only", "paths"
+                ]
             ),
             "git_diff": self._create_git_handler(
-                git_diff, requires_repo=True, extra_args=["target"]
+                git_diff, requires_repo=True, extra_args=[
+                    "target", "stat_only", "max_lines", "files", "name_only", 
+                    "commit_range", "base_commit", "target_commit", "paths"
+                ]
             ),
             "git_commit": self._create_git_handler(
                 git_commit,

@@ -19,12 +19,18 @@ class GitDiffUnstaged(BaseModel):
     repo_path: str
     stat_only: Optional[bool] = False
     max_lines: Optional[int] = None
+    files: Optional[list[str]] = None  # NEW: specific files to diff
+    name_only: Optional[bool] = False  # NEW: return only file names
+    paths: Optional[list[str]] = None  # NEW: directory filtering
 
 
 class GitDiffStaged(BaseModel):
     repo_path: str
     stat_only: Optional[bool] = False
     max_lines: Optional[int] = None
+    files: Optional[list[str]] = None  # NEW: specific files to diff
+    name_only: Optional[bool] = False  # NEW: return only file names
+    paths: Optional[list[str]] = None  # NEW: directory filtering
 
 
 class GitDiff(BaseModel):
@@ -32,6 +38,12 @@ class GitDiff(BaseModel):
     target: str
     stat_only: Optional[bool] = False
     max_lines: Optional[int] = None
+    files: Optional[list[str]] = None  # NEW: specific files to diff
+    name_only: Optional[bool] = False  # NEW: return only file names
+    commit_range: Optional[str] = None  # NEW: "HEAD~1..HEAD" syntax
+    base_commit: Optional[str] = None  # NEW: for commit-to-commit diffs
+    target_commit: Optional[str] = None  # NEW: for commit-to-commit diffs
+    paths: Optional[list[str]] = None  # NEW: directory filtering
 
 
 class GitCommit(BaseModel):
