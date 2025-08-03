@@ -20,16 +20,27 @@ jobs:
     
     runs-on: ubuntu-latest
     permissions:
-      contents: read
-      pull-requests: read
-      issues: read
+      contents: write # Allow Claude to create commits and push changes
+      pull-requests: write # Allow Claude to create and update PRs
+      issues: write # Allow Claude to update issues
       id-token: write
     
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 1
+          fetch-depth: 0 # Full history needed for signing
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Import GPG key for signing
+        uses: crazy-max/ghaction-import-gpg@v6
+        with:
+          gpg_private_key: ${{ secrets.CLAUDE_GPG_PRIVATE_KEY }}
+          passphrase: ${{ secrets.CLAUDE_GPG_PASSPHRASE }}
+          git_user_signingkey: true
+          git_commit_gpgsign: true
+          git_tag_gpgsign: true
+          git_push_gpgsign: if-asked
 
       - name: Run Claude Code Review
         id: claude-review
