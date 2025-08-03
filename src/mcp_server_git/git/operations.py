@@ -753,6 +753,50 @@ def git_init(repo_path: str) -> str:
         return f"❌ Init failed: {str(e)}"
 
 
+def _get_github_cli_token() -> Optional[str]:
+    """Extract token from GitHub CLI if available"""
+    try:
+        result = subprocess.run(
+            ["gh", "auth", "token"], capture_output=True, text=True, timeout=10
+        )
+        if result.returncode == 0:
+            return result.stdout.strip()
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        pass
+    return None
+
+
+def _try_system_git_push(
+    repo: "GitRepo", remote: str, branch: str, push_args: list[str]
+) -> tuple[bool, str]:
+    """Try pushing using system git with credential helpers"""
+    try:
+        # Build complete git push command
+        cmd = ["git", "push"] + push_args
+
+        result = subprocess.run(
+            cmd,
+            cwd=repo.working_dir,
+            capture_output=True,
+            text=True,
+            timeout=60,  # 60 second timeout for push operation
+        )
+
+        if result.returncode == 0:
+            success_msg = f"✅ Successfully pushed {branch} to {remote}"
+            if "--set-upstream" in push_args:
+                success_msg += " (set upstream tracking)"
+            success_msg += "\n🔐 Used system git authentication"
+            return True, success_msg
+        else:
+            return False, f"❌ Push failed: {result.stderr}"
+
+    except subprocess.TimeoutExpired:
+        return False, "❌ Push timed out after 60 seconds"
+    except Exception as e:
+        return False, f"❌ System git push error: {str(e)}"
+
+
 def git_push(
     repo: "GitRepo",
     remote: str = "origin",
@@ -760,7 +804,13 @@ def git_push(
     set_upstream: bool = False,
     force: bool = False,
 ) -> str:
-    """Push with comprehensive HTTPS/GitHub token authentication"""
+    """Push with comprehensive authentication fallback support
+
+    Authentication priority:
+    1. GITHUB_TOKEN environment variable (existing behavior)
+    2. GitHub CLI authentication (`gh auth token`)
+    3. System git credential helpers (fallback)
+    """
     try:
         # Get current branch if not specified
         if not branch:
@@ -781,14 +831,16 @@ def git_push(
 
         # Get remote URL for GitHub authentication handling
         remote_url = ""
+        is_github = False
         try:
             remote_url = repo.remote(remote).url
             is_github = "github.com" in remote_url
         except Exception:
-            is_github = False
+            pass
 
-        # GitHub HTTPS authentication handling
+        # GitHub HTTPS authentication handling with fallbacks
         if is_github and remote_url.startswith("https://"):
+            # Priority 1: GITHUB_TOKEN environment variable
             github_token = os.getenv("GITHUB_TOKEN")
             if github_token:
                 # Inject token into URL
@@ -813,8 +865,45 @@ def git_push(
                     finally:
                         # Restore original URL
                         repo.remote(remote).set_url(original_url)
-            else:
-                return "❌ GitHub HTTPS push requires GITHUB_TOKEN environment variable"
+
+            # Priority 2: GitHub CLI authentication
+            gh_token = _get_github_cli_token()
+            if gh_token:
+                # Use GitHub CLI token similar to GITHUB_TOKEN
+                if "github.com" in remote_url:
+                    auth_url = remote_url.replace("https://", f"https://{gh_token}@")
+
+                    # Temporarily set remote URL with CLI token
+                    original_url = remote_url
+                    repo.remote(remote).set_url(auth_url)
+
+                    try:
+                        # Attempt push with GitHub CLI token
+                        repo.git.push(*push_args)
+                        success_msg = f"✅ Successfully pushed {branch} to {remote}"
+                        if set_upstream:
+                            success_msg += " (set upstream tracking)"
+                        success_msg += "\n🔐 Used GitHub CLI authentication"
+                        return success_msg
+                    except GitCommandError:
+                        # If this fails, we'll try system git below
+                        pass
+                    finally:
+                        # Restore original URL
+                        repo.remote(remote).set_url(original_url)
+
+            # Priority 3: System git credential helpers (fallback)
+            success, message = _try_system_git_push(repo, remote, branch, push_args)
+            if success:
+                return message
+
+            # If all GitHub HTTPS methods fail, return informative error
+            return (
+                "❌ GitHub HTTPS push failed. Try one of:\n"
+                "  • Set GITHUB_TOKEN environment variable\n"
+                "  • Login with GitHub CLI: gh auth login\n"
+                "  • Configure git credentials: git config credential.helper"
+            )
 
         # Regular push (SSH or authenticated HTTPS)
         repo.git.push(*push_args)
@@ -824,14 +913,23 @@ def git_push(
         return success_msg
 
     except GitCommandError as e:
-        if "Authentication failed" in str(e) or "401" in str(e):
-            return "❌ Authentication failed. For GitHub HTTPS, set GITHUB_TOKEN environment variable"
-        elif "403" in str(e):
+        error_str = str(e)
+        if "Authentication failed" in error_str or "401" in error_str:
+            if is_github and remote_url.startswith("https://"):
+                return (
+                    "❌ Authentication failed. For GitHub HTTPS, try:\n"
+                    "  • Set GITHUB_TOKEN environment variable\n"
+                    "  • Login with GitHub CLI: gh auth login\n"
+                    "  • Use SSH instead: git remote set-url origin git@github.com:user/repo.git"
+                )
+            else:
+                return f"❌ Authentication failed: {error_str}"
+        elif "403" in error_str:
             return "❌ Permission denied. Check repository access permissions"
-        elif "non-fast-forward" in str(e):
+        elif "non-fast-forward" in error_str:
             return "❌ Push rejected (non-fast-forward). Use --force flag if needed"
         else:
-            return f"❌ Push failed: {str(e)}"
+            return f"❌ Push failed: {error_str}"
     except Exception as e:
         return f"❌ Push error: {str(e)}"
 
