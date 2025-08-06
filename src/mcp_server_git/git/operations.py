@@ -29,28 +29,28 @@ def _validate_commit_range(commit_range: str) -> tuple[bool, str]:
     if not commit_range or not commit_range.strip():
         return False, "Commit range cannot be empty"
     
-    # Patterns that should pass without warnings (be conservative)
+    # Patterns that should pass without warnings
     valid_patterns = [
-        # Git hashes with hex chars a-f present (6+ chars)
-        r'^[a-fA-F0-9]*[a-fA-F][a-fA-F0-9]{5,39}\.{2,3}[a-fA-F0-9]*[a-fA-F][a-fA-F0-9]{5,39}$',
+        # Git commit hashes (6+ hex characters) - allow any hex chars
+        r'^[a-fA-F0-9]{6,40}\.{2,3}[a-fA-F0-9]{6,40}$',
         
-        # HEAD references
+        # HEAD references with optional tilde notation
         r'^HEAD~?\d*\.{2,3}HEAD~?\d*$',
         
-        # Common branch names (main, develop, master, etc) - be specific
-        r'^(main|master|develop|development)\.{2,3}(main|master|develop|development)$',
+        # Common branch name patterns (more flexible)
+        r'^[a-zA-Z][a-zA-Z0-9\-_]{2,}\.{2,3}[a-zA-Z][a-zA-Z0-9\-_]{2,}$',
         
-        # Feature branch patterns
-        r'^feature/[\w\-]+\.{2,3}(main|master|develop|development)$',
-        r'^(main|master|develop|development)\.{2,3}feature/[\w\-]+$',
+        # Feature/release branch patterns
+        r'^(feature|bugfix|hotfix|release)/[a-zA-Z0-9\-_]+\.{2,3}[a-zA-Z][a-zA-Z0-9\-_/]{2,}$',
+        r'^[a-zA-Z][a-zA-Z0-9\-_/]{2,}\.{2,3}(feature|bugfix|hotfix|release)/[a-zA-Z0-9\-_]+$',
         
-        # Mixed patterns - hash with known branches
-        r'^[a-fA-F0-9]{6,40}\.{2,3}(main|master|develop|development)$',
-        r'^(main|master|develop|development)\.{2,3}[a-fA-F0-9]{6,40}$',
+        # Mixed patterns - hash with branches
+        r'^[a-fA-F0-9]{6,40}\.{2,3}[a-zA-Z][a-zA-Z0-9\-_/]{2,}$',
+        r'^[a-zA-Z][a-zA-Z0-9\-_/]{2,}\.{2,3}[a-fA-F0-9]{6,40}$',
         
-        # HEAD with branches
-        r'^HEAD~?\d*\.{2,3}(main|master|develop|development)$',
-        r'^(main|master|develop|development)\.{2,3}HEAD~?\d*$',
+        # HEAD with branches/hashes
+        r'^HEAD~?\d*\.{2,3}[a-zA-Z][a-zA-Z0-9\-_/]{2,}$',
+        r'^[a-zA-Z][a-zA-Z0-9\-_/]{2,}\.{2,3}HEAD~?\d*$',
         r'^HEAD~?\d*\.{2,3}[a-fA-F0-9]{6,40}$',
         r'^[a-fA-F0-9]{6,40}\.{2,3}HEAD~?\d*$',
     ]
