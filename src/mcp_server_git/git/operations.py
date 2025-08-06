@@ -29,19 +29,30 @@ def _validate_commit_range(commit_range: str) -> tuple[bool, str]:
     if not commit_range or not commit_range.strip():
         return False, "Commit range cannot be empty"
     
-    # Basic commit range patterns (restrictive to trigger warnings for unusual formats)
-    range_patterns = [
-        r'^[a-fA-F0-9]{6,40}\.{2,3}[a-fA-F0-9]{6,40}$',  # hash..hash (min 6 chars for proper git hashes)
-        r'^[a-zA-Z][a-zA-Z0-9\-_/]{3,}\.{2,3}[a-zA-Z][a-zA-Z0-9\-_/]{3,}$',  # branch..branch (min 4 chars total, starts with letter)
-        r'^HEAD~\d+\.{2,3}HEAD~?\d*$',  # HEAD~N..HEAD~M
-        r'^HEAD\.{2,3}HEAD~\d+$',  # HEAD..HEAD~N
-        r'^[a-fA-F0-9]{6,40}\.{2,3}[a-zA-Z][a-zA-Z0-9\-_/]{3,}$',  # hash..branch
-        r'^[a-zA-Z][a-zA-Z0-9\-_/]{3,}\.{2,3}[a-fA-F0-9]{6,40}$',  # branch..hash
-        r'^HEAD~?\d*\.{2,3}[a-zA-Z][a-zA-Z0-9\-_/]{3,}$',  # HEAD..branch
+    # Patterns that should pass without warnings
+    valid_patterns = [
+        # Git hash patterns - must be at least 4 chars and contain hex chars a-f (not just 0-9)
+        r'^[a-fA-F0-9]*[a-fA-F]+[a-fA-F0-9]{3,39}\.{2,3}[a-fA-F0-9]*[a-fA-F]+[a-fA-F0-9]{3,39}$',  # hash containing a-f
+        r'^[a-fA-F0-9]{7,40}\.{2,3}[a-fA-F0-9]{7,40}$',  # longer hashes (7+ chars)
+        
+        # HEAD reference patterns
+        r'^HEAD~?\d*\.{2,3}HEAD~?\d*$',
+        
+        # Branch name patterns - must be 4+ chars and contain letters
+        r'^[a-zA-Z][a-zA-Z0-9\-_/]{3,}\.{2,3}[a-zA-Z][a-zA-Z0-9\-_/]{3,}$',  # both sides 4+ chars, letter start
+        
+        # Mixed patterns with hashes (longer hashes)  
+        r'^[a-fA-F0-9]{7,40}\.{2,3}[a-zA-Z][a-zA-Z0-9\-_/]{3,}$',  # hash..branch
+        r'^[a-zA-Z][a-zA-Z0-9\-_/]{3,}\.{2,3}[a-fA-F0-9]{7,40}$',  # branch..hash
+        
+        # Mixed patterns with HEAD
+        r'^HEAD~?\d*\.{2,3}[a-zA-Z][a-zA-Z0-9\-_/]{3,}$',  # HEAD..branch  
         r'^[a-zA-Z][a-zA-Z0-9\-_/]{3,}\.{2,3}HEAD~?\d*$',  # branch..HEAD
-        r'^[a-fA-F0-9]{6,40}\.{2,3}HEAD~?\d*$',  # hash..HEAD
-        r'^HEAD~?\d*\.{2,3}[a-fA-F0-9]{6,40}$',  # HEAD..hash
+        r'^[a-fA-F0-9]{7,40}\.{2,3}HEAD~?\d*$',  # hash..HEAD
+        r'^HEAD~?\d*\.{2,3}[a-fA-F0-9]{7,40}$',  # HEAD..hash
     ]
+    
+    range_patterns = valid_patterns
     
     commit_range = commit_range.strip()
     
