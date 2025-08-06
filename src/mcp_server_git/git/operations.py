@@ -68,19 +68,50 @@ def git_status(repo: Repo, porcelain: bool = False) -> str:
 
 
 def git_diff_unstaged(
-    repo: Repo, stat_only: bool = False, max_lines: int | None = None
+    repo: Repo, 
+    stat_only: bool = False, 
+    max_lines: int | None = None,
+    files: list[str] | None = None,
+    name_only: bool = False,
+    paths: list[str] | None = None
 ) -> str:
-    """Get unstaged changes diff with size limiting options"""
+    """Get unstaged changes diff with file-specific and advanced options"""
     try:
+        # Build git diff arguments
+        diff_args = []
+        
+        # Add options based on parameters
+        if name_only:
+            diff_args.append("--name-only")
+        elif stat_only:
+            diff_args.append("--stat")
+        
+        # Add specific files or paths
+        if files:
+            diff_args.extend(["--"] + files)
+        elif paths:
+            diff_args.extend(["--"] + paths)
+        
+        # Execute git diff with arguments
+        diff_output = repo.git.diff(*diff_args)
+        
+        # Handle name-only output
+        if name_only:
+            return (
+                f"Files with unstaged changes:\n{diff_output}"
+                if diff_output.strip()
+                else "No unstaged changes"
+            )
+        
+        # Handle stat-only output  
         if stat_only:
-            diff_output = repo.git.diff("--stat")
             return (
                 f"Unstaged changes summary:\n{diff_output}"
                 if diff_output.strip()
                 else "No unstaged changes"
             )
 
-        diff_output = repo.git.diff()
+        # Apply size limiting for full diff output
         return _apply_diff_size_limiting(
             diff_output, "unstaged changes", stat_only, max_lines
         )
@@ -92,19 +123,50 @@ def git_diff_unstaged(
 
 
 def git_diff_staged(
-    repo: Repo, stat_only: bool = False, max_lines: int | None = None
+    repo: Repo, 
+    stat_only: bool = False, 
+    max_lines: int | None = None,
+    files: list[str] | None = None,
+    name_only: bool = False,
+    paths: list[str] | None = None
 ) -> str:
-    """Get staged changes diff with size limiting options"""
+    """Get staged changes diff with file-specific and advanced options"""
     try:
+        # Build git diff arguments
+        diff_args = ["--cached"]
+        
+        # Add options based on parameters
+        if name_only:
+            diff_args.append("--name-only")
+        elif stat_only:
+            diff_args.append("--stat")
+        
+        # Add specific files or paths
+        if files:
+            diff_args.extend(["--"] + files)
+        elif paths:
+            diff_args.extend(["--"] + paths)
+            
+        # Execute git diff with arguments
+        diff_output = repo.git.diff(*diff_args)
+        
+        # Handle name-only output
+        if name_only:
+            return (
+                f"Files with staged changes:\n{diff_output}"
+                if diff_output.strip()
+                else "No staged changes"
+            )
+        
+        # Handle stat-only output
         if stat_only:
-            diff_output = repo.git.diff("--cached", "--stat")
             return (
                 f"Staged changes summary:\n{diff_output}"
                 if diff_output.strip()
                 else "No staged changes"
             )
 
-        diff_output = repo.git.diff("--cached")
+        # Apply size limiting for full diff output
         return _apply_diff_size_limiting(
             diff_output, "staged changes", stat_only, max_lines
         )
@@ -116,21 +178,76 @@ def git_diff_staged(
 
 
 def git_diff(
-    repo: Repo, target: str, stat_only: bool = False, max_lines: int | None = None
+    repo: Repo, 
+    target: str | None = None,
+    stat_only: bool = False, 
+    max_lines: int | None = None,
+    files: list[str] | None = None,
+    name_only: bool = False,
+    commit_range: str | None = None,
+    base_commit: str | None = None,
+    target_commit: str | None = None,
+    paths: list[str] | None = None
 ) -> str:
-    """Get diff against target ref with size limiting options"""
+    """Get diff with advanced options including commit ranges and file filtering"""
     try:
-        if stat_only:
-            diff_output = repo.git.diff("--stat", target)
+        # Build git diff arguments
+        diff_args = []
+        
+        # Determine what we're diffing
+        diff_description = ""
+        
+        if commit_range:
+            # Use commit range syntax like "HEAD~1..HEAD"
+            diff_args.append(commit_range)
+            diff_description = f"commit range {commit_range}"
+        elif base_commit and target_commit:
+            # Compare two specific commits
+            diff_args.extend([base_commit, target_commit])
+            diff_description = f"{base_commit}...{target_commit}"
+        elif target:
+            # Compare against target branch/commit (original behavior)
+            diff_args.append(target)
+            diff_description = f"against {target}"
+        else:
+            # Default to comparing working tree against HEAD
+            diff_args.append("HEAD")
+            diff_description = "against HEAD"
+        
+        # Add options based on parameters
+        if name_only:
+            diff_args.append("--name-only")
+        elif stat_only:
+            diff_args.append("--stat")
+        
+        # Add specific files or paths
+        if files:
+            diff_args.extend(["--"] + files)
+        elif paths:
+            diff_args.extend(["--"] + paths)
+            
+        # Execute git diff with arguments
+        diff_output = repo.git.diff(*diff_args)
+        
+        # Handle name-only output
+        if name_only:
             return (
-                f"Diff against {target} summary:\n{diff_output}"
+                f"Changed files {diff_description}:\n{diff_output}"
                 if diff_output.strip()
-                else f"No differences against {target}"
+                else f"No changes {diff_description}"
+            )
+        
+        # Handle stat-only output
+        if stat_only:
+            return (
+                f"Diff {diff_description} summary:\n{diff_output}"
+                if diff_output.strip()
+                else f"No differences {diff_description}"
             )
 
-        diff_output = repo.git.diff(target)
+        # Apply size limiting for full diff output
         return _apply_diff_size_limiting(
-            diff_output, f"diff against {target}", stat_only, max_lines
+            diff_output, f"diff {diff_description}", stat_only, max_lines
         )
 
     except GitCommandError as e:
