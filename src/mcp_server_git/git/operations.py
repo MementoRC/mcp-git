@@ -29,15 +29,15 @@ def _validate_commit_range(commit_range: str) -> tuple[bool, str]:
     if not commit_range or not commit_range.strip():
         return False, "Commit range cannot be empty"
     
-    # Basic commit range patterns
+    # Basic commit range patterns (more restrictive to trigger warnings for unusual formats)
     range_patterns = [
         r'^[a-fA-F0-9]{4,40}\.{2,3}[a-fA-F0-9]{4,40}$',  # hash..hash or hash...hash
-        r'^[\w\-/]+\.{2,3}[\w\-/]+$',  # branch..branch or branch...branch
+        r'^[a-zA-Z][a-zA-Z0-9\-_/]{2,}\.{2,3}[a-zA-Z][a-zA-Z0-9\-_/]{2,}$',  # proper branch names (min 3 chars, starts with letter)
         r'^HEAD~?\d*\.{2,3}HEAD~?\d*$',  # HEAD variations
-        r'^[a-fA-F0-9]{4,40}\.{2,3}[\w\-/]+$',  # hash..branch
-        r'^[\w\-/]+\.{2,3}[a-fA-F0-9]{4,40}$',  # branch..hash
-        r'^HEAD~?\d*\.{2,3}[\w\-/]+$',  # HEAD..branch
-        r'^[\w\-/]+\.{2,3}HEAD~?\d*$',  # branch..HEAD
+        r'^[a-fA-F0-9]{4,40}\.{2,3}[a-zA-Z][a-zA-Z0-9\-_/]{2,}$',  # hash..branch
+        r'^[a-zA-Z][a-zA-Z0-9\-_/]{2,}\.{2,3}[a-fA-F0-9]{4,40}$',  # branch..hash
+        r'^HEAD~?\d*\.{2,3}[a-zA-Z][a-zA-Z0-9\-_/]{2,}$',  # HEAD..branch
+        r'^[a-zA-Z][a-zA-Z0-9\-_/]{2,}\.{2,3}HEAD~?\d*$',  # branch..HEAD
     ]
     
     commit_range = commit_range.strip()
