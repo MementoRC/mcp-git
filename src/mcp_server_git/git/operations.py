@@ -29,27 +29,30 @@ def _validate_commit_range(commit_range: str) -> tuple[bool, str]:
     if not commit_range or not commit_range.strip():
         return False, "Commit range cannot be empty"
     
-    # Patterns that should pass without warnings
+    # Patterns that should pass without warnings (be conservative)
     valid_patterns = [
-        # Git hash patterns - must be at least 4 chars and contain hex chars a-f (not just 0-9)
-        r'^[a-fA-F0-9]*[a-fA-F]+[a-fA-F0-9]{3,39}\.{2,3}[a-fA-F0-9]*[a-fA-F]+[a-fA-F0-9]{3,39}$',  # hash containing a-f
-        r'^[a-fA-F0-9]{7,40}\.{2,3}[a-fA-F0-9]{7,40}$',  # longer hashes (7+ chars)
+        # Git hashes with hex chars a-f present (6+ chars)
+        r'^[a-fA-F0-9]*[a-fA-F][a-fA-F0-9]{5,39}\.{2,3}[a-fA-F0-9]*[a-fA-F][a-fA-F0-9]{5,39}$',
         
-        # HEAD reference patterns
+        # HEAD references
         r'^HEAD~?\d*\.{2,3}HEAD~?\d*$',
         
-        # Branch name patterns - must be 4+ chars and contain letters
-        r'^[a-zA-Z][a-zA-Z0-9\-_/]{3,}\.{2,3}[a-zA-Z][a-zA-Z0-9\-_/]{3,}$',  # both sides 4+ chars, letter start
+        # Common branch names (main, develop, master, etc) - be specific
+        r'^(main|master|develop|development)\.{2,3}(main|master|develop|development)$',
         
-        # Mixed patterns with hashes (longer hashes)  
-        r'^[a-fA-F0-9]{7,40}\.{2,3}[a-zA-Z][a-zA-Z0-9\-_/]{3,}$',  # hash..branch
-        r'^[a-zA-Z][a-zA-Z0-9\-_/]{3,}\.{2,3}[a-fA-F0-9]{7,40}$',  # branch..hash
+        # Feature branch patterns
+        r'^feature/[\w\-]+\.{2,3}(main|master|develop|development)$',
+        r'^(main|master|develop|development)\.{2,3}feature/[\w\-]+$',
         
-        # Mixed patterns with HEAD
-        r'^HEAD~?\d*\.{2,3}[a-zA-Z][a-zA-Z0-9\-_/]{3,}$',  # HEAD..branch  
-        r'^[a-zA-Z][a-zA-Z0-9\-_/]{3,}\.{2,3}HEAD~?\d*$',  # branch..HEAD
-        r'^[a-fA-F0-9]{7,40}\.{2,3}HEAD~?\d*$',  # hash..HEAD
-        r'^HEAD~?\d*\.{2,3}[a-fA-F0-9]{7,40}$',  # HEAD..hash
+        # Mixed patterns - hash with known branches
+        r'^[a-fA-F0-9]{6,40}\.{2,3}(main|master|develop|development)$',
+        r'^(main|master|develop|development)\.{2,3}[a-fA-F0-9]{6,40}$',
+        
+        # HEAD with branches
+        r'^HEAD~?\d*\.{2,3}(main|master|develop|development)$',
+        r'^(main|master|develop|development)\.{2,3}HEAD~?\d*$',
+        r'^HEAD~?\d*\.{2,3}[a-fA-F0-9]{6,40}$',
+        r'^[a-fA-F0-9]{6,40}\.{2,3}HEAD~?\d*$',
     ]
     
     range_patterns = valid_patterns
