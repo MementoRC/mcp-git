@@ -12,7 +12,6 @@ class GitDiffUnstaged(BaseModel):
     repo_path: str
     stat_only: bool | None = False
     max_lines: int | None = None
-    files: list[str] | None = None
     name_only: bool | None = False
     paths: list[str] | None = None
 
@@ -21,7 +20,6 @@ class GitDiffStaged(BaseModel):
     repo_path: str
     stat_only: bool | None = False
     max_lines: int | None = None
-    files: list[str] | None = None
     name_only: bool | None = False
     paths: list[str] | None = None
 
@@ -31,7 +29,6 @@ class GitDiff(BaseModel):
     target: str | None = None  # Made optional for commit range scenarios
     stat_only: bool | None = False
     max_lines: int | None = None
-    files: list[str] | None = None
     name_only: bool | None = False
     commit_range: str | None = None
     base_commit: str | None = None

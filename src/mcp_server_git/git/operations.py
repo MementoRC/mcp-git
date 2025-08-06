@@ -2,6 +2,7 @@
 
 import logging
 import os
+import re
 import subprocess
 from pathlib import Path
 
@@ -14,6 +15,77 @@ logger = logging.getLogger(__name__)
 CLI_AUTH_TIMEOUT = 10  # seconds for GitHub CLI authentication
 PUSH_OPERATION_TIMEOUT = 300  # seconds (5 minutes) for push operations
 MIN_TOKEN_LENGTH = 10  # minimum length for a valid GitHub token
+
+
+def _validate_commit_range(commit_range: str) -> tuple[bool, str]:
+    """Validate commit range format and return (is_valid, error_message)
+    
+    Supported formats:
+    - commit1..commit2 (range between commits)
+    - commit1...commit2 (symmetric difference)
+    - HEAD~1..HEAD (relative references)
+    - branch1..branch2 (branch ranges)
+    """
+    if not commit_range or not commit_range.strip():
+        return False, "Commit range cannot be empty"
+    
+    # Basic commit range patterns
+    range_patterns = [
+        r'^[a-fA-F0-9]{4,40}\.{2,3}[a-fA-F0-9]{4,40}$',  # hash..hash or hash...hash
+        r'^[\w\-/]+\.{2,3}[\w\-/]+$',  # branch..branch or branch...branch
+        r'^HEAD~?\d*\.{2,3}HEAD~?\d*$',  # HEAD variations
+        r'^[a-fA-F0-9]{4,40}\.{2,3}[\w\-/]+$',  # hash..branch
+        r'^[\w\-/]+\.{2,3}[a-fA-F0-9]{4,40}$',  # branch..hash
+        r'^HEAD~?\d*\.{2,3}[\w\-/]+$',  # HEAD..branch
+        r'^[\w\-/]+\.{2,3}HEAD~?\d*$',  # branch..HEAD
+    ]
+    
+    commit_range = commit_range.strip()
+    
+    # Check against known patterns
+    for pattern in range_patterns:
+        if re.match(pattern, commit_range):
+            return True, ""
+    
+    # Check for obvious injection attempts
+    dangerous_chars = [';', '|', '&', '`', '$', '(', ')']
+    if any(char in commit_range for char in dangerous_chars):
+        return False, f"Invalid characters detected in commit range: {commit_range}"
+    
+    # If no pattern matches, it might still be valid (git is flexible)
+    # But warn about unusual format
+    return True, f"Warning: Unusual commit range format '{commit_range}' - proceed with caution"
+
+
+def _validate_diff_parameters(
+    target: str | None = None,
+    commit_range: str | None = None, 
+    base_commit: str | None = None,
+    target_commit: str | None = None
+) -> tuple[bool, str]:
+    """Validate that diff parameters are not conflicting or ambiguous"""
+    provided_params = []
+    if target:
+        provided_params.append("target")
+    if commit_range:
+        provided_params.append("commit_range")
+    if base_commit and target_commit:
+        provided_params.append("base_commit + target_commit")
+    elif base_commit or target_commit:
+        return False, "Both base_commit and target_commit must be provided together"
+    
+    if len(provided_params) > 1:
+        return False, f"Conflicting diff parameters: {', '.join(provided_params)}. Use only one method to specify what to diff."
+    
+    # Validate commit_range format if provided
+    if commit_range:
+        is_valid, error_msg = _validate_commit_range(commit_range)
+        if not is_valid:
+            return False, f"Invalid commit_range: {error_msg}"
+        elif error_msg:  # Warning case
+            return True, error_msg
+    
+    return True, ""
 
 
 def _apply_diff_size_limiting(
@@ -71,7 +143,6 @@ def git_diff_unstaged(
     repo: Repo, 
     stat_only: bool = False, 
     max_lines: int | None = None,
-    files: list[str] | None = None,
     name_only: bool = False,
     paths: list[str] | None = None
 ) -> str:
@@ -86,10 +157,8 @@ def git_diff_unstaged(
         elif stat_only:
             diff_args.append("--stat")
         
-        # Add specific files or paths
-        if files:
-            diff_args.extend(["--"] + files)
-        elif paths:
+        # Add specific paths if provided
+        if paths:
             diff_args.extend(["--"] + paths)
         
         # Execute git diff with arguments
@@ -126,7 +195,6 @@ def git_diff_staged(
     repo: Repo, 
     stat_only: bool = False, 
     max_lines: int | None = None,
-    files: list[str] | None = None,
     name_only: bool = False,
     paths: list[str] | None = None
 ) -> str:
@@ -141,10 +209,8 @@ def git_diff_staged(
         elif stat_only:
             diff_args.append("--stat")
         
-        # Add specific files or paths
-        if files:
-            diff_args.extend(["--"] + files)
-        elif paths:
+        # Add specific paths if provided
+        if paths:
             diff_args.extend(["--"] + paths)
             
         # Execute git diff with arguments
@@ -182,7 +248,6 @@ def git_diff(
     target: str | None = None,
     stat_only: bool = False, 
     max_lines: int | None = None,
-    files: list[str] | None = None,
     name_only: bool = False,
     commit_range: str | None = None,
     base_commit: str | None = None,
@@ -190,6 +255,13 @@ def git_diff(
     paths: list[str] | None = None
 ) -> str:
     """Get diff with advanced options including commit ranges and file filtering"""
+    # Validate parameters for conflicts and security
+    is_valid, validation_msg = _validate_diff_parameters(target, commit_range, base_commit, target_commit)
+    if not is_valid:
+        return f"❌ Parameter validation failed: {validation_msg}"
+    
+    # If there's a warning, include it in the output
+    validation_warning = validation_msg if validation_msg and is_valid else None
     try:
         # Build git diff arguments
         diff_args = []
@@ -220,10 +292,8 @@ def git_diff(
         elif stat_only:
             diff_args.append("--stat")
         
-        # Add specific files or paths
-        if files:
-            diff_args.extend(["--"] + files)
-        elif paths:
+        # Add specific paths if provided
+        if paths:
             diff_args.extend(["--"] + paths)
             
         # Execute git diff with arguments
@@ -231,24 +301,33 @@ def git_diff(
         
         # Handle name-only output
         if name_only:
-            return (
+            result = (
                 f"Changed files {diff_description}:\n{diff_output}"
                 if diff_output.strip()
                 else f"No changes {diff_description}"
             )
+            if validation_warning:
+                result = f"⚠️  {validation_warning}\n\n{result}"
+            return result
         
         # Handle stat-only output
         if stat_only:
-            return (
+            result = (
                 f"Diff {diff_description} summary:\n{diff_output}"
                 if diff_output.strip()
                 else f"No differences {diff_description}"
             )
+            if validation_warning:
+                result = f"⚠️  {validation_warning}\n\n{result}"
+            return result
 
         # Apply size limiting for full diff output
-        return _apply_diff_size_limiting(
+        result = _apply_diff_size_limiting(
             diff_output, f"diff {diff_description}", stat_only, max_lines
         )
+        if validation_warning:
+            result = f"⚠️  {validation_warning}\n\n{result}"
+        return result
 
     except GitCommandError as e:
         return f"❌ Diff failed: {str(e)}"
