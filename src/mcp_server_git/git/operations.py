@@ -254,7 +254,31 @@ def git_diff(
     target_commit: str | None = None,
     paths: list[str] | None = None
 ) -> str:
-    """Get diff with advanced options including commit ranges and file filtering"""
+    """Get diff with advanced options including commit ranges and file filtering.
+    
+    Parameter Precedence (mutually exclusive - only one method should be used):
+    1. commit_range: Use git range syntax like "HEAD~1..HEAD" or "main..develop"
+    2. base_commit + target_commit: Compare two specific commits/branches 
+    3. target: Compare working tree against specific branch/commit (default behavior)
+    4. None: Compare working tree against HEAD (fallback)
+    
+    Args:
+        repo: Git repository object
+        target: Branch/commit to diff against (conflicts with commit_range or base_commit/target_commit)
+        stat_only: Show only file change statistics, not content
+        max_lines: Limit output to specified number of lines (overridden by name_only/stat_only)
+        name_only: Show only names of changed files
+        commit_range: Git range syntax like "HEAD~1..HEAD" (conflicts with other diff methods)
+        base_commit: Starting commit for comparison (requires target_commit)
+        target_commit: Ending commit for comparison (requires base_commit)
+        paths: Filter diff to specific files/directories
+        
+    Returns:
+        Formatted diff output with validation warnings if applicable
+        
+    Raises:
+        Returns error message if parameters are conflicting or invalid
+    """
     # Validate parameters for conflicts and security
     is_valid, validation_msg = _validate_diff_parameters(target, commit_range, base_commit, target_commit)
     if not is_valid:
