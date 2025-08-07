@@ -31,26 +31,26 @@ def _validate_commit_range(commit_range: str) -> tuple[bool, str]:
     
     # Patterns that should pass without warnings
     valid_patterns = [
-        # Git commit hashes (6+ hex characters) - allow any hex chars
+        # Git commit hashes (6+ hex characters)
         r'^[a-fA-F0-9]{6,40}\.{2,3}[a-fA-F0-9]{6,40}$',
         
         # HEAD references with optional tilde notation
         r'^HEAD~?\d*\.{2,3}HEAD~?\d*$',
         
-        # Common branch name patterns (more flexible)
-        r'^[a-zA-Z][a-zA-Z0-9\-_]{2,}\.{2,3}[a-zA-Z][a-zA-Z0-9\-_]{2,}$',
+        # Branch name patterns (common formats without dashes)
+        r'^[a-zA-Z][a-zA-Z0-9_]*\.{2,3}[a-zA-Z][a-zA-Z0-9_]*$',
         
-        # Feature/release branch patterns
-        r'^(feature|bugfix|hotfix|release)/[a-zA-Z0-9\-_]+\.{2,3}[a-zA-Z][a-zA-Z0-9\-_/]{2,}$',
-        r'^[a-zA-Z][a-zA-Z0-9\-_/]{2,}\.{2,3}(feature|bugfix|hotfix|release)/[a-zA-Z0-9\-_]+$',
+        # Feature/release branch patterns with slashes
+        r'^(feature|bugfix|hotfix|release)/[a-zA-Z0-9\-_]+\.{2,3}[a-zA-Z][a-zA-Z0-9_/]*$',
+        r'^[a-zA-Z][a-zA-Z0-9_/]*\.{2,3}(feature|bugfix|hotfix|release)/[a-zA-Z0-9\-_]+$',
         
         # Mixed patterns - hash with branches
-        r'^[a-fA-F0-9]{6,40}\.{2,3}[a-zA-Z][a-zA-Z0-9\-_/]{2,}$',
-        r'^[a-zA-Z][a-zA-Z0-9\-_/]{2,}\.{2,3}[a-fA-F0-9]{6,40}$',
+        r'^[a-fA-F0-9]{6,40}\.{2,3}[a-zA-Z][a-zA-Z0-9_/]*$',
+        r'^[a-zA-Z][a-zA-Z0-9_/]*\.{2,3}[a-fA-F0-9]{6,40}$',
         
         # HEAD with branches/hashes
-        r'^HEAD~?\d*\.{2,3}[a-zA-Z][a-zA-Z0-9\-_/]{2,}$',
-        r'^[a-zA-Z][a-zA-Z0-9\-_/]{2,}\.{2,3}HEAD~?\d*$',
+        r'^HEAD~?\d*\.{2,3}[a-zA-Z][a-zA-Z0-9_/]*$',
+        r'^[a-zA-Z][a-zA-Z0-9_/]*\.{2,3}HEAD~?\d*$',
         r'^HEAD~?\d*\.{2,3}[a-fA-F0-9]{6,40}$',
         r'^[a-fA-F0-9]{6,40}\.{2,3}HEAD~?\d*$',
     ]
