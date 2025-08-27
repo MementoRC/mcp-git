@@ -6,7 +6,6 @@ This module provides intelligent repository path resolution that:
 2. Provides proper defaults based on --repository parameter
 3. Prevents cross-session contamination
 """
-import os
 from pathlib import Path
 from typing import Optional
 
