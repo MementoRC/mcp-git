@@ -23,6 +23,7 @@ from .repository_binding import (
 # Pydantic models for tool inputs
 class RepositoryBind(BaseModel):
     """Model for repository bind operation."""
+
     repository_path: str
     expected_remote_url: str
     verify_remote: bool = True
@@ -31,11 +32,13 @@ class RepositoryBind(BaseModel):
 
 class RepositoryUnbind(BaseModel):
     """Model for repository unbind operation."""
+
     force: bool = False
 
 
 class ExplicitRemoteChange(BaseModel):
     """Model for explicit remote change operation."""
+
     repo_path: str
     new_remote_url: str
     confirmation_token: str
@@ -45,7 +48,7 @@ class ExplicitRemoteChange(BaseModel):
 def get_repository_binding_tools() -> list[Tool]:
     """
     Get the list of repository binding MCP tools.
-    
+
     Returns:
         List of Tool instances for repository binding operations
     """
@@ -56,7 +59,7 @@ def get_repository_binding_tools() -> list[Tool]:
             inputSchema=RepositoryBind.model_json_schema(),
         ),
         Tool(
-            name="repository_unbind", 
+            name="repository_unbind",
             description="Unbind server from repository",
             inputSchema=RepositoryUnbind.model_json_schema(),
         ),
@@ -78,18 +81,18 @@ async def handle_repository_bind(
     repository_path: str,
     expected_remote_url: str,
     verify_remote: bool = True,
-    force: bool = False
+    force: bool = False,
 ) -> str:
     """
     Handle repository bind operation.
-    
+
     Args:
         server_core: MCPGitServerCore instance
         repository_path: Path to git repository
         expected_remote_url: Expected remote URL for validation
         verify_remote: Verify remote URL matches expectation
         force: Force binding even if already bound
-        
+
     Returns:
         Operation result message
     """
@@ -97,7 +100,7 @@ async def handle_repository_bind(
         result = await server_core.bind_repository(
             Path(repository_path), expected_remote_url, verify_remote, force
         )
-        
+
         binding_info = result["binding"]["binding"]
         return (
             f"✅ Repository bound successfully\n"
@@ -118,17 +121,17 @@ async def handle_repository_bind(
 async def handle_repository_unbind(server_core, force: bool = False) -> str:
     """
     Handle repository unbind operation.
-    
+
     Args:
         server_core: MCPGitServerCore instance
         force: Force unbind even if operations are in progress
-        
+
     Returns:
         Operation result message
     """
     try:
         result = await server_core.unbind_repository(force)
-        
+
         return (
             f"✅ Repository unbound successfully\n"
             f"Server: {server_core.server_name}\n"
@@ -143,16 +146,16 @@ async def handle_repository_unbind(server_core, force: bool = False) -> str:
 def handle_repository_status(server_core) -> str:
     """
     Handle repository status request.
-    
+
     Args:
         server_core: MCPGitServerCore instance
-        
+
     Returns:
         Repository binding status information
     """
     try:
         status = server_core.get_repository_status()
-        
+
         if status["state"] == "unbound":
             return (
                 f"📊 Repository Status\n"
@@ -161,15 +164,15 @@ def handle_repository_status(server_core) -> str:
                 f"Session: {status['session_id']}\n"
                 f"⚠️ No repository protection active"
             )
-        
+
         binding = status["binding"]
         state_emoji = {
             "bound": "🟢",
-            "protected": "🔒", 
+            "protected": "🔒",
             "corrupted": "🔴",
-            "binding": "🟡"
+            "binding": "🟡",
         }.get(status["state"], "❓")
-        
+
         return (
             f"📊 Repository Status\n"
             f"Server: {status['server_name']}\n"
@@ -190,18 +193,18 @@ async def handle_explicit_remote_change(
     repo_path: str,
     new_remote_url: str,
     confirmation_token: str,
-    remote_name: str = "origin"
+    remote_name: str = "origin",
 ) -> str:
     """
     Handle explicit remote change operation.
-    
+
     Args:
         server_core: MCPGitServerCore instance
         repo_path: Repository path
         new_remote_url: New remote URL
         confirmation_token: Confirmation token (must be "CONFIRM_REMOTE_CHANGE")
         remote_name: Remote name to change
-        
+
     Returns:
         Operation result message
     """
@@ -209,11 +212,11 @@ async def handle_explicit_remote_change(
         protected_ops = server_core.get_protected_operations()
         if not protected_ops:
             return "❌ Protected operations not available"
-        
+
         result = await protected_ops.explicit_remote_change(
             repo_path, new_remote_url, confirmation_token, remote_name
         )
-        
+
         return (
             f"⚠️ Remote URL changed explicitly\n"
             f"Repository: {repo_path}\n"

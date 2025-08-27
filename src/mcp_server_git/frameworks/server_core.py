@@ -110,7 +110,7 @@ class MCPGitServerCore(DebuggableComponent):
         # Repository binding components
         self.binding_manager = RepositoryBindingManager(server_name)
         self.protected_ops: Optional[ProtectedGitOperations] = None
-        
+
         # Binding failure tracking for user feedback
         self.binding_failed = False
         self.binding_failure_reason: str | None = None
@@ -119,7 +119,9 @@ class MCPGitServerCore(DebuggableComponent):
         self._state_history: list[ComponentState] = []
         self._max_state_history = 100
 
-        logger.info(f"Initialized MCPGitServerCore with repository binding: {server_name}")
+        logger.info(
+            f"Initialized MCPGitServerCore with repository binding: {server_name}"
+        )
 
     def initialize_server(self, repository_path: Path | None = None) -> Server:
         """
@@ -153,33 +155,28 @@ class MCPGitServerCore(DebuggableComponent):
         return self.server
 
     async def initialize_with_binding(
-        self, 
-        repository_path: Path, 
-        expected_remote_url: str,
-        auto_bind: bool = True
+        self, repository_path: Path, expected_remote_url: str, auto_bind: bool = True
     ) -> Server:
         """
         Initialize server with repository binding.
-        
+
         Args:
             repository_path: Path to git repository
             expected_remote_url: Expected remote URL
             auto_bind: Automatically bind to repository
-            
+
         Returns:
             Initialized Server instance
         """
         # Initialize the basic server first
         server = self.initialize_server(repository_path)
-        
+
         if auto_bind:
             try:
                 await self.binding_manager.bind_repository(
-                    repository_path, 
-                    expected_remote_url,
-                    verify_remote=True
+                    repository_path, expected_remote_url, verify_remote=True
                 )
-                
+
                 logger.info(
                     f"Server {self.server_name} initialized and bound to {repository_path}"
                 )
@@ -187,11 +184,11 @@ class MCPGitServerCore(DebuggableComponent):
                 logger.error(f"Failed to bind repository: {e}")
                 # Don't fail server initialization, but log the issue and store failure info
                 logger.warning("Server initialized without repository binding")
-                
+
                 # Store binding failure info for user feedback
                 self.binding_failure_reason = str(e)
                 self.binding_failed = True
-        
+
         return server
 
     async def start_server(self, test_mode: bool = False) -> None:
@@ -225,18 +222,26 @@ class MCPGitServerCore(DebuggableComponent):
                         # Test mode: run server with timeout for E2E testing
                         print("✅ MCP server started successfully", file=sys.stderr)
                         logger.info("🧪 Test mode: MCP server ready for E2E testing")
-                        
+
                         # Create timeout for test mode (longer timeout for E2E tests)
-                        timeout_task = asyncio.create_task(asyncio.sleep(60))  # 1 minute for E2E tests
+                        timeout_task = asyncio.create_task(
+                            asyncio.sleep(60)
+                        )  # 1 minute for E2E tests
                         server_task = asyncio.create_task(
-                            self.server.run(read_stream, write_stream, options, raise_exceptions=False)
+                            self.server.run(
+                                read_stream,
+                                write_stream,
+                                options,
+                                raise_exceptions=False,
+                            )
                         )
-                        
+
                         # Wait for either server completion or timeout
                         done, pending = await asyncio.wait(
-                            {server_task, timeout_task}, return_when=asyncio.FIRST_COMPLETED
+                            {server_task, timeout_task},
+                            return_when=asyncio.FIRST_COMPLETED,
                         )
-                        
+
                         # Cancel remaining task
                         for task in pending:
                             task.cancel()
@@ -244,21 +249,27 @@ class MCPGitServerCore(DebuggableComponent):
                                 await task
                             except asyncio.CancelledError:
                                 pass
-                        
+
                         # Check which task completed
                         if timeout_task in done:
-                            logger.info("🧪 Test mode: Timeout reached, stopping server")
+                            logger.info(
+                                "🧪 Test mode: Timeout reached, stopping server"
+                            )
                         else:
-                            logger.info("🧪 Test mode: Client disconnected, stopping server")
+                            logger.info(
+                                "🧪 Test mode: Client disconnected, stopping server"
+                            )
                     else:
                         # Normal mode: run server until client disconnects
                         await self.server.run(
                             read_stream, write_stream, options, raise_exceptions=False
                         )
-                    
+
                     # If server.run() exits normally, client has disconnected
-                    logger.info("🔌 Client disconnected - MCP server run loop completed normally")
-                    
+                    logger.info(
+                        "🔌 Client disconnected - MCP server run loop completed normally"
+                    )
+
                 except asyncio.CancelledError:
                     logger.info("🛑 Server cancelled during client session")
                     raise
@@ -267,7 +278,7 @@ class MCPGitServerCore(DebuggableComponent):
                     self.error_count += 1
                     self.last_error = str(e)
                     logger.error(f"💥 Error during MCP server run: {e}")
-                    
+
             # After exiting stdio context, client is definitely disconnected
             logger.info("📡 STDIO transport closed - client session ended")
 
@@ -329,21 +340,21 @@ class MCPGitServerCore(DebuggableComponent):
     # Repository Binding Methods
 
     async def bind_repository(
-        self, 
-        repository_path: Path, 
+        self,
+        repository_path: Path,
         expected_remote_url: str,
         verify_remote: bool = True,
-        force: bool = False
+        force: bool = False,
     ) -> dict:
         """
         Bind server to repository with remote protection.
-        
+
         Args:
             repository_path: Path to git repository
             expected_remote_url: Expected remote URL for validation
             verify_remote: Verify remote URL matches expectation
             force: Force binding even if already bound
-            
+
         Returns:
             Binding status information
         """
@@ -353,8 +364,8 @@ class MCPGitServerCore(DebuggableComponent):
             )
             self._update_state_history()
             return {
-                "status": "bound", 
-                "binding": self.binding_manager.get_binding_info()
+                "status": "bound",
+                "binding": self.binding_manager.get_binding_info(),
             }
         except (RepositoryBindingError, RemoteContaminationError) as e:
             self.error_count += 1
@@ -364,10 +375,10 @@ class MCPGitServerCore(DebuggableComponent):
     async def unbind_repository(self, force: bool = False) -> dict:
         """
         Unbind server from repository.
-        
+
         Args:
             force: Force unbind even if operations are in progress
-            
+
         Returns:
             Unbinding status
         """
@@ -383,7 +394,7 @@ class MCPGitServerCore(DebuggableComponent):
     def get_repository_status(self) -> dict:
         """
         Get repository binding status.
-        
+
         Returns:
             Current binding information
         """
@@ -392,7 +403,7 @@ class MCPGitServerCore(DebuggableComponent):
     def get_protected_operations(self) -> Optional[ProtectedGitOperations]:
         """
         Get protected git operations instance.
-        
+
         Returns:
             ProtectedGitOperations instance if available
         """
@@ -401,26 +412,32 @@ class MCPGitServerCore(DebuggableComponent):
     def get_binding_status(self) -> dict[str, Any]:
         """
         Get binding status with user-friendly feedback.
-        
+
         Returns:
             Dictionary with binding status and failure information
         """
         binding_info = self.binding_manager.get_binding_info()
-        
+
         result = {
             "bound": binding_info.get("bound", False),
             "binding_failed": self.binding_failed,
-            "status": "bound" if binding_info.get("bound", False) else ("failed" if self.binding_failed else "unbound")
+            "status": "bound"
+            if binding_info.get("bound", False)
+            else ("failed" if self.binding_failed else "unbound"),
         }
-        
+
         if self.binding_failed and self.binding_failure_reason:
             result["failure_reason"] = self.binding_failure_reason
-            result["user_message"] = f"Repository binding failed: {self.binding_failure_reason}"
+            result["user_message"] = (
+                f"Repository binding failed: {self.binding_failure_reason}"
+            )
         elif binding_info.get("bound", False):
-            result["user_message"] = f"Successfully bound to repository: {binding_info.get('repository_path', 'unknown')}"
+            result["user_message"] = (
+                f"Successfully bound to repository: {binding_info.get('repository_path', 'unknown')}"
+            )
         else:
             result["user_message"] = "Repository not bound"
-            
+
         return result
 
     # DebuggableComponent implementation
@@ -472,7 +489,9 @@ class MCPGitServerCore(DebuggableComponent):
         if binding_info["state"] == "corrupted":
             errors.append("Repository binding corrupted - potential tampering detected")
         elif binding_info["state"] == "unbound" and self.repository_path:
-            warnings.append("Repository specified but not bound - operations may be unprotected")
+            warnings.append(
+                "Repository specified but not bound - operations may be unprotected"
+            )
 
         # Check protected operations availability
         if self.protected_ops is None and binding_info["state"] == "bound":

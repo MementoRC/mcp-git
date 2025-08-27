@@ -355,9 +355,18 @@ class GitHubListWorkflowRuns(BaseModel):
         """Validate workflow run status values."""
         if v is None:
             return v
-        valid_statuses = {"queued", "in_progress", "completed", "waiting", "requested", "pending"}
+        valid_statuses = {
+            "queued",
+            "in_progress",
+            "completed",
+            "waiting",
+            "requested",
+            "pending",
+        }
         if v not in valid_statuses:
-            raise ValueError(f"status must be one of: {', '.join(sorted(valid_statuses))}")
+            raise ValueError(
+                f"status must be one of: {', '.join(sorted(valid_statuses))}"
+            )
         return v
 
     @field_validator("conclusion")
@@ -366,9 +375,20 @@ class GitHubListWorkflowRuns(BaseModel):
         """Validate workflow run conclusion values."""
         if v is None:
             return v
-        valid_conclusions = {"success", "failure", "neutral", "cancelled", "timed_out", "action_required", "stale", "startup_failure"}
+        valid_conclusions = {
+            "success",
+            "failure",
+            "neutral",
+            "cancelled",
+            "timed_out",
+            "action_required",
+            "stale",
+            "startup_failure",
+        }
         if v not in valid_conclusions:
-            raise ValueError(f"conclusion must be one of: {', '.join(sorted(valid_conclusions))}")
+            raise ValueError(
+                f"conclusion must be one of: {', '.join(sorted(valid_conclusions))}"
+            )
         return v
 
 
@@ -771,20 +791,24 @@ class ServerApplication(DebuggableComponent):
 
                 # Start server core - this blocks until client disconnects or shutdown signal
                 await self._server_core.start_server(test_mode=self.config.test_mode)
-                
+
                 # If we reach here, server core completed (client disconnected)
-                logger.info("🔁 Server core completed - client disconnected, shutting down")
-                
+                logger.info(
+                    "🔁 Server core completed - client disconnected, shutting down"
+                )
+
                 # Set shutdown event to signal completion
                 self._shutdown_event.set()
 
         except Exception as e:
             logger.error(f"Failed to start ServerApplication: {e}")
             await self.stop()
-            
+
             # In test mode, don't re-raise exceptions - exit gracefully for CI
             if self.config.test_mode:
-                logger.warning(f"🧪 Test mode: Application error handled gracefully: {e}")
+                logger.warning(
+                    f"🧪 Test mode: Application error handled gracefully: {e}"
+                )
                 return
             else:
                 raise
@@ -1354,32 +1378,41 @@ class ServerApplication(DebuggableComponent):
                         # Create a proper MCP-style response that middleware can process
                         from dataclasses import dataclass
                         from typing import List
-                        
+
                         @dataclass
                         class TextContent:
                             text: str
                             type: str = "text"
-                        
-                        @dataclass 
+
+                        @dataclass
                         class MCPResponse:
                             content: List[TextContent]
-                        
+
                         # Create the response structure middleware expects
-                        mcp_response = MCPResponse(content=[TextContent(text=str(result))])
-                        
+                        mcp_response = MCPResponse(
+                            content=[TextContent(text=str(result))]
+                        )
+
                         # Process through middleware chain
-                        processed_response = await self._middleware_manager.process_request(mcp_response)
-                        
+                        processed_response = (
+                            await self._middleware_manager.process_request(mcp_response)
+                        )
+
                         # Extract the processed text and return in standard MCP format
-                        if hasattr(processed_response, 'content') and processed_response.content:
+                        if (
+                            hasattr(processed_response, "content")
+                            and processed_response.content
+                        ):
                             processed_text = processed_response.content[0].text
                             return [{"type": "text", "text": processed_text}]
                         else:
                             # If middleware didn't return expected format, use original result
                             return [{"type": "text", "text": str(result)}]
-                            
+
                     except Exception as e:
-                        logger.warning(f"Middleware processing failed, using original result: {e}")
+                        logger.warning(
+                            f"Middleware processing failed, using original result: {e}"
+                        )
                         return [{"type": "text", "text": str(result)}]
                 else:
                     # No middleware available, return result directly
