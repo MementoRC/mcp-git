@@ -29,8 +29,6 @@ from mcp.server import Server
 from mcp.server.stdio import stdio_server
 from mcp.types import ClientCapabilities
 
-from ..utils.repository_resolver import RepositoryResolver
-
 from ..protocols.debugging_protocol import (
     ComponentState,
     DebuggableComponent,
@@ -111,7 +109,6 @@ class MCPGitServerCore(DebuggableComponent):
 
         # Repository binding components
         self.binding_manager = RepositoryBindingManager(server_name)
-        self.repository_resolver: Optional[RepositoryResolver] = None
         self.protected_ops: Optional[ProtectedGitOperations] = None
 
         # Binding failure tracking for user feedback
