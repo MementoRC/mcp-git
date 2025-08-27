@@ -18,7 +18,7 @@ MIN_TOKEN_LENGTH = 10  # minimum length for a valid GitHub token
 
 __all__ = [
     "git_status",
-    "git_diff_unstaged", 
+    "git_diff_unstaged",
     "git_diff_staged",
     "git_diff",
     "git_commit",
@@ -881,13 +881,19 @@ def _get_github_token_from_cli() -> str | None:
             timeout=CLI_AUTH_TIMEOUT,
         )
         logger.debug(f"🔍 DEBUG: gh auth token return code: {result.returncode}")
-        logger.debug(f"🔍 DEBUG: gh auth token stdout: {result.stdout[:50]}..." if result.stdout else "🔍 DEBUG: gh auth token stdout: EMPTY")
+        logger.debug(
+            f"🔍 DEBUG: gh auth token stdout: {result.stdout[:50]}..."
+            if result.stdout
+            else "🔍 DEBUG: gh auth token stdout: EMPTY"
+        )
         logger.debug(f"🔍 DEBUG: gh auth token stderr: {result.stderr}")
-        
+
         if result.returncode == 0:
             token = result.stdout.strip()
             token_valid = token and len(token) >= MIN_TOKEN_LENGTH
-            logger.debug(f"🔍 DEBUG: Token valid: {token_valid}, length: {len(token) if token else 0}")
+            logger.debug(
+                f"🔍 DEBUG: Token valid: {token_valid}, length: {len(token) if token else 0}"
+            )
             return token if token_valid else None
     except (FileNotFoundError, subprocess.TimeoutExpired) as e:
         logger.debug(f"🔍 DEBUG: gh command failed: {e}")
@@ -935,14 +941,16 @@ def git_push(
             # Try to load .env from current repository first
             from dotenv import load_dotenv
             from pathlib import Path
-            
+
             repo_env = Path(repo.working_dir) / ".env"
             if repo_env.exists():
                 logger.info(f"🔍 DEBUG: Loading .env from repository: {repo_env}")
                 load_dotenv(repo_env, override=True)
-            
+
             github_token = os.getenv("GITHUB_TOKEN")
-            logger.info(f"🔍 DEBUG: GITHUB_TOKEN from env: {'SET' if github_token else 'NOT SET'}")
+            logger.info(
+                f"🔍 DEBUG: GITHUB_TOKEN from env: {'SET' if github_token else 'NOT SET'}"
+            )
             logger.info(f"🔍 DEBUG: Repository working dir: {repo.working_dir}")
             logger.info(f"🔍 DEBUG: .env file exists: {repo_env.exists()}")
 
@@ -950,10 +958,14 @@ def git_push(
             if not github_token:
                 logger.debug("🔍 DEBUG: Attempting GitHub CLI token extraction...")
                 github_token = _get_github_token_from_cli()
-                logger.debug(f"🔍 DEBUG: GitHub CLI token: {'SET' if github_token else 'NOT SET'}")
+                logger.debug(
+                    f"🔍 DEBUG: GitHub CLI token: {'SET' if github_token else 'NOT SET'}"
+                )
 
             if github_token:
-                logger.debug("🔍 DEBUG: Token found, proceeding with authenticated push")
+                logger.debug(
+                    "🔍 DEBUG: Token found, proceeding with authenticated push"
+                )
                 # Inject token into URL
                 if "github.com" in remote_url:
                     # Format: https://token@github.com/user/repo.git
@@ -1000,8 +1012,10 @@ def git_push(
                         text=True,
                         timeout=PUSH_OPERATION_TIMEOUT,
                     )
-                    
-                    logger.debug(f"🔍 DEBUG: System git return code: {result.returncode}")
+
+                    logger.debug(
+                        f"🔍 DEBUG: System git return code: {result.returncode}"
+                    )
                     logger.debug(f"🔍 DEBUG: System git stdout: {result.stdout}")
                     logger.debug(f"🔍 DEBUG: System git stderr: {result.stderr}")
 
@@ -1019,7 +1033,9 @@ def git_push(
                         ):
                             # Add debug info directly to error message
                             repo_env = Path(repo.working_dir) / ".env"
-                            token_status = "SET" if os.getenv("GITHUB_TOKEN") else "NOT SET"
+                            token_status = (
+                                "SET" if os.getenv("GITHUB_TOKEN") else "NOT SET"
+                            )
                             return (
                                 f"❌ Authentication failed. Configure GITHUB_TOKEN environment variable "
                                 f"or GitHub CLI authentication (gh auth login)\n"
@@ -1078,7 +1094,11 @@ def git_push(
             # Add debug info directly to error message - OUTER EXCEPTION PATH
             repo_env = Path(repo.working_dir) / ".env"
             token = os.getenv("GITHUB_TOKEN", "")
-            token_info = f"length={len(token)}, starts_with={token[:4]}..." if token else "NOT SET"
+            token_info = (
+                f"length={len(token)}, starts_with={token[:4]}..."
+                if token
+                else "NOT SET"
+            )
             return (
                 f"❌ Authentication failed. Configure GITHUB_TOKEN environment variable "
                 f"or GitHub CLI authentication (gh auth login)\n"

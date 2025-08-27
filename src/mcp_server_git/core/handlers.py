@@ -61,12 +61,14 @@ class CallToolHandler:
         return {
             "git_status": self._create_git_handler(git_status, requires_repo=True),
             "git_diff_unstaged": self._create_git_handler(
-                git_diff_unstaged, requires_repo=True, 
-                extra_args=["stat_only", "max_lines", "name_only", "paths"]
+                git_diff_unstaged,
+                requires_repo=True,
+                extra_args=["stat_only", "max_lines", "name_only", "paths"],
             ),
             "git_diff_staged": self._create_git_handler(
-                git_diff_staged, requires_repo=True,
-                extra_args=["stat_only", "max_lines", "name_only", "paths"]
+                git_diff_staged,
+                requires_repo=True,
+                extra_args=["stat_only", "max_lines", "name_only", "paths"],
             ),
             "git_diff": self._create_git_handler(
                 git_diff,
@@ -157,16 +159,26 @@ class CallToolHandler:
             logger.debug("Using modular GitHub API")
         except ImportError:
             logger.warning("GitHub API module not available, using fallback")
-            
+
             # Define fallback function for when GitHub API is not available
             async def fallback_github_function(*args, **kwargs):
                 return "❌ GitHub API not available"
 
             # Use fallback for all functions
-            (github_create_issue, github_edit_pr_description, github_get_failing_jobs,
-             github_get_pr_checks, github_get_pr_details, github_get_pr_files,
-             github_get_pr_status, github_get_workflow_run, github_list_workflow_runs,
-             github_list_issues, github_list_pull_requests, github_update_issue) = [fallback_github_function] * 12
+            (
+                github_create_issue,
+                github_edit_pr_description,
+                github_get_failing_jobs,
+                github_get_pr_checks,
+                github_get_pr_details,
+                github_get_pr_files,
+                github_get_pr_status,
+                github_get_workflow_run,
+                github_list_workflow_runs,
+                github_list_issues,
+                github_list_pull_requests,
+                github_update_issue,
+            ) = [fallback_github_function] * 12
 
         return {
             "github_get_pr_checks": self._create_github_handler(
@@ -191,7 +203,7 @@ class CallToolHandler:
                 github_list_workflow_runs,
                 [
                     "repo_owner",
-                    "repo_name", 
+                    "repo_name",
                     "workflow_id",
                     "actor",
                     "branch",
