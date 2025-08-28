@@ -142,7 +142,9 @@ class CallToolHandler:
         # Import all GitHub API functions from modular implementation
         try:
             from ..github.api import (
+                github_bulk_update_issues,
                 github_create_issue,
+                github_create_issue_from_template,
                 github_edit_pr_description,
                 github_get_failing_jobs,
                 github_get_pr_checks,
@@ -153,6 +155,7 @@ class CallToolHandler:
                 github_list_workflow_runs,
                 github_list_issues,
                 github_list_pull_requests,
+                github_search_issues,
                 github_update_issue,
             )
 
@@ -166,7 +169,9 @@ class CallToolHandler:
 
             # Use fallback for all functions
             (
+                github_bulk_update_issues,
                 github_create_issue,
+                github_create_issue_from_template,
                 github_edit_pr_description,
                 github_get_failing_jobs,
                 github_get_pr_checks,
@@ -177,8 +182,9 @@ class CallToolHandler:
                 github_list_workflow_runs,
                 github_list_issues,
                 github_list_pull_requests,
+                github_search_issues,
                 github_update_issue,
-            ) = [fallback_github_function] * 12
+            ) = [fallback_github_function] * 15
 
         return {
             "github_get_pr_checks": self._create_github_handler(
@@ -303,6 +309,40 @@ class CallToolHandler:
             "github_edit_pr_description": self._create_github_handler(
                 github_edit_pr_description,
                 ["repo_owner", "repo_name", "pr_number", "description"],
+            ),
+            "github_search_issues": self._create_github_handler(
+                github_search_issues,
+                [
+                    "repo_owner",
+                    "repo_name",
+                    "query",
+                    "sort",
+                    "order",
+                    "per_page",
+                    "page",
+                ],
+            ),
+            "github_create_issue_from_template": self._create_github_handler(
+                github_create_issue_from_template,
+                [
+                    "repo_owner",
+                    "repo_name",
+                    "title",
+                    "template_name",
+                    "template_data",
+                ],
+            ),
+            "github_bulk_update_issues": self._create_github_handler(
+                github_bulk_update_issues,
+                [
+                    "repo_owner",
+                    "repo_name",
+                    "issue_numbers",
+                    "labels",
+                    "assignees",
+                    "milestone",
+                    "state",
+                ],
             ),
         }
 
