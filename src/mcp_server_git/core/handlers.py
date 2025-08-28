@@ -4,7 +4,6 @@ import logging
 from pathlib import Path
 from typing import Any
 
-
 # Safe git import that handles ClaudeCode redirector conflicts
 from ..utils.git_import import Repo, git
 from .tools import GitToolRouter, ToolRegistry
@@ -152,9 +151,9 @@ class CallToolHandler:
                 github_get_pr_files,
                 github_get_pr_status,
                 github_get_workflow_run,
-                github_list_workflow_runs,
                 github_list_issues,
                 github_list_pull_requests,
+                github_list_workflow_runs,
                 github_search_issues,
                 github_update_issue,
             )
