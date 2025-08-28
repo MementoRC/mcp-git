@@ -1460,10 +1460,8 @@ class ServerApplication(DebuggableComponent):
         )
         from ..utils.git_import import Repo
 
-        # CRITICAL FIX: Use configured repository path instead of defaulting to "."
-        # This ensures git operations execute in the correct repository context
-        # as specified by the --repository parameter, not the pixi manifest directory
-        default_repo_path = str(self.config.repository_path) if self.config.repository_path else "."
+        # Get repository path from arguments
+        default_repo_path: str = str(self.config.repository_path) if self.config.repository_path else "."
         repo_path = arguments.get("repo_path", default_repo_path)
         repo = Repo(repo_path)
 
