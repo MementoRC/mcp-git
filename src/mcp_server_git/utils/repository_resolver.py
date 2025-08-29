@@ -7,12 +7,10 @@ This module provides intelligent repository path resolution that:
 3. Prevents cross-session contamination
 """
 
-from pathlib import Path
-from typing import Optional
-
 import logging
+from pathlib import Path
 
-from ..utils.git_import import Repo, InvalidGitRepositoryError
+from ..utils.git_import import InvalidGitRepositoryError, Repo
 
 logger = logging.getLogger(__name__)
 
@@ -20,19 +18,19 @@ logger = logging.getLogger(__name__)
 class RepositoryResolver:
     """Intelligent repository path resolution with worktree support."""
 
-    def __init__(self, bound_repository_path: Optional[str] = None):
+    def __init__(self, bound_repository_path: str | None = None):
         """Initialize with optional bound repository from --repository parameter."""
         self.bound_repository_path = (
             Path(bound_repository_path) if bound_repository_path else None
         )
-        self._resolved_repo_cache: Optional[Path] = None
+        self._resolved_repo_cache: Path | None = None
         logger.debug(
             f"RepositoryResolver initialized with bound_path: {bound_repository_path}"
         )
 
     def resolve_repository_path(
-        self, requested_repo_path: Optional[str] = None
-    ) -> Optional[str]:
+        self, requested_repo_path: str | None = None
+    ) -> str | None:
         """
         Intelligently resolve repository path with the following priority:
         1. Use explicitly requested repo_path if provided
@@ -89,7 +87,7 @@ class RepositoryResolver:
             if git_path.is_file():
                 # This is a worktree - read the gitdir reference
                 try:
-                    with open(git_path, "r", encoding="utf-8") as f:
+                    with open(git_path, encoding="utf-8") as f:
                         git_content = f.read().strip()
                 except (OSError, UnicodeDecodeError) as e:
                     logger.warning(f"Failed to read .git file {git_path}: {e}")
@@ -142,7 +140,7 @@ class RepositoryResolver:
             self._resolved_repo_cache = repo_path
             return repo_path
 
-    def get_repository_info(self, repo_path: Optional[str] = None) -> dict:
+    def get_repository_info(self, repo_path: str | None = None) -> dict:
         """
         Get information about the resolved repository.
 

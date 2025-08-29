@@ -14,9 +14,9 @@ from mcp.types import Tool
 from pydantic import BaseModel
 
 from .repository_binding import (
+    RemoteContaminationError,
     RemoteProtectionError,
     RepositoryBindingError,
-    RemoteContaminationError,
 )
 
 
