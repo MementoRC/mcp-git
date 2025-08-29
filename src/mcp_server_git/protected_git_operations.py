@@ -11,10 +11,9 @@ the bound repository with the expected remote URL.
 
 import logging
 from pathlib import Path
-from typing import Optional
 
 # Safe git import that handles ClaudeCode redirector conflicts
-from git.repo import Repo
+from .utils.git_import import Repo
 
 # Configuration constants
 DEFAULT_CONFIRMATION_TOKEN = "CONFIRM_REMOTE_CHANGE"
@@ -108,7 +107,7 @@ class ProtectedGitOperations:
         repo_path: str,
         message: str,
         gpg_sign: bool = False,
-        gpg_key_id: Optional[str] = None,
+        gpg_key_id: str | None = None,
     ) -> str:
         """Git commit with repository binding protection."""
         validated_path = await self._validate_and_prepare_operation(repo_path)
@@ -121,7 +120,7 @@ class ProtectedGitOperations:
         self,
         repo_path: str,
         remote: str = "origin",
-        branch: Optional[str] = None,
+        branch: str | None = None,
         force: bool = False,
     ) -> str:
         """Git push with remote protection."""
@@ -149,7 +148,7 @@ class ProtectedGitOperations:
         return git_push(repo, remote, branch, force)
 
     async def protected_git_pull(
-        self, repo_path: str, remote: str = "origin", branch: Optional[str] = None
+        self, repo_path: str, remote: str = "origin", branch: str | None = None
     ) -> str:
         """Git pull with repository binding protection."""
         validated_path = await self._validate_and_prepare_operation(repo_path)
@@ -310,7 +309,7 @@ class ProtectedGitOperations:
         return git_checkout(repo, branch_name)
 
     async def protected_git_create_branch(
-        self, repo_path: str, branch_name: str, base_branch: Optional[str] = None
+        self, repo_path: str, branch_name: str, base_branch: str | None = None
     ) -> str:
         """Git create branch with repository binding protection."""
         validated_path = await self._validate_and_prepare_operation(repo_path)
@@ -318,7 +317,7 @@ class ProtectedGitOperations:
         return git_create_branch(repo, branch_name, base_branch)
 
     async def protected_git_reset(
-        self, repo_path: str, mode: str = "mixed", target: Optional[str] = None
+        self, repo_path: str, mode: str = "mixed", target: str | None = None
     ) -> str:
         """Git reset with repository binding protection."""
         validated_path = await self._validate_and_prepare_operation(repo_path)
