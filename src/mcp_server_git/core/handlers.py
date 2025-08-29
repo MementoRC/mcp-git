@@ -6,6 +6,11 @@ from typing import Any
 
 # Safe git import that handles ClaudeCode redirector conflicts
 from ..utils.git_import import Repo, git
+from .enhanced_error_handling import (
+    with_git_error_handling,
+    with_github_error_handling,
+    with_validation_error_handling,
+)
 from .tools import GitToolRouter, ToolRegistry
 
 logger = logging.getLogger(__name__)
@@ -368,6 +373,9 @@ class CallToolHandler:
     ):
         """Create a wrapper for Git operation functions"""
 
+        @with_git_error_handling(
+            func.__name__ if hasattr(func, "__name__") else "git_operation"
+        )
         def handler(**kwargs):
             if requires_repo:
                 repo_path = Path(kwargs["repo_path"])
@@ -425,6 +433,9 @@ class CallToolHandler:
     def _create_github_handler(self, func, arg_names: list[str]):
         """Create a wrapper for GitHub API functions"""
 
+        @with_github_error_handling(
+            func.__name__ if hasattr(func, "__name__") else "github_api"
+        )
         async def handler(**kwargs):
             # Build arguments in the correct order
             args = []
@@ -471,6 +482,9 @@ class CallToolHandler:
     def _create_security_handler(self, func, extra_args: list[str] | None = None):
         """Create a wrapper for security functions"""
 
+        @with_validation_error_handling(
+            func.__name__ if hasattr(func, "__name__") else "security_operation"
+        )
         def handler(**kwargs):
             args = []
             if extra_args:

@@ -23,12 +23,13 @@ import sys
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
 from mcp.types import ClientCapabilities
 
+from ..protected_git_operations import ProtectedGitOperations
 from ..protocols.debugging_protocol import (
     ComponentState,
     DebuggableComponent,
@@ -36,11 +37,10 @@ from ..protocols.debugging_protocol import (
     ValidationResult,
 )
 from ..repository_binding import (
-    RepositoryBindingManager,
-    RepositoryBindingError,
     RemoteContaminationError,
+    RepositoryBindingError,
+    RepositoryBindingManager,
 )
-from ..protected_git_operations import ProtectedGitOperations
 
 logger = logging.getLogger(__name__)
 
@@ -109,7 +109,7 @@ class MCPGitServerCore(DebuggableComponent):
 
         # Repository binding components
         self.binding_manager = RepositoryBindingManager(server_name)
-        self.protected_ops: Optional[ProtectedGitOperations] = None
+        self.protected_ops: ProtectedGitOperations | None = None
 
         # Binding failure tracking for user feedback
         self.binding_failed = False
@@ -400,7 +400,7 @@ class MCPGitServerCore(DebuggableComponent):
         """
         return self.binding_manager.get_binding_info()
 
-    def get_protected_operations(self) -> Optional[ProtectedGitOperations]:
+    def get_protected_operations(self) -> ProtectedGitOperations | None:
         """
         Get protected git operations instance.
 

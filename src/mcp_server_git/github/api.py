@@ -1,8 +1,8 @@
 """GitHub API operations for MCP Git Server"""
 
 import logging
-from typing import Any
 from contextlib import asynccontextmanager
+from typing import Any
 
 from .client import get_github_client
 
@@ -16,7 +16,9 @@ async def github_client_context():
     try:
         client = get_github_client()
         if not client:
-            raise ValueError("GitHub token not configured. Set GITHUB_TOKEN environment variable.")
+            raise ValueError(
+                "GitHub token not configured. Set GITHUB_TOKEN environment variable."
+            )
         yield client
     finally:
         if client and client.session:
@@ -28,37 +30,47 @@ async def github_client_context():
 
 class PatchMemoryManager:
     """Memory-aware patch content manager with configurable limits and streaming support."""
-    
+
     def __init__(self, max_patch_size: int = 1000, max_total_memory: int = 50000):
         self.max_patch_size = max_patch_size
         self.max_total_memory = max_total_memory
         self.current_memory_usage = 0
         self.patches_processed = 0
-    
+
     def can_include_patch(self, patch_size: int) -> bool:
         """Check if patch can be included within memory constraints."""
         return (self.current_memory_usage + patch_size) <= self.max_total_memory
-    
+
     def process_patch(self, patch_content: str) -> tuple[str, bool]:
         """Process patch content with memory management and truncation.
-        
+
         Returns:
             tuple[str, bool]: (processed_content, was_truncated)
         """
         patch_size = len(patch_content)
         self.patches_processed += 1
-        
+
         # Check memory budget first
         if not self.can_include_patch(patch_size):
-            logger.warning(f"Patch #{self.patches_processed} skipped: exceeds memory budget ({patch_size} bytes, {self.current_memory_usage}/{self.max_total_memory} used)")
-            return f"[Patch skipped - memory limit reached ({self.current_memory_usage}/{self.max_total_memory} bytes used)]", True
-        
+            logger.warning(
+                f"Patch #{self.patches_processed} skipped: exceeds memory budget ({patch_size} bytes, {self.current_memory_usage}/{self.max_total_memory} used)"
+            )
+            return (
+                f"[Patch skipped - memory limit reached ({self.current_memory_usage}/{self.max_total_memory} bytes used)]",
+                True,
+            )
+
         # Apply individual patch size limit
         if patch_size > self.max_patch_size:
-            truncated_patch = patch_content[:self.max_patch_size]
+            truncated_patch = patch_content[: self.max_patch_size]
             self.current_memory_usage += self.max_patch_size
-            logger.info(f"Patch #{self.patches_processed} truncated: {patch_size} -> {self.max_patch_size} bytes")
-            return f"```diff\n{truncated_patch}\n... [truncated {patch_size - self.max_patch_size} chars]\n```", True
+            logger.info(
+                f"Patch #{self.patches_processed} truncated: {patch_size} -> {self.max_patch_size} bytes"
+            )
+            return (
+                f"```diff\n{truncated_patch}\n... [truncated {patch_size - self.max_patch_size} chars]\n```",
+                True,
+            )
         else:
             self.current_memory_usage += patch_size
             return f"```diff\n{patch_content}\n```", False
@@ -141,7 +153,10 @@ async def github_get_pr_checks(
         return f"❌ Network connection failed: {str(conn_error)}"
     except Exception as e:
         # Log unexpected errors with full context for debugging
-        logger.error(f"Unexpected error getting PR checks for PR #{pr_number}: {e}", exc_info=True)
+        logger.error(
+            f"Unexpected error getting PR checks for PR #{pr_number}: {e}",
+            exc_info=True,
+        )
         return f"❌ Error getting PR checks: {str(e)}"
 
 
@@ -202,7 +217,9 @@ async def github_get_failing_jobs(
                             annotations_data = await annotations_response.json()
                             if annotations_data:
                                 output.append("   Annotations:")
-                                for annotation in annotations_data[:5]:  # Limit to first 5
+                                for annotation in annotations_data[
+                                    :5
+                                ]:  # Limit to first 5
                                     output.append(
                                         f"     • {annotation.get('title', 'Error')}: {annotation.get('message', 'No message')}"
                                     )
@@ -212,10 +229,14 @@ async def github_get_failing_jobs(
                                         )
                     except (ConnectionError, ValueError) as annotation_error:
                         # Log specific annotation errors but continue processing
-                        logger.warning(f"Failed to get annotations for run {run.get('id')}: {annotation_error}")
+                        logger.warning(
+                            f"Failed to get annotations for run {run.get('id')}: {annotation_error}"
+                        )
                     except Exception as annotation_error:
                         # Annotations might not be available - log but continue
-                        logger.debug(f"Annotations unavailable for run {run.get('id')}: {annotation_error}")
+                        logger.debug(
+                            f"Annotations unavailable for run {run.get('id')}: {annotation_error}"
+                        )
 
                 # Get logs if requested (simplified)
                 if include_logs and run.get("html_url"):
@@ -232,7 +253,10 @@ async def github_get_failing_jobs(
         logger.error(f"Connection error getting failing jobs: {conn_error}")
         return f"❌ Network connection failed: {str(conn_error)}"
     except Exception as e:
-        logger.error(f"Unexpected error getting failing jobs for PR #{pr_number}: {e}", exc_info=True)
+        logger.error(
+            f"Unexpected error getting failing jobs for PR #{pr_number}: {e}",
+            exc_info=True,
+        )
         return f"❌ Error getting failing jobs: {str(e)}"
 
 
@@ -296,7 +320,9 @@ async def github_get_workflow_run(
         logger.error(f"Connection error getting workflow run: {conn_error}")
         return f"❌ Network connection failed: {str(conn_error)}"
     except Exception as e:
-        logger.error(f"Unexpected error getting workflow run #{run_id}: {e}", exc_info=True)
+        logger.error(
+            f"Unexpected error getting workflow run #{run_id}: {e}", exc_info=True
+        )
         return f"❌ Error getting workflow run: {str(e)}"
 
 
@@ -351,9 +377,13 @@ async def github_get_pr_details(
                                     f"  {file['status'][0].upper()} {file['filename']} (+{file['additions']}, -{file['deletions']})"
                                 )
                             if len(files_data) > 10:
-                                output.append(f"  ... and {len(files_data) - 10} more files")
+                                output.append(
+                                    f"  ... and {len(files_data) - 10} more files"
+                                )
                 except (ConnectionError, ValueError) as files_error:
-                    logger.warning(f"Failed to get files for PR #{pr_number}: {files_error}")
+                    logger.warning(
+                        f"Failed to get files for PR #{pr_number}: {files_error}"
+                    )
                     output.append("\n⚠️ Could not retrieve files information")
 
             # Get reviews if requested
@@ -376,7 +406,9 @@ async def github_get_pr_details(
                                     f"  {state_emoji} {review.get('user', {}).get('login', 'N/A')}: {review.get('state', 'N/A')}"
                                 )
                 except (ConnectionError, ValueError) as reviews_error:
-                    logger.warning(f"Failed to get reviews for PR #{pr_number}: {reviews_error}")
+                    logger.warning(
+                        f"Failed to get reviews for PR #{pr_number}: {reviews_error}"
+                    )
                     output.append("\n⚠️ Could not retrieve reviews information")
 
             return "\n".join(output)
@@ -388,7 +420,10 @@ async def github_get_pr_details(
         logger.error(f"Connection error getting PR details: {conn_error}")
         return f"❌ Network connection failed: {str(conn_error)}"
     except Exception as e:
-        logger.error(f"Unexpected error getting PR details for PR #{pr_number}: {e}", exc_info=True)
+        logger.error(
+            f"Unexpected error getting PR details for PR #{pr_number}: {e}",
+            exc_info=True,
+        )
         return f"❌ Error getting PR details: {str(e)}"
 
 
@@ -410,7 +445,9 @@ async def github_list_pull_requests(
         async with github_client_context() as client:
             logger.debug("✅ GitHub client obtained successfully")
             logger.debug(
-                f"🔗 Token prefix: {client.token[:8]}..." if client.token else "No token"
+                f"🔗 Token prefix: {client.token[:8]}..."
+                if client.token
+                else "No token"
             )
 
             params = {
@@ -438,14 +475,14 @@ async def github_list_pull_requests(
 
             if response.status == 401:
                 response_text = await response.text()
-                logger.error(f"🔒 GitHub API authentication failed (401): {response_text}")
+                logger.error(
+                    f"🔒 GitHub API authentication failed (401): {response_text}"
+                )
                 return f"❌ GitHub API error 401: {response_text}"
             elif response.status != 200:
                 response_text = await response.text()
                 logger.error(f"❌ GitHub API error {response.status}: {response_text}")
-                return (
-                    f"❌ Failed to list pull requests: {response.status} - {response_text}"
-                )
+                return f"❌ Failed to list pull requests: {response.status} - {response_text}"
 
             prs = await response.json()
 
@@ -475,7 +512,10 @@ async def github_list_pull_requests(
         logger.error(f"Connection error listing pull requests: {conn_error}")
         return f"❌ Network connection failed: {str(conn_error)}"
     except Exception as e:
-        logger.error(f"Unexpected error listing pull requests for {repo_owner}/{repo_name}: {e}", exc_info=True)
+        logger.error(
+            f"Unexpected error listing pull requests for {repo_owner}/{repo_name}: {e}",
+            exc_info=True,
+        )
         return f"❌ Error listing pull requests: {str(e)}"
 
 
@@ -518,7 +558,9 @@ async def github_get_pr_status(repo_owner: str, repo_name: str, pr_number: int) 
                             "queued": "⏳",
                         }.get(run["status"], "❓")
 
-                        output.append(f"  {status_emoji} {run['name']}: {run['status']}")
+                        output.append(
+                            f"  {status_emoji} {run['name']}: {run['status']}"
+                        )
                         if run.get("conclusion"):
                             output.append(f"    Conclusion: {run['conclusion']}")
 
@@ -531,7 +573,10 @@ async def github_get_pr_status(repo_owner: str, repo_name: str, pr_number: int) 
         logger.error(f"Connection error getting PR status: {conn_error}")
         return f"❌ Network connection failed: {str(conn_error)}"
     except Exception as e:
-        logger.error(f"Unexpected error getting PR status for PR #{pr_number}: {e}", exc_info=True)
+        logger.error(
+            f"Unexpected error getting PR status for PR #{pr_number}: {e}",
+            exc_info=True,
+        )
         return f"❌ Error getting PR status: {str(e)}"
 
 
@@ -549,7 +594,8 @@ async def github_get_pr_files(
             params = {"per_page": per_page, "page": page}
 
             response = await client.get(
-                f"/repos/{repo_owner}/{repo_name}/pulls/{pr_number}/files", params=params
+                f"/repos/{repo_owner}/{repo_name}/pulls/{pr_number}/files",
+                params=params,
             )
             if response.status != 200:
                 return f"❌ Failed to get PR files: {response.status}"
@@ -565,7 +611,9 @@ async def github_get_pr_files(
             total_deletions = 0
 
             # Initialize memory manager for patch processing
-            patch_manager = PatchMemoryManager(max_patch_size=1000, max_total_memory=50000)
+            patch_manager = PatchMemoryManager(
+                max_patch_size=1000, max_total_memory=50000
+            )
 
             for file in files:
                 status_emoji = {
@@ -586,19 +634,25 @@ async def github_get_pr_files(
 
                 if include_patch and file.get("patch"):
                     # Use memory manager to safely process patch content
-                    processed_patch, was_truncated = patch_manager.process_patch(file["patch"])
+                    processed_patch, was_truncated = patch_manager.process_patch(
+                        file["patch"]
+                    )
                     output.append(processed_patch)
-                    
+
                     if was_truncated:
-                        logger.info(f"Patch for {file['filename']} was truncated or skipped for memory management")
+                        logger.info(
+                            f"Patch for {file['filename']} was truncated or skipped for memory management"
+                        )
 
                 output.append("")
 
             output.append(f"Total: +{total_additions}, -{total_deletions}")
-            
+
             # Add memory usage summary if patches were included
             if include_patch:
-                output.append(f"\nMemory usage: {patch_manager.current_memory_usage}/{patch_manager.max_total_memory} bytes")
+                output.append(
+                    f"\nMemory usage: {patch_manager.current_memory_usage}/{patch_manager.max_total_memory} bytes"
+                )
                 output.append(f"Patches processed: {patch_manager.patches_processed}")
 
             return "\n".join(output)
@@ -610,7 +664,9 @@ async def github_get_pr_files(
         logger.error(f"Connection error getting PR files: {conn_error}")
         return f"❌ Network connection failed: {str(conn_error)}"
     except Exception as e:
-        logger.error(f"Unexpected error getting PR files for PR #{pr_number}: {e}", exc_info=True)
+        logger.error(
+            f"Unexpected error getting PR files for PR #{pr_number}: {e}", exc_info=True
+        )
         return f"❌ Error getting PR files: {str(e)}"
 
 
@@ -638,9 +694,7 @@ async def github_update_pr(
                 payload["state"] = state
 
             if not payload:
-                return (
-                    "⚠️ No update parameters provided. Please specify title, body, or state."
-                )
+                return "⚠️ No update parameters provided. Please specify title, body, or state."
 
             response = await client.patch(
                 f"/repos/{repo_owner}/{repo_name}/pulls/{pr_number}", json=payload
@@ -648,13 +702,13 @@ async def github_update_pr(
 
             if response.status != 200:
                 error_text = await response.text()
-                return (
-                    f"❌ Failed to update PR #{pr_number}: {response.status} - {error_text}"
-                )
+                return f"❌ Failed to update PR #{pr_number}: {response.status} - {error_text}"
 
             result = await response.json()
             logger.info(f"✅ Successfully updated PR #{pr_number}")
-            return f"✅ Successfully updated PR #{result['number']}: {result['html_url']}"
+            return (
+                f"✅ Successfully updated PR #{result['number']}: {result['html_url']}"
+            )
 
     except ValueError as auth_error:
         logger.error(f"Authentication error updating PR: {auth_error}")
@@ -701,7 +755,9 @@ async def github_create_pr(
 
             result = await response.json()
             logger.info(f"✅ Successfully created PR #{result['number']}")
-            return f"✅ Successfully created PR #{result['number']}: {result['html_url']}"
+            return (
+                f"✅ Successfully created PR #{result['number']}: {result['html_url']}"
+            )
 
     except ValueError as auth_error:
         logger.error(f"Authentication error creating PR: {auth_error}")
@@ -781,7 +837,8 @@ async def github_add_pr_comment(
             payload = {"body": body}
 
             response = await client.post(
-                f"/repos/{repo_owner}/{repo_name}/issues/{pr_number}/comments", json=payload
+                f"/repos/{repo_owner}/{repo_name}/issues/{pr_number}/comments",
+                json=payload,
             )
 
             if response.status != 201:
@@ -799,7 +856,9 @@ async def github_add_pr_comment(
         logger.error(f"Connection error adding PR comment: {conn_error}")
         return f"❌ Network connection failed: {str(conn_error)}"
     except Exception as e:
-        logger.error(f"Unexpected error adding comment to PR #{pr_number}: {e}", exc_info=True)
+        logger.error(
+            f"Unexpected error adding comment to PR #{pr_number}: {e}", exc_info=True
+        )
         return f"❌ Error adding comment: {str(e)}"
 
 
@@ -850,9 +909,7 @@ async def github_create_issue(
 
             result = await response.json()
             logger.info(f"✅ Successfully created issue #{result['number']}")
-            return (
-                f"✅ Successfully created issue #{result['number']}: {result['html_url']}"
-            )
+            return f"✅ Successfully created issue #{result['number']}: {result['html_url']}"
 
     except ValueError as auth_error:
         logger.error(f"Authentication error creating issue: {auth_error}")
@@ -926,7 +983,9 @@ async def github_list_issues(
                 if issue.get("pull_request"):
                     continue
 
-                state_emoji = {"open": "🟢", "closed": "🔴"}.get(issue.get("state"), "❓")
+                state_emoji = {"open": "🟢", "closed": "🔴"}.get(
+                    issue.get("state"), "❓"
+                )
                 output.append(f"{state_emoji} #{issue['number']}: {issue['title']}")
                 output.append(f"   Author: {issue.get('user', {}).get('login', 'N/A')}")
 
@@ -937,7 +996,9 @@ async def github_list_issues(
 
                 # Show assignees if any
                 if issue.get("assignees"):
-                    assignee_names = [assignee["login"] for assignee in issue["assignees"]]
+                    assignee_names = [
+                        assignee["login"] for assignee in issue["assignees"]
+                    ]
                     output.append(f"   Assignees: {', '.join(assignee_names)}")
 
                 output.append(f"   Created: {issue.get('created_at', 'N/A')}")
@@ -1001,9 +1062,7 @@ async def github_update_issue(
 
             result = await response.json()
             logger.info(f"✅ Successfully updated issue #{issue_number}")
-            return (
-                f"✅ Successfully updated issue #{result['number']}: {result['html_url']}"
-            )
+            return f"✅ Successfully updated issue #{result['number']}: {result['html_url']}"
 
     except ValueError as auth_error:
         logger.error(f"Authentication error updating issue: {auth_error}")
@@ -1012,7 +1071,9 @@ async def github_update_issue(
         logger.error(f"Connection error updating issue: {conn_error}")
         return f"❌ Network connection failed: {str(conn_error)}"
     except Exception as e:
-        logger.error(f"Unexpected error updating issue #{issue_number}: {e}", exc_info=True)
+        logger.error(
+            f"Unexpected error updating issue #{issue_number}: {e}", exc_info=True
+        )
         return f"❌ Error updating issue: {str(e)}"
 
 
@@ -1088,7 +1149,9 @@ async def github_search_issues(
                 if issue.get("pull_request"):
                     continue
 
-                state_emoji = {"open": "🟢", "closed": "🔴"}.get(issue.get("state"), "❓")
+                state_emoji = {"open": "🟢", "closed": "🔴"}.get(
+                    issue.get("state"), "❓"
+                )
                 output.append(f"{state_emoji} #{issue['number']}: {issue['title']}")
                 output.append(f"   Author: {issue.get('user', {}).get('login', 'N/A')}")
 
@@ -1099,7 +1162,9 @@ async def github_search_issues(
 
                 # Show assignees
                 if issue.get("assignees"):
-                    assignee_names = [assignee["login"] for assignee in issue["assignees"]]
+                    assignee_names = [
+                        assignee["login"] for assignee in issue["assignees"]
+                    ]
                     output.append(f"   Assignees: {', '.join(assignee_names)}")
 
                 # Show milestone
@@ -1404,9 +1469,7 @@ async def github_list_workflow_runs(
             # Determine API endpoint - workflow-specific or repository-wide
             if workflow_id:
                 # Get runs for specific workflow
-                endpoint = (
-                    f"/repos/{repo_owner}/{repo_name}/actions/workflows/{workflow_id}/runs"
-                )
+                endpoint = f"/repos/{repo_owner}/{repo_name}/actions/workflows/{workflow_id}/runs"
                 logger.debug(f"📡 Fetching workflow-specific runs: {workflow_id}")
             else:
                 # Get all workflow runs for repository
@@ -1421,7 +1484,9 @@ async def github_list_workflow_runs(
 
             if response.status == 401:
                 response_text = await response.text()
-                logger.error(f"🔒 GitHub API authentication failed (401): {response_text}")
+                logger.error(
+                    f"🔒 GitHub API authentication failed (401): {response_text}"
+                )
                 return "❌ GitHub API authentication failed: Verify your GITHUB_TOKEN has Actions read permissions"
             elif response.status == 404:
                 if workflow_id:
@@ -1431,9 +1496,7 @@ async def github_list_workflow_runs(
             elif response.status != 200:
                 response_text = await response.text()
                 logger.error(f"❌ GitHub API error {response.status}: {response_text}")
-                return (
-                    f"❌ Failed to list workflow runs: {response.status} - {response_text}"
-                )
+                return f"❌ Failed to list workflow runs: {response.status} - {response_text}"
 
             data = await response.json()
             workflow_runs = data.get("workflow_runs", [])
@@ -1444,7 +1507,9 @@ async def github_list_workflow_runs(
                     if len(params) > 2
                     else ""
                 )
-                return f"No workflow runs found for {repo_owner}/{repo_name}{filter_desc}"
+                return (
+                    f"No workflow runs found for {repo_owner}/{repo_name}{filter_desc}"
+                )
 
             # Build formatted output
             filter_info = []

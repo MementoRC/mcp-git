@@ -148,9 +148,9 @@ class ToolRegistry:
             GitStatus,
         )
         from ..github.models import (
+            GitHubBulkUpdateIssues,
             GitHubCreateIssue,
             GitHubCreateIssueFromTemplate,
-            GitHubBulkUpdateIssues,
             GitHubEditPRDescription,
             GitHubGetFailingJobs,
             GitHubGetPRChecks,
