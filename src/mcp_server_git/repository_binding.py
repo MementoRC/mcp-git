@@ -22,11 +22,11 @@ import uuid
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Optional
+
+from git.repo import Repo
 
 # Safe git import that handles ClaudeCode redirector conflicts
 from .utils.git_import import git
-from git.repo import Repo
 
 # Constants
 DEFAULT_REMOTE_NAME = "origin"
@@ -107,7 +107,7 @@ class RepositoryBindingManager:
 
     def __init__(self, server_name: str):
         self.server_name = server_name
-        self._binding: Optional[RepositoryBinding] = None
+        self._binding: RepositoryBinding | None = None
         self._state: RepositoryBindingState = RepositoryBindingState.UNBOUND
         self._lock = asyncio.Lock()
         self._session_id: str = str(uuid.uuid4())
@@ -323,7 +323,7 @@ class RepositoryBindingManager:
         return self._state == RepositoryBindingState.BOUND and self._binding is not None
 
     @property
-    def binding(self) -> Optional[RepositoryBinding]:
+    def binding(self) -> RepositoryBinding | None:
         """Get current repository binding."""
         return self._binding
 

@@ -4,9 +4,13 @@ import logging
 from pathlib import Path
 from typing import Any
 
-
 # Safe git import that handles ClaudeCode redirector conflicts
 from ..utils.git_import import Repo, git
+from .enhanced_error_handling import (
+    with_git_error_handling,
+    with_github_error_handling,
+    with_validation_error_handling,
+)
 from .tools import GitToolRouter, ToolRegistry
 
 logger = logging.getLogger(__name__)
@@ -142,7 +146,9 @@ class CallToolHandler:
         # Import all GitHub API functions from modular implementation
         try:
             from ..github.api import (
+                github_bulk_update_issues,
                 github_create_issue,
+                github_create_issue_from_template,
                 github_edit_pr_description,
                 github_get_failing_jobs,
                 github_get_pr_checks,
@@ -150,9 +156,10 @@ class CallToolHandler:
                 github_get_pr_files,
                 github_get_pr_status,
                 github_get_workflow_run,
-                github_list_workflow_runs,
                 github_list_issues,
                 github_list_pull_requests,
+                github_list_workflow_runs,
+                github_search_issues,
                 github_update_issue,
             )
 
@@ -166,7 +173,9 @@ class CallToolHandler:
 
             # Use fallback for all functions
             (
+                github_bulk_update_issues,
                 github_create_issue,
+                github_create_issue_from_template,
                 github_edit_pr_description,
                 github_get_failing_jobs,
                 github_get_pr_checks,
@@ -177,8 +186,9 @@ class CallToolHandler:
                 github_list_workflow_runs,
                 github_list_issues,
                 github_list_pull_requests,
+                github_search_issues,
                 github_update_issue,
-            ) = [fallback_github_function] * 12
+            ) = [fallback_github_function] * 15
 
         return {
             "github_get_pr_checks": self._create_github_handler(
@@ -304,6 +314,40 @@ class CallToolHandler:
                 github_edit_pr_description,
                 ["repo_owner", "repo_name", "pr_number", "description"],
             ),
+            "github_search_issues": self._create_github_handler(
+                github_search_issues,
+                [
+                    "repo_owner",
+                    "repo_name",
+                    "query",
+                    "sort",
+                    "order",
+                    "per_page",
+                    "page",
+                ],
+            ),
+            "github_create_issue_from_template": self._create_github_handler(
+                github_create_issue_from_template,
+                [
+                    "repo_owner",
+                    "repo_name",
+                    "title",
+                    "template_name",
+                    "template_data",
+                ],
+            ),
+            "github_bulk_update_issues": self._create_github_handler(
+                github_bulk_update_issues,
+                [
+                    "repo_owner",
+                    "repo_name",
+                    "issue_numbers",
+                    "labels",
+                    "assignees",
+                    "milestone",
+                    "state",
+                ],
+            ),
         }
 
     def _get_security_handlers(self) -> dict[str, Any]:
@@ -329,6 +373,9 @@ class CallToolHandler:
     ):
         """Create a wrapper for Git operation functions"""
 
+        @with_git_error_handling(
+            func.__name__ if hasattr(func, "__name__") else "git_operation"
+        )
         def handler(**kwargs):
             if requires_repo:
                 repo_path = Path(kwargs["repo_path"])
@@ -386,6 +433,9 @@ class CallToolHandler:
     def _create_github_handler(self, func, arg_names: list[str]):
         """Create a wrapper for GitHub API functions"""
 
+        @with_github_error_handling(
+            func.__name__ if hasattr(func, "__name__") else "github_api"
+        )
         async def handler(**kwargs):
             # Build arguments in the correct order
             args = []
@@ -432,6 +482,9 @@ class CallToolHandler:
     def _create_security_handler(self, func, extra_args: list[str] | None = None):
         """Create a wrapper for security functions"""
 
+        @with_validation_error_handling(
+            func.__name__ if hasattr(func, "__name__") else "security_operation"
+        )
         def handler(**kwargs):
             args = []
             if extra_args:

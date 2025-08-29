@@ -939,8 +939,9 @@ def git_push(
         # GitHub HTTPS authentication handling
         if is_github and remote_url.startswith("https://"):
             # Try to load .env from current repository first
-            from dotenv import load_dotenv
             from pathlib import Path
+
+            from dotenv import load_dotenv
 
             repo_env = Path(repo.working_dir) / ".env"
             if repo_env.exists():

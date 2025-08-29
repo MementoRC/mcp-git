@@ -193,6 +193,56 @@ class GitHubUpdateIssue(BaseModel):
         return v if v > 0 else None
 
 
+class GitHubSearchIssues(BaseModel):
+    """Model for GitHub Search Issues API with advanced query capabilities.
+
+    Supports GitHub's search qualifiers like:
+    - is:issue is:open author:username
+    - label:bug label:"help wanted"
+    - created:2023-01-01..2023-12-31
+    - updated:>2023-06-01
+    - milestone:"v1.0" assignee:username
+    """
+
+    repo_owner: str
+    repo_name: str
+    query: str  # GitHub search query with qualifiers
+    sort: str = "created"  # created, updated, comments
+    order: str = "desc"  # asc, desc
+    per_page: int = 30
+    page: int = 1
+
+
+class GitHubCreateIssueFromTemplate(BaseModel):
+    """Model for creating GitHub issues from predefined templates."""
+
+    repo_owner: str
+    repo_name: str
+    title: str
+    template_name: str = "bug_report"  # bug_report, feature_request, question, custom
+    template_data: dict | None = None  # Additional data for template customization
+
+
+class GitHubBulkUpdateIssues(BaseModel):
+    """Model for bulk updating multiple GitHub issues with common properties."""
+
+    repo_owner: str
+    repo_name: str
+    issue_numbers: list[int]  # List of issue numbers to update
+    labels: list[str] | None = None
+    assignees: list[str] | None = None
+    milestone: int | None = None
+    state: str | None = None  # open, closed
+
+    @field_validator("milestone")
+    @classmethod
+    def validate_milestone(cls, v: int | None) -> int | None:
+        """Validate milestone ID is positive (GitHub API expects positive integers)"""
+        if v is None:
+            return v
+        return v if v > 0 else None
+
+
 class GitHubEditPRDescription(BaseModel):
     repo_owner: str
     repo_name: str

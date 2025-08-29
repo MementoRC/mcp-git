@@ -70,10 +70,6 @@ data/
 ai_docs/
 # CI trigger
 
-# Task files
-# tasks.json
-# tasks/
-
 # Development artifacts and test files
 *.md
 !README.md
@@ -106,3 +102,7 @@ TASK_2_IMPLEMENTATION_SUMMARY.md
 TEST_COVERAGE_SUMMARY.md 
 .coverage
 coverage.xml
+
+# Task files
+# tasks.json
+# tasks/ 

@@ -51,6 +51,9 @@ class GitTools(str, Enum):
     GITHUB_CREATE_ISSUE = "github_create_issue"
     GITHUB_LIST_ISSUES = "github_list_issues"
     GITHUB_UPDATE_ISSUE = "github_update_issue"
+    GITHUB_SEARCH_ISSUES = "github_search_issues"
+    GITHUB_CREATE_ISSUE_FROM_TEMPLATE = "github_create_issue_from_template"
+    GITHUB_BULK_UPDATE_ISSUES = "github_bulk_update_issues"
     GITHUB_EDIT_PR_DESCRIPTION = "github_edit_pr_description"
 
     # Security tools
@@ -145,7 +148,9 @@ class ToolRegistry:
             GitStatus,
         )
         from ..github.models import (
+            GitHubBulkUpdateIssues,
             GitHubCreateIssue,
+            GitHubCreateIssueFromTemplate,
             GitHubEditPRDescription,
             GitHubGetFailingJobs,
             GitHubGetPRChecks,
@@ -156,6 +161,7 @@ class ToolRegistry:
             GitHubListIssues,
             GitHubListPullRequests,
             GitHubListWorkflowRuns,
+            GitHubSearchIssues,
             GitHubUpdateIssue,
         )
 
@@ -424,6 +430,33 @@ class ToolRegistry:
                 category=ToolCategory.GITHUB,
                 description="Update a GitHub issue",
                 schema=GitHubUpdateIssue,
+                handler=placeholder_handler,
+                requires_repo=False,
+                requires_github_token=True,
+            ),
+            ToolDefinition(
+                name=GitTools.GITHUB_SEARCH_ISSUES,
+                category=ToolCategory.GITHUB,
+                description="Search issues using GitHub's advanced search API with query qualifiers",
+                schema=GitHubSearchIssues,
+                handler=placeholder_handler,
+                requires_repo=False,
+                requires_github_token=True,
+            ),
+            ToolDefinition(
+                name=GitTools.GITHUB_CREATE_ISSUE_FROM_TEMPLATE,
+                category=ToolCategory.GITHUB,
+                description="Create a GitHub issue using predefined templates (bug_report, feature_request, question)",
+                schema=GitHubCreateIssueFromTemplate,
+                handler=placeholder_handler,
+                requires_repo=False,
+                requires_github_token=True,
+            ),
+            ToolDefinition(
+                name=GitTools.GITHUB_BULK_UPDATE_ISSUES,
+                category=ToolCategory.GITHUB,
+                description="Bulk update multiple GitHub issues with common properties",
+                schema=GitHubBulkUpdateIssues,
                 handler=placeholder_handler,
                 requires_repo=False,
                 requires_github_token=True,

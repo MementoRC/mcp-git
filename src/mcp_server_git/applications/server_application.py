@@ -1377,7 +1377,6 @@ class ServerApplication(DebuggableComponent):
                     try:
                         # Create a proper MCP-style response that middleware can process
                         from dataclasses import dataclass
-                        from typing import List
 
                         @dataclass
                         class TextContent:
@@ -1386,7 +1385,7 @@ class ServerApplication(DebuggableComponent):
 
                         @dataclass
                         class MCPResponse:
-                            content: List[TextContent]
+                            content: list[TextContent]
 
                         # Create the response structure middleware expects
                         mcp_response = MCPResponse(
@@ -1462,7 +1461,9 @@ class ServerApplication(DebuggableComponent):
         from ..utils.git_import import Repo
 
         # Get repository path from arguments
-        default_repo_path = str(self.config.repository_path) if self.config.repository_path else "."
+        default_repo_path: str = (
+            str(self.config.repository_path) if self.config.repository_path else "."
+        )
         repo_path = arguments.get("repo_path", default_repo_path)
         repo = Repo(repo_path)
 

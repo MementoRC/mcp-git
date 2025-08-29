@@ -76,6 +76,9 @@ See also:
     - deployment: Application deployment documentation
 """
 
+# Import applications
+from . import server_application
+
 # Application exports
 __all__: list[str] = [
     # Main server application - implemented in Task 25
