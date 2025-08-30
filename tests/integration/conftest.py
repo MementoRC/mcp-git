@@ -16,9 +16,7 @@ def event_loop():
 
 @pytest.fixture
 async def mock_server(monkeypatch):
-    """
-    Fixture to mock the MCP Git Server process and its async I/O.
-    """
+    """Fixture to mock the MCP Git Server process and its async I/O."""
     # Patch out actual GitHub and git calls
     with (
         patch(
@@ -42,9 +40,7 @@ async def mock_server(monkeypatch):
 
 @pytest.fixture
 async def temp_git_repo():
-    """
-    Fixture to create a temporary git repository for testing.
-    """
+    """Fixture to create a temporary git repository for testing."""
     with tempfile.TemporaryDirectory() as temp_dir:
         repo_path = Path(temp_dir)
         # Optionally, initialize a git repo here if needed

@@ -1,5 +1,4 @@
-"""
-Session service for MCP Git Server.
+"""Session service for MCP Git Server.
 
 This module provides a service layer for session management functionality,
 extracting session-related logic from the monolithic server.py file and
@@ -61,8 +60,7 @@ class SessionServiceDebugInfo:
 
 
 class SessionService(DebuggableComponent):
-    """
-    Service layer for session management in MCP Git Server.
+    """Service layer for session management in MCP Git Server.
 
     This service provides a high-level interface for session management,
     integrating with the existing session infrastructure while adding
@@ -83,8 +81,7 @@ class SessionService(DebuggableComponent):
         heartbeat_timeout: float = 60.0,
         service_id: str = "session_service",
     ):
-        """
-        Initialize the session service.
+        """Initialize the session service.
 
         Args:
             idle_timeout: Default idle timeout for sessions (seconds)
@@ -146,8 +143,7 @@ class SessionService(DebuggableComponent):
         user: str | None = None,
         repository: Path | None = None,
     ) -> Session:
-        """
-        Create a new session with validation.
+        """Create a new session with validation.
 
         Args:
             session_id: Unique identifier for the session
@@ -203,8 +199,7 @@ class SessionService(DebuggableComponent):
     async def validate_server_session(
         self, server_session: ServerSession | None
     ) -> bool:
-        """
-        Validate a server session instance.
+        """Validate a server session instance.
 
         This method extracts the server session validation logic from server.py,
         providing a centralized place for session validation.
@@ -227,8 +222,7 @@ class SessionService(DebuggableComponent):
     async def check_client_capability(
         self, server_session: ServerSession, capability_type: str = "roots"
     ) -> bool:
-        """
-        Check if client has specific capabilities.
+        """Check if client has specific capabilities.
 
         This method extracts client capability checking from server.py.
 
@@ -254,8 +248,7 @@ class SessionService(DebuggableComponent):
             return False
 
     async def list_repository_roots(self, server_session: ServerSession) -> list[str]:
-        """
-        List repository roots from client capabilities.
+        """List repository roots from client capabilities.
 
         This method extracts the repository listing logic from server.py.
 
@@ -427,19 +420,18 @@ class SessionService(DebuggableComponent):
 
         if parts[0] == "state":
             return self.get_component_state().state_data
-        elif parts[0] == "validation":
+        if parts[0] == "validation":
             validation = self.validate_component()
             return {
                 "is_valid": validation.is_valid,
                 "errors": validation.validation_errors,
                 "warnings": validation.validation_warnings,
             }
-        elif parts[0] == "debug":
+        if parts[0] == "debug":
             return self.get_debug_info().debug_data
-        elif parts[0] == "metrics":
+        if parts[0] == "metrics":
             return self.get_debug_info().performance_metrics
-        else:
-            return {"error": f"Unknown inspection path: {path}"}
+        return {"error": f"Unknown inspection path: {path}"}
 
     def get_component_dependencies(self) -> list[str]:
         """Get list of component dependencies."""

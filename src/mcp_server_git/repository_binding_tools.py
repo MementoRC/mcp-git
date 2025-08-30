@@ -1,5 +1,4 @@
-"""
-MCP Tools for Repository Binding Operations.
+"""MCP Tools for Repository Binding Operations.
 
 This module provides MCP tool definitions for repository binding operations
 including bind, unbind, status, and explicit remote change functionality.
@@ -46,8 +45,7 @@ class ExplicitRemoteChange(BaseModel):
 
 
 def get_repository_binding_tools() -> list[Tool]:
-    """
-    Get the list of repository binding MCP tools.
+    """Get the list of repository binding MCP tools.
 
     Returns:
         List of Tool instances for repository binding operations
@@ -83,8 +81,7 @@ async def handle_repository_bind(
     verify_remote: bool = True,
     force: bool = False,
 ) -> str:
-    """
-    Handle repository bind operation.
+    """Handle repository bind operation.
 
     Args:
         server_core: MCPGitServerCore instance
@@ -120,8 +117,7 @@ async def handle_repository_bind(
 
 
 async def handle_repository_unbind(server_core, force: bool = False) -> str:
-    """
-    Handle repository unbind operation.
+    """Handle repository unbind operation.
 
     Args:
         server_core: MCPGitServerCore instance
@@ -145,8 +141,7 @@ async def handle_repository_unbind(server_core, force: bool = False) -> str:
 
 
 def handle_repository_status(server_core) -> str:
-    """
-    Handle repository status request.
+    """Handle repository status request.
 
     Args:
         server_core: MCPGitServerCore instance
@@ -196,8 +191,7 @@ async def handle_explicit_remote_change(
     confirmation_token: str,
     remote_name: str = "origin",
 ) -> str:
-    """
-    Handle explicit remote change operation.
+    """Handle explicit remote change operation.
 
     Args:
         server_core: MCPGitServerCore instance

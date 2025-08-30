@@ -15,7 +15,7 @@ def __getattr__(name):
         from .session import Session
 
         return Session
-    elif name == "SessionManager":
+    if name == "SessionManager":
         from .session import SessionManager
 
         return SessionManager

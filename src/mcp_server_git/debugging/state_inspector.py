@@ -1,5 +1,4 @@
-"""
-State inspection framework for comprehensive debugging and LLM analysis.
+"""State inspection framework for comprehensive debugging and LLM analysis.
 
 This module implements the ComponentStateInspector class and related components
 for capturing, analyzing, and reporting on component state information.
@@ -19,8 +18,7 @@ from ..protocols.debugging_protocol import (
 
 @dataclass(frozen=True)
 class StateSnapshot:
-    """
-    Immutable snapshot of component state at a specific point in time.
+    """Immutable snapshot of component state at a specific point in time.
 
     This dataclass captures complete state information including metadata,
     timestamps, and validation results for comprehensive debugging analysis.
@@ -47,8 +45,7 @@ class StateSnapshot:
 
 
 class ComponentStateInspector:
-    """
-    Central state inspector for managing and analyzing component state.
+    """Central state inspector for managing and analyzing component state.
 
     This class provides thread-safe component registration, state capture,
     and analysis capabilities with LLM-friendly reporting features.
@@ -63,8 +60,7 @@ class ComponentStateInspector:
     """
 
     def __init__(self, max_history_per_component: int = 50):
-        """
-        Initialize the state inspector.
+        """Initialize the state inspector.
 
         Args:
             max_history_per_component: Maximum number of historical snapshots
@@ -79,8 +75,7 @@ class ComponentStateInspector:
     def register_component(
         self, component_id: str, component: DebuggableComponent
     ) -> None:
-        """
-        Register a component for state inspection.
+        """Register a component for state inspection.
 
         Args:
             component_id: Unique identifier for the component
@@ -96,8 +91,7 @@ class ComponentStateInspector:
             }
 
     def unregister_component(self, component_id: str) -> bool:
-        """
-        Unregister a component from state inspection.
+        """Unregister a component from state inspection.
 
         Args:
             component_id: Identifier of component to unregister
@@ -121,8 +115,7 @@ class ComponentStateInspector:
             return set(self._components.keys())
 
     def capture_state_snapshot(self, component_id: str) -> StateSnapshot | None:
-        """
-        Capture a complete state snapshot of a component.
+        """Capture a complete state snapshot of a component.
 
         Args:
             component_id: Identifier of component to snapshot
@@ -200,8 +193,7 @@ class ComponentStateInspector:
     def get_state_history(
         self, component_id: str, limit: int = 10
     ) -> list[StateSnapshot]:
-        """
-        Get historical state snapshots for a component.
+        """Get historical state snapshots for a component.
 
         Args:
             component_id: Component identifier
@@ -217,8 +209,7 @@ class ComponentStateInspector:
     def compare_states(
         self, component_id: str, snapshot1: StateSnapshot, snapshot2: StateSnapshot
     ) -> dict[str, Any]:
-        """
-        Compare two state snapshots and identify differences.
+        """Compare two state snapshots and identify differences.
 
         Args:
             component_id: Component identifier
@@ -306,8 +297,7 @@ class ComponentStateInspector:
         return comparison
 
     def generate_llm_friendly_report(self, component_id: str | None = None) -> str:
-        """
-        Generate a comprehensive, LLM-friendly debugging report.
+        """Generate a comprehensive, LLM-friendly debugging report.
 
         Args:
             component_id: Specific component to report on, or None for all components
@@ -467,8 +457,7 @@ class ComponentStateInspector:
             return "\n".join(report_lines)
 
     def export_full_state(self) -> dict[str, Any]:
-        """
-        Export complete state of all components and inspector metadata.
+        """Export complete state of all components and inspector metadata.
 
         Returns:
             Dictionary containing all state information

@@ -1,5 +1,4 @@
-"""
-Safe git import utility for handling git command failures.
+"""Safe git import utility for handling git command failures.
 
 This module provides a safe way to import GitPython with fallback to mock
 objects when git commands are not available or fail to initialize.
@@ -23,8 +22,7 @@ def create_git_mock():
 
 
 def safe_git_import() -> Any:
-    """
-    Safely import git module, with fallback for environments with git command issues.
+    """Safely import git module, with fallback for environments with git command issues.
 
     Returns:
         git module if successful, mock git module if import fails
@@ -40,8 +38,7 @@ def safe_git_import() -> Any:
         if "Failed to initialize" in str(e) and "git version" in str(e):
             # Git command failed to initialize - use mock for testing/development
             return create_git_mock()
-        else:
-            raise
+        raise
 
 
 # Global git module instance - imported once

@@ -131,9 +131,9 @@ async def test_massive_concurrent_clients(stress_session_manager, stress_test_co
     # Assertions: only basic functionality in CI
     assert success_rate >= 1.0, f"Client success rate too low: {success_rate:.2%}"
     assert error_rate < 0.2, f"Error rate too high: {error_rate:.2%}"
-    assert len(final_sessions) <= 2, (
-        f"Too many lingering sessions: {len(final_sessions)}"
-    )
+    assert (
+        len(final_sessions) <= 2
+    ), f"Too many lingering sessions: {len(final_sessions)}"
 
     logger.info("✅ Minimal concurrent clients test passed")
 
@@ -276,12 +276,12 @@ async def test_high_throughput_message_processing(
 
     # Performance assertions
     assert throughput_ratio >= 0.8, f"Throughput too low: {throughput_ratio:.2%}"
-    assert error_rate < 0.02, (
-        f"Error rate too high at high throughput: {error_rate:.2%}"
-    )
-    assert successful_clients >= client_count * 0.9, (
-        f"Too many client failures: {successful_clients}/{client_count}"
-    )
+    assert (
+        error_rate < 0.02
+    ), f"Error rate too high at high throughput: {error_rate:.2%}"
+    assert (
+        successful_clients >= client_count * 0.9
+    ), f"Too many client failures: {successful_clients}/{client_count}"
 
     logger.info("✅ High throughput test passed")
 
@@ -407,17 +407,17 @@ async def test_connection_churn_stability(stress_session_manager, stress_test_co
     logger.info(f"Remaining sessions: {len(final_sessions)}")
 
     # Stability assertions
-    assert success_rate >= 0.95, (
-        f"Connection churn success rate too low: {success_rate:.2%}"
-    )
-    assert len(final_sessions) <= 10, (
-        f"Too many lingering sessions: {len(final_sessions)}"
-    )
+    assert (
+        success_rate >= 0.95
+    ), f"Connection churn success rate too low: {success_rate:.2%}"
+    assert (
+        len(final_sessions) <= 10
+    ), f"Too many lingering sessions: {len(final_sessions)}"
     # More lenient performance threshold for CI
     min_connection_rate = 2 if is_ci else 50
-    assert connection_rate > min_connection_rate, (
-        f"Connection processing rate too low: {connection_rate:.1f} conn/sec"
-    )
+    assert (
+        connection_rate > min_connection_rate
+    ), f"Connection processing rate too low: {connection_rate:.1f} conn/sec"
 
     logger.info("✅ Connection churn stability verified")
 
@@ -654,15 +654,15 @@ async def test_mixed_load_scenarios(stress_session_manager, stress_test_config):
         or os.getenv("PYTEST_CI", "false").lower() == "true"
     )
     min_message_rate = 5 if is_ci else 200
-    assert overall_message_rate > min_message_rate, (
-        f"Overall message rate too low: {overall_message_rate:.1f} msg/sec"
-    )
-    assert overall_error_rate < 0.05, (
-        f"Overall error rate too high: {overall_error_rate:.2%}"
-    )
-    assert len(final_sessions) <= 10, (
-        f"Too many lingering sessions: {len(final_sessions)}"
-    )
+    assert (
+        overall_message_rate > min_message_rate
+    ), f"Overall message rate too low: {overall_message_rate:.1f} msg/sec"
+    assert (
+        overall_error_rate < 0.05
+    ), f"Overall error rate too high: {overall_error_rate:.2%}"
+    assert (
+        len(final_sessions) <= 10
+    ), f"Too many lingering sessions: {len(final_sessions)}"
 
     # Each scenario should have reasonable performance
     for scenario_name, stats in scenario_stats.items():
@@ -675,8 +675,8 @@ async def test_mixed_load_scenarios(stress_session_manager, stress_test_config):
 
         # Allow some tolerance for injected errors
         max_allowed_error_rate = max(expected_error_rate * 1.5, 0.1)
-        assert scenario_error_rate <= max_allowed_error_rate, (
-            f"Scenario {scenario_name} error rate too high: {scenario_error_rate:.2%}"
-        )
+        assert (
+            scenario_error_rate <= max_allowed_error_rate
+        ), f"Scenario {scenario_name} error rate too high: {scenario_error_rate:.2%}"
 
     logger.info("✅ Mixed load scenarios test passed")

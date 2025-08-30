@@ -75,9 +75,8 @@ class PatchMemoryManager:
                 f"```diff\n{truncated_patch}\n... [truncated {patch_size - self.max_patch_size} chars]\n```",
                 True,
             )
-        else:
-            self.current_memory_usage += patch_size
-            return f"```diff\n{patch_content}\n```", False
+        self.current_memory_usage += patch_size
+        return f"```diff\n{patch_content}\n```", False
 
 
 async def github_get_pr_checks(
@@ -483,7 +482,7 @@ async def github_list_pull_requests(
                     f"🔒 GitHub API authentication failed (401): {response_text}"
                 )
                 return f"❌ GitHub API error 401: {response_text}"
-            elif response.status != 200:
+            if response.status != 200:
                 response_text = await response.text()
                 logger.error(f"❌ GitHub API error {response.status}: {response_text}")
                 return f"❌ Failed to list pull requests: {response.status} - {response_text}"
@@ -815,11 +814,10 @@ async def github_merge_pr(
             if result.get("merged"):
                 logger.info(f"✅ Successfully merged PR #{pr_number}")
                 return f"✅ {result['message']}"
-            else:
-                logger.warning(
-                    f"⚠️ Merge attempt for PR #{pr_number} returned 200 OK but 'merged' is false: {result.get('message')}"
-                )
-                return f"⚠️ {result.get('message', 'Merge was not successful but API returned 200 OK. Check PR status.')}"
+            logger.warning(
+                f"⚠️ Merge attempt for PR #{pr_number} returned 200 OK but 'merged' is false: {result.get('message')}"
+            )
+            return f"⚠️ {result.get('message', 'Merge was not successful but API returned 200 OK. Check PR status.')}"
 
     except ValueError as auth_error:
         logger.error(f"Authentication error merging PR: {auth_error}")
@@ -1718,12 +1716,11 @@ async def github_list_workflow_runs(
                     f"🔒 GitHub API authentication failed (401): {response_text}"
                 )
                 return "❌ GitHub API authentication failed: Verify your GITHUB_TOKEN has Actions read permissions"
-            elif response.status == 404:
+            if response.status == 404:
                 if workflow_id:
                     return f"❌ Workflow '{workflow_id}' not found in {repo_owner}/{repo_name}. Check workflow file name or ID."
-                else:
-                    return f"❌ Repository {repo_owner}/{repo_name} not found or Actions not enabled"
-            elif response.status != 200:
+                return f"❌ Repository {repo_owner}/{repo_name} not found or Actions not enabled"
+            if response.status != 200:
                 response_text = await response.text()
                 logger.error(f"❌ GitHub API error {response.status}: {response_text}")
                 return f"❌ Failed to list workflow runs: {response.status} - {response_text}"

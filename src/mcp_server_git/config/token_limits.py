@@ -1,5 +1,4 @@
-"""
-Token limit configuration for MCP Git Server.
+"""Token limit configuration for MCP Git Server.
 
 This module provides configuration management for token limits, client detection,
 and content optimization settings. Configuration can be loaded from environment
@@ -171,8 +170,7 @@ class TokenLimitConfigManager:
         profile: TokenLimitProfile | None = None,
         **overrides,
     ) -> TokenLimitSettings:
-        """
-        Load configuration from multiple sources.
+        """Load configuration from multiple sources.
 
         Args:
             config_file: Path to configuration file
@@ -359,9 +357,8 @@ class TokenLimitConfigManager:
             setattr(self._settings, key, value)
             self.logger.info(f"Updated setting {key} = {value}")
             return True
-        else:
-            self.logger.error(f"Unknown setting: {key}")
-            return False
+        self.logger.error(f"Unknown setting: {key}")
+        return False
 
 
 # Global configuration manager instance

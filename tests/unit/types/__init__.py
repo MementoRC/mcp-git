@@ -1,5 +1,4 @@
-"""
-Unit tests for the domain-specific type system.
+"""Unit tests for the domain-specific type system.
 
 This package contains comprehensive test specifications that define the behavioral
 requirements for all type definitions in the MCP Git server.

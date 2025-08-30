@@ -1,5 +1,4 @@
-"""
-Git domain type definitions for the MCP Git Server.
+"""Git domain type definitions for the MCP Git Server.
 
 This module provides comprehensive type definitions for Git-related operations,
 including repository paths, branches, commits, and operation results. All types
@@ -90,8 +89,7 @@ class GitOperationError(Exception):
 
 @dataclass
 class GitRepositoryPath:
-    """
-    Type-safe representation of a Git repository path.
+    """Type-safe representation of a Git repository path.
 
     Validates that the path points to a valid Git repository and provides
     metadata about the repository structure and state.
@@ -112,8 +110,7 @@ class GitRepositoryPath:
     is_clean: bool = True
 
     def __init__(self, path: str | Path):
-        """
-        Initialize GitRepositoryPath with validation.
+        """Initialize GitRepositoryPath with validation.
 
         Args:
             path: Path to the Git repository (string or Path object)
@@ -162,8 +159,7 @@ class GitRepositoryPath:
         self.is_clean = True  # Will be populated on demand
 
     def _validate_git_repository(self, path: Path) -> tuple[Path, Path | None, bool]:
-        """
-        Validate that the path is a valid Git repository.
+        """Validate that the path is a valid Git repository.
 
         Returns:
             Tuple of (git_dir, work_tree, is_bare)
@@ -182,7 +178,7 @@ class GitRepositoryPath:
         if git_subdir.exists():
             if git_subdir.is_dir():
                 return git_subdir, path, False
-            elif git_subdir.is_file():
+            if git_subdir.is_file():
                 # Git worktree - .git is a file containing path to real .git
                 try:
                     git_file_content = git_subdir.read_text().strip()
@@ -209,7 +205,7 @@ class GitRepositoryPath:
             if git_dir.exists():
                 if git_dir.is_dir():
                     return git_dir, current, False
-                elif git_dir.is_file():
+                if git_dir.is_file():
                     # Handle git worktree
                     try:
                         git_file_content = git_dir.read_text().strip()
@@ -236,8 +232,7 @@ class GitRepositoryPath:
         return str(self.path)
 
     def is_valid(self) -> bool:
-        """
-        Check if this is a valid git repository path.
+        """Check if this is a valid git repository path.
 
         Returns:
             True if the path is a valid git repository
@@ -245,8 +240,7 @@ class GitRepositoryPath:
         return self.git_dir is not None and self.git_dir.exists()
 
     def exists(self) -> bool:
-        """
-        Check if the repository path exists.
+        """Check if the repository path exists.
 
         Returns:
             True if the path exists
@@ -254,8 +248,7 @@ class GitRepositoryPath:
         return self.path.exists()
 
     def get_repository_info(self) -> dict[str, Any]:
-        """
-        Get metadata about the repository.
+        """Get metadata about the repository.
 
         Returns:
             Dictionary containing repository information

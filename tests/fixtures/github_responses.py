@@ -1,5 +1,4 @@
-"""
-GitHub API response fixtures for testing.
+"""GitHub API response fixtures for testing.
 
 Provides mock responses for GitHub API calls to enable testing
 without actual API requests.

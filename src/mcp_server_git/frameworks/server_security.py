@@ -1,5 +1,4 @@
-"""
-Security and validation framework for the MCP Git Server.
+"""Security and validation framework for the MCP Git Server.
 
 This module contains the SecurityFramework class that implements comprehensive
 security and validation logic extracted from the monolithic server.py file.
@@ -367,8 +366,7 @@ class InputSanitizer:
 
 
 class SecurityFramework(DebuggableComponent):
-    """
-    Central security framework for the MCP Git Server.
+    """Central security framework for the MCP Git Server.
 
     Implements comprehensive security and validation logic including
     authentication, authorization, input validation, and security
@@ -698,7 +696,7 @@ class SecurityFramework(DebuggableComponent):
 
         return True
 
-    def _record_failed_attempt(self, context: str, reason: str):
+    def _record_failed_attempt(self, context: str, reason: str) -> None:
         """Record a failed authentication/authorization attempt."""
         current_time = datetime.now()
 
@@ -722,7 +720,7 @@ class SecurityFramework(DebuggableComponent):
             },
         )
 
-    def _log_security_event(self, event_type: str, details: dict[str, Any]):
+    def _log_security_event(self, event_type: str, details: dict[str, Any]) -> None:
         """Log security events for audit purposes."""
         event = {
             "timestamp": datetime.now().isoformat(),
@@ -765,8 +763,7 @@ class SecurityFramework(DebuggableComponent):
         }
 
     def inspect_state(self, path: str | None = None) -> dict[str, Any]:
-        """
-        Inspect specific parts of the security component state.
+        """Inspect specific parts of the security component state.
 
         Args:
             path: Optional dot-notation path to specific state
@@ -807,8 +804,7 @@ class SecurityFramework(DebuggableComponent):
         return {path: current}
 
     def get_component_dependencies(self) -> list[str]:
-        """
-        Get list of component dependencies.
+        """Get list of component dependencies.
 
         Returns:
             List of component IDs that this security component depends on
@@ -816,8 +812,7 @@ class SecurityFramework(DebuggableComponent):
         return ["git_service", "github_api", "configuration_manager", "logging_service"]
 
     def export_state_json(self) -> str:
-        """
-        Export security component state as JSON for external analysis.
+        """Export security component state as JSON for external analysis.
 
         Returns:
             JSON string representation of complete component state
@@ -839,8 +834,7 @@ class SecurityFramework(DebuggableComponent):
         return json.dumps(state_data, indent=2, default=json_serializer)
 
     def health_check(self) -> dict[str, bool | str | int | float]:
-        """
-        Perform a health check on the security component.
+        """Perform a health check on the security component.
 
         Returns:
             Dictionary with health status information
@@ -904,8 +898,7 @@ class SecurityFramework(DebuggableComponent):
 
 
 def validate_git_security_config(repo_path: str) -> dict[str, Any]:
-    """
-    Validate Git repository security configuration.
+    """Validate Git repository security configuration.
 
     This function checks various security aspects of a Git repository
     configuration including GPG signing, user configuration, and

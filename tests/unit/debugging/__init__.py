@@ -1,3 +1,1 @@
-"""
-Tests for the debugging framework.
-"""
+"""Tests for the debugging framework."""

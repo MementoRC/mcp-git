@@ -1,5 +1,4 @@
-"""
-MCP Server Framework - Core architectural patterns for MCP server implementation.
+"""MCP Server Framework - Core architectural patterns for MCP server implementation.
 
 This module provides the foundational framework for building MCP (Model Context Protocol)
 servers with plugin architecture, component lifecycle management, and dependency injection.
@@ -157,8 +156,7 @@ class EventSubscription:
 
 
 class MCPServerFramework(DebuggableComponent):
-    """
-    Core MCP server framework providing plugin architecture and component management.
+    """Core MCP server framework providing plugin architecture and component management.
 
     This framework implements the foundational patterns for MCP server development:
     - Component registration and lifecycle management
@@ -176,8 +174,7 @@ class MCPServerFramework(DebuggableComponent):
     """
 
     def __init__(self, config: dict[str, Any] | None = None):
-        """
-        Initialize the MCP server framework.
+        """Initialize the MCP server framework.
 
         Args:
             config: Optional configuration dictionary
@@ -205,8 +202,7 @@ class MCPServerFramework(DebuggableComponent):
         priority: int = 100,
         auto_start: bool = True,
     ) -> None:
-        """
-        Register a component with the framework.
+        """Register a component with the framework.
 
         Args:
             name: Unique component name
@@ -233,8 +229,7 @@ class MCPServerFramework(DebuggableComponent):
         logger.info(f"Registered component: {name} (priority: {priority})")
 
     def register_plugin(self, plugin: MCPPlugin) -> None:
-        """
-        Register a plugin with the framework.
+        """Register a plugin with the framework.
 
         Args:
             plugin: Plugin instance
@@ -255,8 +250,7 @@ class MCPServerFramework(DebuggableComponent):
         component_name: str,
         priority: int = 100,
     ) -> None:
-        """
-        Subscribe to framework events.
+        """Subscribe to framework events.
 
         Args:
             event_type: Type of event to subscribe to
@@ -280,8 +274,7 @@ class MCPServerFramework(DebuggableComponent):
         logger.debug(f"Subscribed {component_name} to event: {event_type}")
 
     async def emit_event(self, event_type: str, event_data: Any = None) -> None:
-        """
-        Emit an event to all subscribers.
+        """Emit an event to all subscribers.
 
         Args:
             event_type: Type of event to emit
@@ -304,8 +297,7 @@ class MCPServerFramework(DebuggableComponent):
                 )
 
     def get_component(self, name: str) -> Any | None:
-        """
-        Get a registered component by name.
+        """Get a registered component by name.
 
         Args:
             name: Component name
@@ -317,8 +309,7 @@ class MCPServerFramework(DebuggableComponent):
         return registration.component if registration else None
 
     def _resolve_initialization_order(self) -> list[str]:
-        """
-        Resolve component initialization order based on dependencies and priorities.
+        """Resolve component initialization order based on dependencies and priorities.
 
         Returns:
             List of component names in initialization order
@@ -367,8 +358,7 @@ class MCPServerFramework(DebuggableComponent):
         return order
 
     async def initialize(self) -> None:
-        """
-        Initialize all registered components and plugins.
+        """Initialize all registered components and plugins.
 
         Raises:
             RuntimeError: If framework already initialized
@@ -421,8 +411,7 @@ class MCPServerFramework(DebuggableComponent):
         logger.info("MCP server framework initialization completed")
 
     async def start(self) -> None:
-        """
-        Start all registered components and plugins.
+        """Start all registered components and plugins.
 
         Raises:
             RuntimeError: If framework not initialized or already started
@@ -524,8 +513,7 @@ class MCPServerFramework(DebuggableComponent):
         logger.info("MCP server framework stopped")
 
     def add_shutdown_handler(self, handler: Callable) -> None:
-        """
-        Add a shutdown handler to be called during framework shutdown.
+        """Add a shutdown handler to be called during framework shutdown.
 
         Args:
             handler: Callable to execute during shutdown

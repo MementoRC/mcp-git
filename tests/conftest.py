@@ -1,5 +1,4 @@
-"""
-Global pytest configuration and fixtures for TDD test suite with intelligent status tracking.
+"""Global pytest configuration and fixtures for TDD test suite with intelligent status tracking.
 
 This file provides:
 1. Shared fixtures and configuration for all test levels
@@ -220,7 +219,7 @@ def current_phase(test_status):
 pytest_plugins: list[str] = []
 
 
-def pytest_configure(config):
+def pytest_configure(config) -> None:
     """Configure pytest markers including test status tracking."""
     # Original markers
     config.addinivalue_line("markers", "unit: Unit tests for individual components")
@@ -249,7 +248,7 @@ def pytest_configure(config):
     config.addinivalue_line("markers", "critical: Test critical for current phase")
 
 
-def pytest_collection_modifyitems(config, items):
+def pytest_collection_modifyitems(config, items) -> None:
     """Automatically mark tests based on their location and implementation status."""
     test_status = load_test_status()
     current_phase = test_status.get("current_phase", "")
@@ -297,7 +296,7 @@ def pytest_collection_modifyitems(config, items):
             item.add_marker(pytest.mark.critical)
 
 
-def pytest_terminal_summary(terminalreporter, exitstatus, config):
+def pytest_terminal_summary(terminalreporter, exitstatus, config) -> None:
     """Enhanced terminal summary with phase information and failure analysis."""
     test_status = load_test_status()
     current_phase = test_status.get("current_phase", "unknown")

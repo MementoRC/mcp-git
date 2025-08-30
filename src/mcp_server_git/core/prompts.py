@@ -1,5 +1,4 @@
-"""
-Intelligent prompts for MCP Git Server
+"""Intelligent prompts for MCP Git Server
 Centralized prompt management for AI-assisted Git and GitHub workflows
 """
 

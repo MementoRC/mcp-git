@@ -17,12 +17,12 @@ Usage:
     python scripts/session_notebook.py export-uckn
 """
 
+import argparse
 import json
 import sys
-import argparse
-from pathlib import Path
 from datetime import datetime
-from typing import Dict, Any
+from pathlib import Path
+from typing import Any
 
 
 class SessionNotebook:
@@ -35,10 +35,10 @@ class SessionNotebook:
         self.session_data_file = project_root / ".taskmaster" / "session-data.json"
         self.current_session = self._load_current_session()
 
-    def _load_current_session(self) -> Dict[str, Any]:
+    def _load_current_session(self) -> dict[str, Any]:
         """Load current session data"""
         if self.session_data_file.exists():
-            with open(self.session_data_file, "r") as f:
+            with open(self.session_data_file) as f:
                 return json.load(f)
         return self._create_new_session()
 
@@ -48,7 +48,7 @@ class SessionNotebook:
         with open(self.session_data_file, "w") as f:
             json.dump(self.current_session, f, indent=2)
 
-    def _create_new_session(self) -> Dict[str, Any]:
+    def _create_new_session(self) -> dict[str, Any]:
         """Create new session data structure"""
         return {
             "session_id": datetime.now().strftime("%Y%m%d_%H%M%S"),
@@ -163,7 +163,7 @@ class SessionNotebook:
         self._save_session_data()
         print(f"🛠️ Recorded tool usage: {tool_name} for {purpose}")
 
-    def set_metrics(self, metric_type: str, metrics: Dict[str, Any]):
+    def set_metrics(self, metric_type: str, metrics: dict[str, Any]):
         """Set before/after metrics for the session"""
         if metric_type in ["before", "after"]:
             self.current_session["metrics"][metric_type] = {

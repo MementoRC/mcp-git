@@ -1,5 +1,4 @@
-"""
-Token management utilities for LLM client optimization.
+"""Token management utilities for LLM client optimization.
 
 This module provides token estimation, content optimization, and intelligent truncation
 capabilities for the MCP Git Server to prevent overwhelming LLM clients with excessive
@@ -117,8 +116,7 @@ class TokenEstimator:
     def estimate_tokens(
         self, content: str, content_type: ContentType = ContentType.TEXT
     ) -> TokenEstimate:
-        """
-        Estimate token count for given content.
+        """Estimate token count for given content.
 
         Args:
             content: The text content to analyze
@@ -489,8 +487,7 @@ class IntelligentTruncationManager:
     def truncate_for_operation(
         self, content: str, operation: str, max_tokens: int
     ) -> TruncationResult:
-        """
-        Truncate content using operation-specific strategy.
+        """Truncate content using operation-specific strategy.
 
         Args:
             content: The content to truncate
@@ -539,8 +536,7 @@ class ClientDetector:
     def detect_client_type(
         self, user_agent: str = "", request_metadata: dict = None
     ) -> ClientType:
-        """
-        Detect client type based on available metadata.
+        """Detect client type based on available metadata.
 
         Args:
             user_agent: User-Agent header value

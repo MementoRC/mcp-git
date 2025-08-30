@@ -1,5 +1,4 @@
-"""
-MCP Server Git Models Module
+"""MCP Server Git Models Module
 
 This module contains Pydantic models for handling MCP protocol messages
 and validating incoming client notifications.

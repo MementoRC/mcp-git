@@ -133,7 +133,7 @@ def _validate_diff_parameters(
         is_valid, error_msg = _validate_commit_range(commit_range)
         if not is_valid:
             return False, f"Invalid commit_range: {error_msg}"
-        elif error_msg:  # Warning case
+        if error_msg:  # Warning case
             return True, error_msg
 
     return True, ""
@@ -186,8 +186,7 @@ def git_status(repo: Repo, porcelain: bool = False) -> str:
     """
     if porcelain:
         return repo.git.status("--porcelain")
-    else:
-        return repo.git.status()
+    return repo.git.status()
 
 
 def git_diff_unstaged(
@@ -487,11 +486,11 @@ def git_commit(
                 )
 
                 return success_msg
-            else:
-                return f"❌ Commit failed: {result.stderr}\n🔒 GPG signing was enforced but failed"
-        else:
-            # This path should never be reached due to force_gpg=True
-            return "❌ SECURITY VIOLATION: Unsigned commits are not allowed by MCP Git Server"
+            return f"❌ Commit failed: {result.stderr}\n🔒 GPG signing was enforced but failed"
+        # This path should never be reached due to force_gpg=True
+        return (
+            "❌ SECURITY VIOLATION: Unsigned commits are not allowed by MCP Git Server"
+        )
 
     except GitCommandError as e:
         return f"❌ Commit failed: {str(e)}\n🔒 Security enforcement may have prevented insecure operation"
@@ -652,8 +651,7 @@ def git_add(
         error_msg = str(e)
         if "Git command failed" in error_msg:
             return "❌ Git add failed: Git command failed"
-        else:
-            return f"❌ Git add failed: {error_msg}"
+        return f"❌ Git add failed: {error_msg}"
     except Exception as e:
         return f"❌ Git add failed: {str(e)}"
 
@@ -809,17 +807,16 @@ def git_reset(
         # Build success message
         if files:
             return f"✅ Reset {len(files)} file(s): {', '.join(files)}"
-        elif mode == "soft":
+        if mode == "soft":
             return f"✅ Soft reset to {target if target else 'HEAD'} - keeping changes in index"
-        elif mode == "mixed" or not mode:
+        if mode == "mixed" or not mode:
             target_msg = f" to {target}" if target else ""
             return f"✅ Mixed reset{target_msg} - {status_before if status_before else 'no staged changes'}"
-        elif mode == "hard":
+        if mode == "hard":
             target_msg = f" to {target}" if target else ""
             return f"✅ Hard reset{target_msg} - {status_before if status_before else 'no changes'} discarded"
-        else:
-            # Fallback return (should not reach here)
-            return "✅ Reset completed"
+        # Fallback return (should not reach here)
+        return "✅ Reset completed"
 
     except GitCommandError as e:
         return f"❌ Reset failed: {str(e)}"
@@ -1211,33 +1208,26 @@ def git_push(
                             success_msg += " (set upstream tracking)"
                         success_msg += "\n🔐 Used system git authentication"
                         return success_msg
-                    else:
-                        error_output = result.stderr.strip()
-                        if (
-                            "Authentication failed" in error_output
-                            or "401" in error_output
-                        ):
-                            # Add debug info directly to error message
-                            repo_env = Path(repo.working_dir) / ".env"
-                            token_status = (
-                                "SET" if os.getenv("GITHUB_TOKEN") else "NOT SET"
-                            )
-                            return (
-                                f"❌ Authentication failed. Configure GITHUB_TOKEN environment variable "
-                                f"or GitHub CLI authentication (gh auth login)\n"
-                                f"🔍 DEBUG: GITHUB_TOKEN: {token_status}, "
-                                f".env exists: {repo_env.exists()}, "
-                                f"working_dir: {repo.working_dir}\n"
-                                f"🔍 System git error: {error_output}"
-                            )
-                        elif (
-                            "403" in error_output or "Permission denied" in error_output
-                        ):
-                            return "❌ Permission denied. Check repository access permissions"
-                        elif "non-fast-forward" in error_output:
-                            return "❌ Push rejected (non-fast-forward). Use force=True if needed"
-                        else:
-                            return f"❌ Push failed: {error_output}"
+                    error_output = result.stderr.strip()
+                    if "Authentication failed" in error_output or "401" in error_output:
+                        # Add debug info directly to error message
+                        repo_env = Path(repo.working_dir) / ".env"
+                        token_status = "SET" if os.getenv("GITHUB_TOKEN") else "NOT SET"
+                        return (
+                            f"❌ Authentication failed. Configure GITHUB_TOKEN environment variable "
+                            f"or GitHub CLI authentication (gh auth login)\n"
+                            f"🔍 DEBUG: GITHUB_TOKEN: {token_status}, "
+                            f".env exists: {repo_env.exists()}, "
+                            f"working_dir: {repo.working_dir}\n"
+                            f"🔍 System git error: {error_output}"
+                        )
+                    if "403" in error_output or "Permission denied" in error_output:
+                        return (
+                            "❌ Permission denied. Check repository access permissions"
+                        )
+                    if "non-fast-forward" in error_output:
+                        return "❌ Push rejected (non-fast-forward). Use force=True if needed"
+                    return f"❌ Push failed: {error_output}"
 
                 except subprocess.TimeoutExpired:
                     return "❌ Push operation timed out. Check network connection and repository access"
@@ -1266,14 +1256,13 @@ def git_push(
                         f"working_dir: {repo.working_dir}\n"
                         f"🔍 GitPython error: {str(e)}"
                     )
-                elif "403" in str(e) or "Permission denied" in str(e):
+                if "403" in str(e) or "Permission denied" in str(e):
                     return "❌ Permission denied. Check repository access permissions"
 
             # Standard error handling for non-GitHub or non-auth issues
             if "non-fast-forward" in str(e):
                 return "❌ Push rejected (non-fast-forward). Use force=True if needed"
-            else:
-                return f"❌ Push failed: {str(e)}"
+            return f"❌ Push failed: {str(e)}"
 
     except GitCommandError as e:
         if "Authentication failed" in str(e) or "401" in str(e):
@@ -1293,12 +1282,11 @@ def git_push(
                 f"working_dir: {repo.working_dir}\n"
                 f"🔍 Outer GitPython error: {str(e)}"
             )
-        elif "403" in str(e):
+        if "403" in str(e):
             return "❌ Permission denied. Check repository access permissions"
-        elif "non-fast-forward" in str(e):
+        if "non-fast-forward" in str(e):
             return "❌ Push rejected (non-fast-forward). Use force=True if needed"
-        else:
-            return f"❌ Push failed: {str(e)}"
+        return f"❌ Push failed: {str(e)}"
     except Exception as e:
         return f"❌ Push error: {str(e)}"
 
@@ -1324,10 +1312,9 @@ def git_pull(repo: Repo, remote: str = "origin", branch: str | None = None) -> s
     except GitCommandError as e:
         if "Authentication failed" in str(e):
             return f"❌ Authentication failed. Check credentials for {remote}"
-        elif "merge conflict" in str(e).lower():
+        if "merge conflict" in str(e).lower():
             return "❌ Pull failed due to merge conflicts. Resolve conflicts and retry"
-        else:
-            return f"❌ Pull failed: {str(e)}"
+        return f"❌ Pull failed: {str(e)}"
     except Exception as e:
         return f"❌ Pull error: {str(e)}"
 
@@ -1447,8 +1434,7 @@ def git_rebase(repo: Repo, target_branch: str) -> str:
     except GitCommandError as e:
         if "conflict" in str(e).lower():
             return "❌ Rebase failed due to conflicts. Resolve conflicts and run 'git rebase --continue'"
-        else:
-            return f"❌ Rebase failed: {str(e)}"
+        return f"❌ Rebase failed: {str(e)}"
     except Exception as e:
         return f"❌ Rebase error: {str(e)}"
 
@@ -1496,8 +1482,7 @@ def git_merge(
     except GitCommandError as e:
         if "conflict" in str(e).lower():
             return "❌ Merge failed due to conflicts. Resolve conflicts and commit"
-        else:
-            return f"❌ Merge failed: {str(e)}"
+        return f"❌ Merge failed: {str(e)}"
     except Exception as e:
         return f"❌ Merge error: {str(e)}"
 
@@ -1521,8 +1506,7 @@ def git_cherry_pick(repo: Repo, commit_hash: str, no_commit: bool = False) -> st
             return (
                 "❌ Cherry-pick failed due to conflicts. Resolve conflicts and continue"
             )
-        else:
-            return f"❌ Cherry-pick failed: {str(e)}"
+        return f"❌ Cherry-pick failed: {str(e)}"
     except Exception as e:
         return f"❌ Cherry-pick error: {str(e)}"
 
@@ -1622,8 +1606,7 @@ def git_remote_list(repo: Repo, verbose: bool = False) -> str:
     try:
         if verbose:
             return repo.git.remote("-v")
-        else:
-            return repo.git.remote()
+        return repo.git.remote()
     except GitCommandError as e:
         return f"❌ Remote list failed: {str(e)}"
     except Exception as e:
@@ -1705,10 +1688,9 @@ def git_fetch(
             return f"✅ Successfully fetched {remote}/{branch}" + (
                 " (with prune)" if prune else ""
             )
-        else:
-            return f"✅ Successfully fetched from {remote}" + (
-                " (with prune)" if prune else ""
-            )
+        return f"✅ Successfully fetched from {remote}" + (
+            " (with prune)" if prune else ""
+        )
     except GitCommandError as e:
         return f"❌ Fetch failed: {str(e)}"
     except Exception as e:
@@ -1753,9 +1735,8 @@ def git_stash_pop(repo: Repo, stash_id: str | None = None) -> str:
         if stash_id:
             repo.git.stash("pop", stash_id)
             return f"✅ Successfully popped stash {stash_id}"
-        else:
-            repo.git.stash("pop")
-            return "✅ Successfully popped latest stash"
+        repo.git.stash("pop")
+        return "✅ Successfully popped latest stash"
     except GitCommandError as e:
         return f"❌ Stash pop failed: {str(e)}"
     except Exception as e:
@@ -1768,9 +1749,8 @@ def git_stash_drop(repo: Repo, stash_id: str | None = None) -> str:
         if stash_id:
             repo.git.stash("drop", stash_id)
             return f"✅ Successfully dropped stash {stash_id}"
-        else:
-            repo.git.stash("drop")
-            return "✅ Successfully dropped latest stash"
+        repo.git.stash("drop")
+        return "✅ Successfully dropped latest stash"
     except GitCommandError as e:
         return f"❌ Stash drop failed: {str(e)}"
     except Exception as e:

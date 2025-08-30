@@ -1,5 +1,4 @@
-"""
-Content optimization utilities for LLM clients.
+"""Content optimization utilities for LLM clients.
 
 This module provides content transformation capabilities to convert human-friendly
 git operation output into LLM-optimized format that reduces token usage while
@@ -89,8 +88,7 @@ class ContentOptimizer:
     def optimize_for_client(
         self, content: str, client_type: ClientType, operation: str = ""
     ) -> str:
-        """
-        Optimize content formatting based on client type.
+        """Optimize content formatting based on client type.
 
         Args:
             content: Original content to optimize
@@ -104,13 +102,13 @@ class ContentOptimizer:
             # Keep human-friendly formatting
             return content
 
-        elif client_type == ClientType.LLM:
+        if client_type == ClientType.LLM:
             # Apply LLM optimizations
             return self._optimize_for_llm(content, operation)
 
-        else:  # ClientType.UNKNOWN
-            # Apply conservative optimizations
-            return self._optimize_conservatively(content, operation)
+        # ClientType.UNKNOWN
+        # Apply conservative optimizations
+        return self._optimize_conservatively(content, operation)
 
     def _optimize_for_llm(self, content: str, operation: str) -> str:
         """Apply aggressive optimizations for LLM clients."""
@@ -161,11 +159,11 @@ class ContentOptimizer:
         """Apply operation-specific optimizations."""
         if operation.startswith("git_diff"):
             return self._optimize_diff_output(content)
-        elif operation == "git_status":
+        if operation == "git_status":
             return self._optimize_status_output(content)
-        elif operation == "git_log":
+        if operation == "git_log":
             return self._optimize_log_output(content)
-        elif operation.startswith("github_"):
+        if operation.startswith("github_"):
             return self._optimize_github_output(content)
 
         return content
@@ -256,8 +254,7 @@ class ResponseFormatter:
         operation: str = "",
         metadata: dict[str, Any] = None,
     ) -> str:
-        """
-        Format response content for the client.
+        """Format response content for the client.
 
         Args:
             content: Original response content
@@ -298,9 +295,9 @@ class ResponseFormatter:
         """Add structure markers for better LLM parsing."""
         if operation.startswith("git_diff"):
             return f"DIFF_START\n{content}\nDIFF_END"
-        elif operation == "git_status":
+        if operation == "git_status":
             return f"STATUS_START\n{content}\nSTATUS_END"
-        elif operation == "git_log":
+        if operation == "git_log":
             return f"LOG_START\n{content}\nLOG_END"
 
         return content

@@ -1,5 +1,4 @@
-"""
-Server middleware components for MCP Git Server.
+"""Server middleware components for MCP Git Server.
 
 This module provides composable middleware for cross-cutting concerns including
 authentication, logging, error handling, and request tracking.
@@ -54,8 +53,7 @@ class BaseMiddleware(ABC):
     async def process_request(
         self, context: MiddlewareContext, next_handler: MiddlewareHandler
     ) -> Any:
-        """
-        Process a request through this middleware.
+        """Process a request through this middleware.
 
         Args:
             context: The middleware context

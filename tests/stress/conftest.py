@@ -3,7 +3,7 @@
 import os
 import time
 import uuid
-from typing import Any, Optional
+from typing import Any, Optional, Never
 
 import pytest
 
@@ -22,14 +22,14 @@ class MockMCPClient:
         self.message_count = 0
         self.error_count = 0
 
-    async def connect(self):
+    async def connect(self) -> None:
         """Simulate client connection."""
         self.connected = True
         self.session_id = str(uuid.uuid4())
         self.message_count = 0
         self.error_count = 0
 
-    async def disconnect(self):
+    async def disconnect(self) -> None:
         """Simulate client disconnection."""
         self.connected = False
         self.session_id = None
@@ -76,7 +76,7 @@ class MockMCPClient:
             "operation_id": operation_id,
         }
 
-    async def send_invalid_message(self):
+    async def send_invalid_message(self) -> Never:
         """Send an intentionally invalid message."""
         if not self.connected:
             raise RuntimeError("Client not connected")
@@ -85,7 +85,7 @@ class MockMCPClient:
         # Simulate sending malformed JSON or invalid message type
         raise ValueError("Invalid message format")
 
-    async def send_raw_message(self, message: dict[str, Any]):
+    async def send_raw_message(self, message: dict[str, Any]) -> None:
         """Send a raw message (for error injection)."""
         if not self.connected:
             raise RuntimeError("Client not connected")
@@ -330,7 +330,7 @@ def memory_monitor():
             )
             return slope
 
-        def log_samples(self):
+        def log_samples(self) -> None:
             """Log all memory samples."""
             for i, sample in enumerate(self.samples):
                 print(f"Sample {i}: {sample['memory_mb']:.2f} MB - {sample['label']}")
@@ -338,7 +338,7 @@ def memory_monitor():
     return MemoryMonitor()
 
 
-def pytest_configure(config):
+def pytest_configure(config) -> None:
     """Configure pytest for stress tests."""
     config.addinivalue_line(
         "markers",
@@ -346,7 +346,7 @@ def pytest_configure(config):
     )
 
 
-def pytest_collection_modifyitems(config, items):
+def pytest_collection_modifyitems(config, items) -> None:
     """Modify test collection to handle stress test markers."""
     # Add stress marker to all tests in stress directory
     for item in items:

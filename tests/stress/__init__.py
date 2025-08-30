@@ -1,5 +1,4 @@
-"""
-Stress testing suite for MCP Git Server.
+"""Stress testing suite for MCP Git Server.
 
 This module contains comprehensive stress tests to validate server stability
 under extreme conditions including:

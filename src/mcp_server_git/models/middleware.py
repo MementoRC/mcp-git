@@ -10,8 +10,7 @@ logger = logging.getLogger(__name__)
 def notification_validator_middleware(
     message: dict[str, Any],
 ) -> CancelledNotification | None:
-    """
-    A middleware that validates incoming notifications.
+    """A middleware that validates incoming notifications.
     It specifically looks for and validates "notifications/cancelled".
     Other notifications are passed through (by returning None).
     """

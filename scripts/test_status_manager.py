@@ -18,12 +18,12 @@ Usage:
     python scripts/test_status_manager.py report
 """
 
+import argparse
 import json
 import sys
-import argparse
-from pathlib import Path
-from typing import Dict, Any
 from datetime import datetime
+from pathlib import Path
+from typing import Any
 
 
 class TestStatusManager:
@@ -35,10 +35,10 @@ class TestStatusManager:
         self.status_file = project_root / ".taskmaster" / "test-status.json"
         self.status_data = self._load_status()
 
-    def _load_status(self) -> Dict[str, Any]:
+    def _load_status(self) -> dict[str, Any]:
         """Load test status configuration"""
         if self.status_file.exists():
-            with open(self.status_file, "r") as f:
+            with open(self.status_file) as f:
                 return json.load(f)
         else:
             return self._create_default_status()
@@ -53,7 +53,7 @@ class TestStatusManager:
         with open(self.status_file, "w") as f:
             json.dump(self.status_data, f, indent=2)
 
-    def _create_default_status(self) -> Dict[str, Any]:
+    def _create_default_status(self) -> dict[str, Any]:
         """Create default test status configuration"""
         return {
             "project": "mcp-git LLM Compliance Enhancement",

@@ -1,5 +1,4 @@
-"""
-Metrics protocol definitions for performance monitoring and data collection.
+"""Metrics protocol definitions for performance monitoring and data collection.
 
 This module defines protocols for performance metrics collection, operation timing,
 success/failure tracking, and resource usage monitoring.
@@ -73,8 +72,7 @@ class MetricCollector(Protocol):
         value: int | float = 1,
         tags: dict[str, str] | None = None,
     ) -> None:
-        """
-        Record a counter metric (monotonically increasing).
+        """Record a counter metric (monotonically increasing).
 
         Args:
             name: Metric name
@@ -92,8 +90,7 @@ class MetricCollector(Protocol):
     def record_gauge(
         self, name: str, value: int | float, tags: dict[str, str] | None = None
     ) -> None:
-        """
-        Record a gauge metric (current value).
+        """Record a gauge metric (current value).
 
         Args:
             name: Metric name
@@ -111,8 +108,7 @@ class MetricCollector(Protocol):
     def record_histogram(
         self, name: str, value: int | float, tags: dict[str, str] | None = None
     ) -> None:
-        """
-        Record a histogram metric (value distribution).
+        """Record a histogram metric (value distribution).
 
         Args:
             name: Metric name
@@ -134,8 +130,7 @@ class MetricCollector(Protocol):
         unit: MetricUnit = MetricUnit.MILLISECONDS,
         tags: dict[str, str] | None = None,
     ) -> None:
-        """
-        Record a timing metric.
+        """Record a timing metric.
 
         Args:
             name: Metric name
@@ -152,8 +147,7 @@ class MetricCollector(Protocol):
 
     @abstractmethod
     def increment(self, name: str, tags: dict[str, str] | None = None) -> None:
-        """
-        Increment a counter by 1.
+        """Increment a counter by 1.
 
         Args:
             name: Metric name
@@ -168,8 +162,7 @@ class MetricCollector(Protocol):
 
     @abstractmethod
     def decrement(self, name: str, tags: dict[str, str] | None = None) -> None:
-        """
-        Decrement a gauge by 1.
+        """Decrement a gauge by 1.
 
         Args:
             name: Metric name
@@ -185,8 +178,7 @@ class PerformanceTimer(Protocol):
     def start_timer(
         self, operation_name: str, metadata: dict[str, Any] | None = None
     ) -> str:
-        """
-        Start timing an operation.
+        """Start timing an operation.
 
         Args:
             operation_name: Name of operation being timed
@@ -205,8 +197,7 @@ class PerformanceTimer(Protocol):
 
     @abstractmethod
     def stop_timer(self, timer_id: str, success: bool = True) -> TimingResult:
-        """
-        Stop a timer and get the result.
+        """Stop a timer and get the result.
 
         Args:
             timer_id: ID returned from start_timer()
@@ -231,8 +222,7 @@ class PerformanceTimer(Protocol):
         operation: Callable[[], Any],
         metadata: dict[str, Any] | None = None,
     ) -> TimingResult:
-        """
-        Time a callable operation.
+        """Time a callable operation.
 
         Args:
             operation_name: Name of operation
@@ -254,8 +244,7 @@ class PerformanceTimer(Protocol):
 
     @abstractmethod
     def get_timing_stats(self, operation_name: str) -> dict[str, float]:
-        """
-        Get timing statistics for an operation.
+        """Get timing statistics for an operation.
 
         Args:
             operation_name: Name of operation to get stats for
@@ -278,8 +267,7 @@ class SuccessFailureTracker(Protocol):
     def record_success(
         self, operation: str, metadata: dict[str, Any] | None = None
     ) -> None:
-        """
-        Record a successful operation.
+        """Record a successful operation.
 
         Args:
             operation: Name of operation that succeeded
@@ -295,8 +283,7 @@ class SuccessFailureTracker(Protocol):
     def record_failure(
         self, operation: str, error_type: str, metadata: dict[str, Any] | None = None
     ) -> None:
-        """
-        Record a failed operation.
+        """Record a failed operation.
 
         Args:
             operation: Name of operation that failed
@@ -313,8 +300,7 @@ class SuccessFailureTracker(Protocol):
     def get_success_rate(
         self, operation: str, time_window: timedelta | None = None
     ) -> float:
-        """
-        Get success rate for an operation.
+        """Get success rate for an operation.
 
         Args:
             operation: Name of operation
@@ -334,8 +320,7 @@ class SuccessFailureTracker(Protocol):
     def get_failure_breakdown(
         self, operation: str, time_window: timedelta | None = None
     ) -> dict[str, int]:
-        """
-        Get breakdown of failure types for an operation.
+        """Get breakdown of failure types for an operation.
 
         Args:
             operation: Name of operation
@@ -357,8 +342,7 @@ class ResourceMonitor(Protocol):
 
     @abstractmethod
     def get_memory_usage(self) -> dict[str, float]:
-        """
-        Get current memory usage statistics.
+        """Get current memory usage statistics.
 
         Returns:
             Dictionary with memory statistics (used, available, percent, etc.)
@@ -372,8 +356,7 @@ class ResourceMonitor(Protocol):
 
     @abstractmethod
     def get_cpu_usage(self) -> dict[str, float]:
-        """
-        Get current CPU usage statistics.
+        """Get current CPU usage statistics.
 
         Returns:
             Dictionary with CPU statistics (percent, load average, etc.)
@@ -382,8 +365,7 @@ class ResourceMonitor(Protocol):
 
     @abstractmethod
     def get_disk_usage(self, path: str = "/") -> dict[str, float]:
-        """
-        Get disk usage statistics for a path.
+        """Get disk usage statistics for a path.
 
         Args:
             path: Path to check disk usage for
@@ -395,8 +377,7 @@ class ResourceMonitor(Protocol):
 
     @abstractmethod
     def get_network_stats(self) -> dict[str, int]:
-        """
-        Get network usage statistics.
+        """Get network usage statistics.
 
         Returns:
             Dictionary with network statistics (bytes sent/received, packets, etc.)
@@ -405,8 +386,7 @@ class ResourceMonitor(Protocol):
 
     @abstractmethod
     def start_resource_monitoring(self, interval: float = 60.0) -> None:
-        """
-        Start continuous resource monitoring.
+        """Start continuous resource monitoring.
 
         Args:
             interval: Monitoring interval in seconds
@@ -426,8 +406,7 @@ class MetricsAggregator(Protocol):
     def get_metric_summary(
         self, metric_name: str, time_window: timedelta | None = None
     ) -> dict[str, float]:
-        """
-        Get summary statistics for a metric.
+        """Get summary statistics for a metric.
 
         Args:
             metric_name: Name of metric to summarize
@@ -440,8 +419,7 @@ class MetricsAggregator(Protocol):
 
     @abstractmethod
     def get_metrics_by_tag(self, tag_filter: dict[str, str]) -> list[MetricValue]:
-        """
-        Get metrics matching tag filters.
+        """Get metrics matching tag filters.
 
         Args:
             tag_filter: Dictionary of tag key-value pairs to match
@@ -453,8 +431,7 @@ class MetricsAggregator(Protocol):
 
     @abstractmethod
     def export_metrics(self, format: str = "json") -> str:
-        """
-        Export metrics in specified format.
+        """Export metrics in specified format.
 
         Args:
             format: Export format (json, csv, prometheus, etc.)
@@ -468,8 +445,7 @@ class MetricsAggregator(Protocol):
     def get_top_metrics(
         self, metric_type: MetricType, limit: int = 10
     ) -> list[MetricValue]:
-        """
-        Get top metrics by value for a given type.
+        """Get top metrics by value for a given type.
 
         Args:
             metric_type: Type of metrics to analyze
@@ -482,8 +458,7 @@ class MetricsAggregator(Protocol):
 
 
 class MetricsSystem(Protocol):
-    """
-    Comprehensive metrics system protocol.
+    """Comprehensive metrics system protocol.
 
     This protocol combines all metrics collection capabilities into a unified
     interface for components that need full metrics functionality.
@@ -498,8 +473,7 @@ class MetricsSystem(Protocol):
 
     @abstractmethod
     def initialize_metrics(self, config: dict[str, Any]) -> None:
-        """
-        Initialize the metrics system with configuration.
+        """Initialize the metrics system with configuration.
 
         Args:
             config: Configuration dictionary with collection settings, etc.
@@ -522,8 +496,7 @@ class MetricsSystem(Protocol):
 
     @abstractmethod
     def get_system_health(self) -> dict[str, bool | float | int]:
-        """
-        Get overall system health metrics.
+        """Get overall system health metrics.
 
         Returns:
             Dictionary with health indicators and key metrics
@@ -538,8 +511,7 @@ class MetricsSystem(Protocol):
 
     @abstractmethod
     def create_dashboard_data(self, dashboard_type: str = "overview") -> dict[str, Any]:
-        """
-        Create data for metrics dashboards.
+        """Create data for metrics dashboards.
 
         Args:
             dashboard_type: Type of dashboard (overview, performance, errors, etc.)
@@ -560,8 +532,7 @@ class AsyncMetricsSystem(Protocol):
 
     @abstractmethod
     async def export_metrics_async(self, endpoints: list[str]) -> dict[str, bool]:
-        """
-        Async export to multiple endpoints.
+        """Async export to multiple endpoints.
 
         Args:
             endpoints: List of export endpoints
@@ -575,8 +546,7 @@ class AsyncMetricsSystem(Protocol):
     async def metrics_stream(
         self, filters: dict[str, Any] | None = None
     ) -> Iterator[MetricValue]:
-        """
-        Stream metrics as they are collected.
+        """Stream metrics as they are collected.
 
         Args:
             filters: Optional filters for metric types, names, etc.

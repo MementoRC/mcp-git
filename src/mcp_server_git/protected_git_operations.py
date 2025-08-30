@@ -1,5 +1,4 @@
-"""
-Protected Git Operations with Repository Binding.
+"""Protected Git Operations with Repository Binding.
 
 This module provides git operations that are protected by repository binding validation.
 All operations validate the repository path matches the bound repository and check
@@ -63,8 +62,7 @@ class ProtectedGitOperations:
         self.confirmation_token = confirmation_token
 
     async def _validate_and_prepare_operation(self, repo_path: str | Path) -> Path:
-        """
-        Validate operation is allowed and prepare for execution.
+        """Validate operation is allowed and prepare for execution.
 
         Args:
             repo_path: Repository path for operation
@@ -229,8 +227,7 @@ class ProtectedGitOperations:
         confirmation_token: str,
         remote_name: str = "origin",
     ) -> str:
-        """
-        Explicitly change remote URL with confirmation.
+        """Explicitly change remote URL with confirmation.
 
         This is the ONLY way to change the remote of a bound repository.
         Requires explicit confirmation to prevent accidental changes.

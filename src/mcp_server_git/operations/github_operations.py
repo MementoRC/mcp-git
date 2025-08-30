@@ -1,5 +1,4 @@
-"""
-GitHub operations module for MCP Git Server.
+"""GitHub operations module for MCP Git Server.
 
 This module provides higher-level GitHub operations that build on primitive operations
 to provide more complex functionality. Operations combine 2-3 primitives to create
@@ -78,8 +77,7 @@ class GitHubOperationError(GitHubPrimitiveError):
 async def create_pull_request(
     repo_owner: str, repo_name: str, request: PullRequestRequest
 ) -> dict[str, Any]:
-    """
-    Create a new pull request in the repository.
+    """Create a new pull request in the repository.
 
     Args:
         repo_owner: Repository owner username
@@ -141,8 +139,7 @@ async def create_pull_request(
 async def update_pull_request(
     repo_owner: str, repo_name: str, pr_number: int, updates: dict[str, Any]
 ) -> dict[str, Any]:
-    """
-    Update an existing pull request.
+    """Update an existing pull request.
 
     Args:
         repo_owner: Repository owner username
@@ -186,8 +183,7 @@ async def update_pull_request(
 async def get_pull_request_with_status(
     repo_owner: str, repo_name: str, pr_number: int
 ) -> dict[str, Any]:
-    """
-    Get pull request information including status checks and reviews.
+    """Get pull request information including status checks and reviews.
 
     Args:
         repo_owner: Repository owner username
@@ -249,8 +245,7 @@ async def merge_pull_request(
     commit_message: str | None = None,
     merge_method: str = "merge",
 ) -> dict[str, Any]:
-    """
-    Merge a pull request.
+    """Merge a pull request.
 
     Args:
         repo_owner: Repository owner username
@@ -308,8 +303,7 @@ async def merge_pull_request(
 async def create_issue(
     repo_owner: str, repo_name: str, issue: IssueRequest
 ) -> dict[str, Any]:
-    """
-    Create a new issue in the repository.
+    """Create a new issue in the repository.
 
     Args:
         repo_owner: Repository owner username
@@ -363,8 +357,7 @@ async def create_issue(
 async def update_issue(
     repo_owner: str, repo_name: str, issue_number: int, updates: dict[str, Any]
 ) -> dict[str, Any]:
-    """
-    Update an existing issue.
+    """Update an existing issue.
 
     Args:
         repo_owner: Repository owner username
@@ -405,8 +398,7 @@ async def update_issue(
 async def create_release(
     repo_owner: str, repo_name: str, release: ReleaseRequest
 ) -> dict[str, Any]:
-    """
-    Create a new release in the repository.
+    """Create a new release in the repository.
 
     Args:
         repo_owner: Repository owner username
@@ -460,8 +452,7 @@ async def create_release(
 
 
 async def list_workflows(repo_owner: str, repo_name: str) -> list[dict[str, Any]]:
-    """
-    List all workflows in the repository.
+    """List all workflows in the repository.
 
     Args:
         repo_owner: Repository owner username
@@ -498,8 +489,7 @@ async def trigger_workflow(
     ref: str = "main",
     inputs: dict[str, Any] | None = None,
 ) -> bool:
-    """
-    Trigger a workflow dispatch event.
+    """Trigger a workflow dispatch event.
 
     Args:
         repo_owner: Repository owner username
@@ -549,8 +539,7 @@ async def trigger_workflow(
 async def get_repository_with_details(
     repo_owner: str, repo_name: str
 ) -> dict[str, Any]:
-    """
-    Get comprehensive repository information including branches and contributors.
+    """Get comprehensive repository information including branches and contributors.
 
     Args:
         repo_owner: Repository owner username

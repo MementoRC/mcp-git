@@ -5,8 +5,7 @@ from typing import Any
 
 
 class MetricsCollector:
-    """
-    Global metrics collector for MCP Git Server.
+    """Global metrics collector for MCP Git Server.
     Aggregates server-wide metrics, performance, and health.
     Thread-safe for async operations.
     """
@@ -25,13 +24,13 @@ class MetricsCollector:
             "startup_time": time.time(),
         }
 
-    async def record_message(self, message_type: str, duration_ms: float):
+    async def record_message(self, message_type: str, duration_ms: float) -> None:
         async with self._lock:
             self._metrics["messages_processed"] += 1
             self._metrics["operations"][message_type] += 1
             self._metrics["message_durations_ms"].append(duration_ms)
 
-    async def record_session_event(self, event_type: str):
+    async def record_session_event(self, event_type: str) -> None:
         async with self._lock:
             self._metrics["session_events"][event_type] += 1
             if event_type == "session_started":
@@ -43,7 +42,7 @@ class MetricsCollector:
 
     async def record_operation(
         self, operation_type: str, success: bool, duration_ms: float | None = None
-    ):
+    ) -> None:
         async with self._lock:
             self._metrics["operations"][operation_type] += 1
             if not success:
@@ -51,7 +50,7 @@ class MetricsCollector:
             if duration_ms is not None:
                 self._metrics["operation_durations_ms"].append(duration_ms)
 
-    async def record_error(self, error_type: str):
+    async def record_error(self, error_type: str) -> None:
         async with self._lock:
             self._metrics["errors"][error_type] += 1
 
@@ -87,7 +86,7 @@ class MetricsCollector:
             self._metrics["last_health_check"] = health["last_health_check"]
             return health
 
-    async def reset(self):
+    async def reset(self) -> None:
         async with self._lock:
             self._metrics = {
                 "messages_processed": 0,

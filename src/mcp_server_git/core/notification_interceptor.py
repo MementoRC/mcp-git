@@ -1,5 +1,4 @@
-"""
-Notification interceptor for handling cancelled notifications before they reach
+"""Notification interceptor for handling cancelled notifications before they reach
 the MCP framework's built-in validation, which doesn't support notifications/cancelled.
 """
 
@@ -12,8 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 class NotificationInterceptor:
-    """
-    Intercepts and preprocesses notifications before they reach the MCP framework.
+    """Intercepts and preprocesses notifications before they reach the MCP framework.
     Specifically handles 'notifications/cancelled' which is not supported by the
     standard MCP ClientNotification union.
     """
@@ -23,8 +21,7 @@ class NotificationInterceptor:
         self.cancelled_count = 0
 
     async def preprocess_message(self, raw_message: str) -> str | None:
-        """
-        Preprocess incoming messages to handle unsupported notification types.
+        """Preprocess incoming messages to handle unsupported notification types.
 
         Args:
             raw_message: Raw JSON message string
@@ -58,12 +55,11 @@ class NotificationInterceptor:
                     logger.debug("✅ Cancelled notification processed successfully")
                     # Drop the message (return None) since we've handled it
                     return None
-                else:
-                    logger.warning(
-                        f"⚠️ Cancelled notification processing failed: {result.error}"
-                    )
-                    # Still drop it to prevent MCP validation crash
-                    return None
+                logger.warning(
+                    f"⚠️ Cancelled notification processing failed: {result.error}"
+                )
+                # Still drop it to prevent MCP validation crash
+                return None
 
             # Check for other unsupported notification types
             if method.startswith("notifications/") and method not in [
@@ -113,8 +109,7 @@ message_interceptor = NotificationInterceptor()
 
 
 class InterceptingReadStream:
-    """
-    A wrapper around read streams that intercepts and preprocesses messages
+    """A wrapper around read streams that intercepts and preprocesses messages
     before they reach the MCP framework.
 
     This properly delegates all async context manager methods to the original stream.
@@ -218,8 +213,7 @@ class InterceptingReadStream:
 
 
 def wrap_read_stream(original_stream):
-    """
-    Wrap a read stream with notification interception capabilities.
+    """Wrap a read stream with notification interception capabilities.
 
     Args:
         original_stream: The original asyncio stream reader
@@ -230,7 +224,7 @@ def wrap_read_stream(original_stream):
     return InterceptingReadStream(original_stream)
 
 
-def log_interception_stats():
+def log_interception_stats() -> None:
     """Log current interception statistics."""
     stats = message_interceptor.get_stats()
     if stats["total_intercepted"] > 0:

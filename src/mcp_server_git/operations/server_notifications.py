@@ -1,5 +1,4 @@
-"""
-Server-level notification operations for the MCP Git server.
+"""Server-level notification operations for the MCP Git server.
 
 This module provides the NotificationOperations class that serves as the primary interface
 for managing notifications, events, and messaging within the MCP Git server. It integrates
@@ -57,8 +56,7 @@ class SubscriptionRecord:
 
 
 class NotificationOperations(DebuggableComponent):
-    """
-    Server-level notification operations manager.
+    """Server-level notification operations manager.
 
     This class provides comprehensive notification handling for the MCP Git server,
     including event publishing, message broadcasting, error reporting, and status updates.
@@ -66,8 +64,7 @@ class NotificationOperations(DebuggableComponent):
     """
 
     def __init__(self, config: GitServerConfig | None = None):
-        """
-        Initialize notification operations.
+        """Initialize notification operations.
 
         Args:
             config: Server configuration for notification settings
@@ -95,8 +92,7 @@ class NotificationOperations(DebuggableComponent):
     # EventPublisher Protocol Implementation
 
     def publish_event(self, event: NotificationEvent) -> None:
-        """
-        Publish an event to all interested subscribers.
+        """Publish an event to all interested subscribers.
 
         Args:
             event: NotificationEvent to publish
@@ -127,8 +123,7 @@ class NotificationOperations(DebuggableComponent):
         self._log_event(event)
 
     def subscribe(self, subscriber: EventSubscriber) -> str:
-        """
-        Register a subscriber for events.
+        """Register a subscriber for events.
 
         Args:
             subscriber: EventSubscriber to register
@@ -151,8 +146,7 @@ class NotificationOperations(DebuggableComponent):
         return subscription_id
 
     def unsubscribe(self, subscription_id: str) -> bool:
-        """
-        Remove a subscriber.
+        """Remove a subscriber.
 
         Args:
             subscription_id: ID returned from subscribe()
@@ -187,8 +181,7 @@ class NotificationOperations(DebuggableComponent):
     def report_status(
         self, status: str, component_id: str, metadata: dict[str, Any] | None = None
     ) -> None:
-        """
-        Report status update for a component.
+        """Report status update for a component.
 
         Args:
             status: Status description
@@ -231,8 +224,7 @@ class NotificationOperations(DebuggableComponent):
         operation: str,
         details: str | None = None,
     ) -> None:
-        """
-        Report progress update for a long-running operation.
+        """Report progress update for a long-running operation.
 
         Args:
             progress: Progress as float between 0.0 and 1.0
@@ -260,8 +252,7 @@ class NotificationOperations(DebuggableComponent):
         success: bool,
         result_data: dict[str, Any] | None = None,
     ) -> None:
-        """
-        Report completion of an operation.
+        """Report completion of an operation.
 
         Args:
             component_id: ID of component reporting completion
@@ -304,8 +295,7 @@ class NotificationOperations(DebuggableComponent):
         operation: str | None = None,
         context: dict[str, Any] | None = None,
     ) -> str:
-        """
-        Report an error that occurred in a component.
+        """Report an error that occurred in a component.
 
         Args:
             error: Exception that occurred
@@ -354,8 +344,7 @@ class NotificationOperations(DebuggableComponent):
     def report_warning(
         self, message: str, component_id: str, context: dict[str, Any] | None = None
     ) -> str:
-        """
-        Report a warning condition.
+        """Report a warning condition.
 
         Args:
             message: Warning message
@@ -394,8 +383,7 @@ class NotificationOperations(DebuggableComponent):
     def get_error_history(
         self, component_id: str | None = None, limit: int = 10
     ) -> list[dict[str, Any]]:
-        """
-        Get recent error history.
+        """Get recent error history.
 
         Args:
             component_id: Optional filter by component ID
@@ -415,8 +403,7 @@ class NotificationOperations(DebuggableComponent):
         return errors[:limit]
 
     def acknowledge_error(self, error_id: str, acknowledged_by: str) -> bool:
-        """
-        Acknowledge that an error has been seen/handled.
+        """Acknowledge that an error has been seen/handled.
 
         Args:
             error_id: ID of error to acknowledge
@@ -446,8 +433,7 @@ class NotificationOperations(DebuggableComponent):
         level: NotificationLevel = NotificationLevel.INFO,
         metadata: dict[str, Any] | None = None,
     ) -> list[str]:
-        """
-        Broadcast a message to multiple channels.
+        """Broadcast a message to multiple channels.
 
         Args:
             message: Message to broadcast
@@ -486,8 +472,7 @@ class NotificationOperations(DebuggableComponent):
         channel: NotificationChannel,
         metadata: dict[str, Any] | None = None,
     ) -> list[str]:
-        """
-        Send message to specific recipients.
+        """Send message to specific recipients.
 
         Args:
             message: Message to send
@@ -512,8 +497,7 @@ class NotificationOperations(DebuggableComponent):
         return delivery_ids
 
     def get_delivery_status(self, delivery_ids: list[str]) -> dict[str, str]:
-        """
-        Get delivery status for messages.
+        """Get delivery status for messages.
 
         Args:
             delivery_ids: List of delivery IDs to check
@@ -527,8 +511,7 @@ class NotificationOperations(DebuggableComponent):
     # Notification Management Methods
 
     def handle_client_notification(self, notification_data: dict[str, Any]) -> bool:
-        """
-        Handle incoming client notifications.
+        """Handle incoming client notifications.
 
         Args:
             notification_data: Raw notification data from client

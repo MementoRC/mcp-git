@@ -1,5 +1,4 @@
-"""
-MCP Git Server middleware components.
+"""MCP Git Server middleware components.
 
 This package contains specialized middleware components for the MCP Git Server,
 including token limit management, content optimization, and response processing.

@@ -1,5 +1,4 @@
-"""
-Git service implementation for MCP Git Server.
+"""Git service implementation for MCP Git Server.
 
 This module provides a comprehensive Git service that orchestrates Git operations
 and primitives to deliver complete Git repository management capabilities.
@@ -92,8 +91,7 @@ class GitServiceState:
 
 
 class GitService(DebuggableComponent):
-    """
-    Comprehensive Git service providing high-level Git repository management.
+    """Comprehensive Git service providing high-level Git repository management.
 
     This service orchestrates Git operations and primitives to provide complete
     Git functionality including repository management, branch operations,
@@ -126,8 +124,7 @@ class GitService(DebuggableComponent):
     """
 
     def __init__(self, config: GitServiceConfig | None = None):
-        """
-        Initialize GitService with configuration.
+        """Initialize GitService with configuration.
 
         Args:
             config: Service configuration, defaults to GitServiceConfig()
@@ -150,8 +147,7 @@ class GitService(DebuggableComponent):
         logger.info(f"GitService initialized with ID: {self._service_id}")
 
     async def start(self) -> None:
-        """
-        Start the Git service.
+        """Start the Git service.
 
         Initializes the service, validates configuration, and prepares
         for operation execution.
@@ -184,8 +180,7 @@ class GitService(DebuggableComponent):
         logger.info(f"GitService {self._service_id} started successfully")
 
     async def stop(self) -> None:
-        """
-        Stop the Git service gracefully.
+        """Stop the Git service gracefully.
 
         Waits for active operations to complete and shuts down the service.
         """
@@ -217,8 +212,7 @@ class GitService(DebuggableComponent):
         email: str | None = None,
         auto_push: bool | None = None,
     ) -> GitOperationResult:
-        """
-        Commit changes to a Git repository.
+        """Commit changes to a Git repository.
 
         Args:
             repository_path: Path to the Git repository
@@ -318,8 +312,7 @@ class GitService(DebuggableComponent):
         checkout: bool = True,
         force: bool = False,
     ) -> GitOperationResult:
-        """
-        Create a new Git branch.
+        """Create a new Git branch.
 
         Args:
             repository_path: Path to the Git repository
@@ -399,8 +392,7 @@ class GitService(DebuggableComponent):
         no_fast_forward: bool = False,
         squash: bool = False,
     ) -> GitOperationResult:
-        """
-        Merge Git branches.
+        """Merge Git branches.
 
         Args:
             repository_path: Path to the Git repository
@@ -474,8 +466,7 @@ class GitService(DebuggableComponent):
     async def get_repository_status(
         self, repository_path: str | Path
     ) -> GitOperationResult:
-        """
-        Get comprehensive repository status.
+        """Get comprehensive repository status.
 
         Args:
             repository_path: Path to the Git repository

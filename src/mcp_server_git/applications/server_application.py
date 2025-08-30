@@ -1,5 +1,4 @@
-"""
-Main MCP Git Server Application.
+"""Main MCP Git Server Application.
 
 This module provides the ServerApplication class that serves as the primary entry point
 and orchestrator for the entire MCP Git server system. It integrates all decomposed
@@ -515,8 +514,7 @@ class ServerApplicationConfig:
         test_mode: bool = False,
         debug_mode: bool = False,
     ):
-        """
-        Initialize server application configuration.
+        """Initialize server application configuration.
 
         Args:
             repository_path: Optional path to the git repository to serve
@@ -535,8 +533,7 @@ class ServerApplicationConfig:
 
 
 class ServerApplication(DebuggableComponent):
-    """
-    Main MCP Git Server Application.
+    """Main MCP Git Server Application.
 
     This class orchestrates all components of the MCP Git server into a cohesive
     application. It handles initialization, startup, runtime management, and
@@ -558,8 +555,7 @@ class ServerApplication(DebuggableComponent):
     """
 
     def __init__(self, config: ServerApplicationConfig | None = None):
-        """
-        Initialize the server application.
+        """Initialize the server application.
 
         Args:
             config: Application configuration
@@ -600,8 +596,7 @@ class ServerApplication(DebuggableComponent):
         logger.info("ServerApplication initialized")
 
     async def initialize(self) -> None:
-        """
-        Initialize all application components.
+        """Initialize all application components.
 
         This method sets up all components in the correct order, ensuring
         that dependencies are satisfied and all systems are ready to start.
@@ -839,8 +834,7 @@ class ServerApplication(DebuggableComponent):
         logger.debug("Component registration complete")
 
     async def start(self) -> None:
-        """
-        Start the server application.
+        """Start the server application.
 
         This method starts all components in the correct order and begins
         serving MCP requests. The method will block until the server is
@@ -891,12 +885,10 @@ class ServerApplication(DebuggableComponent):
                     f"🧪 Test mode: Application error handled gracefully: {e}"
                 )
                 return
-            else:
-                raise
+            raise
 
     async def stop(self) -> None:
-        """
-        Stop the server application gracefully.
+        """Stop the server application gracefully.
 
         This method stops all components in reverse order and cleans up
         all resources.
@@ -923,8 +915,7 @@ class ServerApplication(DebuggableComponent):
             raise
 
     async def restart(self) -> None:
-        """
-        Restart the server application.
+        """Restart the server application.
 
         This method performs a graceful stop followed by a start.
         """
@@ -1531,9 +1522,8 @@ class ServerApplication(DebuggableComponent):
                         ):
                             processed_text = processed_response.content[0].text
                             return [{"type": "text", "text": processed_text}]
-                        else:
-                            # If middleware didn't return expected format, use original result
-                            return [{"type": "text", "text": str(result)}]
+                        # If middleware didn't return expected format, use original result
+                        return [{"type": "text", "text": str(result)}]
 
                     except Exception as e:
                         logger.warning(
@@ -2081,8 +2071,7 @@ async def main(
     test_mode: bool = False,
     debug_mode: bool = False,
 ) -> None:
-    """
-    Main entry point for the MCP Git Server Application.
+    """Main entry point for the MCP Git Server Application.
 
     This function provides a simple interface for starting the server application
     with common configuration options.

@@ -6,16 +6,15 @@ Provides commands for running tests with different coverage and reporting option
 Enforces TDD governance rules and quality gates.
 """
 
-import sys
 import subprocess
+import sys
 from pathlib import Path
-from typing import Optional
 
 
 class TDDTestRunner:
     """Test runner that enforces TDD governance rules."""
 
-    def __init__(self, project_root: Optional[Path] = None):
+    def __init__(self, project_root: Path | None = None):
         self.project_root = project_root or Path(__file__).parent.parent
         self.coverage_threshold = 80
 

@@ -1,5 +1,4 @@
-"""
-Session management module for MCP Git Server.
+"""Session management module for MCP Git Server.
 
 - Manages session lifecycle, health, and metrics.
 - Integrates with error_handling (ErrorContext, CircuitBreaker).
@@ -67,8 +66,7 @@ class SessionMetrics:
 
 
 class Session:
-    """
-    Represents a single MCP Git Server session.
+    """Represents a single MCP Git Server session.
     Manages lifecycle, health, error handling, and metrics.
     """
 
@@ -112,10 +110,10 @@ class Session:
     def is_closed(self) -> bool:
         return self.state == SessionState.CLOSED
 
-    def attach_server_session(self, server_session: ServerSession):
+    def attach_server_session(self, server_session: ServerSession) -> None:
         self._server_session = server_session
 
-    async def start(self):
+    async def start(self) -> None:
         async with self._lock:
             if self.state in (SessionState.CLOSED, SessionState.CLOSING):
                 logger.warning(
@@ -131,7 +129,7 @@ class Session:
             if not self._cleanup_task:
                 self._cleanup_task = asyncio.create_task(self._idle_cleanup_loop())
 
-    async def pause(self):
+    async def pause(self) -> None:
         async with self._lock:
             if self.state != SessionState.ACTIVE:
                 logger.warning(
@@ -142,7 +140,7 @@ class Session:
             self.metrics.state_transitions += 1
             logger.info(f"Session {self.session_id} paused")
 
-    async def resume(self):
+    async def resume(self) -> None:
         async with self._lock:
             if self.state != SessionState.PAUSED:
                 logger.warning(
@@ -154,7 +152,7 @@ class Session:
             self.metrics.last_active = time.time()
             logger.info(f"Session {self.session_id} resumed")
 
-    async def close(self, reason: str | None = None):
+    async def close(self, reason: str | None = None) -> None:
         async with self._lock:
             if self.state in (SessionState.CLOSING, SessionState.CLOSED):
                 return
@@ -175,13 +173,11 @@ class Session:
             self._closed_event.set()
             logger.info(f"Session {self.session_id} closed")
 
-    async def wait_closed(self):
+    async def wait_closed(self) -> None:
         await self._closed_event.wait()
 
-    async def handle_command(self, command_name: str, *args, **kwargs):
-        """
-        Handle a command within the session, with error handling and metrics.
-        """
+    async def handle_command(self, command_name: str, *args, **kwargs) -> None:
+        """Handle a command within the session, with error handling and metrics."""
         async with self._lock:
             if self.state != SessionState.ACTIVE:
                 logger.warning(
@@ -217,10 +213,8 @@ class Session:
         else:
             self._circuit.record_success()
 
-    async def _idle_cleanup_loop(self):
-        """
-        Periodically checks for idle and heartbeat timeouts and closes the session if needed.
-        """
+    async def _idle_cleanup_loop(self) -> None:
+        """Periodically checks for idle and heartbeat timeouts and closes the session if needed."""
         try:
             while self.state not in (SessionState.CLOSING, SessionState.CLOSED):
                 await asyncio.sleep(1.0)
@@ -249,9 +243,8 @@ class Session:
         except Exception as e:
             logger.error(f"Session {self.session_id} idle cleanup error: {e}")
 
-    async def handle_heartbeat(self):
-        """
-        Handle a heartbeat signal for this session.
+    async def handle_heartbeat(self) -> None:
+        """Handle a heartbeat signal for this session.
         Updates heartbeat metrics and last_heartbeat timestamp.
         """
         async with self._lock:
@@ -326,8 +319,7 @@ class Session:
 
 
 class HeartbeatManager:
-    """
-    Centralized manager for heartbeats across all sessions.
+    """Centralized manager for heartbeats across all sessions.
     - Tracks last heartbeat per session
     - Detects missed heartbeats and triggers cleanup
     - Runs a background monitoring loop
@@ -410,8 +402,7 @@ class HeartbeatManager:
 
 
 class SessionManager:
-    """
-    Manages all active MCP Git Server sessions.
+    """Manages all active MCP Git Server sessions.
     Provides session creation, lookup, cleanup, and metrics.
     """
 
@@ -450,7 +441,7 @@ class SessionManager:
         async with self._lock:
             return self._sessions.get(session_id)
 
-    async def close_session(self, session_id: str):
+    async def close_session(self, session_id: str) -> None:
         async with self._lock:
             session = self._sessions.get(session_id)
             if session:
@@ -458,10 +449,8 @@ class SessionManager:
                 del self._sessions[session_id]
                 logger.info(f"SessionManager: Closed and removed session {session_id}")
 
-    async def cleanup_idle_sessions(self):
-        """
-        Closes sessions that are idle past the timeout.
-        """
+    async def cleanup_idle_sessions(self) -> None:
+        """Closes sessions that are idle past the timeout."""
         async with self._lock:
             to_close = []
             now = time.time()
@@ -566,10 +555,8 @@ class SessionManager:
         except Exception as e:
             logger.error(f"Failed to restore sessions: {e}")
 
-    async def shutdown(self):
-        """
-        Gracefully close all sessions and stop heartbeat manager.
-        """
+    async def shutdown(self) -> None:
+        """Gracefully close all sessions and stop heartbeat manager."""
         logger.info("SessionManager: Starting graceful shutdown")
 
         # Save sessions before shutdown

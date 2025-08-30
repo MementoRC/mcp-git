@@ -1,5 +1,4 @@
-"""
-Core server logic for the MCP Git Server with Repository Binding.
+"""Core server logic for the MCP Git Server with Repository Binding.
 
 This module contains the core server initialization, event loop, and request
 processing logic extracted from the monolithic server.py file. It implements
@@ -76,8 +75,7 @@ class ServerDebugInfo:
 
 
 class MCPGitServerCore(DebuggableComponent):
-    """
-    Enhanced MCP Git Server Core with Repository Binding.
+    """Enhanced MCP Git Server Core with Repository Binding.
 
     This class encapsulates the core server logic including initialization,
     lifecycle management, and request processing. Enhanced with repository binding
@@ -91,8 +89,7 @@ class MCPGitServerCore(DebuggableComponent):
     """
 
     def __init__(self, server_name: str = "mcp-git"):
-        """
-        Initialize the server core with repository binding.
+        """Initialize the server core with repository binding.
 
         Args:
             server_name: Name identifier for the server
@@ -124,8 +121,7 @@ class MCPGitServerCore(DebuggableComponent):
         )
 
     def initialize_server(self, repository_path: Path | None = None) -> Server:
-        """
-        Initialize the MCP server instance.
+        """Initialize the MCP server instance.
 
         Args:
             repository_path: Optional path to the Git repository
@@ -157,8 +153,7 @@ class MCPGitServerCore(DebuggableComponent):
     async def initialize_with_binding(
         self, repository_path: Path, expected_remote_url: str, auto_bind: bool = True
     ) -> Server:
-        """
-        Initialize server with repository binding.
+        """Initialize server with repository binding.
 
         Args:
             repository_path: Path to git repository
@@ -192,8 +187,7 @@ class MCPGitServerCore(DebuggableComponent):
         return server
 
     async def start_server(self, test_mode: bool = False) -> None:
-        """
-        Start the server and run the main event loop.
+        """Start the server and run the main event loop.
 
         Args:
             test_mode: Whether to run in test mode (exits after brief period)
@@ -314,8 +308,7 @@ class MCPGitServerCore(DebuggableComponent):
             self._update_state_history()
 
     def get_server_instance(self) -> Server | None:
-        """
-        Get the current server instance.
+        """Get the current server instance.
 
         Returns:
             The Server instance if initialized, None otherwise
@@ -328,8 +321,7 @@ class MCPGitServerCore(DebuggableComponent):
         self._update_state_history()
 
     def set_client_capabilities(self, capabilities: ClientCapabilities) -> None:
-        """
-        Set the client capabilities.
+        """Set the client capabilities.
 
         Args:
             capabilities: Client capabilities from the MCP handshake
@@ -346,8 +338,7 @@ class MCPGitServerCore(DebuggableComponent):
         verify_remote: bool = True,
         force: bool = False,
     ) -> dict:
-        """
-        Bind server to repository with remote protection.
+        """Bind server to repository with remote protection.
 
         Args:
             repository_path: Path to git repository
@@ -373,8 +364,7 @@ class MCPGitServerCore(DebuggableComponent):
             raise
 
     async def unbind_repository(self, force: bool = False) -> dict:
-        """
-        Unbind server from repository.
+        """Unbind server from repository.
 
         Args:
             force: Force unbind even if operations are in progress
@@ -392,8 +382,7 @@ class MCPGitServerCore(DebuggableComponent):
             raise
 
     def get_repository_status(self) -> dict:
-        """
-        Get repository binding status.
+        """Get repository binding status.
 
         Returns:
             Current binding information
@@ -401,8 +390,7 @@ class MCPGitServerCore(DebuggableComponent):
         return self.binding_manager.get_binding_info()
 
     def get_protected_operations(self) -> ProtectedGitOperations | None:
-        """
-        Get protected git operations instance.
+        """Get protected git operations instance.
 
         Returns:
             ProtectedGitOperations instance if available
@@ -410,8 +398,7 @@ class MCPGitServerCore(DebuggableComponent):
         return self.protected_ops
 
     def get_binding_status(self) -> dict[str, Any]:
-        """
-        Get binding status with user-friendly feedback.
+        """Get binding status with user-friendly feedback.
 
         Returns:
             Dictionary with binding status and failure information
@@ -627,8 +614,7 @@ class MCPGitServerCore(DebuggableComponent):
             self._state_history = self._state_history[-self._max_state_history :]
 
     def get_state_history(self, limit: int = 10) -> list[ComponentState]:
-        """
-        Get historical state information.
+        """Get historical state information.
 
         Args:
             limit: Maximum number of historical states to return

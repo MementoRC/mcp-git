@@ -1,5 +1,4 @@
-"""
-Notification protocol definitions for event handling and status updates.
+"""Notification protocol definitions for event handling and status updates.
 
 This module defines protocols for event notification, status updates,
 error reporting, and message broadcasting throughout the system.
@@ -53,8 +52,7 @@ class EventSubscriber(Protocol):
 
     @abstractmethod
     def handle_event(self, event: NotificationEvent) -> None:
-        """
-        Handle an incoming notification event.
+        """Handle an incoming notification event.
 
         Args:
             event: NotificationEvent to process
@@ -68,8 +66,7 @@ class EventSubscriber(Protocol):
 
     @abstractmethod
     def get_subscription_filters(self) -> dict[str, Any]:
-        """
-        Get filters for events this subscriber is interested in.
+        """Get filters for events this subscriber is interested in.
 
         Returns:
             Dictionary with filter criteria (event_type, level, source, etc.)
@@ -92,8 +89,7 @@ class EventPublisher(Protocol):
 
     @abstractmethod
     def publish_event(self, event: NotificationEvent) -> None:
-        """
-        Publish an event to all interested subscribers.
+        """Publish an event to all interested subscribers.
 
         Args:
             event: NotificationEvent to publish
@@ -116,8 +112,7 @@ class EventPublisher(Protocol):
 
     @abstractmethod
     def subscribe(self, subscriber: EventSubscriber) -> str:
-        """
-        Register a subscriber for events.
+        """Register a subscriber for events.
 
         Args:
             subscriber: EventSubscriber to register
@@ -134,8 +129,7 @@ class EventPublisher(Protocol):
 
     @abstractmethod
     def unsubscribe(self, subscription_id: str) -> bool:
-        """
-        Remove a subscriber.
+        """Remove a subscriber.
 
         Args:
             subscription_id: ID returned from subscribe()
@@ -158,8 +152,7 @@ class StatusReporter(Protocol):
     def report_status(
         self, status: str, component_id: str, metadata: dict[str, Any] | None = None
     ) -> None:
-        """
-        Report status update for a component.
+        """Report status update for a component.
 
         Args:
             status: Status description
@@ -184,8 +177,7 @@ class StatusReporter(Protocol):
         operation: str,
         details: str | None = None,
     ) -> None:
-        """
-        Report progress update for a long-running operation.
+        """Report progress update for a long-running operation.
 
         Args:
             progress: Progress as float between 0.0 and 1.0
@@ -207,8 +199,7 @@ class StatusReporter(Protocol):
         success: bool,
         result_data: dict[str, Any] | None = None,
     ) -> None:
-        """
-        Report completion of an operation.
+        """Report completion of an operation.
 
         Args:
             component_id: ID of component reporting completion
@@ -237,8 +228,7 @@ class ErrorReporter(Protocol):
         operation: str | None = None,
         context: dict[str, Any] | None = None,
     ) -> str:
-        """
-        Report an error that occurred in a component.
+        """Report an error that occurred in a component.
 
         Args:
             error: Exception that occurred
@@ -264,8 +254,7 @@ class ErrorReporter(Protocol):
     def report_warning(
         self, message: str, component_id: str, context: dict[str, Any] | None = None
     ) -> str:
-        """
-        Report a warning condition.
+        """Report a warning condition.
 
         Args:
             message: Warning message
@@ -281,8 +270,7 @@ class ErrorReporter(Protocol):
     def get_error_history(
         self, component_id: str | None = None, limit: int = 10
     ) -> list[dict[str, Any]]:
-        """
-        Get recent error history.
+        """Get recent error history.
 
         Args:
             component_id: Optional filter by component ID
@@ -295,8 +283,7 @@ class ErrorReporter(Protocol):
 
     @abstractmethod
     def acknowledge_error(self, error_id: str, acknowledged_by: str) -> bool:
-        """
-        Acknowledge that an error has been seen/handled.
+        """Acknowledge that an error has been seen/handled.
 
         Args:
             error_id: ID of error to acknowledge
@@ -319,8 +306,7 @@ class MessageBroadcaster(Protocol):
         level: NotificationLevel = NotificationLevel.INFO,
         metadata: dict[str, Any] | None = None,
     ) -> list[str]:
-        """
-        Broadcast a message to multiple channels.
+        """Broadcast a message to multiple channels.
 
         Args:
             message: Message to broadcast
@@ -349,8 +335,7 @@ class MessageBroadcaster(Protocol):
         channel: NotificationChannel,
         metadata: dict[str, Any] | None = None,
     ) -> list[str]:
-        """
-        Send message to specific recipients.
+        """Send message to specific recipients.
 
         Args:
             message: Message to send
@@ -365,8 +350,7 @@ class MessageBroadcaster(Protocol):
 
     @abstractmethod
     def get_delivery_status(self, delivery_ids: list[str]) -> dict[str, str]:
-        """
-        Get delivery status for messages.
+        """Get delivery status for messages.
 
         Args:
             delivery_ids: List of delivery IDs to check
@@ -378,8 +362,7 @@ class MessageBroadcaster(Protocol):
 
 
 class NotificationSystem(Protocol):
-    """
-    Comprehensive notification system protocol.
+    """Comprehensive notification system protocol.
 
     This protocol combines all notification capabilities into a unified interface
     for components that need full notification functionality.
@@ -393,8 +376,7 @@ class NotificationSystem(Protocol):
 
     @abstractmethod
     def initialize_notifications(self, config: dict[str, Any]) -> None:
-        """
-        Initialize the notification system with configuration.
+        """Initialize the notification system with configuration.
 
         Args:
             config: Configuration dictionary with channel settings, etc.
@@ -419,8 +401,7 @@ class NotificationSystem(Protocol):
 
     @abstractmethod
     def get_notification_stats(self) -> dict[str, int | float]:
-        """
-        Get statistics about notification system usage.
+        """Get statistics about notification system usage.
 
         Returns:
             Dictionary with stats like message count, error rate, etc.
@@ -435,8 +416,7 @@ class NotificationSystem(Protocol):
 
     @abstractmethod
     def health_check_notifications(self) -> dict[str, bool | str]:
-        """
-        Perform health check on notification system.
+        """Perform health check on notification system.
 
         Returns:
             Dictionary with health status of notification channels
@@ -463,8 +443,7 @@ class AsyncNotificationSystem(Protocol):
     async def notification_stream(
         self, filters: dict[str, Any] | None = None
     ) -> AsyncIterator[NotificationEvent]:
-        """
-        Stream notifications matching filters.
+        """Stream notifications matching filters.
 
         Args:
             filters: Optional filters for event types, levels, etc.
@@ -484,8 +463,7 @@ class NotificationFilter(Protocol):
 
     @abstractmethod
     def should_process_event(self, event: NotificationEvent) -> bool:
-        """
-        Determine if an event should be processed based on filters.
+        """Determine if an event should be processed based on filters.
 
         Args:
             event: NotificationEvent to evaluate
@@ -497,8 +475,7 @@ class NotificationFilter(Protocol):
 
     @abstractmethod
     def apply_rate_limiting(self, event: NotificationEvent) -> bool:
-        """
-        Apply rate limiting to prevent notification spam.
+        """Apply rate limiting to prevent notification spam.
 
         Args:
             event: NotificationEvent to check for rate limiting
@@ -510,8 +487,7 @@ class NotificationFilter(Protocol):
 
     @abstractmethod
     def transform_event(self, event: NotificationEvent) -> NotificationEvent:
-        """
-        Transform an event before delivery (e.g., redact sensitive data).
+        """Transform an event before delivery (e.g., redact sensitive data).
 
         Args:
             event: Original NotificationEvent

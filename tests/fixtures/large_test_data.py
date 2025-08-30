@@ -1,5 +1,4 @@
-"""
-Large test file to generate substantial diffs for token limit testing.
+"""Large test file to generate substantial diffs for token limit testing.
 This file contains extensive content to test token truncation capabilities.
 """
 
@@ -213,7 +212,7 @@ def get_large_test_data():
     }
 
 
-def main():
+def main() -> None:
     """Main function with extensive processing."""
     module = LargeTestModule()
 

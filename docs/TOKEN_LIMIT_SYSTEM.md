@@ -133,7 +133,7 @@ settings = config_manager.load_configuration(
 
 - **Conservative**: 15K tokens, aggressive optimization, warnings enabled
 - **Balanced**: 20K tokens, standard optimization and truncation
-- **Aggressive**: 30K tokens, minimal optimization, maximum content preservation  
+- **Aggressive**: 30K tokens, minimal optimization, maximum content preservation
 - **Development**: 50K tokens, optimizations disabled, caching enabled
 
 ## Usage Examples
@@ -184,7 +184,7 @@ print(f"Summary: {result.truncation_summary}")
 
 ### Benchmarks
 - **Token Estimation**: <5ms for typical git output
-- **Content Optimization**: <10ms for standard responses  
+- **Content Optimization**: <10ms for standard responses
 - **Intelligent Truncation**: <50ms for large content
 - **Total Middleware Overhead**: <100ms (configurable limit)
 
@@ -247,7 +247,7 @@ Available metrics:
 ### Operation Limits
 Override token limits for specific git operations:
 - `git_diff`: 25000
-- `git_log`: 15000  
+- `git_log`: 15000
 - `git_status`: 10000
 - `github_get_pr_files`: 20000
 

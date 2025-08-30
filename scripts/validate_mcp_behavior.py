@@ -17,9 +17,9 @@ import subprocess
 import sys
 import tempfile
 import time
-from pathlib import Path
-from typing import Dict, List, Any, Optional
 import traceback
+from pathlib import Path
+from typing import Any
 
 # Setup logging
 logging.basicConfig(
@@ -31,10 +31,10 @@ logger = logging.getLogger(__name__)
 class MCPBehaviorValidator:
     """Validates MCP Git server behavior and protocol compliance."""
 
-    def __init__(self, test_repo_path: Optional[Path] = None, verbose: bool = False):
+    def __init__(self, test_repo_path: Path | None = None, verbose: bool = False):
         self.test_repo_path = test_repo_path
         self.verbose = verbose
-        self.results: List[Dict[str, Any]] = []
+        self.results: list[dict[str, Any]] = []
 
         if verbose:
             logging.getLogger().setLevel(logging.DEBUG)
@@ -44,7 +44,7 @@ class MCPBehaviorValidator:
         test_name: str,
         success: bool,
         message: str,
-        details: Optional[Dict] = None,
+        details: dict | None = None,
     ):
         """Log a test result."""
         result = {
@@ -396,7 +396,7 @@ class MCPBehaviorValidator:
             logger.error(f"❌ {failed} tests failed. See details above.")
             return False
 
-    def generate_report(self) -> Dict[str, Any]:
+    def generate_report(self) -> dict[str, Any]:
         """Generate a detailed validation report."""
         passed = sum(1 for r in self.results if r["success"])
         failed = len(self.results) - passed

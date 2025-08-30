@@ -1,5 +1,4 @@
-"""
-Repository protocol definitions for Git repository operations.
+"""Repository protocol definitions for Git repository operations.
 
 This module defines protocols for repository operations, path validation,
 branch management, and Git command execution interfaces.
@@ -42,8 +41,7 @@ class RepositoryValidator(Protocol):
 
     @abstractmethod
     def validate_repository_path(self, path: str | Path) -> bool:
-        """
-        Validate if a path points to a valid Git repository.
+        """Validate if a path points to a valid Git repository.
 
         Args:
             path: Path to validate as a Git repository
@@ -59,8 +57,7 @@ class RepositoryValidator(Protocol):
 
     @abstractmethod
     def get_repository_info(self, path: str | Path) -> dict[str, Any]:
-        """
-        Get repository information and metadata.
+        """Get repository information and metadata.
 
         Args:
             path: Path to the Git repository
@@ -79,8 +76,7 @@ class RepositoryValidator(Protocol):
     def check_repository_health(
         self, path: str | Path
     ) -> dict[str, bool | str | list[str]]:
-        """
-        Check the health and integrity of a Git repository.
+        """Check the health and integrity of a Git repository.
 
         Args:
             path: Path to the Git repository
@@ -104,8 +100,7 @@ class BranchManager(Protocol):
     def list_branches(
         self, repo_path: GitRepositoryPath, remote: bool = False
     ) -> list[GitBranchInfo]:
-        """
-        List all branches in the repository.
+        """List all branches in the repository.
 
         Args:
             repo_path: Valid Git repository path
@@ -129,8 +124,7 @@ class BranchManager(Protocol):
         branch_name: str,
         base_branch: str | None = None,
     ) -> GitOperationResult:
-        """
-        Create a new branch.
+        """Create a new branch.
 
         Args:
             repo_path: Valid Git repository path
@@ -152,8 +146,7 @@ class BranchManager(Protocol):
     def checkout_branch(
         self, repo_path: GitRepositoryPath, branch_name: str
     ) -> GitOperationResult:
-        """
-        Switch to a different branch.
+        """Switch to a different branch.
 
         Args:
             repo_path: Valid Git repository path
@@ -174,8 +167,7 @@ class BranchManager(Protocol):
     def delete_branch(
         self, repo_path: GitRepositoryPath, branch_name: str, force: bool = False
     ) -> GitOperationResult:
-        """
-        Delete a branch.
+        """Delete a branch.
 
         Args:
             repo_path: Valid Git repository path
@@ -194,8 +186,7 @@ class BranchManager(Protocol):
         source_branch: str,
         target_branch: str | None = None,
     ) -> GitOperationResult:
-        """
-        Merge one branch into another.
+        """Merge one branch into another.
 
         Args:
             repo_path: Valid Git repository path
@@ -218,8 +209,7 @@ class CommitManager(Protocol):
         max_count: int = 10,
         branch: str | None = None,
     ) -> GitLogResult:
-        """
-        Get commit history for the repository.
+        """Get commit history for the repository.
 
         Args:
             repo_path: Valid Git repository path
@@ -246,8 +236,7 @@ class CommitManager(Protocol):
         author_name: str | None = None,
         author_email: str | None = None,
     ) -> GitOperationResult:
-        """
-        Create a new commit.
+        """Create a new commit.
 
         Args:
             repo_path: Valid Git repository path
@@ -271,8 +260,7 @@ class CommitManager(Protocol):
     def get_commit_info(
         self, repo_path: "GitRepositoryPath", commit_hash: Union[str, "GitCommitHash"]
     ) -> "GitCommitInfo":
-        """
-        Get detailed information about a specific commit.
+        """Get detailed information about a specific commit.
 
         Args:
             repo_path: Valid Git repository path
@@ -292,8 +280,7 @@ class CommitManager(Protocol):
     def stage_files(
         self, repo_path: GitRepositoryPath, files: list[str]
     ) -> GitOperationResult:
-        """
-        Stage files for commit.
+        """Stage files for commit.
 
         Args:
             repo_path: Valid Git repository path
@@ -308,8 +295,7 @@ class CommitManager(Protocol):
     def unstage_files(
         self, repo_path: GitRepositoryPath, files: list[str]
     ) -> GitOperationResult:
-        """
-        Unstage files from the staging area.
+        """Unstage files from the staging area.
 
         Args:
             repo_path: Valid Git repository path
@@ -326,8 +312,7 @@ class DiffProvider(Protocol):
 
     @abstractmethod
     def get_working_diff(self, repo_path: GitRepositoryPath) -> GitDiffResult:
-        """
-        Get diff of working directory changes.
+        """Get diff of working directory changes.
 
         Args:
             repo_path: Valid Git repository path
@@ -339,8 +324,7 @@ class DiffProvider(Protocol):
 
     @abstractmethod
     def get_staged_diff(self, repo_path: GitRepositoryPath) -> GitDiffResult:
-        """
-        Get diff of staged changes.
+        """Get diff of staged changes.
 
         Args:
             repo_path: Valid Git repository path
@@ -354,8 +338,7 @@ class DiffProvider(Protocol):
     def get_commit_diff(
         self, repo_path: "GitRepositoryPath", commit_hash: Union[str, "GitCommitHash"]
     ) -> "GitDiffResult":
-        """
-        Get diff for a specific commit.
+        """Get diff for a specific commit.
 
         Args:
             repo_path: Valid Git repository path
@@ -370,8 +353,7 @@ class DiffProvider(Protocol):
     def compare_branches(
         self, repo_path: GitRepositoryPath, base_branch: str, compare_branch: str
     ) -> GitDiffResult:
-        """
-        Compare two branches and get differences.
+        """Compare two branches and get differences.
 
         Args:
             repo_path: Valid Git repository path
@@ -389,8 +371,7 @@ class RemoteManager(Protocol):
 
     @abstractmethod
     def list_remotes(self, repo_path: GitRepositoryPath) -> list[GitRemoteInfo]:
-        """
-        List all configured remotes.
+        """List all configured remotes.
 
         Args:
             repo_path: Valid Git repository path
@@ -404,8 +385,7 @@ class RemoteManager(Protocol):
     def add_remote(
         self, repo_path: GitRepositoryPath, name: str, url: str
     ) -> GitOperationResult:
-        """
-        Add a new remote.
+        """Add a new remote.
 
         Args:
             repo_path: Valid Git repository path
@@ -421,8 +401,7 @@ class RemoteManager(Protocol):
     def fetch_remote(
         self, repo_path: GitRepositoryPath, remote_name: str = "origin"
     ) -> GitOperationResult:
-        """
-        Fetch changes from a remote.
+        """Fetch changes from a remote.
 
         Args:
             repo_path: Valid Git repository path
@@ -441,8 +420,7 @@ class RemoteManager(Protocol):
         branch_name: str | None = None,
         force: bool = False,
     ) -> GitOperationResult:
-        """
-        Push changes to a remote.
+        """Push changes to a remote.
 
         Args:
             repo_path: Valid Git repository path
@@ -457,8 +435,7 @@ class RemoteManager(Protocol):
 
 
 class RepositoryOperations(Protocol):
-    """
-    Comprehensive protocol for Git repository operations.
+    """Comprehensive protocol for Git repository operations.
 
     This protocol combines all repository management capabilities into a single
     interface for components that need full Git functionality.
@@ -466,8 +443,7 @@ class RepositoryOperations(Protocol):
 
     @abstractmethod
     def get_repository_status(self, repo_path: GitRepositoryPath) -> GitStatusResult:
-        """
-        Get current repository status.
+        """Get current repository status.
 
         Args:
             repo_path: Valid Git repository path
@@ -489,8 +465,7 @@ class RepositoryOperations(Protocol):
     def initialize_repository(
         self, path: str | Path, bare: bool = False
     ) -> GitOperationResult:
-        """
-        Initialize a new Git repository.
+        """Initialize a new Git repository.
 
         Args:
             path: Path where to initialize the repository
@@ -511,8 +486,7 @@ class RepositoryOperations(Protocol):
     def clone_repository(
         self, url: str, destination: str | Path, branch: str | None = None
     ) -> GitOperationResult:
-        """
-        Clone a remote repository.
+        """Clone a remote repository.
 
         Args:
             url: URL of repository to clone
@@ -549,8 +523,7 @@ class AsyncRepositoryOperations(Protocol):
         destination: str | Path,
         progress_callback: Callable | None = None,
     ) -> GitOperationResult:
-        """
-        Async clone with progress reporting.
+        """Async clone with progress reporting.
 
         Args:
             url: URL of repository to clone
@@ -566,8 +539,7 @@ class AsyncRepositoryOperations(Protocol):
     async def fetch_with_progress(
         self, repo_path: GitRepositoryPath, remote_name: str = "origin"
     ) -> AsyncIterator[str]:
-        """
-        Fetch with real-time progress updates.
+        """Fetch with real-time progress updates.
 
         Args:
             repo_path: Valid Git repository path

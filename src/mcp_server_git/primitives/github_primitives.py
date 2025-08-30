@@ -1,5 +1,4 @@
-"""
-GitHub primitive operations for MCP Git Server.
+"""GitHub primitive operations for MCP Git Server.
 
 This module provides atomic GitHub API operations that serve as building blocks
 for higher-level GitHub functionality. Primitives are focused, single-purpose
@@ -54,8 +53,7 @@ class GitHubAPIError(GitHubPrimitiveError):
 
 
 def get_github_token() -> str | None:
-    """
-    Get GitHub token from environment variables.
+    """Get GitHub token from environment variables.
 
     Returns:
         GitHub token if found, None otherwise
@@ -77,8 +75,7 @@ def get_github_token() -> str | None:
 
 
 def validate_github_token(token: str) -> bool:
-    """
-    Validate GitHub token format.
+    """Validate GitHub token format.
 
     Args:
         token: GitHub token to validate
@@ -109,8 +106,7 @@ def validate_github_token(token: str) -> bool:
 
 
 def build_github_headers(token: str) -> dict[str, str]:
-    """
-    Build standard GitHub API request headers.
+    """Build standard GitHub API request headers.
 
     Args:
         token: GitHub authentication token
@@ -137,8 +133,7 @@ def build_github_headers(token: str) -> dict[str, str]:
 
 
 def build_github_url(endpoint: str, base_url: str = "https://api.github.com") -> str:
-    """
-    Build complete GitHub API URL from endpoint.
+    """Build complete GitHub API URL from endpoint.
 
     Args:
         endpoint: API endpoint path
@@ -164,8 +159,7 @@ async def make_github_request(
     json_data: dict[str, Any] | None = None,
     timeout: int = 30,
 ) -> dict[str, Any]:
-    """
-    Make authenticated GitHub API request.
+    """Make authenticated GitHub API request.
 
     Args:
         method: HTTP method (GET, POST, PATCH, PUT, DELETE)
@@ -244,8 +238,7 @@ async def make_github_request(
 
 
 async def get_authenticated_user() -> dict[str, Any]:
-    """
-    Get information about the authenticated GitHub user.
+    """Get information about the authenticated GitHub user.
 
     Returns:
         User information dictionary
@@ -262,8 +255,7 @@ async def get_authenticated_user() -> dict[str, Any]:
 
 
 async def check_repository_access(repo_owner: str, repo_name: str) -> bool:
-    """
-    Check if authenticated user has access to a repository.
+    """Check if authenticated user has access to a repository.
 
     Args:
         repo_owner: Repository owner username
@@ -285,8 +277,7 @@ async def check_repository_access(repo_owner: str, repo_name: str) -> bool:
 
 
 async def get_repository_info(repo_owner: str, repo_name: str) -> dict[str, Any]:
-    """
-    Get repository information.
+    """Get repository information.
 
     Args:
         repo_owner: Repository owner username
@@ -309,8 +300,7 @@ async def get_repository_info(repo_owner: str, repo_name: str) -> dict[str, Any]
 async def get_pull_request_info(
     repo_owner: str, repo_name: str, pr_number: int
 ) -> dict[str, Any]:
-    """
-    Get pull request information.
+    """Get pull request information.
 
     Args:
         repo_owner: Repository owner username
@@ -336,8 +326,7 @@ async def get_pull_request_info(
 async def get_commit_info(
     repo_owner: str, repo_name: str, commit_sha: str
 ) -> dict[str, Any]:
-    """
-    Get commit information.
+    """Get commit information.
 
     Args:
         repo_owner: Repository owner username
@@ -363,8 +352,7 @@ async def get_commit_info(
 async def list_repository_contents(
     repo_owner: str, repo_name: str, path: str = "", ref: str | None = None
 ) -> list[dict[str, Any]]:
-    """
-    List repository contents at a specific path.
+    """List repository contents at a specific path.
 
     Args:
         repo_owner: Repository owner username
@@ -400,8 +388,7 @@ async def list_repository_contents(
 async def get_file_content(
     repo_owner: str, repo_name: str, file_path: str, ref: str | None = None
 ) -> dict[str, Any]:
-    """
-    Get file content from repository.
+    """Get file content from repository.
 
     Args:
         repo_owner: Repository owner username
@@ -436,8 +423,7 @@ async def search_repositories(
     per_page: int = 30,
     page: int = 1,
 ) -> dict[str, Any]:
-    """
-    Search GitHub repositories.
+    """Search GitHub repositories.
 
     Args:
         query: Search query string
@@ -469,8 +455,7 @@ async def search_repositories(
 
 
 def parse_github_url(url: str) -> dict[str, str] | None:
-    """
-    Parse GitHub repository URL to extract owner and repository name.
+    """Parse GitHub repository URL to extract owner and repository name.
 
     Args:
         url: GitHub repository URL
@@ -504,8 +489,7 @@ def parse_github_url(url: str) -> dict[str, str] | None:
 
 
 def format_github_error(error: Exception) -> str:
-    """
-    Format GitHub API error for user-friendly display.
+    """Format GitHub API error for user-friendly display.
 
     Args:
         error: Exception from GitHub API operation
@@ -521,10 +505,9 @@ def format_github_error(error: Exception) -> str:
     """
     if isinstance(error, GitHubAuthenticationError):
         return f"🔒 Authentication failed: {error}"
-    elif isinstance(error, GitHubRateLimitError):
+    if isinstance(error, GitHubRateLimitError):
         return f"⏱️ Rate limit exceeded: {error}"
-    elif isinstance(error, GitHubAPIError):
+    if isinstance(error, GitHubAPIError):
         status_part = f" (HTTP {error.status_code})" if error.status_code else ""
         return f"❌ GitHub API error{status_part}: {error}"
-    else:
-        return f"💥 Unexpected error: {error}"
+    return f"💥 Unexpected error: {error}"

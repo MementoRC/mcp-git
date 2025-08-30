@@ -1,5 +1,4 @@
-"""
-Token limit middleware for MCP Git Server.
+"""Token limit middleware for MCP Git Server.
 
 This middleware intercepts responses before they're sent to clients and applies
 intelligent token limit protection, content optimization, and truncation strategies
@@ -59,15 +58,13 @@ class TokenLimitConfig:
         # Return limit based on client type
         if client_type == ClientType.LLM:
             return self.llm_token_limit
-        elif client_type == ClientType.HUMAN:
+        if client_type == ClientType.HUMAN:
             return self.human_token_limit
-        else:
-            return self.unknown_token_limit
+        return self.unknown_token_limit
 
 
 class TokenLimitMiddleware(BaseMiddleware):
-    """
-    Middleware for intelligent token limit management and content optimization.
+    """Middleware for intelligent token limit management and content optimization.
 
     This middleware:
     1. Detects client types (LLM vs human vs unknown)
@@ -258,10 +255,9 @@ class TokenLimitMiddleware(BaseMiddleware):
         """Extract operation name from request."""
         if hasattr(request, "method"):
             return request.method
-        elif hasattr(request, "name"):
+        if hasattr(request, "name"):
             return request.name
-        else:
-            return "unknown"
+        return "unknown"
 
     def _detect_client_type(self, context: MiddlewareContext) -> ClientType:
         """Detect client type from context."""
@@ -345,8 +341,7 @@ def create_token_limit_middleware(
     enable_optimization: bool = True,
     enable_truncation: bool = True,
 ) -> TokenLimitMiddleware:
-    """
-    Create a pre-configured token limit middleware.
+    """Create a pre-configured token limit middleware.
 
     Args:
         llm_token_limit: Token limit for LLM clients

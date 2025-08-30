@@ -1,5 +1,4 @@
-"""
-Protocol definitions for MCP Git server component interfaces.
+"""Protocol definitions for MCP Git server component interfaces.
 
 This package provides comprehensive protocol definitions that define clear contracts
 between components in the MCP Git server system. These protocols enable type-safe
@@ -161,8 +160,7 @@ PROTOCOL_INFO = {
 
 
 def get_protocol_info() -> dict:
-    """
-    Get information about available protocols.
+    """Get information about available protocols.
 
     Returns:
         Dictionary with protocol metadata and version information
@@ -178,8 +176,7 @@ def get_protocol_info() -> dict:
 
 
 def validate_protocol_implementation(obj: object, protocol_name: str) -> bool:
-    """
-    Validate that an object properly implements a protocol.
+    """Validate that an object properly implements a protocol.
 
     Args:
         obj: Object to validate
@@ -248,8 +245,7 @@ def validate_protocol_implementation(obj: object, protocol_name: str) -> bool:
 
 # Development utilities
 def list_protocol_methods(protocol_name: str) -> list:
-    """
-    List all methods required by a protocol.
+    """List all methods required by a protocol.
 
     Args:
         protocol_name: Name of the protocol
@@ -279,8 +275,7 @@ def list_protocol_methods(protocol_name: str) -> list:
 
 
 def get_protocol_dependencies() -> dict:
-    """
-    Get protocol dependency relationships.
+    """Get protocol dependency relationships.
 
     Returns:
         Dictionary mapping protocols to their dependencies

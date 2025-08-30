@@ -1,5 +1,4 @@
-"""
-Server configuration management module with comprehensive loading and validation.
+"""Server configuration management module with comprehensive loading and validation.
 
 This module implements the server configuration management layer as part of the
 server decomposition effort, extracting configuration-related functionality from
@@ -106,8 +105,7 @@ class ConfigurationState:
 
 
 class ServerConfigurationManager(DebuggableComponent):
-    """
-    Comprehensive server configuration manager with multi-source loading and validation.
+    """Comprehensive server configuration manager with multi-source loading and validation.
 
     This class manages all aspects of server configuration, including loading from
     multiple sources, validation, runtime updates, and state inspection.
@@ -131,8 +129,7 @@ class ServerConfigurationManager(DebuggableComponent):
         auto_reload: bool = False,
         validation_strict: bool = True,
     ):
-        """
-        Initialize configuration manager.
+        """Initialize configuration manager.
 
         Args:
             config_file_path: Path to configuration file (optional)
@@ -152,8 +149,7 @@ class ServerConfigurationManager(DebuggableComponent):
         self._last_error: str | None = None
 
     async def initialize(self) -> None:
-        """
-        Initialize configuration manager and load initial configuration.
+        """Initialize configuration manager and load initial configuration.
 
         Loads configuration from all available sources in precedence order
         and performs comprehensive validation.
@@ -204,8 +200,7 @@ class ServerConfigurationManager(DebuggableComponent):
         self._config_sources["defaults"] = await self._load_default_config()
 
     async def _load_config_file(self, file_path: Path) -> dict[str, Any]:
-        """
-        Load configuration from file (supports YAML, JSON, TOML).
+        """Load configuration from file (supports YAML, JSON, TOML).
 
         Args:
             file_path: Path to configuration file
@@ -223,9 +218,9 @@ class ServerConfigurationManager(DebuggableComponent):
                 if yaml is None:
                     raise ConfigurationError("YAML support requires 'PyYAML' package")
                 return yaml.safe_load(content) or {}
-            elif file_path.suffix.lower() == ".json":
+            if file_path.suffix.lower() == ".json":
                 return json.loads(content) or {}
-            elif file_path.suffix.lower() == ".toml":
+            if file_path.suffix.lower() == ".toml":
                 try:
                     import tomli
 
@@ -251,8 +246,7 @@ class ServerConfigurationManager(DebuggableComponent):
             ) from e
 
     async def _load_environment_config(self) -> dict[str, Any]:
-        """
-        Load configuration from environment variables.
+        """Load configuration from environment variables.
 
         Environment variables are prefixed with 'MCP_GIT_' and converted to
         lowercase for configuration key matching.
@@ -285,8 +279,7 @@ class ServerConfigurationManager(DebuggableComponent):
         return config
 
     async def _load_default_config(self) -> dict[str, Any]:
-        """
-        Load default configuration from Pydantic model.
+        """Load default configuration from Pydantic model.
 
         Returns:
             Default configuration dictionary
@@ -295,8 +288,7 @@ class ServerConfigurationManager(DebuggableComponent):
         return default_config.model_dump()
 
     async def _merge_configuration_sources(self) -> dict[str, Any]:
-        """
-        Merge configuration sources according to precedence rules.
+        """Merge configuration sources according to precedence rules.
 
         Precedence: CLI args > Environment vars > Config file > Defaults
 
@@ -329,8 +321,7 @@ class ServerConfigurationManager(DebuggableComponent):
     async def _validate_configuration(
         self, config_data: dict[str, Any]
     ) -> GitServerConfig:
-        """
-        Validate configuration data using Pydantic model.
+        """Validate configuration data using Pydantic model.
 
         Args:
             config_data: Configuration dictionary to validate
@@ -569,8 +560,7 @@ class ServerConfigurationManager(DebuggableComponent):
 
     # Public API
     def get_current_config(self) -> GitServerConfig:
-        """
-        Get current validated configuration.
+        """Get current validated configuration.
 
         Returns:
             Current GitServerConfig instance
@@ -585,8 +575,7 @@ class ServerConfigurationManager(DebuggableComponent):
         return self._current_config
 
     async def update_config(self, updates: dict[str, Any]) -> None:
-        """
-        Update configuration with new values.
+        """Update configuration with new values.
 
         Args:
             updates: Dictionary of configuration updates
@@ -623,8 +612,7 @@ class ServerConfigurationManager(DebuggableComponent):
         self._update_state()
 
     def export_configuration(self, format_type: str = "dict") -> dict[str, Any] | str:
-        """
-        Export current configuration.
+        """Export current configuration.
 
         Args:
             format_type: Export format ('dict', 'json', 'yaml')
@@ -639,11 +627,10 @@ class ServerConfigurationManager(DebuggableComponent):
 
         if format_type == "dict":
             return config_dict
-        elif format_type == "json":
+        if format_type == "json":
             return json.dumps(config_dict, indent=2, default=str)
-        elif format_type == "yaml":
+        if format_type == "yaml":
             if yaml is None:
                 raise ConfigurationError("YAML export requires 'PyYAML' package")
             return yaml.dump(config_dict, default_flow_style=False)
-        else:
-            raise ValueError(f"Unsupported format type: {format_type}")
+        raise ValueError(f"Unsupported format type: {format_type}")

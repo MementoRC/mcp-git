@@ -1,5 +1,4 @@
-"""
-Git repository fixtures for testing.
+"""Git repository fixtures for testing.
 
 Provides factory functions and fixtures for creating test git repositories
 with various states and configurations.

@@ -1,5 +1,4 @@
-"""
-Git operations module for MCP Git Server.
+"""Git operations module for MCP Git Server.
 
 This module provides higher-level Git operations that build on primitive operations
 to provide more complex functionality. Operations combine 2-3 primitives to create
@@ -108,8 +107,7 @@ class MergeResult:
 def commit_changes_with_validation(
     repo_path: str | Path, commit_request: CommitRequest
 ) -> CommitResult:
-    """
-    Commit changes to a Git repository with comprehensive validation.
+    """Commit changes to a Git repository with comprehensive validation.
 
     This operation combines repository validation, status checking, staging,
     and committing into a single atomic operation with proper error handling.
@@ -218,8 +216,7 @@ def commit_changes_with_validation(
 def create_branch_with_checkout(
     repo_path: str | Path, branch_request: BranchRequest
 ) -> BranchResult:
-    """
-    Create a new Git branch with optional checkout.
+    """Create a new Git branch with optional checkout.
 
     This operation combines branch creation, base branch validation, and
     checkout into a single atomic operation with proper error handling.
@@ -346,8 +343,7 @@ def create_branch_with_checkout(
 def merge_branches_with_conflict_detection(
     repo_path: str | Path, merge_request: MergeRequest
 ) -> MergeResult:
-    """
-    Merge Git branches with comprehensive conflict detection and handling.
+    """Merge Git branches with comprehensive conflict detection and handling.
 
     This operation combines branch validation, conflict detection, merging,
     and result reporting into a single atomic operation.
@@ -505,8 +501,7 @@ def push_with_validation(
     force: bool = False,
     set_upstream: bool = False,
 ) -> dict[str, Any]:
-    """
-    Push changes to remote repository with comprehensive validation.
+    """Push changes to remote repository with comprehensive validation.
 
     This operation combines repository validation, remote checking, branch
     validation, and pushing into a single atomic operation.

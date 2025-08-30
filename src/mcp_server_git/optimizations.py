@@ -24,8 +24,7 @@ logger = logging.getLogger(__name__)
 
 
 class CPUProfiler:
-    """
-    Context manager and utility for CPU profiling using cProfile.
+    """Context manager and utility for CPU profiling using cProfile.
     Can be used in production or test to profile code blocks.
     """
 
@@ -61,9 +60,7 @@ class CPUProfiler:
 
 
 def profile_cpu_block(name: str = "cpu_profile", enabled: bool = True):
-    """
-    Decorator/context for profiling a function or code block.
-    """
+    """Decorator/context for profiling a function or code block."""
 
     def decorator(func):
         @wraps(func)
@@ -80,9 +77,7 @@ def profile_cpu_block(name: str = "cpu_profile", enabled: bool = True):
 
 
 class MemoryLeakDetector:
-    """
-    Utility for detecting memory leaks by tracking object counts and memory usage.
-    """
+    """Utility for detecting memory leaks by tracking object counts and memory usage."""
 
     def __init__(self):
         import gc
@@ -93,7 +88,7 @@ class MemoryLeakDetector:
         self.snapshots: list[tuple[float, int, int]] = []
         self.tracemalloc.start()
 
-    def take_snapshot(self, label: str = ""):
+    def take_snapshot(self, label: str = "") -> None:
         self.gc.collect()
         current, peak = self.tracemalloc.get_traced_memory()
         obj_count = len(self.gc.get_objects())
@@ -115,7 +110,7 @@ class MemoryLeakDetector:
         )
         return {"memory_growth_mb": mem_growth, "object_growth": obj_growth}
 
-    def stop(self):
+    def stop(self) -> None:
         self.tracemalloc.stop()
 
 
@@ -123,21 +118,17 @@ class MemoryLeakDetector:
 
 
 class PerformanceRegressionMonitor:
-    """
-    Tracks and detects performance regressions based on historical baselines.
-    """
+    """Tracks and detects performance regressions based on historical baselines."""
 
     def __init__(self):
         self.baselines: dict[str, float] = {}
         self.regressions: list[str] = []
 
-    def set_baseline(self, test_name: str, value: float):
+    def set_baseline(self, test_name: str, value: float) -> None:
         self.baselines[test_name] = value
 
     def check(self, test_name: str, value: float, threshold: float = 1.2) -> bool:
-        """
-        Returns True if regression detected (value is threshold*baseline or worse).
-        """
+        """Returns True if regression detected (value is threshold*baseline or worse)."""
         baseline = self.baselines.get(test_name)
         if baseline is None:
             logger.info(
@@ -164,8 +155,7 @@ class PerformanceRegressionMonitor:
 
 
 class PerformanceMonitor:
-    """
-    Thread-safe, lightweight performance monitor for production.
+    """Thread-safe, lightweight performance monitor for production.
     Tracks operation timings, counts, and can emit periodic reports.
     """
 
@@ -177,7 +167,7 @@ class PerformanceMonitor:
         self.count = 0
         self.last_report = time.time()
 
-    def record(self, duration: float):
+    def record(self, duration: float) -> None:
         with self.lock:
             self.timings.append(duration)
             self.count += 1
@@ -186,7 +176,7 @@ class PerformanceMonitor:
                 self.report()
                 self.last_report = now
 
-    def report(self):
+    def report(self) -> None:
         with self.lock:
             if not self.timings:
                 return
@@ -240,28 +230,28 @@ def _get_cache_info():
     return None
 
 
-def _clear_cache():
+def _clear_cache() -> None:
     """Helper to clear the cache if the function is cached."""
     if _cached_parse_function is not None:
         _cached_parse_function.cache_clear()
         logger.info("Validation cache cleared.")
 
 
-def enable_validation_cache():
+def enable_validation_cache() -> None:
     """Enables the validation cache."""
     global _cache_enabled
     _cache_enabled = True
     logger.info("Validation cache enabled.")
 
 
-def disable_validation_cache():
+def disable_validation_cache() -> None:
     """Disables the validation cache."""
     global _cache_enabled
     _cache_enabled = False
     logger.info("Validation cache disabled.")
 
 
-def clear_validation_cache():
+def clear_validation_cache() -> None:
     """Clears all items from the validation cache."""
     _clear_cache()
 
@@ -277,14 +267,13 @@ def get_validation_cache_stats() -> dict[str, Any]:
             "max_size": info.maxsize,
             "enabled": _cache_enabled,
         }
-    else:
-        return {
-            "hits": 0,
-            "misses": 0,
-            "current_size": 0,
-            "max_size": _cache_maxsize,
-            "enabled": _cache_enabled,
-        }
+    return {
+        "hits": 0,
+        "misses": 0,
+        "current_size": 0,
+        "max_size": _cache_maxsize,
+        "enabled": _cache_enabled,
+    }
 
 
 def _create_cache_key(data: dict[str, Any]) -> str:
@@ -315,8 +304,7 @@ def _create_cache_key(data: dict[str, Any]) -> str:
 def apply_validation_cache(
     func: Callable[[dict[str, Any]], ValidationResult],
 ) -> Callable[[dict[str, Any]], ValidationResult]:
-    """
-    Decorator to apply caching to validation functions.
+    """Decorator to apply caching to validation functions.
 
     This creates an LRU cache that can be enabled/disabled and provides
     cache statistics for performance monitoring.
@@ -416,8 +404,7 @@ def measure_performance(name: str):
 
 # Memory optimization utilities
 def optimize_message_validation(data: dict[str, Any]) -> ValidationResult:
-    """
-    Optimized message validation function.
+    """Optimized message validation function.
 
     This function applies various optimizations:
     - Fast path for common message types

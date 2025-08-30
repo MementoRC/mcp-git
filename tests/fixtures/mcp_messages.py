@@ -1,5 +1,4 @@
-"""
-MCP protocol message fixtures for testing.
+"""MCP protocol message fixtures for testing.
 
 Provides mock MCP protocol messages for testing server compliance
 and message handling.

@@ -1,5 +1,4 @@
-"""
-GitHub service implementation for MCP Git Server.
+"""GitHub service implementation for MCP Git Server.
 
 This module provides a comprehensive GitHub service that handles GitHub API
 integration, webhook processing, and GitHub-specific functionality.
@@ -78,8 +77,7 @@ class GitHubServiceState:
 
 
 class GitHubService(DebuggableComponent):
-    """
-    Comprehensive GitHub service for MCP Git Server.
+    """Comprehensive GitHub service for MCP Git Server.
 
     Provides GitHub API integration, webhook handling, and GitHub-specific
     functionality following the established service patterns.

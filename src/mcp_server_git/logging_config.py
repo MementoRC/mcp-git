@@ -4,11 +4,9 @@ import sys
 
 
 class SafeStreamHandler(logging.StreamHandler):
-    """
-    Stream handler that gracefully handles closed streams during shutdown.
-    """
+    """Stream handler that gracefully handles closed streams during shutdown."""
 
-    def emit(self, record):
+    def emit(self, record) -> None:
         try:
             super().emit(record)
         except (ValueError, OSError) as e:
@@ -25,9 +23,7 @@ class SafeStreamHandler(logging.StreamHandler):
 
 
 class StructuredLogFormatter(logging.Formatter):
-    """
-    Formats log records as structured JSON with contextual fields.
-    """
+    """Formats log records as structured JSON with contextual fields."""
 
     def format(self, record: logging.LogRecord) -> str:
         log_record = {
@@ -50,8 +46,7 @@ class StructuredLogFormatter(logging.Formatter):
 
 
 def configure_logging(log_level: str = "INFO") -> None:
-    """
-    Centralized logging configuration for MCP Git Server.
+    """Centralized logging configuration for MCP Git Server.
     Sets up root logger with structured JSON output and safe stream handling.
     """
     root_logger = logging.getLogger()

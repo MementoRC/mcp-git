@@ -229,8 +229,7 @@ def enforce_secure_git_config(repo: Repo, strict_mode: bool = True) -> str:
                 result += f"  • {change}\n"
             result += "🔒 Repository is now configured for secure commits"
             return result
-        else:
-            return "✅ Git security configuration already optimal"
+        return "✅ Git security configuration already optimal"
 
     except Exception as e:
         return f"❌ Security enforcement failed: {e}"

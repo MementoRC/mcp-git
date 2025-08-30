@@ -1,5 +1,4 @@
-"""
-Repository binding implementation for MCP Git operations.
+"""Repository binding implementation for MCP Git operations.
 
 This module provides a secure repository binding interface that prevents
 cross-repository contamination by enforcing path-based security boundaries.
@@ -21,8 +20,7 @@ class RepositoryBindingError(Exception):
 
 
 class RepositoryBinding:
-    """
-    Provides a secure binding to a specific Git repository.
+    """Provides a secure binding to a specific Git repository.
 
     This class enforces that all Git operations are performed within
     the bounds of a single repository, preventing cross-repository
@@ -35,8 +33,7 @@ class RepositoryBinding:
         verify_repository: bool = True,
         verify_remote: bool = False,
     ):
-        """
-        Initialize repository binding.
+        """Initialize repository binding.
 
         Args:
             repository_path: Path to the Git repository
@@ -54,8 +51,7 @@ class RepositoryBinding:
         logger.debug(f"Repository binding established for: {self.repository_path}")
 
     def _verify_repository_validity(self, verify_remote: bool = False) -> None:
-        """
-        Verify that the bound path is a valid Git repository.
+        """Verify that the bound path is a valid Git repository.
 
         Args:
             verify_remote: Whether to also verify remote connectivity
@@ -86,8 +82,7 @@ class RepositoryBinding:
             self._verify_remote_url()
 
     def _verify_remote_url(self) -> None:
-        """
-        Verify that the repository has a valid remote URL.
+        """Verify that the repository has a valid remote URL.
 
         Raises:
             RepositoryBindingError: If remote verification fails
@@ -105,8 +100,7 @@ class RepositoryBinding:
             ) from e
 
     def validate_operation_path(self, operation_path: str | Path) -> Path:
-        """
-        Validate that an operation path is within the bound repository.
+        """Validate that an operation path is within the bound repository.
 
         Args:
             operation_path: Path where the operation will be performed
@@ -142,8 +136,7 @@ class RepositoryBinding:
             ) from e
 
     async def validate_remote_integrity(self) -> None:
-        """
-        Validate remote repository integrity asynchronously.
+        """Validate remote repository integrity asynchronously.
 
         This method performs network-based validation of remote repository
         connectivity and integrity without blocking the main thread.
@@ -161,8 +154,7 @@ class RepositoryBinding:
             ) from e
 
     def get_remote_url(self) -> str:
-        """
-        Get the URL of the default remote repository.
+        """Get the URL of the default remote repository.
 
         Returns:
             URL of the origin remote
@@ -208,8 +200,7 @@ class RepositoryBinding:
         }
 
     def get_repo(self) -> Repo:
-        """
-        Get the bound Git repository object.
+        """Get the bound Git repository object.
 
         Returns:
             GitPython Repo object for the bound repository

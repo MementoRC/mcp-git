@@ -23,14 +23,14 @@ class MockMCPClient:
         self.message_count = 0
         self.error_count = 0
 
-    async def connect(self):
+    async def connect(self) -> None:
         """Simulate client connection."""
         self.connected = True
         self.session_id = str(uuid.uuid4())
         self.message_count = 0
         self.error_count = 0
 
-    async def disconnect(self):
+    async def disconnect(self) -> None:
         """Simulate client disconnection."""
         self.connected = False
         self.session_id = None
@@ -88,8 +88,7 @@ class MockMCPClient:
 
 @pytest.fixture
 async def benchmark_session_manager():
-    """
-    Create a lightweight session manager for benchmarks.
+    """Create a lightweight session manager for benchmarks.
     Uses minimal timeouts and heartbeat intervals to keep tests fast.
     """
     manager = SessionManager(
@@ -114,9 +113,7 @@ async def benchmark_session_manager():
 
 @pytest.fixture
 async def mock_client():
-    """
-    Create a mock MCP client for testing. Reuses the one from stress tests.
-    """
+    """Create a mock MCP client for testing. Reuses the one from stress tests."""
     client = MockMCPClient()
     yield client
 
@@ -127,8 +124,7 @@ async def mock_client():
 
 @pytest.fixture
 def memory_monitor():
-    """
-    Memory monitoring utilities for leak detection, redefined for independence
+    """Memory monitoring utilities for leak detection, redefined for independence
     from the stress test conftest.
     """
 
@@ -153,8 +149,7 @@ def memory_monitor():
             return self.samples[-1]["memory_mb"] - self.samples[0]["memory_mb"]
 
         def get_memory_slope(self) -> float:
-            """
-            Calculate memory growth slope (trend) using simple linear regression.
+            """Calculate memory growth slope (trend) using simple linear regression.
             Requires at least 10 samples for a meaningful calculation.
             """
             if len(self.samples) < 10:
@@ -177,7 +172,7 @@ def memory_monitor():
             slope = (n * sum_xy - sum_x * sum_y) / denominator
             return slope
 
-        def log_samples(self):
+        def log_samples(self) -> None:
             """Log all collected memory samples to stdout."""
             print("\n--- Memory Samples ---")
             for i, sample in enumerate(self.samples):

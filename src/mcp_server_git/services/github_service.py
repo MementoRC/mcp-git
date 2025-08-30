@@ -1,5 +1,4 @@
-"""
-GitHub service implementation for MCP Git Server.
+"""GitHub service implementation for MCP Git Server.
 
 This module provides a comprehensive GitHub service that orchestrates GitHub operations
 and primitives to deliver complete GitHub repository management capabilities.
@@ -120,8 +119,7 @@ class GitHubOperationResult:
 
 
 class GitHubService(DebuggableComponent):
-    """
-    Comprehensive GitHub service providing high-level GitHub functionality.
+    """Comprehensive GitHub service providing high-level GitHub functionality.
 
     This service orchestrates GitHub operations, handles authentication,
     rate limiting, webhook processing, and provides comprehensive state
@@ -129,8 +127,7 @@ class GitHubService(DebuggableComponent):
     """
 
     def __init__(self, config: GitHubServiceConfig | None = None):
-        """
-        Initialize GitHub service.
+        """Initialize GitHub service.
 
         Args:
             config: Service configuration, defaults to GitHubServiceConfig()
@@ -153,8 +150,7 @@ class GitHubService(DebuggableComponent):
         logger.info("GitHub service initialized")
 
     async def start(self) -> None:
-        """
-        Start the GitHub service.
+        """Start the GitHub service.
 
         Raises:
             GitHubServiceError: If service fails to start
@@ -189,8 +185,7 @@ class GitHubService(DebuggableComponent):
             raise GitHubServiceError(f"Service startup failed: {e}") from e
 
     async def stop(self) -> None:
-        """
-        Stop the GitHub service.
+        """Stop the GitHub service.
 
         Example:
             >>> await service.stop()
@@ -227,8 +222,7 @@ class GitHubService(DebuggableComponent):
         logger.info("GitHub service stopped")
 
     async def authenticate(self, token: str | None = None) -> bool:
-        """
-        Authenticate with GitHub API.
+        """Authenticate with GitHub API.
 
         Args:
             token: GitHub token to use, if None uses configured token
@@ -291,8 +285,7 @@ class GitHubService(DebuggableComponent):
         auto_merge: bool = False,
         wait_for_checks: bool = True,
     ) -> GitHubOperationResult:
-        """
-        Complete pull request workflow with optional auto-merge.
+        """Complete pull request workflow with optional auto-merge.
 
         Args:
             repo_owner: Repository owner
@@ -366,8 +359,7 @@ class GitHubService(DebuggableComponent):
     async def handle_webhook_event(
         self, event_type: str, event_data: dict[str, Any]
     ) -> GitHubOperationResult:
-        """
-        Process GitHub webhook events.
+        """Process GitHub webhook events.
 
         Args:
             event_type: Type of webhook event (push, pull_request, etc.)
@@ -416,8 +408,7 @@ class GitHubService(DebuggableComponent):
             await self._finish_operation(operation_id)
 
     def get_rate_limit_status(self) -> dict[str, Any]:
-        """
-        Get current GitHub API rate limit status.
+        """Get current GitHub API rate limit status.
 
         Returns:
             Dictionary with rate limit information
@@ -439,8 +430,7 @@ class GitHubService(DebuggableComponent):
     async def get_repository_insights(
         self, repo_owner: str, repo_name: str
     ) -> GitHubOperationResult:
-        """
-        Get comprehensive repository insights and analytics.
+        """Get comprehensive repository insights and analytics.
 
         Args:
             repo_owner: Repository owner
@@ -801,21 +791,19 @@ class GitHubService(DebuggableComponent):
         # Simple maintenance assessment
         if repo_data.get("archived"):
             return "archived"
-        elif repo_data.get("disabled"):
+        if repo_data.get("disabled"):
             return "disabled"
-        else:
-            return "maintained"
+        return "maintained"
 
     def _get_health_status(self) -> str:
         """Get overall service health status."""
         if not self.state.is_running:
             return "stopped"
-        elif not self.state.is_authenticated:
+        if not self.state.is_authenticated:
             return "unauthenticated"
-        elif self._is_approaching_rate_limit():
+        if self._is_approaching_rate_limit():
             return "degraded"
-        else:
-            return "healthy"
+        return "healthy"
 
     def _calculate_operations_per_minute(self) -> float:
         """Calculate operations per minute metric."""

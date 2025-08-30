@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 import pytest
+
 from .conftest import _run_git_isolated
 
 
@@ -184,7 +185,7 @@ async def llm_compliant_server():
             except ProcessLookupError:
                 # Process already exited, which is fine
                 pass
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 # Force kill if it doesn't terminate
                 try:
                     if process.returncode is None:
@@ -192,7 +193,7 @@ async def llm_compliant_server():
                 except ProcessLookupError:
                     pass  # Already dead
                     await asyncio.wait_for(process.wait(), timeout=3.0)
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     pass  # Give up, let it be cleaned up by OS
 
         # Ensure all streams are properly closed before fixture cleanup
@@ -286,9 +287,9 @@ async def test_git_status_method_found(llm_compliant_server):
             if isinstance(result["content"], list)
             else result["content"]
         )
-        assert "test.txt" in str(content), (
-            f"Expected 'test.txt' in git status output: {content}"
-        )
+        assert "test.txt" in str(
+            content
+        ), f"Expected 'test.txt' in git status output: {content}"
 
 
 @pytest.mark.asyncio

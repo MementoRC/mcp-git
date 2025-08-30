@@ -11,9 +11,10 @@ These tests specifically validate Task 2 implementation:
 Focus: Testing the integration work completed in Task 2 without requiring full server startup.
 """
 
-import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
 from pathlib import Path
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 from mcp_server_git.applications.server_application import (
     ServerApplication,

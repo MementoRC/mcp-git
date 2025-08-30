@@ -1,5 +1,4 @@
-"""
-Git primitive operations for MCP Git Server.
+"""Git primitive operations for MCP Git Server.
 
 This module provides atomic, indivisible Git operations that serve as the foundation
 for higher-level Git functionality. These primitives handle basic Git commands,
@@ -140,8 +139,7 @@ class GitFormattedError:
 def execute_git_command(
     repo_path: str, command: list[str], timeout: int = 30
 ) -> GitCommandResult:
-    """
-    Execute a git command in the specified repository.
+    """Execute a git command in the specified repository.
 
     Args:
         repo_path: Path to the git repository
@@ -178,13 +176,12 @@ def execute_git_command(
                 output=result.stdout.strip(),
                 return_code=result.returncode,
             )
-        else:
-            return GitCommandResult(
-                success=False,
-                output=result.stdout.strip(),
-                error=result.stderr.strip(),
-                return_code=result.returncode,
-            )
+        return GitCommandResult(
+            success=False,
+            output=result.stdout.strip(),
+            error=result.stderr.strip(),
+            return_code=result.returncode,
+        )
 
     except subprocess.TimeoutExpired:
         return GitCommandResult(
@@ -210,8 +207,7 @@ def execute_git_command(
 
 
 def is_git_repository(repo_path: str) -> bool:
-    """
-    Check if the given path is a git repository.
+    """Check if the given path is a git repository.
 
     Args:
         repo_path: Path to check
@@ -231,8 +227,7 @@ def is_git_repository(repo_path: str) -> bool:
 
 
 def validate_repository_path(repo_path: str) -> GitValidationResult:
-    """
-    Validate a repository path and return validation result.
+    """Validate a repository path and return validation result.
 
     Args:
         repo_path: Path to validate
@@ -267,8 +262,7 @@ def validate_repository_path(repo_path: str) -> GitValidationResult:
 
 
 def get_repository_status(repo_path: str) -> GitRepositoryStatus:
-    """
-    Get the complete status of a git repository.
+    """Get the complete status of a git repository.
 
     Args:
         repo_path: Path to the git repository
@@ -303,8 +297,7 @@ def get_repository_status(repo_path: str) -> GitRepositoryStatus:
 
 
 def get_staged_files(repo_path: str) -> list[str]:
-    """
-    Get list of staged files in the repository.
+    """Get list of staged files in the repository.
 
     Args:
         repo_path: Path to the git repository
@@ -324,8 +317,7 @@ def get_staged_files(repo_path: str) -> list[str]:
 
 
 def get_unstaged_files(repo_path: str) -> list[str]:
-    """
-    Get list of unstaged modified files in the repository.
+    """Get list of unstaged modified files in the repository.
 
     Args:
         repo_path: Path to the git repository
@@ -345,8 +337,7 @@ def get_unstaged_files(repo_path: str) -> list[str]:
 
 
 def get_untracked_files(repo_path: str) -> list[str]:
-    """
-    Get list of untracked files in the repository.
+    """Get list of untracked files in the repository.
 
     Args:
         repo_path: Path to the git repository
@@ -366,8 +357,7 @@ def get_untracked_files(repo_path: str) -> list[str]:
 
 
 def get_current_branch(repo_path: str) -> str | None:
-    """
-    Get the current branch name.
+    """Get the current branch name.
 
     Args:
         repo_path: Path to the git repository
@@ -392,8 +382,7 @@ def get_current_branch(repo_path: str) -> str | None:
 
 
 def get_commit_hash(repo_path: str, short: bool = False) -> str:
-    """
-    Get the current commit hash.
+    """Get the current commit hash.
 
     Args:
         repo_path: Path to the git repository
@@ -418,8 +407,7 @@ def get_commit_hash(repo_path: str, short: bool = False) -> str:
 
 
 def parse_git_status_output(status_output: str) -> GitStatusParsed:
-    """
-    Parse git status --porcelain output into categorized file lists.
+    """Parse git status --porcelain output into categorized file lists.
 
     Args:
         status_output: Raw git status --porcelain output
@@ -472,8 +460,7 @@ def parse_git_status_output(status_output: str) -> GitStatusParsed:
 
 
 def parse_git_log_output(log_output: str) -> list[GitCommitParsed]:
-    """
-    Parse git log output into commit information.
+    """Parse git log output into commit information.
 
     Args:
         log_output: Raw git log output
@@ -525,8 +512,7 @@ def parse_git_log_output(log_output: str) -> list[GitCommitParsed]:
 def format_git_error(
     raw_error: str, command: list[str], repo_path: str
 ) -> GitFormattedError:
-    """
-    Format a raw git error into a human-readable error with context.
+    """Format a raw git error into a human-readable error with context.
 
     Args:
         raw_error: Raw error message from git

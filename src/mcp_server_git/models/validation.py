@@ -11,8 +11,7 @@ T = TypeVar("T", bound=BaseModel)
 
 
 def validate_notification(data: dict[str, Any], model: type[T]) -> T:
-    """
-    Validates a dictionary against a Pydantic model.
+    """Validates a dictionary against a Pydantic model.
 
     Args:
         data: The dictionary to validate.
@@ -32,9 +31,7 @@ def validate_notification(data: dict[str, Any], model: type[T]) -> T:
 
 
 def validate_cancelled_notification(data: dict[str, Any]) -> CancelledNotification:
-    """
-    Validates a dictionary to ensure it's a valid CancelledNotification.
-    """
+    """Validates a dictionary to ensure it's a valid CancelledNotification."""
     return validate_notification(data, CancelledNotification)
 
 

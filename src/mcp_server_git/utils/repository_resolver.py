@@ -1,5 +1,4 @@
-"""
-Repository path resolution utilities with worktree support.
+"""Repository path resolution utilities with worktree support.
 
 This module provides intelligent repository path resolution that:
 1. Follows worktree references to find the real repository
@@ -31,8 +30,7 @@ class RepositoryResolver:
     def resolve_repository_path(
         self, requested_repo_path: str | None = None
     ) -> str | None:
-        """
-        Intelligently resolve repository path with the following priority:
+        """Intelligently resolve repository path with the following priority:
         1. Use explicitly requested repo_path if provided
         2. Use bound repository from --repository parameter
         3. If bound repository is a worktree, resolve to real repository
@@ -52,11 +50,10 @@ class RepositoryResolver:
                     f"Using explicitly requested repo_path: {requested_repo_path}"
                 )
                 return requested_repo_path
-            else:
-                logger.warning(
-                    f"Requested repository path does not exist: {requested_repo_path}"
-                )
-                # Continue to next priority instead of returning invalid path
+            logger.warning(
+                f"Requested repository path does not exist: {requested_repo_path}"
+            )
+            # Continue to next priority instead of returning invalid path
 
         # Priority 2: Use bound repository (with worktree resolution)
         if self.bound_repository_path:
@@ -71,8 +68,7 @@ class RepositoryResolver:
         return None
 
     def _resolve_with_worktree_support(self, repo_path: Path) -> Path:
-        """
-        Resolve repository path with worktree support using Git's formal worktree detection.
+        """Resolve repository path with worktree support using Git's formal worktree detection.
 
         If the path is a worktree, follow the gitdir reference to find the main repository.
         """
@@ -141,8 +137,7 @@ class RepositoryResolver:
             return repo_path
 
     def get_repository_info(self, repo_path: str | None = None) -> dict:
-        """
-        Get information about the resolved repository.
+        """Get information about the resolved repository.
 
         Returns:
             Dictionary with repository information including worktree status
@@ -207,14 +202,13 @@ class RepositoryResolver:
                 "error": f"Error accessing repository: {e}",
             }
 
-    def clear_cache(self):
+    def clear_cache(self) -> None:
         """Clear the resolved repository cache."""
         self._resolved_repo_cache = None
         logger.debug("Repository resolver cache cleared")
 
     def get_debug_info(self) -> dict:
-        """
-        Get debug information about the repository resolver state.
+        """Get debug information about the repository resolver state.
 
         Returns:
             Dictionary with resolver state and configuration

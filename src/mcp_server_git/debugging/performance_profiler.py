@@ -1,5 +1,4 @@
-"""
-Performance profiling utilities for comprehensive performance monitoring and analysis.
+"""Performance profiling utilities for comprehensive performance monitoring and analysis.
 
 This module provides tools for measuring, tracking, and analyzing performance
 metrics across components and operations with LLM-friendly reporting.
@@ -127,8 +126,7 @@ class ResourceSnapshot:
 
 
 class PerformanceProfiler:
-    """
-    Comprehensive performance profiler with operation tracking and resource monitoring.
+    """Comprehensive performance profiler with operation tracking and resource monitoring.
 
     This class provides tools for measuring operation performance, tracking resource
     usage, and generating detailed performance reports optimized for LLM analysis.
@@ -139,8 +137,7 @@ class PerformanceProfiler:
         max_history_per_operation: int = 1000,
         enable_resource_monitoring: bool = True,
     ):
-        """
-        Initialize the performance profiler.
+        """Initialize the performance profiler.
 
         Args:
             max_history_per_operation: Maximum number of performance measurements to keep per operation
@@ -237,8 +234,7 @@ class PerformanceProfiler:
     def profile_operation(
         self, operation_name: str, operation_id: str | None = None
     ) -> Iterator[dict[str, Any]]:
-        """
-        Context manager for profiling an operation.
+        """Context manager for profiling an operation.
 
         Args:
             operation_name: Name of the operation to profile
@@ -361,8 +357,7 @@ class PerformanceProfiler:
         unit: str = "",
         metadata: dict[str, Any] | None = None,
     ) -> None:
-        """
-        Record a custom performance metric.
+        """Record a custom performance metric.
 
         Args:
             metric_name: Name of the metric
@@ -473,8 +468,7 @@ class PerformanceProfiler:
     def generate_performance_report(
         self, include_detailed_history: bool = False
     ) -> str:
-        """
-        Generate a comprehensive performance report optimized for LLM analysis.
+        """Generate a comprehensive performance report optimized for LLM analysis.
 
         Args:
             include_detailed_history: Whether to include detailed metric history
@@ -669,8 +663,7 @@ class PerformanceProfiler:
         return "\n".join(report_lines)
 
     def profile_function(self, operation_name: str | None = None):
-        """
-        Decorator for profiling function calls.
+        """Decorator for profiling function calls.
 
         Args:
             operation_name: Optional custom operation name (defaults to function name)
@@ -719,8 +712,7 @@ def get_global_profiler() -> PerformanceProfiler:
 
 
 def profile_operation(operation_name: str):
-    """
-    Convenience decorator using the global profiler.
+    """Convenience decorator using the global profiler.
 
     Args:
         operation_name: Name of the operation to profile
@@ -730,8 +722,7 @@ def profile_operation(operation_name: str):
 
 @contextmanager
 def profile(operation_name: str) -> Iterator[dict[str, Any]]:
-    """
-    Convenience context manager using the global profiler.
+    """Convenience context manager using the global profiler.
 
     Args:
         operation_name: Name of the operation to profile

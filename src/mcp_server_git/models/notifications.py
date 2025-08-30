@@ -14,8 +14,7 @@ class CancelledParams(BaseModel):
 
 
 class CancelledNotification(BaseModel):
-    """
-    A notification indicating that a previously sent request has been cancelled.
+    """A notification indicating that a previously sent request has been cancelled.
     https://microsoft.github.io/language-server-protocol/specifications/mcp/0.2.0-pre.1/#cancelledNotification
     """
 
@@ -32,8 +31,7 @@ ClientNotification = (
 
 
 def parse_client_notification(data: dict[str, Any]) -> ClientNotification:
-    """
-    Parse a client notification from raw data based on its type field.
+    """Parse a client notification from raw data based on its type field.
 
     Args:
         data: Raw notification data containing 'method' field
@@ -48,14 +46,13 @@ def parse_client_notification(data: dict[str, Any]) -> ClientNotification:
 
     if notification_method == "notifications/cancelled":
         return CancelledNotification.model_validate(data)
-    else:
-        # Log unknown notification type but don't crash
-        logger.warning(f"Unknown notification method: {notification_method}")
-        # For unknown types, attempt to parse as cancelled notification as fallback
-        # This provides graceful degradation
-        try:
-            return CancelledNotification.model_validate(data)
-        except ValidationError:
-            # If all else fails, create a minimal cancelled notification
-            logger.error(f"Failed to parse notification: {data}")
-            return CancelledNotification(params=CancelledParams(requestId="unknown"))
+    # Log unknown notification type but don't crash
+    logger.warning(f"Unknown notification method: {notification_method}")
+    # For unknown types, attempt to parse as cancelled notification as fallback
+    # This provides graceful degradation
+    try:
+        return CancelledNotification.model_validate(data)
+    except ValidationError:
+        # If all else fails, create a minimal cancelled notification
+        logger.error(f"Failed to parse notification: {data}")
+        return CancelledNotification(params=CancelledParams(requestId="unknown"))

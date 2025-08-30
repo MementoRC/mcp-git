@@ -1,13 +1,13 @@
 {
   "token_limits": {
     "description": "Token limit configuration for MCP Git Server",
-    
+
     "core_limits": {
       "llm_token_limit": 20000,
       "human_token_limit": 0,
       "unknown_token_limit": 25000
     },
-    
+
     "features": {
       "enable_content_optimization": true,
       "enable_intelligent_truncation": true,
@@ -15,19 +15,19 @@
       "add_truncation_warnings": true,
       "enable_response_caching": false
     },
-    
+
     "client_detection": {
       "force_client_type": "",
       "client_detection_headers": ["user-agent", "x-client-type"],
       "llm_indicators": ["claude", "gpt", "openai", "anthropic", "llm", "ai-assistant", "chatgpt"]
     },
-    
+
     "performance": {
       "max_processing_time_ms": 100,
       "enable_metrics_collection": true,
       "log_truncation_events": true
     },
-    
+
     "operation_limits": {
       "git_diff": 25000,
       "git_diff_unstaged": 25000,
@@ -40,7 +40,7 @@
       "github_get_pr_details": 15000,
       "github_list_pull_requests": 10000
     },
-    
+
     "content_optimization": {
       "remove_emojis_for_llm": true,
       "simplify_error_messages": true,
@@ -48,7 +48,7 @@
       "include_content_summaries": false,
       "preserve_technical_details": true
     },
-    
+
     "truncation_strategies": {
       "diff_preserve_headers": true,
       "diff_max_files_shown": 10,
@@ -58,7 +58,7 @@
       "generic_preserve_line_boundaries": true
     }
   },
-  
+
   "profiles": {
     "conservative": {
       "llm_token_limit": 15000,
@@ -66,21 +66,21 @@
       "enable_content_optimization": true,
       "add_truncation_warnings": true
     },
-    
+
     "balanced": {
       "llm_token_limit": 20000,
       "unknown_token_limit": 25000,
       "enable_content_optimization": true,
       "enable_intelligent_truncation": true
     },
-    
+
     "aggressive": {
       "llm_token_limit": 30000,
       "unknown_token_limit": 35000,
       "enable_content_optimization": false,
       "add_truncation_warnings": false
     },
-    
+
     "development": {
       "llm_token_limit": 50000,
       "unknown_token_limit": 50000,
@@ -89,12 +89,12 @@
       "enable_response_caching": true
     }
   },
-  
+
   "environment_variables": {
     "description": "Environment variables that can override these settings",
     "variables": [
       "MCP_GIT_LLM_TOKEN_LIMIT",
-      "MCP_GIT_HUMAN_TOKEN_LIMIT", 
+      "MCP_GIT_HUMAN_TOKEN_LIMIT",
       "MCP_GIT_UNKNOWN_TOKEN_LIMIT",
       "MCP_GIT_ENABLE_OPTIMIZATION",
       "MCP_GIT_ENABLE_TRUNCATION",
@@ -105,12 +105,12 @@
       "MCP_GIT_REMOVE_EMOJIS",
       "MCP_GIT_SIMPLIFY_ERRORS"
     ],
-    
+
     "operation_limit_variables": {
       "description": "Set operation-specific limits with MCP_GIT_OPERATION_LIMIT_{OPERATION}",
       "examples": [
         "MCP_GIT_OPERATION_LIMIT_GIT_DIFF=30000",
-        "MCP_GIT_OPERATION_LIMIT_GIT_LOG=10000", 
+        "MCP_GIT_OPERATION_LIMIT_GIT_LOG=10000",
         "MCP_GIT_OPERATION_LIMIT_GIT_STATUS=5000"
       ]
     }

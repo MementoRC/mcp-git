@@ -1,5 +1,4 @@
-"""
-Debug context management for maintaining debugging state across operations.
+"""Debug context management for maintaining debugging state across operations.
 
 This module provides context managers and utilities for tracking debugging
 information across complex operations and maintaining context for LLM analysis.
@@ -74,8 +73,7 @@ class DebugOperation:
 
 
 class DebugContext:
-    """
-    Context manager for debugging operations with hierarchical operation tracking.
+    """Context manager for debugging operations with hierarchical operation tracking.
 
     This class maintains debugging context across complex operations, tracking
     metadata, errors, warnings, and nested operations for comprehensive debugging.
@@ -89,8 +87,7 @@ class DebugContext:
     _global_lock = threading.RLock()
 
     def __init__(self, context_name: str, context_id: str | None = None):
-        """
-        Initialize debug context.
+        """Initialize debug context.
 
         Args:
             context_name: Human-readable name for the context
@@ -190,8 +187,7 @@ class DebugContext:
     def start_operation(
         self, operation_name: str, operation_id: str | None = None
     ) -> DebugOperation:
-        """
-        Start a new debug operation.
+        """Start a new debug operation.
 
         Args:
             operation_name: Name of the operation
@@ -252,8 +248,7 @@ class DebugContext:
 
     @contextmanager
     def operation(self, operation_name: str) -> Iterator[DebugOperation]:
-        """
-        Context manager for a debug operation.
+        """Context manager for a debug operation.
 
         Args:
             operation_name: Name of the operation
@@ -448,8 +443,7 @@ class DebugContext:
 def debug_operation(
     operation_name: str, context: DebugContext | None = None
 ) -> Iterator[DebugOperation]:
-    """
-    Standalone context manager for debug operations.
+    """Standalone context manager for debug operations.
 
     Args:
         operation_name: Name of the operation
@@ -480,14 +474,11 @@ def debug_operation(
 
 
 class GlobalDebugContextManager:
-    """
-    Global manager for debug contexts with cleanup and monitoring capabilities.
-    """
+    """Global manager for debug contexts with cleanup and monitoring capabilities."""
 
     @staticmethod
     def cleanup_old_contexts(max_age_hours: int = 24) -> int:
-        """
-        Clean up old debug contexts.
+        """Clean up old debug contexts.
 
         Args:
             max_age_hours: Maximum age in hours before contexts are cleaned up

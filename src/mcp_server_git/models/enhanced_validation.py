@@ -1,5 +1,4 @@
-"""
-Enhanced validation system for MCP Git Server with robust notification handling.
+"""Enhanced validation system for MCP Git Server with robust notification handling.
 This module provides comprehensive validation that can handle unexpected or malformed messages
 without crashing the server.
 """
@@ -67,8 +66,7 @@ class NotificationInfo:
 
 
 class RobustNotificationHandler:
-    """
-    A robust notification handler that can process various notification types
+    """A robust notification handler that can process various notification types
     without crashing when encountering unknown or malformed messages.
     """
 
@@ -101,8 +99,7 @@ class RobustNotificationHandler:
             return NotificationInfo(method="error", has_params=False)
 
     def handle_notification(self, data: dict[str, Any]) -> ValidationResult:
-        """
-        Handle a notification with comprehensive error handling and fallback logic.
+        """Handle a notification with comprehensive error handling and fallback logic.
 
         Args:
             data: Raw notification data
@@ -124,15 +121,14 @@ class RobustNotificationHandler:
                 self.processed_count += 1
                 logger.debug(f"Successfully parsed {info.method} notification")
                 return result
-            else:
-                # Handle parsing failure
-                self.error_count += 1
-                logger.warning(
-                    f"Failed to parse {info.method} notification: {result.error}"
-                )
+            # Handle parsing failure
+            self.error_count += 1
+            logger.warning(
+                f"Failed to parse {info.method} notification: {result.error}"
+            )
 
-                # Attempt fallback handling
-                return self._handle_parsing_failure(data, info, result.error)
+            # Attempt fallback handling
+            return self._handle_parsing_failure(data, info, result.error)
 
         except Exception as e:
             self.error_count += 1
@@ -227,8 +223,7 @@ _cached_safe_parse_notification = _apply_validation_cache_func(
 
 
 def process_notification_safely(data: dict[str, Any]) -> ValidationResult:
-    """
-    Main entry point for safe notification processing.
+    """Main entry point for safe notification processing.
 
     This function provides a safe way to process notifications that won't
     crash the server even when encountering malformed or unknown message types.

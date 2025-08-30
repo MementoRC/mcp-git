@@ -151,15 +151,13 @@ def recoverable(max_retries: int = 3, backoff_factor: float = 1.0):
         # Return appropriate wrapper based on whether function is async
         if asyncio.iscoroutinefunction(func):
             return async_wrapper  # type: ignore
-        else:
-            return sync_wrapper  # type: ignore
+        return sync_wrapper  # type: ignore
 
     return decorator
 
 
 async def handle_error(context: ErrorContext) -> bool:
-    """
-    Central error handler that determines recovery strategy.
+    """Central error handler that determines recovery strategy.
 
     Returns:
         bool: True if error was handled and operation can continue,
@@ -195,10 +193,9 @@ async def handle_error(context: ErrorContext) -> bool:
         logger.info(f"Successfully recovered from error in {context.operation}")
         context.handled = True
         return True
-    else:
-        logger.warning(f"Failed to recover from error in {context.operation}")
-        context.handled = False
-        return context.severity != ErrorSeverity.HIGH
+    logger.warning(f"Failed to recover from error in {context.operation}")
+    context.handled = False
+    return context.severity != ErrorSeverity.HIGH
 
 
 async def _attempt_recovery(context: ErrorContext) -> bool:
@@ -227,8 +224,7 @@ async def _attempt_recovery(context: ErrorContext) -> bool:
 
 
 def classify_error(error: Exception, operation: str = "") -> ErrorContext:
-    """
-    Classify an error and create an appropriate ErrorContext.
+    """Classify an error and create an appropriate ErrorContext.
 
     Args:
         error: The exception that occurred
@@ -352,8 +348,7 @@ class CircuitOpenError(Exception):
 
 
 class CircuitBreaker:
-    """
-    Implements the circuit breaker pattern to prevent cascading failures.
+    """Implements the circuit breaker pattern to prevent cascading failures.
 
     The circuit breaker has three states:
     - CLOSED: Normal operation, requests are allowed
@@ -443,9 +438,8 @@ class CircuitBreaker:
             if self.half_open_calls < self.half_open_max_calls:
                 self.half_open_calls += 1
                 return True
-            else:
-                self._rejected_requests += 1
-                return False
+            self._rejected_requests += 1
+            return False
 
         return True
 
@@ -503,22 +497,21 @@ def with_circuit_breaker(circuit: CircuitBreaker):
                     raise
 
             return async_wrapper  # type: ignore
-        else:
 
-            @functools.wraps(func)
-            def sync_wrapper(*args: Any, **kwargs: Any) -> T:
-                if not circuit.allow_request():
-                    raise CircuitOpenError(f"Circuit {circuit.name} is open")
+        @functools.wraps(func)
+        def sync_wrapper(*args: Any, **kwargs: Any) -> T:
+            if not circuit.allow_request():
+                raise CircuitOpenError(f"Circuit {circuit.name} is open")
 
-                try:
-                    result = func(*args, **kwargs)
-                    circuit.record_success()
-                    return result
-                except Exception:
-                    circuit.record_failure()
-                    raise
+            try:
+                result = func(*args, **kwargs)
+                circuit.record_success()
+                return result
+            except Exception:
+                circuit.record_failure()
+                raise
 
-            return sync_wrapper
+        return sync_wrapper
 
     return decorator
 

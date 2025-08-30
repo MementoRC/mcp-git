@@ -1,5 +1,4 @@
-"""
-Debugging protocol definitions for component state inspection and debugging.
+"""Debugging protocol definitions for component state inspection and debugging.
 
 This module defines the DebuggableComponent protocol and related interfaces
 for enabling comprehensive debugging and state inspection capabilities.
@@ -95,8 +94,7 @@ class DebugInfo(Protocol):
 
 
 class DebuggableComponent(Protocol):
-    """
-    Protocol for components that support debugging and state inspection.
+    """Protocol for components that support debugging and state inspection.
 
     This protocol defines the interface that all debuggable components must implement
     to enable comprehensive debugging, state inspection, and validation capabilities.
@@ -107,8 +105,7 @@ class DebuggableComponent(Protocol):
 
     @abstractmethod
     def get_component_state(self) -> ComponentState:
-        """
-        Get the current state of the component.
+        """Get the current state of the component.
 
         Returns:
             ComponentState: Complete state information including ID, type, data, and timestamp
@@ -122,8 +119,7 @@ class DebuggableComponent(Protocol):
 
     @abstractmethod
     def validate_component(self) -> ValidationResult:
-        """
-        Validate the current state and configuration of the component.
+        """Validate the current state and configuration of the component.
 
         Returns:
             ValidationResult: Validation status with errors, warnings, and timestamp
@@ -138,8 +134,7 @@ class DebuggableComponent(Protocol):
 
     @abstractmethod
     def get_debug_info(self, debug_level: str = "INFO") -> DebugInfo:
-        """
-        Get debug information for the component.
+        """Get debug information for the component.
 
         Args:
             debug_level: Level of debug information to return (DEBUG, INFO, WARN, ERROR)
@@ -156,8 +151,7 @@ class DebuggableComponent(Protocol):
 
     @abstractmethod
     def inspect_state(self, path: str | None = None) -> dict[str, Any]:
-        """
-        Inspect specific parts of the component state.
+        """Inspect specific parts of the component state.
 
         Args:
             path: Optional dot-notation path to specific state (e.g., "config.database.host")
@@ -175,8 +169,7 @@ class DebuggableComponent(Protocol):
 
     @abstractmethod
     def get_component_dependencies(self) -> list[str]:
-        """
-        Get list of component dependencies.
+        """Get list of component dependencies.
 
         Returns:
             List of component IDs or names that this component depends on
@@ -190,8 +183,7 @@ class DebuggableComponent(Protocol):
 
     @abstractmethod
     def export_state_json(self) -> str:
-        """
-        Export component state as JSON for external analysis.
+        """Export component state as JSON for external analysis.
 
         Returns:
             JSON string representation of complete component state
@@ -205,8 +197,7 @@ class DebuggableComponent(Protocol):
 
     @abstractmethod
     def health_check(self) -> dict[str, bool | str | int | float]:
-        """
-        Perform a health check on the component.
+        """Perform a health check on the component.
 
         Returns:
             Dictionary with health status information including:
@@ -230,8 +221,7 @@ class StateInspector(Protocol):
 
     @abstractmethod
     def get_state_history(self, limit: int = 10) -> list[ComponentState]:
-        """
-        Get historical state information.
+        """Get historical state information.
 
         Args:
             limit: Maximum number of historical states to return
@@ -245,8 +235,7 @@ class StateInspector(Protocol):
     def compare_states(
         self, state1: ComponentState, state2: ComponentState
     ) -> dict[str, Any]:
-        """
-        Compare two component states and return differences.
+        """Compare two component states and return differences.
 
         Args:
             state1: First state to compare
@@ -259,8 +248,7 @@ class StateInspector(Protocol):
 
     @abstractmethod
     def get_state_diff(self, timestamp: datetime) -> dict[str, Any]:
-        """
-        Get state differences since a specific timestamp.
+        """Get state differences since a specific timestamp.
 
         Args:
             timestamp: Reference timestamp for comparison

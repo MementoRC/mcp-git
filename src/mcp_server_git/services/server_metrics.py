@@ -1,5 +1,4 @@
-"""
-Server metrics and monitoring service for MCP Git server.
+"""Server metrics and monitoring service for MCP Git server.
 
 This module provides comprehensive metrics collection and monitoring capabilities
 for the MCP Git server, including performance tracking, usage statistics, and
@@ -135,8 +134,7 @@ class SystemHealthMetrics:
 
 
 class MetricsService(DebuggableComponent):
-    """
-    Comprehensive metrics collection and monitoring service.
+    """Comprehensive metrics collection and monitoring service.
 
     Provides performance tracking, usage statistics, and health monitoring
     for the MCP Git server with thread-safe operations and configurable
@@ -149,8 +147,7 @@ class MetricsService(DebuggableComponent):
         health_check_interval: float = 60.0,
         enable_system_metrics: bool = True,
     ):
-        """
-        Initialize the metrics service.
+        """Initialize the metrics service.
 
         Args:
             max_metric_history: Maximum number of metric points to retain
@@ -215,8 +212,7 @@ class MetricsService(DebuggableComponent):
         value: float,
         labels: dict[str, str] | None = None,
     ) -> None:
-        """
-        Record a custom metric point.
+        """Record a custom metric point.
 
         Args:
             name: Metric name
@@ -239,8 +235,7 @@ class MetricsService(DebuggableComponent):
         duration: float,
         success: bool = True,
     ) -> None:
-        """
-        Record an operation performance metric.
+        """Record an operation performance metric.
 
         Args:
             operation_name: Name of the operation
