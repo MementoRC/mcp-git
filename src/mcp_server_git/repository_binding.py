@@ -5,7 +5,9 @@ cross-repository contamination by enforcing path-based security boundaries.
 """
 
 import logging
+import uuid
 from pathlib import Path
+from typing import Optional
 
 import git
 from git import Repo
@@ -17,6 +19,18 @@ DEFAULT_REMOTE_NAME = "origin"
 
 class RepositoryBindingError(Exception):
     """Exception raised when repository binding operations fail."""
+
+
+class RemoteContaminationError(Exception):
+    """Exception raised when remote repository contamination is detected."""
+
+
+class RemoteProtectionError(Exception):
+    """Exception raised when remote repository protection is violated.
+
+    This exception is raised when operations attempt to modify remote URLs
+    without proper confirmation, which could lead to cross-session contamination.
+    """
 
 
 class RepositoryBinding:
@@ -225,3 +239,181 @@ class RepositoryBinding:
             f"RepositoryBinding(repository_path={self.repository_path!r}, "
             f"exists={self.repository_path.exists()!r})"
         )
+
+
+class RepositoryBindingManager:
+    """Manages repository bindings for MCP Git operations.
+
+    This class provides a centralized interface for managing repository bindings,
+    session tracking, and remote protection across MCP server operations.
+    """
+
+    def __init__(self, server_name: str = "mcp-git-server"):
+        """Initialize the repository binding manager.
+
+        Args:
+            server_name: Name identifier for this server instance
+        """
+        self.server_name = server_name
+        self._session_id = str(uuid.uuid4())
+        self._binding: RepositoryBinding | None = None
+        self._expected_remote_url: str | None = None
+        self._remote_name: str = DEFAULT_REMOTE_NAME
+
+        logger.debug(
+            f"Repository binding manager initialized for {server_name} (session: {self._session_id})"
+        )
+
+    @property
+    def binding(self) -> Optional["RepositoryBindingInfo"]:
+        """Get the current repository binding information.
+
+        Returns:
+            Current binding info with expected remote URL and remote name, or None if unbound
+        """
+        if self._binding is None:
+            return None
+
+        return RepositoryBindingInfo(
+            repository_path=self._binding.repository_path,
+            expected_remote_url=self._expected_remote_url,
+            remote_name=self._remote_name,
+        )
+
+    def bind_repository(
+        self,
+        repository_path: str | Path,
+        expected_remote_url: str,
+        remote_name: str = DEFAULT_REMOTE_NAME,
+        verify_remote: bool = True,
+    ) -> None:
+        """Bind to a repository with remote protection.
+
+        Args:
+            repository_path: Path to the Git repository
+            expected_remote_url: Expected remote URL for contamination detection
+            remote_name: Name of the remote to monitor (default: "origin")
+            verify_remote: Whether to verify remote connectivity
+
+        Raises:
+            RepositoryBindingError: If binding fails
+        """
+        try:
+            self._binding = RepositoryBinding(
+                repository_path=repository_path,
+                verify_repository=True,
+                verify_remote=verify_remote,
+            )
+            self._expected_remote_url = expected_remote_url
+            self._remote_name = remote_name
+
+            logger.info(
+                f"Repository bound: {repository_path} -> {expected_remote_url} "
+                f"(session: {self._session_id})"
+            )
+
+        except Exception as e:
+            raise RepositoryBindingError(f"Failed to bind repository: {e}") from e
+
+    def unbind_repository(self) -> None:
+        """Unbind from the current repository."""
+        if self._binding:
+            logger.info(
+                f"Repository unbound: {self._binding.repository_path} (session: {self._session_id})"
+            )
+
+        self._binding = None
+        self._expected_remote_url = None
+        self._remote_name = DEFAULT_REMOTE_NAME
+
+    def validate_operation_path(self, operation_path: str | Path) -> Path:
+        """Validate an operation path against the current binding.
+
+        Args:
+            operation_path: Path to validate
+
+        Returns:
+            Validated absolute path
+
+        Raises:
+            RepositoryBindingError: If no binding exists or path is invalid
+        """
+        if self._binding is None:
+            raise RepositoryBindingError(
+                "No repository binding active. Use bind_repository() first."
+            )
+
+        return self._binding.validate_operation_path(operation_path)
+
+    async def validate_remote_integrity(self) -> None:
+        """Validate remote integrity against expected URL.
+
+        Raises:
+            RepositoryBindingError: If no binding exists
+            RemoteContaminationError: If remote URL has changed
+        """
+        if self._binding is None:
+            raise RepositoryBindingError(
+                "No repository binding active. Use bind_repository() first."
+            )
+
+        try:
+            current_remote = self._binding.get_remote_url()
+            if (
+                self._expected_remote_url
+                and current_remote != self._expected_remote_url
+            ):
+                raise RemoteContaminationError(
+                    f"Remote contamination detected!\n"
+                    f"Expected: {self._expected_remote_url}\n"
+                    f"Current: {current_remote}"
+                )
+        except git.GitError as e:
+            # Git errors during remote validation
+            raise RepositoryBindingError(
+                f"Failed to validate remote integrity: {e}"
+            ) from e
+
+        await self._binding.validate_remote_integrity()
+
+    def get_status(self) -> dict:
+        """Get current binding manager status.
+
+        Returns:
+            Dictionary with binding status information
+        """
+        return {
+            "server_name": self.server_name,
+            "session_id": self._session_id,
+            "bound": self._binding is not None,
+            "repository_path": str(self._binding.repository_path)
+            if self._binding
+            else None,
+            "expected_remote_url": self._expected_remote_url,
+            "remote_name": self._remote_name,
+        }
+
+
+class RepositoryBindingInfo:
+    """Information about a repository binding.
+
+    This class provides a read-only view of binding information used by
+    protected git operations for validation and contamination detection.
+    """
+
+    def __init__(
+        self,
+        repository_path: Path,
+        expected_remote_url: str | None,
+        remote_name: str = DEFAULT_REMOTE_NAME,
+    ):
+        """Initialize binding information.
+
+        Args:
+            repository_path: Path to the bound repository
+            expected_remote_url: Expected remote URL for contamination detection
+            remote_name: Name of the monitored remote
+        """
+        self.repository_path = repository_path
+        self.expected_remote_url = expected_remote_url
+        self.remote_name = remote_name
