@@ -80,7 +80,7 @@ class ProtectedGitOperations:
         self.binding_manager.validate_operation_path(operation_path)
 
         # Validate remote integrity before any operation
-        await self.binding_manager.validate_remote_integrity()
+        self.binding_manager.validate_remote_integrity()
 
         return operation_path
 

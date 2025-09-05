@@ -29,16 +29,40 @@ mcp-git-lean = "mcp_server_git.lean:main"
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
+[project]
+name = "mcp-server-git"
+version = "0.1.0"
+description = "A Model Context Protocol (MCP) server that provides comprehensive Git repository management and GitHub integration capabilities for AI-powered development tools"
+authors = [{name = "Claude Sonnet 3.5", email = "claude@anthropic.com"}]
+license = {file = "LICENSE"}
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "aiohttp>=3.8.0",
+    "click>=8.1.7",
+    "gitpython>=3.1.43",
+    "mcp>=1.11.0",
+    "psutil>=5.9.0",
+    "pydantic>=2.0.0",
+    "python-dotenv>=1.0.0",
+    "httpx>=0.24.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/MementoRC/mcp-git"
+Repository = "https://github.com/MementoRC/mcp-git.git"
+Documentation = "https://github.com/MementoRC/mcp-git#readme"
+
+# =============================================================================
+# TOOL CONFIGURATION
+# =============================================================================
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-python_files = "test_*.py"
-python_classes = "Test*"
-python_functions = "test_*"
-asyncio_mode = "auto"
-asyncio_default_fixture_loop_scope = "function"
-pythonpath = ["src"]
-addopts = "-v --tb=short --timeout=30"
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*", "*Tests"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"
 timeout = 30
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
@@ -64,8 +88,10 @@ ignore = ["E501"]
 "tests/**/*.py" = ["F821", "F401", "F841"]
 # TDD type tests: Allow undefined names and unused imports during red phase
 "tests/unit/types/*.py" = ["F821", "F401", "F841"]
-# Ensure production code maintains strict standards
-"src/mcp_server_git/types/*.py" = []
+# Types module: Allow F403 star imports in __init__.py for re-exporting architectural pattern
+"src/mcp_server_git/types/__init__.py" = ["F403"]
+# Ensure other type files maintain strict standards
+"src/mcp_server_git/types/[!_]*.py" = []
 
 [tool.ruff.format]
 # Ensure consistent formatting across ruff versions
@@ -99,31 +125,24 @@ psutil = ">=5.9.0"
 pydantic = ">=2.0.0"
 python-dotenv = ">=1.0.0"
 lupa = ">=2.6,<3"
+httpx = ">=0.24.0"
 
-# No PyPI dependencies - everything from conda-forge
-
-# ===== TIERED QUALITY FEATURES =====
-# TIER 1: Essential Quality Gates (ZERO-TOLERANCE)
 [tool.pixi.feature.quality.dependencies]
-# Core Testing Framework
+# QA dependencies - used in quality environment
+ruff = ">=0.8.4"
+mypy = ">=1.7.1"
 pytest = ">=8.0.0"
-pytest-cov = ">=4.0.0"
-pytest-timeout = ">=2.1.0"
-pytest-asyncio = ">=0.21.0"
-pytest-xdist = ">=3.3.0"
-
-# Linting & Formatting
-ruff = ">=0.7.3"
-
-# Type Checking
-mypy = ">=1.0.0"
+pytest-asyncio = ">=0.24.0"
+pytest-timeout = ">=2.3.1"
+pytest-mock = ">=3.14.0"
 pyright = ">=1.1.0"
-nodejs = ">=20"  # Required for pyright (needs modern Node.js for optional chaining)
+nodejs = ">=20"  # Required for pyright
 
 # TIER 2: Extended Quality & Security
 [tool.pixi.feature.quality-extended.dependencies]
 # Security Scanning
-bandit = ">=1.7.0"
+bandit = ">=1.7.5"
+safety = ">=3.0.0"
 
 # Code Quality Analysis
 hypothesis = ">=6.0.0"
@@ -133,11 +152,6 @@ vulture = ">=2.0"
 
 # Git Hooks
 pre-commit = ">=3.0.0"
-
-# Security Scanning
-safety = ">=2.3.0"
-
-# Security tools from conda-forge only
 
 # TIER 3: CI/CD & Build
 [tool.pixi.feature.quality-ci.dependencies]
@@ -149,8 +163,6 @@ pytest-html = ">=4.0.0"
 # Build Tools (conda-forge versions)
 twine = ">=4.0.0"
 
-# Build tools from conda-forge only
-
 # ===== DEVELOPMENT FEATURES =====
 # Keep existing dev feature for specialized tools
 [tool.pixi.feature.dev-specialized.dependencies]
@@ -158,54 +170,51 @@ twine = ">=4.0.0"
 memory_profiler = "*"
 pytest-benchmark = "*"
 pytest-aiohttp = ">=1.0.0"
-pytest-mock = ">=3.10.0"
 pytest-metadata = ">=3.0.0"
 faker = "*"
 
 [tool.pixi.environments]
-# Basic runtime environment
-default = {solve-group = "default"}
+default = { solve-group = "main" }
+quality = { features = ["quality"], solve-group = "main" }
+quality-extended = { features = ["quality", "quality-extended"], solve-group = "extended" }
 
-# Quality gate environments (tiered approach)
-quality = {features = ["quality"], solve-group = "default"}
-quality-extended = {features = ["quality", "quality-extended"], solve-group = "default"}
-quality-full = {features = ["quality", "quality-extended", "quality-ci"], solve-group = "default"}
-
-# Development environment (full quality + specialized tools)
-dev = {features = ["quality", "quality-extended", "quality-ci", "dev-specialized"], solve-group = "default"}
-
-# CI environment (quality + CI reporting)
-ci = {features = ["quality", "quality-ci"], solve-group = "default"}
+# =============================================================================
+# PIXI TASKS CONFIGURATION
+# =============================================================================
 
 [tool.pixi.tasks]
-# ===== TIER 1: CORE DEVELOPMENT TASKS (ESSENTIAL) =====
-# Installation & Setup
-install-editable = "python -c 'import sys; print(f\"PIXI environment active: {sys.executable}\", file=sys.stderr); print(\"Package available via PIXI - no pip needed\", file=sys.stderr)'"
-dev-setup = "echo 'Development environment ready'"
 
-# Testing (ZERO-TOLERANCE QUALITY GATES)
-# NOTE: Tests require quality environment - run with: pixi run -e quality test
-test = { cmd = "pytest tests/ -v --ignore=tests/test_e2e_server.py", env = { CLAUDECODE = "0" } }
-test-cov = { cmd = "pytest tests/ --cov=src/mcp_server_git --cov-report=term-missing --cov-report=xml", env = { CLAUDECODE = "0" } }
-test-unit = { cmd = "pytest tests/unit/ -v", env = { CLAUDECODE = "0" } }
-test-integration = { cmd = "pytest tests/integration/ -v", env = { CLAUDECODE = "0" } }
-test-e2e = { cmd = "pytest tests/test_e2e_server.py -v", env = { CLAUDECODE = "0" } }
-test-property = { cmd = "pytest tests/ -m property -v", env = { CLAUDECODE = "0" } }
+# ===== TIER 0: DEVELOPMENT TASKS =====
+install = "pip install -e ."
+dev = "python -m mcp_server_git"
 
-# Quality Gates (CRITICAL - MUST PASS)
-# NOTE: These require quality environment - run with: pixi run -e quality lint
+# ===== TIER 1: CORE QUALITY TASKS =====
+# Basic Code Quality
+test = "pytest"
+test-coverage = "pytest --cov=src/mcp_server_git --cov-report=term-missing"
+test-unit = "pytest tests/unit/ -v"
+test-e2e = "pytest tests/e2e/ -v -m 'not ci_skip'"
+test-phase1 = "pytest -m phase1 -v"
+test-phase2 = "pytest -m phase2 -v"
+test-phase3 = "pytest -m phase3 -v"
+test-phase4 = "pytest -m phase4 -v"
+
+# Essential Linting (CI-focused)
 lint = "ruff check src/ tests/ --select=F,E9"
-lint-fix = "ruff check --fix src/ tests/"
+lint-fix = "ruff check src/ tests/ --select=F,E9 --fix"
 format = "ruff format src/ tests/"
-format-check = "ruff format --check src/ tests/"
-format-diff = "ruff format --diff src/ tests/"
-typecheck = "pyright src/"
+format-check = "ruff format src/ tests/ --check"
 
-# Combined Quality Check
-quality = { depends-on = ["test", "lint", "typecheck"] }
+# Type Checking
+typecheck = "mypy src/mcp_server_git --ignore-missing-imports"
 
-# Emergency Quality Fix - USE FOR "Found X errors" CI FAILURES
-emergency-fix = "pixi run -e quality lint-fix && pixi run -e quality format && pixi run -e quality test"
+# Combined Quality Gate (CI Entry Point)
+quality = { depends-on = ["test", "lint", "format-check", "typecheck"] }
+
+# ===== TIER 2: COMPREHENSIVE QUALITY TASKS =====
+# Comprehensive Linting (All rules)
+lint-all = "ruff check src/ tests/"
+lint-all-fix = "ruff check src/ tests/ --fix"
 
 # ===== TIER 2: SECURITY & COMPLIANCE TASKS =====
 # Security Scanning
@@ -222,28 +231,29 @@ dead-code-strict = "vulture src/ --min-confidence 60 --sort-by-size"
 static-analysis = { depends-on = ["security-scan", "safety-check"] }
 
 # Pre-commit Integration - with Claude Code git bypass
-# NOTE: These require quality-extended environment - run with: pixi run -e quality-extended pre-commit
-pre-commit = { cmd = "pre-commit run --all-files", env = { CLAUDECODE = "0" } }
-install-pre-commit = { cmd = "pre-commit install --install-hooks", env = { CLAUDECODE = "0" } }
+pre-commit = { depends-on = ["quality"] }
 
-# Comprehensive Check
+# ===== TIER 3: MAINTENANCE TASKS =====
+clean = """
+rm -rf __pycache__ .pytest_cache .coverage .mypy_cache .ruff_cache || true
+find . -name "*.pyc" -delete || true
+find . -name "__pycache__" -type d -exec rm -rf {} + || true
+"""
+clean-all = { depends-on = ["clean"], cmd = "rm -rf build/ dist/ *.egg-info/ || true" }
+
+# ===== TIER 4: ADVANCED ANALYSIS =====
 check-all = { depends-on = ["quality", "static-analysis"] }
 
-# ===== TIER 3: CI/CD & DEPLOYMENT TASKS =====
-# CI-specific variants with environment simulation
-ci-test = { cmd = "pytest tests/ --cov=src/mcp_server_git --cov-report=xml --junitxml=pytest-results.xml --timeout=180 --ignore=tests/test_e2e_server.py --ignore=tests/test_llm_compliant_server_e2e.py -m 'not ci_skip' --tb=short --maxfail=10 --disable-warnings", env = { ENVIRONMENT = "ci", PYTEST_CI = "true", CI = "true", CLAUDECODE = "0" } }
-ci-test-debug = { cmd = "pytest tests/ --cov=src/mcp_server_git --cov-report=xml --timeout=180 --ignore=tests/test_e2e_server.py --ignore=tests/test_llm_compliant_server_e2e.py -m 'not ci_skip' --tb=long -v -s --capture=no", env = { ENVIRONMENT = "ci", PYTEST_CI = "true", CI = "true", CLAUDECODE = "0" } }
-ci-lint = "ruff check src/ tests/ --output-format=github"
-ci-format-check = "ruff format --check src/ tests/"
+# Performance Testing
+test-performance = "pytest tests/performance/ -v"
+profile = "python -m cProfile -s cumulative -m mcp_server_git"
 
-# Stress testing with CI environment simulation
-# NOTE: These require quality environment - run with: pixi run -e quality test-stress-local
-test-stress-ci = { cmd = "pytest tests/stress/ -v --tb=short", env = { PYTEST_CI = "true", CI = "true", CLAUDECODE = "0" } }
-test-stress-local = { cmd = "pytest tests/stress/ -v --tb=short", env = { CLAUDECODE = "0" } }
+# Test Coverage Analysis  
+test-coverage-report = "pytest --cov=src/mcp_server_git --cov-report=html --cov-report=term"
+coverage-threshold = "coverage report --fail-under=85"
 
-# Build & Deploy
-build = "python -m build"
-clean = "rm -rf __pycache__ .pytest_cache .coverage htmlcov .ruff_cache dist build"
+# Complex Analysis Tasks
+complexity = "python -c \"import ast, sys; [print(f'{f}:{ast.parse(open(f).read()).body}') for f in sys.argv[1:]]\" src/mcp_server_git/*.py"
 
 # ===== APPLICATION TASKS =====
 # Server execution
@@ -277,3 +287,6 @@ test-local-full = { cmd = "pytest tests/ -v --ignore=tests/test_e2e_server.py", 
 # Quick test variants
 test-quick = { cmd = "pytest tests/unit/ tests/integration/ -v", env = { CLAUDECODE = "0" } }
 test-quick-ci = { cmd = "pytest tests/unit/ tests/integration/ -v", env = { PYTEST_CI = "true", CI = "true", CLAUDECODE = "0" } }
+
+# Git Hooks
+githooks = "python scripts/install_hooks.py"

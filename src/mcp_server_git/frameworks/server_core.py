@@ -473,15 +473,15 @@ class MCPGitServerCore(DebuggableComponent):
 
         # Check repository binding validation
         binding_info = self.binding_manager.get_binding_info()
-        if binding_info["state"] == "corrupted":
-            errors.append("Repository binding corrupted - potential tampering detected")
-        elif binding_info["state"] == "unbound" and self.repository_path:
+        is_bound = binding_info.get("bound", False)
+        
+        if not is_bound and self.repository_path:
             warnings.append(
                 "Repository specified but not bound - operations may be unprotected"
             )
 
         # Check protected operations availability
-        if self.protected_ops is None and binding_info["state"] == "bound":
+        if self.protected_ops is None and is_bound:
             errors.append("Repository bound but protected operations not available")
 
         # Check error rate

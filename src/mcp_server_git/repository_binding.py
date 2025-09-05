@@ -344,7 +344,7 @@ class RepositoryBindingManager:
 
         return self._binding.validate_operation_path(operation_path)
 
-    async def validate_remote_integrity(self) -> None:
+    def validate_remote_integrity(self) -> None:
         """Validate remote integrity against expected URL.
 
         Raises:
