@@ -291,7 +291,7 @@ class DiffTruncator(ContentTruncator):
         result_lines = []
         files_processed = 0
         files_truncated = 0
-        total_files = len([l for l in lines if l.startswith("diff --git")])
+        total_files = len([line for line in lines if line.startswith("diff --git")])
 
         # Reserve tokens for truncation summary
         sample_summary = "\n\n[Diff truncated: showing 99 files, 99 files omitted to fit token limit]"

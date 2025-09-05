@@ -307,18 +307,20 @@ class ResponseFormatter:
         lines = content.split("\n")
 
         if operation.startswith("git_diff"):
-            files_changed = len([l for l in lines if l.startswith("diff --git")])
+            files_changed = len(
+                [line for line in lines if line.startswith("diff --git")]
+            )
             summary = f"SUMMARY: {files_changed} files changed\n\n"
         elif operation == "git_log":
-            commits = len([l for l in lines if l.startswith("commit ")])
+            commits = len([line for line in lines if line.startswith("commit ")])
             summary = f"SUMMARY: {commits} commits shown\n\n"
         elif operation == "git_status":
             staged = len(
                 [
-                    l
-                    for l in lines
-                    if l.strip().startswith("modified:")
-                    or l.strip().startswith("new file:")
+                    line
+                    for line in lines
+                    if line.strip().startswith("modified:")
+                    or line.strip().startswith("new file:")
                 ]
             )
             summary = f"SUMMARY: {staged} files with changes\n\n"

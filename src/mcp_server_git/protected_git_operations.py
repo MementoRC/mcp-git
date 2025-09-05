@@ -11,17 +11,6 @@ the bound repository with the expected remote URL.
 import logging
 from pathlib import Path
 
-# Safe git import that handles ClaudeCode redirector conflicts
-from .utils.git_import import Repo
-
-# Configuration constants
-DEFAULT_CONFIRMATION_TOKEN = "CONFIRM_REMOTE_CHANGE"
-
-__all__ = [
-    "ProtectedGitOperations",
-    "DEFAULT_CONFIRMATION_TOKEN",
-]
-
 from .git.operations import (
     git_add,
     git_checkout,
@@ -46,6 +35,17 @@ from .repository_binding import (
     RemoteProtectionError,
     RepositoryBindingManager,
 )
+
+# Safe git import that handles ClaudeCode redirector conflicts
+from .utils.git_import import Repo
+
+# Configuration constants
+DEFAULT_CONFIRMATION_TOKEN = "CONFIRM_REMOTE_CHANGE"
+
+__all__ = [
+    "ProtectedGitOperations",
+    "DEFAULT_CONFIRMATION_TOKEN",
+]
 
 logger = logging.getLogger(__name__)
 

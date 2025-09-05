@@ -334,11 +334,13 @@ MASSIVE_CONFIG = {
                             "schema": {
                                 "type": "object",
                                 "properties": {
-                                    f"field_{l}": {
-                                        "type": ["string", "number", "boolean"][l % 3],
-                                        "description": f"Field {l} in response {k}",
+                                    f"field_{field_idx}": {
+                                        "type": ["string", "number", "boolean"][
+                                            field_idx % 3
+                                        ],
+                                        "description": f"Field {field_idx} in response {k}",
                                     }
-                                    for l in range(k % 5 + 1)
+                                    for field_idx in range(k % 5 + 1)
                                 },
                             },
                         }

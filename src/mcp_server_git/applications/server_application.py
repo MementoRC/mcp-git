@@ -16,6 +16,7 @@ import sys
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from datetime import datetime
+from enum import Enum
 from pathlib import Path
 from typing import Any, Literal
 
@@ -49,8 +50,6 @@ logger = logging.getLogger(__name__)
 
 # ===== MCP TOOL MODELS =====
 # Import the tool models from the original server to maintain compatibility
-
-from enum import Enum
 
 
 class GitTools(str, Enum):

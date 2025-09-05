@@ -231,7 +231,7 @@ check-all = { depends-on = ["quality", "static-analysis"] }
 
 # ===== TIER 3: CI/CD & DEPLOYMENT TASKS =====
 # CI-specific variants with environment simulation
-ci-test = { cmd = "pytest tests/ --cov=src/mcp_server_git --cov-report=xml --timeout=180 --ignore=tests/test_e2e_server.py --ignore=tests/test_llm_compliant_server_e2e.py -m 'not ci_skip' --tb=short --maxfail=10 --disable-warnings", env = { ENVIRONMENT = "ci", PYTEST_CI = "true", CI = "true", CLAUDECODE = "0" } }
+ci-test = { cmd = "pytest tests/ --cov=src/mcp_server_git --cov-report=xml --junitxml=pytest-results.xml --timeout=180 --ignore=tests/test_e2e_server.py --ignore=tests/test_llm_compliant_server_e2e.py -m 'not ci_skip' --tb=short --maxfail=10 --disable-warnings", env = { ENVIRONMENT = "ci", PYTEST_CI = "true", CI = "true", CLAUDECODE = "0" } }
 ci-test-debug = { cmd = "pytest tests/ --cov=src/mcp_server_git --cov-report=xml --timeout=180 --ignore=tests/test_e2e_server.py --ignore=tests/test_llm_compliant_server_e2e.py -m 'not ci_skip' --tb=long -v -s --capture=no", env = { ENVIRONMENT = "ci", PYTEST_CI = "true", CI = "true", CLAUDECODE = "0" } }
 ci-lint = "ruff check src/ tests/ --output-format=github"
 ci-format-check = "ruff format --check src/ tests/"

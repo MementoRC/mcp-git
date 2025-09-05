@@ -76,64 +76,20 @@ See also:
 """
 
 # Core type imports - implementing git_types first
-from .git_types import (
-    GitBranch,
-    GitBranchInfo,
-    GitBranchName,
-    GitCommitHash,
-    GitCommitInfo,
-    GitDiffResult,
-    GitFileStatus,
-    GitFileStatusType,
-    GitLogResult,
-    GitOperationError,
-    GitOperationResult,
-    GitOperationStatus,
-    GitRemoteInfo,
-    GitRemoteName,
-    GitRepositoryPath,
-    GitStatusResult,
-    GitTagName,
-    GitTypeIntegration,
-    GitValidationError,
-)
+from .composite_types import *
+from .composite_types import __all__ as composite_all
 
-# from .github_types import *
-# from .session_types import *
-# from .mcp_types import *
+# Get all exports from the individual modules
+from .git_types import *
+from .git_types import __all__ as git_all
+from .github_types import *
+from .github_types import __all__ as github_all
 
-# Exports - populated as modules are implemented
-__all__: list[str] = [
-    # Git types - implemented
-    "GitRepositoryPath",
-    "GitBranch",
-    "GitCommitHash",
-    "GitRemoteName",
-    "GitBranchName",
-    "GitTagName",
-    "GitFileStatus",
-    "GitOperationResult",
-    "GitStatusResult",
-    "GitDiffResult",
-    "GitLogResult",
-    "GitCommitInfo",
-    "GitBranchInfo",
-    "GitRemoteInfo",
-    "GitValidationError",
-    "GitOperationError",
-    "GitFileStatusType",
-    "GitOperationStatus",
-    "GitTypeIntegration",
-    # GitHub types - to be implemented
-    # "GitHubToken",
-    # "GitHubRepoOwner",
-    # ...
-    # Session types - to be implemented
-    # "SessionId",
-    # "UserId",
-    # ...
-    # MCP types - to be implemented
-    # "RequestId",
-    # "ToolName",
-    # ...
-]
+# Import newly implemented type modules
+from .mcp_types import *
+from .mcp_types import __all__ as mcp_all
+from .validation_types import *
+from .validation_types import __all__ as validation_all
+
+# Combine all exports
+__all__: list[str] = git_all + mcp_all + github_all + validation_all + composite_all

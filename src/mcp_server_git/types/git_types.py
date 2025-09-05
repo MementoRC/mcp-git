@@ -754,6 +754,7 @@ __all__ = [
     "GitRepositoryPath",
     "GitBranch",
     "GitCommitHash",
+    "GitCommitHashObj",
     "GitRemoteName",
     "GitBranchName",
     "GitTagName",
