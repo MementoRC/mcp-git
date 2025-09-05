@@ -75,7 +75,7 @@ See also:
     - constants: Type-related constants and defaults
 """
 
-# Core type imports - implementing git_types first
+# Core type imports - star imports allowed via F403 ruff configuration for re-exporting pattern
 from .composite_types import *
 from .composite_types import __all__ as composite_all
 

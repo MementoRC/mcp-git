@@ -14,7 +14,8 @@ env:
   FORCE_COLOR: "1"
   PYTHONUNBUFFERED: "1"
   # CI environment settings
-  # Note: No CLAUDECODE flag needed - CI doesn't have git redirector
+  # Fix GitPython compatibility in environments with git redirection
+  GIT_PYTHON_GIT_EXECUTABLE: "/usr/bin/git"
 
 jobs:
   # Job 1: Code Quality and Static Analysis
@@ -99,7 +100,7 @@ jobs:
         pixi-version: v0.49.0
         cache: false
         manifest-path: pyproject.toml
-        
+
     - name: Free up disk space
       run: |
         echo "🧹 Freeing up disk space for test execution..."
@@ -226,7 +227,7 @@ jobs:
 
         # Use pixi environment for MCP server test
         echo "Using pixi environment"
-        
+
         # Test server startup directly - let it complete naturally
         echo "Testing server can start and handle test mode..."
         if timeout 10s pixi run -e ci pixi-git-server --test-mode; then
