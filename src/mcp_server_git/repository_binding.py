@@ -149,18 +149,17 @@ class RepositoryBinding:
                 f"Failed to validate operation path {operation_path}: {e}"
             ) from e
 
-    async def validate_remote_integrity(self) -> None:
-        """Validate remote repository integrity asynchronously.
+    def validate_remote_integrity(self) -> None:
+        """Validate remote repository integrity.
 
-        This method performs network-based validation of remote repository
-        connectivity and integrity without blocking the main thread.
+        This method performs validation of remote repository
+        connectivity and integrity.
 
         Raises:
             RepositoryBindingError: If remote validation fails
         """
         try:
-            # This is an async operation that could involve network calls
-            # For now, we just verify the remote URL exists
+            # Verify the remote URL exists
             self._verify_remote_url()
         except Exception as e:
             raise RepositoryBindingError(
@@ -374,7 +373,7 @@ class RepositoryBindingManager:
                 f"Failed to validate remote integrity: {e}"
             ) from e
 
-        await self._binding.validate_remote_integrity()
+        self._binding.validate_remote_integrity()
 
     def get_status(self) -> dict:
         """Get current binding manager status.
@@ -392,6 +391,14 @@ class RepositoryBindingManager:
             "expected_remote_url": self._expected_remote_url,
             "remote_name": self._remote_name,
         }
+
+    def get_binding_info(self) -> dict:
+        """Get current binding information.
+
+        Returns:
+            Dictionary with binding information (alias for get_status)
+        """
+        return self.get_status()
 
 
 class RepositoryBindingInfo:
