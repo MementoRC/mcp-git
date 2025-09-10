@@ -110,7 +110,7 @@ ignore_names = ["__all__", "__version__", "__author__"]
 
 [tool.pixi.project]
 channels = ["conda-forge"]
-platforms = ["linux-64"]  # CI-optimized: single platform for reliability
+platforms = ["linux-64"]  # CI-optimized: single platform for reliability - PR #74 CI fix
 
 [tool.pixi.dependencies]
 # Core runtime dependencies
@@ -163,6 +163,15 @@ pytest-html = ">=4.0.0"
 # Build Tools (conda-forge versions)
 twine = ">=4.0.0"
 
+# CI-specific dependencies - Fixes missing CI environment for PR #74
+[tool.pixi.feature.ci.dependencies]
+pytest = ">=8.0.0"
+pytest-asyncio = ">=0.24.0"
+pytest-timeout = ">=2.3.1"
+pytest-mock = ">=3.14.0"
+pytest-cov = ">=4.0.0"
+coverage = ">=7.0.0"
+
 # ===== DEVELOPMENT FEATURES =====
 # Keep existing dev feature for specialized tools
 [tool.pixi.feature.dev-specialized.dependencies]
@@ -177,6 +186,7 @@ faker = "*"
 default = { solve-group = "main" }
 quality = { features = ["quality"], solve-group = "main" }
 quality-extended = { features = ["quality", "quality-extended"], solve-group = "extended" }
+ci = { features = ["quality", "ci"], solve-group = "main" }
 
 # =============================================================================
 # PIXI TASKS CONFIGURATION
@@ -210,6 +220,9 @@ typecheck = "mypy src/mcp_server_git --ignore-missing-imports"
 
 # Combined Quality Gate (CI Entry Point)
 quality = { depends-on = ["test", "lint", "format-check", "typecheck"] }
+
+# CI-specific test task - Added for PR #74 CI environment fix
+ci-test = "pytest --cov=src/mcp_server_git --cov-report=xml --cov-report=term -v"
 
 # ===== TIER 2: COMPREHENSIVE QUALITY TASKS =====
 # Comprehensive Linting (All rules)
