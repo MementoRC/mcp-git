@@ -570,6 +570,14 @@ class GitHubListWorkflowRuns(BaseModel):
     head_sha: str | None = None
 
 
+class GitHubAwaitWorkflowCompletion(BaseModel):
+    repo_owner: str
+    repo_name: str
+    run_id: int | None = None  # None = latest run
+    timeout_minutes: int = 15
+    poll_interval_seconds: int = 20
+
+
 class GitHubGetPRDetails(BaseModel):
     repo_owner: str
     repo_name: str
@@ -639,6 +647,7 @@ class GitTools(str, Enum):
     GITHUB_GET_FAILING_JOBS = "github_get_failing_jobs"
     GITHUB_GET_WORKFLOW_RUN = "github_get_workflow_run"
     GITHUB_LIST_WORKFLOW_RUNS = "github_list_workflow_runs"
+    GITHUB_AWAIT_WORKFLOW_COMPLETION = "github_await_workflow_completion"
     GITHUB_GET_PR_DETAILS = "github_get_pr_details"
     GITHUB_LIST_PULL_REQUESTS = "github_list_pull_requests"
     GITHUB_GET_PR_STATUS = "github_get_pr_status"
@@ -913,6 +922,27 @@ async def github_list_workflow_runs(
         exclude_pull_requests=exclude_pull_requests,
         check_suite_id=check_suite_id,
         head_sha=head_sha,
+    )
+
+
+async def github_await_workflow_completion(
+    repo_owner: str,
+    repo_name: str,
+    run_id: int | None = None,
+    timeout_minutes: int = 15,
+    poll_interval_seconds: int = 20,
+) -> str:
+    """Monitor a GitHub Actions workflow run until completion"""
+    from .github.api import (
+        github_await_workflow_completion as api_github_await_workflow_completion,
+    )
+
+    return await api_github_await_workflow_completion(
+        repo_owner=repo_owner,
+        repo_name=repo_name,
+        run_id=run_id,
+        timeout_minutes=timeout_minutes,
+        poll_interval_seconds=poll_interval_seconds,
     )
 
 
@@ -2291,6 +2321,11 @@ Provide specific, actionable recommendations for each area."""
                 name=GitTools.GITHUB_LIST_WORKFLOW_RUNS,
                 description="List workflow runs for a repository with comprehensive filtering",
                 inputSchema=GitHubListWorkflowRuns.model_json_schema(),
+            ),
+            Tool(
+                name=GitTools.GITHUB_AWAIT_WORKFLOW_COMPLETION,
+                description="Monitor a GitHub Actions workflow run until completion. Enables automated CI response workflows by waiting for CI runs to complete and providing failure details when runs fail.",
+                inputSchema=GitHubAwaitWorkflowCompletion.model_json_schema(),
             ),
             Tool(
                 name=GitTools.GITHUB_GET_PR_DETAILS,
