@@ -404,13 +404,17 @@ class GitHubAwaitWorkflowCompletion(BaseModel):
     @classmethod
     def validate_timeout(cls, v: int) -> int:
         """Ensure timeout is reasonable (1-60 minutes)."""
-        return max(1, min(v, 60))
+        if v < 1 or v > 60:
+            raise ValueError("timeout_minutes must be between 1 and 60")
+        return v
 
     @field_validator("poll_interval_seconds")
     @classmethod
     def validate_poll_interval(cls, v: int) -> int:
         """Ensure poll interval is reasonable (5-120 seconds)."""
-        return max(5, min(v, 120))
+        if v < 5 or v > 120:
+            raise ValueError("poll_interval_seconds must be between 5 and 120")
+        return v
 
 
 class GitHubCreatePr(BaseModel):
