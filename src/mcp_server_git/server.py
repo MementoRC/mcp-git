@@ -19,7 +19,7 @@ from mcp.types import (
     TextContent,
     Tool,
 )
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 # Import server core framework
 from mcp_server_git.frameworks import MCPGitServerCore
@@ -576,6 +576,22 @@ class GitHubAwaitWorkflowCompletion(BaseModel):
     run_id: int | None = None  # None = latest run
     timeout_minutes: int = 15
     poll_interval_seconds: int = 20
+
+    @field_validator("timeout_minutes")
+    @classmethod
+    def validate_timeout(cls, v: int) -> int:
+        """Ensure timeout is reasonable (1-60 minutes)."""
+        if v < 1 or v > 60:
+            raise ValueError("timeout_minutes must be between 1 and 60")
+        return v
+
+    @field_validator("poll_interval_seconds")
+    @classmethod
+    def validate_poll_interval(cls, v: int) -> int:
+        """Ensure poll interval is reasonable (5-120 seconds)."""
+        if v < 5 or v > 120:
+            raise ValueError("poll_interval_seconds must be between 5 and 120")
+        return v
 
 
 class GitHubGetPRDetails(BaseModel):
