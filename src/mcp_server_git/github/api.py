@@ -1448,7 +1448,7 @@ async def github_await_workflow_completion(
                 # Safely extract run_id
                 run_id = workflow_runs[0].get("id")
                 if run_id is None:
-                    return f"❌ Latest workflow run has no ID"
+                    return "❌ Latest workflow run has no ID"
                 
                 logger.info(f"📋 Using latest workflow run ID: {run_id}")
 
