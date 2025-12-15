@@ -1445,7 +1445,11 @@ async def github_await_workflow_completion(
                 if not workflow_runs:
                     return f"❌ No workflow runs found for {repo_owner}/{repo_name}"
 
-                run_id = workflow_runs[0]["id"]
+                # Safely extract run_id
+                run_id = workflow_runs[0].get("id")
+                if not run_id:
+                    return f"❌ Latest workflow run has no ID"
+                
                 logger.info(f"📋 Using latest workflow run ID: {run_id}")
 
             # Start polling
@@ -1466,14 +1470,15 @@ async def github_await_workflow_completion(
                     logger.warning(
                         f"⏱️ Timeout reached after {elapsed_time:.1f}s ({poll_count} polls)"
                     )
-                    return f"""{{
-    "status": "timeout",
-    "run_id": {run_id},
-    "run_url": "https://github.com/{repo_owner}/{repo_name}/actions/runs/{run_id}",
-    "elapsed_seconds": {elapsed_time:.1f},
-    "message": "Workflow run did not complete within {timeout_minutes} minutes",
-    "polls_performed": {poll_count}
-}}"""
+                    timeout_result = {
+                        "status": "timeout",
+                        "run_id": run_id,
+                        "run_url": f"https://github.com/{repo_owner}/{repo_name}/actions/runs/{run_id}",
+                        "elapsed_seconds": elapsed_time,
+                        "message": f"Workflow run did not complete within {timeout_minutes} minutes",
+                        "polls_performed": poll_count
+                    }
+                    return json.dumps(timeout_result, indent=2)
 
                 # Get workflow run status
                 logger.debug(f"📡 Poll #{poll_count}: Fetching run status...")
@@ -1567,7 +1572,7 @@ async def github_await_workflow_completion(
 
                             # Try to get logs summary (truncated)
                             jobs_list = jobs_data.get("jobs", [])
-                            if failed_jobs and jobs_list:
+                            if failed_jobs and len(jobs_list) > 0:
                                 logger.debug("📄 Fetching failure logs summary...")
                                 # Get logs for first job in the list
                                 first_job = jobs_list[0]

@@ -1716,13 +1716,17 @@ class ServerApplication(DebuggableComponent):
         elif name == GitHubTools.AWAIT_WORKFLOW_COMPLETION:
             from ..github.api import github_await_workflow_completion
 
-            result = await github_await_workflow_completion(
-                repo_owner=arguments["repo_owner"],
-                repo_name=arguments["repo_name"],
-                run_id=arguments.get("run_id"),
-                timeout_minutes=arguments.get("timeout_minutes", 15),
-                poll_interval_seconds=arguments.get("poll_interval_seconds", 20),
-            )
+            # Validate required arguments
+            if "repo_owner" not in arguments or "repo_name" not in arguments:
+                result = "❌ Error: repo_owner and repo_name are required arguments"
+            else:
+                result = await github_await_workflow_completion(
+                    repo_owner=arguments["repo_owner"],
+                    repo_name=arguments["repo_name"],
+                    run_id=arguments.get("run_id"),
+                    timeout_minutes=arguments.get("timeout_minutes", 15),
+                    poll_interval_seconds=arguments.get("poll_interval_seconds", 20),
+                )
         elif name == GitHubTools.CREATE_PR:
             from ..github.api import github_create_pr
 
