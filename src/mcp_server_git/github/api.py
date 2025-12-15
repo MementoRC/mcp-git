@@ -1566,17 +1566,18 @@ async def github_await_workflow_completion(
                             result["failed_jobs"] = failed_jobs
 
                             # Try to get logs summary (truncated)
-                            if failed_jobs and jobs_data.get("jobs"):
+                            jobs_list = jobs_data.get("jobs", [])
+                            if failed_jobs and jobs_list:
                                 logger.debug("📄 Fetching failure logs summary...")
-                                # Get logs for first failed job
-                                first_failed_job = jobs_data["jobs"][0]
-                                if first_failed_job.get("id"):
+                                # Get logs for first job in the list
+                                first_job = jobs_list[0]
+                                if first_job.get("id"):
                                     try:
                                         # Note: GitHub API doesn't provide direct log text access via REST API
                                         # We'll include a note about where to find logs
                                         result[
                                             "logs_note"
-                                        ] = f"View detailed logs at: {first_failed_job.get('html_url')}"
+                                        ] = f"View detailed logs at: {first_job.get('html_url')}"
                                     except Exception as log_error:
                                         logger.debug(
                                             f"Could not fetch logs: {log_error}"
