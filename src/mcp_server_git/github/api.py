@@ -1,7 +1,11 @@
 """GitHub API operations for MCP Git Server"""
 
+import asyncio
+import json
 import logging
+import time
 from contextlib import asynccontextmanager
+from datetime import datetime
 from typing import Any
 
 from .client import get_github_client
@@ -1399,7 +1403,7 @@ async def github_await_workflow_completion(
 
     This tool allows Claude Code to wait for CI runs to complete, enabling
     automated CI response workflows. When a workflow run fails, it automatically
-    fetches failure details and logs.
+    fetches failure details.
 
     Args:
         repo_owner: Repository owner/organization
@@ -1416,12 +1420,8 @@ async def github_await_workflow_completion(
         - run_url: Direct link to the workflow run
         - duration_seconds: How long the run took
         - failed_jobs: List of jobs that failed (if any)
-        - failed_logs: Truncated logs from failed jobs (if any)
+        - logs_note: URL to view detailed logs (for failed runs)
     """
-    import asyncio
-    import time
-    from datetime import datetime
-
     logger.debug(
         f"🔍 Awaiting workflow completion for {repo_owner}/{repo_name}, run_id={run_id}"
     )
@@ -1566,10 +1566,10 @@ async def github_await_workflow_completion(
                             result["failed_jobs"] = failed_jobs
 
                             # Try to get logs summary (truncated)
-                            if failed_jobs:
+                            if failed_jobs and jobs_data.get("jobs"):
                                 logger.debug("📄 Fetching failure logs summary...")
-                                # Get logs for first failed job (up to 1000 chars)
-                                first_failed_job = jobs_data.get("jobs", [])[0]
+                                # Get logs for first failed job
+                                first_failed_job = jobs_data["jobs"][0]
                                 if first_failed_job.get("id"):
                                     try:
                                         # Note: GitHub API doesn't provide direct log text access via REST API
@@ -1583,8 +1583,6 @@ async def github_await_workflow_completion(
                                         )
 
                     # Return JSON result
-                    import json
-
                     return json.dumps(result, indent=2)
 
                 # Not complete yet, wait before next poll
