@@ -1477,7 +1477,7 @@ async def github_await_workflow_completion(
                         "run_id": run_id,
                         "run_url": f"https://github.com/{repo_owner}/{repo_name}/actions/runs/{run_id}",
                         "elapsed_seconds": elapsed_time,
-                        "message": f"Workflow run did not complete within {timeout_minutes} minutes. Consider increasing timeout_minutes for very long-running workflows (max: 300 minutes).",
+                        "message": f"Workflow run did not complete within {timeout_minutes} minutes. Consider increasing timeout_minutes for very long-running workflows (max: 350 minutes).",
                         "polls_performed": poll_count
                     }
                     return json.dumps(timeout_result, indent=2)
