@@ -281,7 +281,7 @@ class TestGitHubAwaitWorkflowCompletion:
                 run_id=12345
             )
             
-            assert "❌" in result_str
+            assert "Authentication error:" in result_str
             assert "GitHub token not configured" in result_str
 
     @pytest.mark.asyncio
@@ -303,5 +303,5 @@ class TestGitHubAwaitWorkflowCompletion:
                 run_id=12345
             )
             
-            assert "❌" in result_str
+            assert "Failed to get workflow run" in result_str
             assert "404" in result_str
