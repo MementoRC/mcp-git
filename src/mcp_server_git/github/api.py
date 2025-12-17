@@ -1423,34 +1423,34 @@ async def github_await_workflow_completion(
         - logs_note: URL to view detailed logs (for failed runs)
     """
     logger.debug(
-        f"🔍 Awaiting workflow completion for {repo_owner}/{repo_name}, run_id={run_id}"
+        f"Awaiting workflow completion for {repo_owner}/{repo_name}, run_id={run_id}"
     )
 
     try:
         async with github_client_context() as client:
             # If no run_id provided, get the latest run
             if run_id is None:
-                logger.debug("📡 No run_id provided, fetching latest workflow run...")
+                logger.debug("No run_id provided, fetching latest workflow run...")
                 response = await client.get(
                     f"/repos/{repo_owner}/{repo_name}/actions/runs", params={"per_page": 1}
                 )
 
                 if response.status != 200:
                     error_text = await response.text()
-                    return f"❌ Failed to get latest workflow run: {response.status} - {error_text}"
+                    return f"Failed to get latest workflow run: {response.status} - {error_text}"
 
                 data = await response.json()
                 workflow_runs = data.get("workflow_runs", [])
 
                 if not workflow_runs:
-                    return f"❌ No workflow runs found for {repo_owner}/{repo_name}"
+                    return f"No workflow runs found for {repo_owner}/{repo_name}"
 
                 # Safely extract run_id
                 run_id = workflow_runs[0].get("id")
                 if run_id is None:
-                    return "❌ Latest workflow run has no ID"
+                    return "Latest workflow run has no ID"
                 
-                logger.info(f"📋 Using latest workflow run ID: {run_id}")
+                logger.info(f"Using latest workflow run ID: {run_id}")
 
             # Start polling
             start_time = time.time()
@@ -1458,7 +1458,7 @@ async def github_await_workflow_completion(
             poll_count = 0
 
             logger.info(
-                f"⏱️ Starting to monitor run #{run_id} (timeout: {timeout_minutes}m, poll interval: {poll_interval_seconds}s)"
+                f"Starting to monitor run #{run_id} (timeout: {timeout_minutes}m, poll interval: {poll_interval_seconds}s)"
             )
 
             while True:
@@ -1467,41 +1467,43 @@ async def github_await_workflow_completion(
 
                 # Check for timeout
                 if elapsed_time >= timeout_seconds:
+                    # Cleanup any pending operations before timeout
+                    logger.info(f"Cleaning up resources after {elapsed_time:.1f}s of monitoring")
                     logger.warning(
-                        f"⏱️ Timeout reached after {elapsed_time:.1f}s ({poll_count} polls)"
+                        f"Timeout reached after {elapsed_time:.1f}s ({poll_count} polls)"
                     )
                     timeout_result = {
                         "status": "timeout",
                         "run_id": run_id,
                         "run_url": f"https://github.com/{repo_owner}/{repo_name}/actions/runs/{run_id}",
                         "elapsed_seconds": elapsed_time,
-                        "message": f"Workflow run did not complete within {timeout_minutes} minutes",
+                        "message": f"Workflow run did not complete within {timeout_minutes} minutes. Consider increasing timeout_minutes for very long-running workflows (max: 300 minutes).",
                         "polls_performed": poll_count
                     }
                     return json.dumps(timeout_result, indent=2)
 
                 # Get workflow run status
-                logger.debug(f"📡 Poll #{poll_count}: Fetching run status...")
+                logger.debug(f"Poll #{poll_count}: Fetching run status...")
                 run_response = await client.get(
                     f"/repos/{repo_owner}/{repo_name}/actions/runs/{run_id}"
                 )
 
                 if run_response.status != 200:
                     error_text = await run_response.text()
-                    return f"❌ Failed to get workflow run #{run_id}: {run_response.status} - {error_text}"
+                    return f"Failed to get workflow run #{run_id}: {run_response.status} - {error_text}"
 
                 run_data = await run_response.json()
                 run_status = run_data.get("status")
                 run_conclusion = run_data.get("conclusion")
 
                 logger.debug(
-                    f"📊 Poll #{poll_count}: status={run_status}, conclusion={run_conclusion}"
+                    f"Poll #{poll_count}: status={run_status}, conclusion={run_conclusion}"
                 )
 
                 # Check if run is complete
                 if run_status == "completed":
                     logger.info(
-                        f"✅ Workflow run completed with conclusion: {run_conclusion}"
+                        f"Workflow run completed with conclusion: {run_conclusion}"
                     )
 
                     # Calculate duration
@@ -1537,7 +1539,7 @@ async def github_await_workflow_completion(
 
                     # If run failed, get failed jobs and logs
                     if run_conclusion != "success":
-                        logger.debug("📋 Fetching failed jobs...")
+                        logger.debug("Fetching failed jobs...")
                         jobs_response = await client.get(
                             f"/repos/{repo_owner}/{repo_name}/actions/runs/{run_id}/jobs"
                         )
@@ -1573,7 +1575,7 @@ async def github_await_workflow_completion(
                             # Try to get logs summary (truncated)
                             jobs_list = jobs_data.get("jobs", [])
                             if failed_jobs and len(jobs_list) > 0:
-                                logger.debug("📄 Fetching failure logs summary...")
+                                logger.debug("Fetching failure logs summary...")
                                 # Get logs for first job in the list
                                 first_job = jobs_list[0]
                                 if first_job.get("id"):
@@ -1592,20 +1594,20 @@ async def github_await_workflow_completion(
                     return json.dumps(result, indent=2)
 
                 # Not complete yet, wait before next poll
-                logger.debug(f"⏳ Workflow still {run_status}, waiting {poll_interval_seconds}s before next poll...")
+                logger.debug(f"Workflow still {run_status}, waiting {poll_interval_seconds}s before next poll...")
                 await asyncio.sleep(poll_interval_seconds)
 
     except ValueError as auth_error:
         logger.error(f"Authentication error awaiting workflow completion: {auth_error}")
-        return f"❌ {str(auth_error)}"
+        return f"Authentication error: {str(auth_error)}"
     except ConnectionError as conn_error:
         logger.error(f"Connection error awaiting workflow completion: {conn_error}")
-        return f"❌ Network connection failed: {str(conn_error)}"
+        return f"Network connection failed: {str(conn_error)}"
     except Exception as e:
         logger.error(
             f"Unexpected error awaiting workflow completion: {e}", exc_info=True
         )
-        return f"❌ Error awaiting workflow completion: {str(e)}"
+        return f"Error awaiting workflow completion: {str(e)}"
 
 
 async def github_list_workflow_runs(
