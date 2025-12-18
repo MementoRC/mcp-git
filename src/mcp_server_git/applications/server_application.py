@@ -217,6 +217,7 @@ class GitHubTools(str, Enum):
     EDIT_PR_DESCRIPTION = "github_edit_pr_description"
     GET_WORKFLOW_RUN = "github_get_workflow_run"
     LIST_WORKFLOW_RUNS = "github_list_workflow_runs"
+    AWAIT_WORKFLOW_COMPLETION = "github_await_workflow_completion"
     CREATE_PR = "github_create_pr"
     MERGE_PR = "github_merge_pr"
     ADD_PR_COMMENT = "github_add_pr_comment"
@@ -389,6 +390,30 @@ class GitHubListWorkflowRuns(BaseModel):
             raise ValueError(
                 f"conclusion must be one of: {', '.join(sorted(valid_conclusions))}"
             )
+        return v
+
+
+class GitHubAwaitWorkflowCompletion(BaseModel):
+    repo_owner: str
+    repo_name: str
+    run_id: int | None = None  # None = latest run
+    timeout_minutes: int = 15
+    poll_interval_seconds: int = 20
+
+    @field_validator("timeout_minutes")
+    @classmethod
+    def validate_timeout(cls, v: int) -> int:
+        """Ensure timeout is reasonable (1-350 minutes / 5h 50m)."""
+        if v < 1 or v > 350:
+            raise ValueError("timeout_minutes must be between 1 and 350")
+        return v
+
+    @field_validator("poll_interval_seconds")
+    @classmethod
+    def validate_poll_interval(cls, v: int) -> int:
+        """Ensure poll interval is reasonable (5-120 seconds)."""
+        if v < 5 or v > 120:
+            raise ValueError("poll_interval_seconds must be between 5 and 120")
         return v
 
 
@@ -1325,6 +1350,11 @@ class ServerApplication(DebuggableComponent):
                     inputSchema=GitHubListWorkflowRuns.model_json_schema(),
                 ),
                 Tool(
+                    name=GitHubTools.AWAIT_WORKFLOW_COMPLETION,
+                    description="Monitor a GitHub Actions workflow run until completion. Enables automated CI response workflows by waiting for CI runs to complete and providing failure details when runs fail.",
+                    inputSchema=GitHubAwaitWorkflowCompletion.model_json_schema(),
+                ),
+                Tool(
                     name=GitHubTools.CREATE_PR,
                     description="Create a new pull request",
                     inputSchema=GitHubCreatePr.model_json_schema(),
@@ -1687,6 +1717,20 @@ class ServerApplication(DebuggableComponent):
                 check_suite_id=arguments.get("check_suite_id"),
                 head_sha=arguments.get("head_sha"),
             )
+        elif name == GitHubTools.AWAIT_WORKFLOW_COMPLETION:
+            from ..github.api import github_await_workflow_completion
+
+            # Validate required arguments
+            if "repo_owner" not in arguments or "repo_name" not in arguments:
+                result = "Error: repo_owner and repo_name are required arguments"
+            else:
+                result = await github_await_workflow_completion(
+                    repo_owner=arguments["repo_owner"],
+                    repo_name=arguments["repo_name"],
+                    run_id=arguments.get("run_id"),
+                    timeout_minutes=arguments.get("timeout_minutes", 15),
+                    poll_interval_seconds=arguments.get("poll_interval_seconds", 20),
+                )
         elif name == GitHubTools.CREATE_PR:
             from ..github.api import github_create_pr
 

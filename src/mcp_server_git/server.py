@@ -19,7 +19,7 @@ from mcp.types import (
     TextContent,
     Tool,
 )
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 # Import server core framework
 from mcp_server_git.frameworks import MCPGitServerCore
@@ -570,6 +570,30 @@ class GitHubListWorkflowRuns(BaseModel):
     head_sha: str | None = None
 
 
+class GitHubAwaitWorkflowCompletion(BaseModel):
+    repo_owner: str
+    repo_name: str
+    run_id: int | None = None  # None = latest run
+    timeout_minutes: int = 15
+    poll_interval_seconds: int = 20
+
+    @field_validator("timeout_minutes")
+    @classmethod
+    def validate_timeout(cls, v: int) -> int:
+        """Ensure timeout is reasonable (1-350 minutes / 5h 50m)."""
+        if v < 1 or v > 350:
+            raise ValueError("timeout_minutes must be between 1 and 350")
+        return v
+
+    @field_validator("poll_interval_seconds")
+    @classmethod
+    def validate_poll_interval(cls, v: int) -> int:
+        """Ensure poll interval is reasonable (5-120 seconds)."""
+        if v < 5 or v > 120:
+            raise ValueError("poll_interval_seconds must be between 5 and 120")
+        return v
+
+
 class GitHubGetPRDetails(BaseModel):
     repo_owner: str
     repo_name: str
@@ -639,6 +663,7 @@ class GitTools(str, Enum):
     GITHUB_GET_FAILING_JOBS = "github_get_failing_jobs"
     GITHUB_GET_WORKFLOW_RUN = "github_get_workflow_run"
     GITHUB_LIST_WORKFLOW_RUNS = "github_list_workflow_runs"
+    GITHUB_AWAIT_WORKFLOW_COMPLETION = "github_await_workflow_completion"
     GITHUB_GET_PR_DETAILS = "github_get_pr_details"
     GITHUB_LIST_PULL_REQUESTS = "github_list_pull_requests"
     GITHUB_GET_PR_STATUS = "github_get_pr_status"
@@ -913,6 +938,27 @@ async def github_list_workflow_runs(
         exclude_pull_requests=exclude_pull_requests,
         check_suite_id=check_suite_id,
         head_sha=head_sha,
+    )
+
+
+async def github_await_workflow_completion(
+    repo_owner: str,
+    repo_name: str,
+    run_id: int | None = None,
+    timeout_minutes: int = 15,
+    poll_interval_seconds: int = 20,
+) -> str:
+    """Monitor a GitHub Actions workflow run until completion"""
+    from .github.api import (
+        github_await_workflow_completion as api_github_await_workflow_completion,
+    )
+
+    return await api_github_await_workflow_completion(
+        repo_owner=repo_owner,
+        repo_name=repo_name,
+        run_id=run_id,
+        timeout_minutes=timeout_minutes,
+        poll_interval_seconds=poll_interval_seconds,
     )
 
 
@@ -2291,6 +2337,11 @@ Provide specific, actionable recommendations for each area."""
                 name=GitTools.GITHUB_LIST_WORKFLOW_RUNS,
                 description="List workflow runs for a repository with comprehensive filtering",
                 inputSchema=GitHubListWorkflowRuns.model_json_schema(),
+            ),
+            Tool(
+                name=GitTools.GITHUB_AWAIT_WORKFLOW_COMPLETION,
+                description="Monitor a GitHub Actions workflow run until completion. Enables automated CI response workflows by waiting for CI runs to complete and providing failure details when runs fail.",
+                inputSchema=GitHubAwaitWorkflowCompletion.model_json_schema(),
             ),
             Tool(
                 name=GitTools.GITHUB_GET_PR_DETAILS,

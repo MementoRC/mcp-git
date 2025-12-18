@@ -146,12 +146,21 @@ async def mcp_server():
                 pass  # Ignore cleanup errors
             
             # Then terminate the process with timeout
-            process.terminate()
+            try:
+                process.terminate()
+            except ProcessLookupError:
+                # Process already exited, that's fine
+                pass
+            
             try:
                 await asyncio.wait_for(process.wait(), timeout=5.0)
             except asyncio.TimeoutError:
                 # Force kill if it doesn't terminate
-                process.kill()
+                try:
+                    process.kill()
+                except ProcessLookupError:
+                    # Process already exited, that's fine
+                    pass
                 try:
                     await asyncio.wait_for(process.wait(), timeout=3.0)
                 except asyncio.TimeoutError:
