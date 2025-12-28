@@ -18,10 +18,10 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from mcp.types import Tool
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
 
 from ..frameworks.mcp_server_framework import MCPServerFramework
 from ..frameworks.server_configuration import ServerConfigurationManager
@@ -172,10 +172,16 @@ class GitCherryPick(BaseModel):
 
 class GitAbort(BaseModel):
     repo_path: str
+    operation: Literal["rebase", "merge", "cherry-pick"] = Field(
+        ..., description="The git operation to abort"
+    )
 
 
 class GitContinue(BaseModel):
     repo_path: str
+    operation: Literal["rebase", "merge", "cherry-pick"] = Field(
+        ..., description="The git operation to continue"
+    )
 
 
 class GitFetch(BaseModel):
@@ -1569,9 +1575,9 @@ class ServerApplication(DebuggableComponent):
         elif name == GitTools.CHERRY_PICK:
             result = git_cherry_pick(repo, arguments["commit_hash"])
         elif name == GitTools.ABORT:
-            result = git_abort(repo)
+            result = git_abort(repo, arguments["operation"])
         elif name == GitTools.CONTINUE:
-            result = git_continue(repo)
+            result = git_continue(repo, arguments["operation"])
         elif name == GitTools.FETCH:
             result = git_fetch(repo, remote=arguments.get("remote", "origin"))
         elif name == GitTools.REMOTE_ADD:
