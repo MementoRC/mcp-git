@@ -40,10 +40,10 @@ class AzureClient:
         # Azure DevOps API expects the organization in the URL
         # Format: https://dev.azure.com/{organization}/{project}/_apis/...
         url = f"{self.base_url}/{self.organization}/{endpoint.lstrip('/')}"
-        
+
         # Azure DevOps uses Basic authentication with PAT
         auth = aiohttp.BasicAuth("", self.token)
-        
+
         headers = {
             "Accept": "application/json",
             "User-Agent": "MCP-Git-Server/1.1.0",
@@ -55,7 +55,7 @@ class AzureClient:
         """Make POST request to Azure DevOps API"""
         url = f"{self.base_url}/{self.organization}/{endpoint.lstrip('/')}"
         auth = aiohttp.BasicAuth("", self.token)
-        
+
         headers = {
             "Accept": "application/json",
             "Content-Type": "application/json",
@@ -68,7 +68,7 @@ class AzureClient:
         """Make PATCH request to Azure DevOps API"""
         url = f"{self.base_url}/{self.organization}/{endpoint.lstrip('/')}"
         auth = aiohttp.BasicAuth("", self.token)
-        
+
         headers = {
             "Accept": "application/json",
             "Content-Type": "application/json",
@@ -88,9 +88,9 @@ def get_azure_client() -> AzureClient | None:
     """
     token = os.getenv("AZURE_DEVOPS_TOKEN")
     organization = os.getenv("AZURE_DEVOPS_ORG")
-    
+
     logger.debug(f"🔑 AZURE_DEVOPS_TOKEN check: {'Found' if token else 'Not found'}")
-    org_status = 'Found' if organization else 'Not found'
+    org_status = "Found" if organization else "Not found"
     logger.debug(f"🏢 AZURE_DEVOPS_ORG check: {org_status}")
 
     if not token:
