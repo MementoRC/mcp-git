@@ -32,7 +32,9 @@ class AzureListBuilds(BaseModel):
     project: str
     repository_id: str | None = None
     branch_name: str | None = None
-    status: str | None = None  # notStarted, inProgress, completed, cancelling, postponed, notStarted, all
-    result: str | None = None  # succeeded, partiallySucceeded, failed, canceled
+    # notStarted, inProgress, completed, cancelling, postponed, all
+    status: str | None = None
+    # succeeded, partiallySucceeded, failed, canceled
+    result: str | None = None
     top: int = 30  # Maximum number of builds to return
     continuation_token: str | None = None  # For pagination

@@ -1,7 +1,7 @@
 """Unit tests for Azure DevOps client module."""
 
 import os
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from aiohttp import BasicAuth
@@ -102,7 +102,7 @@ class TestAzureClientMethods:
         """Test Azure client GET request."""
         session = MagicMock()
         mock_response = MagicMock()
-        session.get = MagicMock(return_value=mock_response)
+        session.get = AsyncMock(return_value=mock_response)
         
         client = AzureClient(
             token="a" * 52,
@@ -127,7 +127,7 @@ class TestAzureClientMethods:
         """Test Azure client POST request."""
         session = MagicMock()
         mock_response = MagicMock()
-        session.post = MagicMock(return_value=mock_response)
+        session.post = AsyncMock(return_value=mock_response)
         
         client = AzureClient(
             token="a" * 52,

@@ -90,7 +90,8 @@ def get_azure_client() -> AzureClient | None:
     organization = os.getenv("AZURE_DEVOPS_ORG")
     
     logger.debug(f"🔑 AZURE_DEVOPS_TOKEN check: {'Found' if token else 'Not found'}")
-    logger.debug(f"🏢 AZURE_DEVOPS_ORG check: {'Found' if organization else 'Not found'}")
+    org_status = 'Found' if organization else 'Not found'
+    logger.debug(f"🏢 AZURE_DEVOPS_ORG check: {org_status}")
 
     if not token:
         logger.error(

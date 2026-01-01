@@ -1,9 +1,7 @@
 """Azure DevOps API operations for MCP Git Server"""
 
-import asyncio
 import logging
 from contextlib import asynccontextmanager
-from typing import Any
 
 from .client import get_azure_client
 
@@ -12,13 +10,16 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def azure_client_context():
-    """Async context manager for Azure DevOps client with guaranteed resource cleanup."""
+    """Async context manager for Azure DevOps client with guaranteed
+    resource cleanup."""
     client = None
     try:
         client = get_azure_client()
         if not client:
             raise ValueError(
-                "Azure DevOps not configured. Set AZURE_DEVOPS_TOKEN and AZURE_DEVOPS_ORG environment variables."
+                "Azure DevOps not configured. "
+                "Set AZURE_DEVOPS_TOKEN and AZURE_DEVOPS_ORG "
+                "environment variables."
             )
         yield client
     finally:
@@ -49,17 +50,23 @@ async def azure_get_build_status(project: str, build_id: int) -> str:
             
             if response.status != 200:
                 error_text = await response.text()
-                return f"❌ Failed to get build #{build_id}: {response.status} - {error_text}"
+                return (
+                    f"❌ Failed to get build #{build_id}: "
+                    f"{response.status} - {error_text}"
+                )
 
             build_data = await response.json()
 
             # Format the output
             output = [f"Azure DevOps Build #{build_id} ({project}):\n"]
-            output.append(f"Definition: {build_data.get('definition', {}).get('name', 'N/A')}")
+            definition_name = build_data.get('definition', {}).get('name', 'N/A')
+            output.append(f"Definition: {definition_name}")
             output.append(f"Status: {build_data.get('status', 'N/A')}")
             output.append(f"Result: {build_data.get('result', 'N/A')}")
-            output.append(f"Source Branch: {build_data.get('sourceBranch', 'N/A')}")
-            output.append(f"Source Version: {build_data.get('sourceVersion', 'N/A')[:8]}")
+            source_branch = build_data.get('sourceBranch', 'N/A')
+            output.append(f"Source Branch: {source_branch}")
+            source_version = build_data.get('sourceVersion', 'N/A')[:8]
+            output.append(f"Source Version: {source_version}")
             
             if build_data.get('queueTime'):
                 output.append(f"Queued: {build_data['queueTime']}")
@@ -81,7 +88,10 @@ async def azure_get_build_status(project: str, build_id: int) -> str:
         logger.error(f"Authentication error getting build status: {auth_error}")
         return f"❌ {str(auth_error)}"
     except Exception as e:
-        logger.error(f"Error getting build status for build #{build_id}: {e}", exc_info=True)
+        logger.error(
+            f"Error getting build status for build #{build_id}: {e}",
+            exc_info=True
+        )
         return f"❌ Error getting build status: {str(e)}"
 
 
@@ -109,7 +119,10 @@ async def azure_get_build_logs(
                 
                 if response.status != 200:
                     error_text = await response.text()
-                    return f"❌ Failed to get build logs: {response.status} - {error_text}"
+                    return (
+                        f"❌ Failed to get build logs: "
+                        f"{response.status} - {error_text}"
+                    )
 
                 logs_data = await response.json()
                 logs = logs_data.get('value', [])
@@ -119,7 +132,11 @@ async def azure_get_build_logs(
                 
                 output = [f"Logs for Build #{build_id}:\n"]
                 for log in logs:
-                    output.append(f"Log #{log['id']}: {log.get('type', 'N/A')} ({log.get('lineCount', 0)} lines)")
+                    log_type = log.get('type', 'N/A')
+                    line_count = log.get('lineCount', 0)
+                    output.append(
+                        f"Log #{log['id']}: {log_type} ({line_count} lines)"
+                    )
                     if log.get('url'):
                         output.append(f"  URL: {log['url']}")
                 
@@ -133,14 +150,21 @@ async def azure_get_build_logs(
                 
                 if response.status != 200:
                     error_text = await response.text()
-                    return f"❌ Failed to get log #{log_id}: {response.status} - {error_text}"
+                    return (
+                        f"❌ Failed to get log #{log_id}: "
+                        f"{response.status} - {error_text}"
+                    )
 
                 log_content = await response.text()
                 
                 # Truncate if too long (similar to GitHub implementation)
                 max_length = 10000
                 if len(log_content) > max_length:
-                    log_content = log_content[:max_length] + f"\n... [truncated {len(log_content) - max_length} chars]"
+                    truncated_chars = len(log_content) - max_length
+                    log_content = (
+                        log_content[:max_length] +
+                        f"\n... [truncated {truncated_chars} chars]"
+                    )
                 
                 return f"Log #{log_id} for Build #{build_id}:\n\n{log_content}"
 
@@ -148,7 +172,10 @@ async def azure_get_build_logs(
         logger.error(f"Authentication error getting build logs: {auth_error}")
         return f"❌ {str(auth_error)}"
     except Exception as e:
-        logger.error(f"Error getting build logs for build #{build_id}: {e}", exc_info=True)
+        logger.error(
+            f"Error getting build logs for build #{build_id}: {e}",
+            exc_info=True
+        )
         return f"❌ Error getting build logs: {str(e)}"
 
 
@@ -174,13 +201,19 @@ async def azure_get_failing_jobs(
             
             if build_response.status != 200:
                 error_text = await build_response.text()
-                return f"❌ Failed to get build #{build_id}: {build_response.status} - {error_text}"
+                return (
+                    f"❌ Failed to get build #{build_id}: "
+                    f"{build_response.status} - {error_text}"
+                )
 
             build_data = await build_response.json()
             
             result = build_data.get('result', 'N/A')
             if result not in ['failed', 'partiallySucceeded', 'canceled']:
-                return f"Build #{build_id} has result '{result}' - no failures to report"
+                return (
+                    f"Build #{build_id} has result '{result}' - "
+                    "no failures to report"
+                )
 
             # Get timeline data which contains job information
             # API: GET https://dev.azure.com/{organization}/{project}/_apis/build/builds/{buildId}/timeline?api-version=7.1
@@ -190,7 +223,10 @@ async def azure_get_failing_jobs(
             
             if timeline_response.status != 200:
                 error_text = await timeline_response.text()
-                return f"❌ Failed to get build timeline: {timeline_response.status} - {error_text}"
+                return (
+                    f"❌ Failed to get build timeline: "
+                    f"{timeline_response.status} - {error_text}"
+                )
 
             timeline_data = await timeline_response.json()
             records = timeline_data.get('records', [])
@@ -215,7 +251,8 @@ async def azure_get_failing_jobs(
                     'abandoned': '⚠️'
                 }.get(record.get('result', ''), '❓')
                 
-                output.append(f"{status_emoji} {record_type}: {record.get('name', 'N/A')}")
+                record_name = record.get('name', 'N/A')
+                output.append(f"{status_emoji} {record_type}: {record_name}")
                 output.append(f"   Result: {record.get('result', 'N/A')}")
                 output.append(f"   State: {record.get('state', 'N/A')}")
                 
@@ -226,7 +263,7 @@ async def azure_get_failing_jobs(
                 
                 # Get error messages from issues
                 if record.get('issues'):
-                    output.append(f"   Issues:")
+                    output.append("   Issues:")
                     for issue in record['issues'][:5]:  # Limit to 5 issues
                         issue_type = issue.get('type', 'unknown')
                         message = issue.get('message', 'No message')
@@ -243,11 +280,14 @@ async def azure_get_failing_jobs(
                             log_content = await log_response.text()
                             # Get last 20 lines
                             lines = log_content.strip().split('\n')
-                            excerpt = '\n'.join(lines[-20:]) if len(lines) > 20 else log_content
-                            output.append(f"   Log excerpt (last 20 lines):")
-                            output.append(f"   ```")
+                            if len(lines) > 20:
+                                excerpt = '\n'.join(lines[-20:])
+                            else:
+                                excerpt = log_content
+                            output.append("   Log excerpt (last 20 lines):")
+                            output.append("   ```")
                             output.append(f"   {excerpt}")
-                            output.append(f"   ```")
+                            output.append("   ```")
                     except Exception as log_error:
                         logger.warning(f"Failed to get log {log_id}: {log_error}")
                 
@@ -259,7 +299,10 @@ async def azure_get_failing_jobs(
         logger.error(f"Authentication error getting failing jobs: {auth_error}")
         return f"❌ {str(auth_error)}"
     except Exception as e:
-        logger.error(f"Error getting failing jobs for build #{build_id}: {e}", exc_info=True)
+        logger.error(
+            f"Error getting failing jobs for build #{build_id}: {e}",
+            exc_info=True
+        )
         return f"❌ Error getting failing jobs: {str(e)}"
 
 
@@ -334,8 +377,10 @@ async def azure_list_builds(
                 definition = build.get('definition', {}).get('name', 'N/A')
                 result = build.get('result', 'N/A')
                 source_branch = build.get('sourceBranch', 'N/A')
-                
-                output.append(f"{status_emoji} Build #{build.get('id', 'N/A')}: {build_number}")
+                build_id_display = build.get('id', 'N/A')
+                output.append(
+                    f"{status_emoji} Build #{build_id_display}: {build_number}"
+                )
                 output.append(f"   Definition: {definition}")
                 output.append(f"   Status: {build.get('status', 'N/A')}")
                 output.append(f"   Result: {result}")
@@ -351,7 +396,11 @@ async def azure_list_builds(
 
             # Check if there are more results
             if 'x-ms-continuationtoken' in response.headers:
-                output.append(f"\nMore results available. Use continuation token: {response.headers['x-ms-continuationtoken']}")
+                continuation_token = response.headers['x-ms-continuationtoken']
+                output.append(
+                    f"\nMore results available. "
+                    f"Use continuation token: {continuation_token}"
+                )
 
             return "\n".join(output)
 
@@ -359,5 +408,8 @@ async def azure_list_builds(
         logger.error(f"Authentication error listing builds: {auth_error}")
         return f"❌ {str(auth_error)}"
     except Exception as e:
-        logger.error(f"Error listing builds for project '{project}': {e}", exc_info=True)
+        logger.error(
+            f"Error listing builds for project '{project}': {e}",
+            exc_info=True
+        )
         return f"❌ Error listing builds: {str(e)}"
