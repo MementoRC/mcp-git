@@ -755,7 +755,7 @@ def git_log(
             args.append(branch)
 
         # Add count limit
-        if max_count:
+        if max_count is not None and max_count > 0:
             args.extend(["-n", str(max_count)])
 
         # Add formatting options

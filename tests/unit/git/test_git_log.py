@@ -94,6 +94,19 @@ class TestGitLogBasic:
         # Assert
         assert "No commits found matching the specified criteria" in result
 
+    def test_git_log_with_max_count_zero(self):
+        """Should not add -n flag when max_count is 0."""
+        # Arrange
+        mock_repo = Mock()
+        mock_repo.git.log.return_value = ""
+
+        # Act
+        result = git_log(mock_repo, max_count=0)
+
+        # Assert
+        args = mock_repo.git.log.call_args[0]
+        assert "-n" not in args
+
 
 class TestGitLogFiltering:
     """Test git_log filtering capabilities."""
