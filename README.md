@@ -56,11 +56,26 @@ Please note that mcp-server-git is currently in early development. The functiona
    - Returns: Confirmation of reset operation
 
 8. `git_log`
-   - Shows the commit logs
+   - Shows the commit logs with advanced filtering and formatting
    - Inputs:
      - `repo_path` (string): Path to Git repository
      - `max_count` (number, optional): Maximum number of commits to show (default: 10)
-   - Returns: Array of commit entries with hash, author, date, and message
+     - `oneline` (boolean, optional): Compact format showing hash and message only (default: false)
+     - `graph` (boolean, optional): Show merge graph structure (default: false)
+     - `format` (string, optional): Custom format string (e.g., "%h - %s (%an)")
+     - `since` (string, optional): Show commits after date (e.g., "2024-01-01", "1 week ago")
+     - `until` (string, optional): Show commits before date (e.g., "yesterday", "2024-12-31")
+     - `author` (string, optional): Filter by author name or email
+     - `grep` (string, optional): Search commit messages with regex pattern
+     - `files` (string[], optional): Show only commits affecting these files
+     - `branch` (string, optional): Show log for specific branch (default: current)
+     - `reverse` (boolean, optional): Show commits in reverse chronological order (default: false)
+     - `merges` (boolean, optional): Filter merge commits (null=all, true=only merges, false=no merges)
+   - Returns: Formatted commit log matching specified criteria
+   - Examples:
+     - Find recent fix commits: `{repo_path: ".", max_count: 20, grep: "fix:", oneline: true}`
+     - Changes by author: `{repo_path: ".", author: "john@example.com", since: "1 month ago"}`
+     - File history: `{repo_path: ".", files: ["src/main.py"], max_count: 50}`
 
 9. `git_create_branch`
    - Creates a new branch
