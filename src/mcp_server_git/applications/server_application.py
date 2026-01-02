@@ -233,6 +233,15 @@ class GitHubTools(str, Enum):
     GET_FAILING_JOBS = "github_get_failing_jobs"
 
 
+class AzureTools(str, Enum):
+    """Azure DevOps tool names."""
+
+    GET_BUILD_STATUS = "azure_get_build_status"
+    GET_BUILD_LOGS = "azure_get_build_logs"
+    GET_FAILING_JOBS = "azure_get_failing_jobs"
+    LIST_BUILDS = "azure_list_builds"
+
+
 class GitHubCreateIssue(BaseModel):
     repo_owner: str
     repo_name: str
@@ -1806,6 +1815,41 @@ class ServerApplication(DebuggableComponent):
                 pr_number=arguments["pr_number"],
                 include_logs=arguments.get("include_logs", True),
                 include_annotations=arguments.get("include_annotations", True),
+            )
+        elif name == AzureTools.GET_BUILD_STATUS:
+            from ..azure.api import azure_get_build_status
+
+            result = await azure_get_build_status(
+                project=arguments["project"],
+                build_id=arguments["build_id"],
+            )
+        elif name == AzureTools.GET_BUILD_LOGS:
+            from ..azure.api import azure_get_build_logs
+
+            result = await azure_get_build_logs(
+                project=arguments["project"],
+                build_id=arguments["build_id"],
+                log_id=arguments.get("log_id"),
+            )
+        elif name == AzureTools.GET_FAILING_JOBS:
+            from ..azure.api import azure_get_failing_jobs
+
+            result = await azure_get_failing_jobs(
+                project=arguments["project"],
+                build_id=arguments["build_id"],
+                include_logs=arguments.get("include_logs", True),
+            )
+        elif name == AzureTools.LIST_BUILDS:
+            from ..azure.api import azure_list_builds
+
+            result = await azure_list_builds(
+                project=arguments["project"],
+                repository_id=arguments.get("repository_id"),
+                branch_name=arguments.get("branch_name"),
+                status=arguments.get("status"),
+                result=arguments.get("result"),
+                top=arguments.get("top", 30),
+                continuation_token=arguments.get("continuation_token"),
             )
         else:
             raise ValueError(f"Unknown tool: {name}")

@@ -65,6 +65,14 @@ from mcp_server_git.github.models import (
     GitHubCLIReopenPR,
 )
 
+# Import Azure DevOps models
+from mcp_server_git.azure.models import (
+    AzureGetBuildLogs,
+    AzureGetBuildStatus,
+    AzureGetFailingJobs,
+    AzureListBuilds,
+)
+
 # Safe git import that handles ClaudeCode redirector conflicts
 from .utils.git_import import git
 
@@ -675,6 +683,11 @@ class GitTools(str, Enum):
     GITHUB_CLI_CLOSE_PR = "github_cli_close_pr"
     GITHUB_CLI_REOPEN_PR = "github_cli_reopen_pr"
     GITHUB_CLI_READY_PR = "github_cli_ready_pr"
+    # Azure DevOps API Tools
+    AZURE_GET_BUILD_STATUS = "azure_get_build_status"
+    AZURE_GET_BUILD_LOGS = "azure_get_build_logs"
+    AZURE_GET_FAILING_JOBS = "azure_get_failing_jobs"
+    AZURE_LIST_BUILDS = "azure_list_builds"
 
 
 # Export functions for test imports - these are used by tests that import from this module
@@ -2393,6 +2406,27 @@ Provide specific, actionable recommendations for each area."""
                 name=GitTools.GITHUB_CLI_READY_PR,
                 description="Mark a pull request as ready for review using GitHub CLI",
                 inputSchema=GitHubCLIReadyPR.model_json_schema(),
+            ),
+            # Azure DevOps API Tools
+            Tool(
+                name=GitTools.AZURE_GET_BUILD_STATUS,
+                description="Get status of an Azure DevOps build/pipeline run",
+                inputSchema=AzureGetBuildStatus.model_json_schema(),
+            ),
+            Tool(
+                name=GitTools.AZURE_GET_BUILD_LOGS,
+                description="Get logs from an Azure DevOps build",
+                inputSchema=AzureGetBuildLogs.model_json_schema(),
+            ),
+            Tool(
+                name=GitTools.AZURE_GET_FAILING_JOBS,
+                description="Get detailed information about failing jobs in an Azure DevOps build",
+                inputSchema=AzureGetFailingJobs.model_json_schema(),
+            ),
+            Tool(
+                name=GitTools.AZURE_LIST_BUILDS,
+                description="List builds for an Azure DevOps project with filtering and pagination",
+                inputSchema=AzureListBuilds.model_json_schema(),
             ),
         ]
 

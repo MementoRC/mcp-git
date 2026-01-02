@@ -87,6 +87,47 @@ Please note that mcp-server-git is currently in early development. The functiona
      - `repo_path` (string): Path to directory to initialize git repo
    - Returns: Confirmation of repository initialization
 
+### Azure DevOps Integration
+
+The server provides Azure DevOps integration for monitoring and analyzing Azure Pipelines builds:
+
+1. `azure_get_build_status`
+   - Get status of an Azure DevOps build/pipeline run
+   - Inputs:
+     - `project` (string): The project name or ID
+     - `build_id` (integer): The build ID
+   - Returns: Formatted build status information including definition, status, result, branch, and timing
+
+2. `azure_get_build_logs`
+   - Get logs from an Azure DevOps build
+   - Inputs:
+     - `project` (string): The project name or ID
+     - `build_id` (integer): The build ID
+     - `log_id` (integer, optional): Specific log ID to retrieve. If omitted, lists all logs
+   - Returns: Log content or list of available logs
+
+3. `azure_get_failing_jobs`
+   - Get detailed information about failing jobs in an Azure DevOps build
+   - Inputs:
+     - `project` (string): The project name or ID
+     - `build_id` (integer): The build ID
+     - `include_logs` (boolean, optional): Whether to include log excerpts (default: true)
+   - Returns: Detailed failure information including error messages and log excerpts
+
+4. `azure_list_builds`
+   - List builds for an Azure DevOps project with filtering
+   - Inputs:
+     - `project` (string): The project name or ID
+     - `repository_id` (string, optional): Filter by repository ID
+     - `branch_name` (string, optional): Filter by branch name (e.g., 'refs/heads/main')
+     - `status` (string, optional): Filter by status (notStarted, inProgress, completed, etc.)
+     - `result` (string, optional): Filter by result (succeeded, failed, canceled, etc.)
+     - `top` (integer, optional): Maximum number of builds to return (default: 30)
+     - `continuation_token` (string, optional): Token for pagination
+   - Returns: List of builds with status, result, and metadata
+
+**Configuration**: Azure DevOps integration requires setting `AZURE_DEVOPS_TOKEN` and `AZURE_DEVOPS_ORG` environment variables. See the Environment Variables section for details.
+
 ## Installation
 
 ### Using uv (recommended)
@@ -132,6 +173,12 @@ GITHUB_TOKEN=your_github_token_here
 
 # Optional: Custom GitHub API base URL (for GitHub Enterprise)
 # GITHUB_API_BASE_URL=https://api.github.com
+
+# Azure DevOps Configuration
+# Get your Personal Access Token from: https://dev.azure.com/{organization}/_usersSettings/tokens
+# The token should have 'Build (Read)' scope at minimum
+AZURE_DEVOPS_TOKEN=your_azure_devops_pat_token_here
+AZURE_DEVOPS_ORG=your_organization_name
 
 # Optional: Log level for debugging
 # LOG_LEVEL=INFO
