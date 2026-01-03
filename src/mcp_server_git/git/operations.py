@@ -858,7 +858,17 @@ def git_checkout(repo: Repo, branch_name: str) -> str:
             repo.git.checkout(branch_name)
             return f"✅ Switched to branch '{branch_name}'"
         else:
-            # Check if branch exists on remote
+            # Check if it's a full remote ref (e.g., 'origin/development')
+            try:
+                remote_refs = [ref.name for ref in repo.remote().refs]
+                if branch_name in remote_refs:
+                    # Checkout the remote ref directly (detached HEAD)
+                    repo.git.checkout(branch_name)
+                    return f"✅ Switched to '{branch_name}' (detached HEAD)"
+            except Exception:
+                pass
+            
+            # Check if branch exists on remote (short name)
             try:
                 remote_branches = [
                     ref.name.split("/")[-1] for ref in repo.remote().refs
@@ -1285,13 +1295,16 @@ def git_rebase(repo: Repo, target_branch: str) -> str:
         # Get current branch
         current_branch = repo.active_branch.name
 
-        # Check if target branch exists
+        # Check if target branch exists - support both short names and full remote refs
         all_branches = [branch.name for branch in repo.branches]
 
         # Add remote branches if remotes exist
         try:
             if repo.remotes:
                 for remote in repo.remotes:
+                    # Include both full remote ref names (e.g., 'origin/development') 
+                    # and short names (e.g., 'development') for compatibility
+                    all_branches.extend([ref.name for ref in remote.refs])
                     all_branches.extend(
                         [ref.name.split("/")[-1] for ref in remote.refs]
                     )
@@ -1328,13 +1341,16 @@ def git_merge(
         # Get current branch
         current_branch = repo.active_branch.name
 
-        # Check if source branch exists
+        # Check if source branch exists - support both short names and full remote refs
         all_branches = [branch.name for branch in repo.branches]
 
         # Add remote branches if remotes exist
         try:
             if repo.remotes:
                 for remote in repo.remotes:
+                    # Include both full remote ref names (e.g., 'origin/development') 
+                    # and short names (e.g., 'development') for compatibility
+                    all_branches.extend([ref.name for ref in remote.refs])
                     all_branches.extend(
                         [ref.name.split("/")[-1] for ref in remote.refs]
                     )
