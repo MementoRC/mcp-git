@@ -1218,10 +1218,19 @@ def git_diff_branches(
 ) -> str:
     """Show differences between two branches with size limiting options"""
     try:
-        # Verify branches exist
-        all_branches = [branch.name for branch in repo.branches] + [
-            ref.name.split("/")[-1] for ref in repo.remote().refs
-        ]
+        # Verify branches exist - support both short names and full remote refs
+        # Special refs like HEAD are always valid
+        special_refs = ["HEAD", "FETCH_HEAD", "ORIG_HEAD", "MERGE_HEAD"]
+        
+        local_branches = [branch.name for branch in repo.branches]
+        remote_refs = repo.remote().refs
+        # Include both full remote ref names (e.g., 'origin/development') 
+        # and short names (e.g., 'development') for compatibility
+        remote_branch_names = [ref.name for ref in remote_refs]
+        remote_branch_short_names = [ref.name.split("/")[-1] for ref in remote_refs]
+        all_branches = (
+            local_branches + remote_branch_names + remote_branch_short_names + special_refs
+        )
 
         if base_branch not in all_branches:
             return f"❌ Base branch '{base_branch}' not found"

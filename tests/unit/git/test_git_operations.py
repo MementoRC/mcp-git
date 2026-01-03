@@ -347,5 +347,108 @@ def temp_git_repo_with_files(tmp_path):
     return repo_path
 
 
+class TestGitDiffBranches:
+    """Test git_diff_branches operations with remote branch support."""
+
+    def test_git_diff_branches_supports_full_remote_ref(self):
+        """Should accept full remote ref names like 'origin/development'."""
+        # Arrange
+        from mcp_server_git.git.operations import git_diff_branches
+        
+        mock_repo = Mock()
+        mock_repo.branches = []
+        
+        # Mock remote refs with full names (e.g., 'origin/development')
+        mock_remote = Mock()
+        mock_ref = Mock()
+        mock_ref.name = "origin/development"
+        mock_remote.refs = [mock_ref]
+        mock_repo.remote.return_value = mock_remote
+        
+        # Mock the git diff to return valid output
+        mock_repo.git.diff.return_value = "diff --git a/file.txt b/file.txt"
+        
+        # Act - using full remote ref name
+        result = git_diff_branches(mock_repo, "origin/development", "HEAD")
+        
+        # Assert - should not return error about branch not found
+        assert "❌" not in result
+        assert "not found" not in result
+        mock_repo.git.diff.assert_called_once()
+
+    def test_git_diff_branches_supports_short_branch_name(self):
+        """Should accept short branch names like 'development' for remote branches."""
+        # Arrange
+        from mcp_server_git.git.operations import git_diff_branches
+        
+        mock_repo = Mock()
+        mock_repo.branches = []
+        
+        # Mock remote refs
+        mock_remote = Mock()
+        mock_ref = Mock()
+        mock_ref.name = "origin/development"
+        mock_remote.refs = [mock_ref]
+        mock_repo.remote.return_value = mock_remote
+        
+        # Mock the git diff to return valid output
+        mock_repo.git.diff.return_value = "diff --git a/file.txt b/file.txt"
+        
+        # Act - using short branch name
+        result = git_diff_branches(mock_repo, "development", "HEAD")
+        
+        # Assert - should not return error about branch not found
+        assert "❌" not in result
+        assert "not found" not in result
+        mock_repo.git.diff.assert_called_once()
+
+    def test_git_diff_branches_supports_local_branches(self):
+        """Should accept local branch names."""
+        # Arrange
+        from mcp_server_git.git.operations import git_diff_branches
+        
+        mock_repo = Mock()
+        
+        # Mock local branches
+        mock_branch = Mock()
+        mock_branch.name = "main"
+        mock_repo.branches = [mock_branch]
+        
+        # Mock remote refs
+        mock_remote = Mock()
+        mock_remote.refs = []
+        mock_repo.remote.return_value = mock_remote
+        
+        # Mock the git diff to return valid output
+        mock_repo.git.diff.return_value = "diff --git a/file.txt b/file.txt"
+        
+        # Act
+        result = git_diff_branches(mock_repo, "main", "HEAD")
+        
+        # Assert
+        assert "❌" not in result
+        assert "not found" not in result
+        mock_repo.git.diff.assert_called_once()
+
+    def test_git_diff_branches_rejects_nonexistent_branch(self):
+        """Should reject branches that don't exist."""
+        # Arrange
+        from mcp_server_git.git.operations import git_diff_branches
+        
+        mock_repo = Mock()
+        mock_repo.branches = []
+        
+        # Mock remote refs
+        mock_remote = Mock()
+        mock_remote.refs = []
+        mock_repo.remote.return_value = mock_remote
+        
+        # Act
+        result = git_diff_branches(mock_repo, "nonexistent", "HEAD")
+        
+        # Assert
+        assert "❌ Base branch 'nonexistent' not found" in result
+
+
 # Mark for test organization
 pytestmark = [pytest.mark.unit, pytest.mark.git_operations]
