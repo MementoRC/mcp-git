@@ -1668,7 +1668,7 @@ def git_branch_list(
         repo: Repository object
         remote: If True, list remote branches (git branch -r)
         all: If True, list all branches including remote (git branch -a)
-        pattern: Optional pattern to filter branches
+        pattern: Optional pattern to filter branches (supports glob patterns like 'feature/*')
     
     Returns:
         String containing the list of branches
@@ -1682,8 +1682,9 @@ def git_branch_list(
         elif remote:
             args.append("-r")
         
-        # Add pattern if provided
-        if pattern:
+        # When using pattern, we need to add --list flag
+        if pattern and pattern.strip():
+            args.append("--list")
             args.append(pattern)
         
         branch_output = repo.git.branch(*args)
