@@ -1233,14 +1233,21 @@ def git_diff_branches(
         special_refs = ["HEAD", "FETCH_HEAD", "ORIG_HEAD", "MERGE_HEAD"]
         
         local_branches = [branch.name for branch in repo.branches]
-        remote_refs = repo.remote().refs
-        # Include both full remote ref names (e.g., 'origin/development') 
-        # and short names (e.g., 'development') for compatibility
-        remote_branch_names = [ref.name for ref in remote_refs]
-        remote_branch_short_names = [ref.name.split("/")[-1] for ref in remote_refs]
-        all_branches = (
-            local_branches + remote_branch_names + remote_branch_short_names + special_refs
-        )
+        
+        # Add remote branches if remotes exist (with error handling)
+        try:
+            remote_refs = repo.remote().refs
+            # Include both full remote ref names (e.g., 'origin/development') 
+            # and short names (e.g., 'development') for compatibility
+            remote_branch_names = [ref.name for ref in remote_refs]
+            remote_branch_short_names = [ref.name.split("/")[-1] for ref in remote_refs]
+            # Use set to avoid duplicates
+            all_branches = set(
+                local_branches + remote_branch_names + remote_branch_short_names + special_refs
+            )
+        except Exception:
+            # Ignore remote access errors (e.g., no remotes configured)
+            all_branches = set(local_branches + special_refs)
 
         if base_branch not in all_branches:
             return f"❌ Base branch '{base_branch}' not found"
