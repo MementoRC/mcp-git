@@ -150,3 +150,10 @@ class GitSecurityValidate(BaseModel):
 class GitSecurityEnforce(BaseModel):
     repo_path: str
     strict_mode: bool = True
+
+
+class GitBranchList(BaseModel):
+    repo_path: str
+    remote: bool = False
+    all: bool = False
+    pattern: str | None = None

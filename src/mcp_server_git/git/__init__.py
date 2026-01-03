@@ -3,6 +3,7 @@
 from .models import (
     GitAbort,
     GitAdd,
+    GitBranchList,
     GitCheckout,
     GitCherryPick,
     GitCommit,
@@ -27,6 +28,7 @@ from .models import (
 from .operations import (
     git_abort,
     git_add,
+    git_branch_list,
     git_checkout,
     git_cherry_pick,
     git_commit,
@@ -52,6 +54,7 @@ __all__ = [
     # Core git operations
     "git_abort",
     "git_add",
+    "git_branch_list",
     "git_checkout",
     "git_cherry_pick",
     "git_commit",
@@ -76,6 +79,7 @@ __all__ = [
     # Models
     "GitAbort",
     "GitAdd",
+    "GitBranchList",
     "GitCheckout",
     "GitCherryPick",
     "GitCommit",

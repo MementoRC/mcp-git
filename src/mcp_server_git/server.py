@@ -28,6 +28,7 @@ from mcp_server_git.frameworks import MCPGitServerCore
 from mcp_server_git.git.operations import (
     git_abort,
     git_add,
+    git_branch_list,
     git_checkout,
     git_cherry_pick,
     git_commit,
@@ -439,6 +440,13 @@ class GitCheckout(BaseModel):
     branch_name: str
 
 
+class GitBranchList(BaseModel):
+    repo_path: str
+    remote: bool = False
+    all: bool = False
+    pattern: str | None = None
+
+
 class GitShow(BaseModel):
     repo_path: str
     revision: str
@@ -658,6 +666,7 @@ class GitTools(str, Enum):
     CHERRY_PICK = "git_cherry_pick"
     ABORT = "git_abort"
     CONTINUE = "git_continue"
+    BRANCH_LIST = "git_branch_list"
     # Remote operations
     REMOTE_LIST = "git_remote_list"
     REMOTE_ADD = "git_remote_add"
@@ -712,6 +721,7 @@ __all__ = [
     "git_cherry_pick",
     "git_abort",
     "git_continue",
+    "git_branch_list",
     "git_remote_list",
     "git_remote_add",
     "git_remote_remove",
@@ -2293,6 +2303,11 @@ Provide specific, actionable recommendations for each area."""
                 name=GitTools.CONTINUE,
                 description="Continue an in-progress git operation after resolving conflicts",
                 inputSchema=GitContinue.model_json_schema(),
+            ),
+            Tool(
+                name=GitTools.BRANCH_LIST,
+                description="List local and/or remote branches in the repository. Supports filtering by pattern to find specific branches.",
+                inputSchema=GitBranchList.model_json_schema(),
             ),
             # Remote Operations
             Tool(

@@ -44,6 +44,7 @@ __all__ = [
     "git_diff_branches",
     "git_stash_push",
     "git_stash_pop",
+    "git_branch_list",
 ]
 
 
@@ -1653,3 +1654,45 @@ def git_blame(
         return f"❌ Blame failed: {str(e)}"
     except Exception as e:
         return f"❌ Blame error: {str(e)}"
+
+
+def git_branch_list(
+    repo: Repo,
+    remote: bool = False,
+    all: bool = False,
+    pattern: str | None = None,
+) -> str:
+    """List branches in the repository
+    
+    Args:
+        repo: Repository object
+        remote: If True, list remote branches (git branch -r)
+        all: If True, list all branches including remote (git branch -a)
+        pattern: Optional pattern to filter branches
+    
+    Returns:
+        String containing the list of branches
+    """
+    try:
+        args = []
+        
+        # Add branch listing flags
+        if all:
+            args.append("-a")
+        elif remote:
+            args.append("-r")
+        
+        # Add pattern if provided
+        if pattern:
+            args.append(pattern)
+        
+        branch_output = repo.git.branch(*args)
+        
+        if not branch_output.strip():
+            return "No branches found"
+        
+        return f"Branches:\n{branch_output}"
+    except GitCommandError as e:
+        return f"❌ Branch list failed: {str(e)}"
+    except Exception as e:
+        return f"❌ Branch list error: {str(e)}"
