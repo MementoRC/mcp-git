@@ -91,7 +91,20 @@ class CallToolHandler:
             "git_log": self._create_git_handler(
                 git_log,
                 requires_repo=True,
-                extra_args=["max_count", "oneline", "graph", "format"],
+                extra_args=[
+                    "max_count",
+                    "oneline",
+                    "graph",
+                    "format",
+                    "since",
+                    "until",
+                    "author",
+                    "grep",
+                    "files",
+                    "branch",
+                    "reverse",
+                    "merges",
+                ],
             ),
             "git_create_branch": self._create_git_handler(
                 git_create_branch,
@@ -403,8 +416,12 @@ class CallToolHandler:
                             "no_commit",
                             "stat_only",
                             "name_only",
+                            "reverse",
                         ]:
                             args.append(kwargs.get(arg, False))
+                        elif arg == "merges":
+                            # Special handling for merges which can be None, True, or False
+                            args.append(kwargs.get(arg, None))
                         elif arg in ["remote"]:
                             args.append(kwargs.get(arg, "origin"))
                         elif arg in ["strategy"]:

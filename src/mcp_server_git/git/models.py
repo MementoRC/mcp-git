@@ -61,6 +61,14 @@ class GitLog(BaseModel):
     oneline: bool = False
     graph: bool = False
     format: str | None = None
+    since: str | None = None  # Date filter: "2024-01-01", "1 week ago"
+    until: str | None = None  # Date filter: "yesterday", "2024-12-31"
+    author: str | None = None  # Author filter: email or name
+    grep: str | None = None  # Commit message search (regex)
+    files: list[str] | None = None  # Commits affecting these files
+    branch: str | None = None  # Specific branch (default: current)
+    reverse: bool = False  # Reverse chronological order
+    merges: bool | None = None  # None=all, True=only merges, False=no merges
 
 
 class GitCreateBranch(BaseModel):

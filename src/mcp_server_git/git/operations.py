@@ -718,14 +718,47 @@ def git_log(
     oneline: bool = False,
     graph: bool = False,
     format_str: str | None = None,  # Renamed from 'format'
+    since: str | None = None,
+    until: str | None = None,
+    author: str | None = None,
+    grep: str | None = None,
+    files: list[str] | None = None,
+    branch: str | None = None,
+    reverse: bool = False,
+    merges: bool | None = None,
 ) -> str:
-    """Get commit history with formatting options"""
+    """Get commit history with advanced filtering and formatting options
+    
+    Args:
+        repo: Git repository object
+        max_count: Maximum number of commits to show (default: 10)
+        oneline: Compact "hash message" format (equivalent to --oneline)
+        graph: Show merge graph (--graph)
+        format_str: Custom format string (e.g., "%h - %s (%an)")
+        since: Date filter - commits after this date (e.g., "2024-01-01", "1 week ago")
+        until: Date filter - commits before this date (e.g., "yesterday", "2024-12-31")
+        author: Filter by commit author (email or name)
+        grep: Search commit messages (regex pattern)
+        files: Commits affecting specific files (list of file paths)
+        branch: Specific branch to show log for (default: current branch)
+        reverse: Reverse chronological order (oldest first)
+        merges: Filter merge commits (None=all, True=only merges, False=no merges)
+    
+    Returns:
+        Formatted commit log output
+    """
     try:
         args = []
 
-        if max_count:
+        # Add branch if specified
+        if branch:
+            args.append(branch)
+
+        # Add count limit
+        if max_count is not None and max_count > 0:
             args.extend(["-n", str(max_count)])
 
+        # Add formatting options
         if oneline:
             args.append("--oneline")
         elif format_str:  # Use format_str
@@ -734,11 +767,40 @@ def git_log(
         if graph:
             args.append("--graph")
 
+        # Add date filters
+        if since:
+            args.extend(["--since", since])
+        if until:
+            args.extend(["--until", until])
+
+        # Add author filter
+        if author:
+            args.extend(["--author", author])
+
+        # Add message search
+        if grep:
+            args.extend(["--grep", grep])
+
+        # Add merge commit filter
+        if merges is True:
+            args.append("--merges")
+        elif merges is False:
+            args.append("--no-merges")
+
+        # Add reverse order
+        if reverse:
+            args.append("--reverse")
+
+        # Add file paths if specified (must come after --)
+        if files:
+            args.append("--")
+            args.extend(files)
+
         # Get commit log
         log_output = repo.git.log(*args)
 
         if not log_output.strip():
-            return "No commits found in repository"
+            return "No commits found matching the specified criteria"
 
         return log_output
 
