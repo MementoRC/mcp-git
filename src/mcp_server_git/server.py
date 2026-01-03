@@ -21,6 +21,14 @@ from mcp.types import (
 )
 from pydantic import BaseModel, field_validator
 
+# Import Azure DevOps models
+from mcp_server_git.azure.models import (
+    AzureGetBuildLogs,
+    AzureGetBuildStatus,
+    AzureGetFailingJobs,
+    AzureListBuilds,
+)
+
 # Import server core framework
 from mcp_server_git.frameworks import MCPGitServerCore
 
@@ -64,14 +72,6 @@ from mcp_server_git.github.models import (
     GitHubCLIMergePR,
     GitHubCLIReadyPR,
     GitHubCLIReopenPR,
-)
-
-# Import Azure DevOps models
-from mcp_server_git.azure.models import (
-    AzureGetBuildLogs,
-    AzureGetBuildStatus,
-    AzureGetFailingJobs,
-    AzureListBuilds,
 )
 
 # Safe git import that handles ClaudeCode redirector conflicts
