@@ -1513,11 +1513,38 @@ class ServerApplication(DebuggableComponent):
         )
         repo_path = arguments.get("repo_path", default_repo_path)
 
-        # Route to appropriate git operation
+        # Route to appropriate git or GitHub operation
         # Special case: git_init doesn't need an existing repository
         if name == GitTools.INIT:
             result = git_init(repo_path)
-        else:
+        # Git tools that require an existing repository
+        elif name in [
+            GitTools.STATUS,
+            GitTools.DIFF_UNSTAGED,
+            GitTools.DIFF_STAGED,
+            GitTools.DIFF,
+            GitTools.COMMIT,
+            GitTools.ADD,
+            GitTools.RESET,
+            GitTools.LOG,
+            GitTools.CREATE_BRANCH,
+            GitTools.CHECKOUT,
+            GitTools.SHOW,
+            GitTools.PUSH,
+            GitTools.PULL,
+            GitTools.DIFF_BRANCHES,
+            GitTools.REBASE,
+            GitTools.MERGE,
+            GitTools.CHERRY_PICK,
+            GitTools.ABORT,
+            GitTools.CONTINUE,
+            GitTools.BRANCH_LIST,
+            GitTools.FETCH,
+            GitTools.REMOTE_ADD,
+            GitTools.REMOTE_REMOVE,
+            GitTools.REMOTE_LIST,
+            GitTools.REMOTE_GET_URL,
+        ]:
             # Create Repo object for operations that need an existing repository
             repo = Repo(repo_path)
             
@@ -1610,12 +1637,8 @@ class ServerApplication(DebuggableComponent):
                 result = git_remote_list(repo)
             elif name == GitTools.REMOTE_GET_URL:
                 result = git_remote_get_url(repo, arguments["name"])
-            else:
-                # Unknown git operation
-                result = f"❌ Unknown git operation: {name}"
-        
         # GitHub Tools (don't require a Repo object)
-        if name == GitHubTools.CREATE_ISSUE:
+        elif name == GitHubTools.CREATE_ISSUE:
             from ..github.api import github_create_issue
 
             result = await github_create_issue(
