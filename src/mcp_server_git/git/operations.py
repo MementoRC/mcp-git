@@ -44,6 +44,7 @@ __all__ = [
     "git_diff_branches",
     "git_stash_push",
     "git_stash_pop",
+    "git_branch_list",
 ]
 
 
@@ -728,7 +729,7 @@ def git_log(
     merges: bool | None = None,
 ) -> str:
     """Get commit history with advanced filtering and formatting options
-    
+
     Args:
         repo: Git repository object
         max_count: Maximum number of commits to show (default: 10)
@@ -743,7 +744,7 @@ def git_log(
         branch: Specific branch to show log for (default: current branch)
         reverse: Reverse chronological order (oldest first)
         merges: Filter merge commits (None=all, True=only merges, False=no merges)
-    
+
     Returns:
         Formatted commit log output
     """
@@ -1653,3 +1654,46 @@ def git_blame(
         return f"❌ Blame failed: {str(e)}"
     except Exception as e:
         return f"❌ Blame error: {str(e)}"
+
+
+def git_branch_list(
+    repo: Repo,
+    remote: bool = False,
+    all: bool = False,
+    pattern: str | None = None,
+) -> str:
+    """List branches in the repository
+
+    Args:
+        repo: Repository object
+        remote: If True, list remote branches (git branch -r)
+        all: If True, list all branches including remote (git branch -a)
+        pattern: Optional pattern to filter branches (supports glob patterns like 'feature/*')
+
+    Returns:
+        String containing the list of branches
+    """
+    try:
+        args = []
+
+        # Add branch listing flags
+        if all:
+            args.append("-a")
+        elif remote:
+            args.append("-r")
+
+        # When using pattern, we need to add --list flag
+        if pattern and pattern.strip():
+            args.append("--list")
+            args.append(pattern)
+
+        branch_output = repo.git.branch(*args)
+
+        if not branch_output.strip():
+            return "No branches found"
+
+        return f"Branches:\n{branch_output}"
+    except GitCommandError as e:
+        return f"❌ Branch list failed: {str(e)}"
+    except Exception as e:
+        return f"❌ Branch list error: {str(e)}"

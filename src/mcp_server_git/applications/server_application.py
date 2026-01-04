@@ -67,6 +67,7 @@ class GitTools(str, Enum):
     CHERRY_PICK = "git_cherry_pick"
     ABORT = "git_abort"
     CONTINUE = "git_continue"
+    BRANCH_LIST = "git_branch_list"
     FETCH = "git_fetch"
     REMOTE_ADD = "git_remote_add"
     REMOTE_REMOVE = "git_remote_remove"
@@ -1479,6 +1480,7 @@ class ServerApplication(DebuggableComponent):
         from ..git.operations import (
             git_abort,
             git_add,
+            git_branch_list,
             git_checkout,
             git_cherry_pick,
             git_commit,
@@ -1587,6 +1589,13 @@ class ServerApplication(DebuggableComponent):
             result = git_abort(repo, arguments["operation"])
         elif name == GitTools.CONTINUE:
             result = git_continue(repo, arguments["operation"])
+        elif name == GitTools.BRANCH_LIST:
+            result = git_branch_list(
+                repo,
+                remote=arguments.get("remote", False),
+                all=arguments.get("all", False),
+                pattern=arguments.get("pattern"),
+            )
         elif name == GitTools.FETCH:
             result = git_fetch(repo, remote=arguments.get("remote", "origin"))
         elif name == GitTools.REMOTE_ADD:
