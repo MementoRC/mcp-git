@@ -859,7 +859,17 @@ def git_checkout(repo: Repo, branch_name: str) -> str:
             repo.git.checkout(branch_name)
             return f"✅ Switched to branch '{branch_name}'"
         else:
-            # Check if branch exists on remote
+            # Check if it's a full remote ref (e.g., 'origin/development')
+            try:
+                remote_refs = [ref.name for ref in repo.remote().refs]
+                if branch_name in remote_refs:
+                    # Checkout the remote ref directly (detached HEAD)
+                    repo.git.checkout(branch_name)
+                    return f"✅ Switched to '{branch_name}' (detached HEAD)"
+            except Exception:
+                pass
+            
+            # Check if branch exists on remote (short name)
             try:
                 remote_branches = [
                     ref.name.split("/")[-1] for ref in repo.remote().refs
@@ -1219,10 +1229,26 @@ def git_diff_branches(
 ) -> str:
     """Show differences between two branches with size limiting options"""
     try:
-        # Verify branches exist
-        all_branches = [branch.name for branch in repo.branches] + [
-            ref.name.split("/")[-1] for ref in repo.remote().refs
-        ]
+        # Verify branches exist - support both short names and full remote refs
+        # Special refs like HEAD are always valid
+        special_refs = ["HEAD", "FETCH_HEAD", "ORIG_HEAD", "MERGE_HEAD"]
+        
+        local_branches = [branch.name for branch in repo.branches]
+        
+        # Add remote branches if remotes exist (with error handling)
+        try:
+            remote_refs = repo.remote().refs
+            # Include both full remote ref names (e.g., 'origin/development') 
+            # and short names (e.g., 'development') for compatibility
+            remote_branch_names = [ref.name for ref in remote_refs]
+            remote_branch_short_names = [ref.name.split("/")[-1] for ref in remote_refs]
+            # Use set to avoid duplicates
+            all_branches = set(
+                local_branches + remote_branch_names + remote_branch_short_names + special_refs
+            )
+        except Exception:
+            # Ignore remote access errors (e.g., no remotes configured)
+            all_branches = set(local_branches + special_refs)
 
         if base_branch not in all_branches:
             return f"❌ Base branch '{base_branch}' not found"
@@ -1277,13 +1303,16 @@ def git_rebase(repo: Repo, target_branch: str) -> str:
         # Get current branch
         current_branch = repo.active_branch.name
 
-        # Check if target branch exists
+        # Check if target branch exists - support both short names and full remote refs
         all_branches = [branch.name for branch in repo.branches]
 
         # Add remote branches if remotes exist
         try:
             if repo.remotes:
                 for remote in repo.remotes:
+                    # Include both full remote ref names (e.g., 'origin/development') 
+                    # and short names (e.g., 'development') for compatibility
+                    all_branches.extend([ref.name for ref in remote.refs])
                     all_branches.extend(
                         [ref.name.split("/")[-1] for ref in remote.refs]
                     )
@@ -1320,13 +1349,16 @@ def git_merge(
         # Get current branch
         current_branch = repo.active_branch.name
 
-        # Check if source branch exists
+        # Check if source branch exists - support both short names and full remote refs
         all_branches = [branch.name for branch in repo.branches]
 
         # Add remote branches if remotes exist
         try:
             if repo.remotes:
                 for remote in repo.remotes:
+                    # Include both full remote ref names (e.g., 'origin/development') 
+                    # and short names (e.g., 'development') for compatibility
+                    all_branches.extend([ref.name for ref in remote.refs])
                     all_branches.extend(
                         [ref.name.split("/")[-1] for ref in remote.refs]
                     )
