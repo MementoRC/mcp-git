@@ -67,6 +67,7 @@ class GitTools(str, Enum):
     CHERRY_PICK = "git_cherry_pick"
     ABORT = "git_abort"
     CONTINUE = "git_continue"
+    BRANCH_LIST = "git_branch_list"
     FETCH = "git_fetch"
     REMOTE_ADD = "git_remote_add"
     REMOTE_REMOVE = "git_remote_remove"
