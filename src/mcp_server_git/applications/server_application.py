@@ -1512,101 +1512,132 @@ class ServerApplication(DebuggableComponent):
             str(self.config.repository_path) if self.config.repository_path else "."
         )
         repo_path = arguments.get("repo_path", default_repo_path)
-        repo = Repo(repo_path)
 
-        # Route to appropriate git operation
-        if name == GitTools.STATUS:
-            result = git_status(repo)
-        elif name == GitTools.DIFF_UNSTAGED:
-            result = git_diff_unstaged(repo)
-        elif name == GitTools.DIFF_STAGED:
-            result = git_diff_staged(repo)
-        elif name == GitTools.DIFF:
-            result = git_diff(repo, arguments["target"])
-        elif name == GitTools.COMMIT:
-            result = git_commit(
-                repo,
-                arguments["message"],
-                gpg_sign=arguments.get("gpg_sign", False),
-                gpg_key_id=arguments.get("gpg_key_id"),
-            )
-        elif name == GitTools.ADD:
-            result = git_add(repo, arguments["files"])
-        elif name == GitTools.RESET:
-            result = git_reset(
-                repo,
-                mode=arguments.get("mode", "mixed"),
-                target=arguments.get("target"),
-            )
-        elif name == GitTools.LOG:
-            result = git_log(repo, max_count=arguments.get("max_count", 10))
-        elif name == GitTools.CREATE_BRANCH:
-            base_branch_value = arguments.get("base_branch")
-            if base_branch_value is not None:
-                result = git_create_branch(
-                    repo, arguments["branch_name"], base_branch_value
+        # Route to appropriate git or GitHub operation
+        # Special case: git_init doesn't need an existing repository
+        if name == GitTools.INIT:
+            result = git_init(repo_path)
+        # Git tools that require an existing repository
+        elif name in [
+            GitTools.STATUS,
+            GitTools.DIFF_UNSTAGED,
+            GitTools.DIFF_STAGED,
+            GitTools.DIFF,
+            GitTools.COMMIT,
+            GitTools.ADD,
+            GitTools.RESET,
+            GitTools.LOG,
+            GitTools.CREATE_BRANCH,
+            GitTools.CHECKOUT,
+            GitTools.SHOW,
+            GitTools.PUSH,
+            GitTools.PULL,
+            GitTools.DIFF_BRANCHES,
+            GitTools.REBASE,
+            GitTools.MERGE,
+            GitTools.CHERRY_PICK,
+            GitTools.ABORT,
+            GitTools.CONTINUE,
+            GitTools.BRANCH_LIST,
+            GitTools.FETCH,
+            GitTools.REMOTE_ADD,
+            GitTools.REMOTE_REMOVE,
+            GitTools.REMOTE_LIST,
+            GitTools.REMOTE_GET_URL,
+        ]:
+            # Create Repo object for operations that need an existing repository
+            repo = Repo(repo_path)
+            
+            if name == GitTools.STATUS:
+                result = git_status(repo)
+            elif name == GitTools.DIFF_UNSTAGED:
+                result = git_diff_unstaged(repo)
+            elif name == GitTools.DIFF_STAGED:
+                result = git_diff_staged(repo)
+            elif name == GitTools.DIFF:
+                result = git_diff(repo, arguments["target"])
+            elif name == GitTools.COMMIT:
+                result = git_commit(
+                    repo,
+                    arguments["message"],
+                    gpg_sign=arguments.get("gpg_sign", False),
+                    gpg_key_id=arguments.get("gpg_key_id"),
                 )
-            else:
-                result = git_create_branch(repo, arguments["branch_name"])
-        elif name == GitTools.CHECKOUT:
-            result = git_checkout(repo, arguments["branch_name"])
-        elif name == GitTools.SHOW:
-            result = git_show(repo, arguments["revision"])
-        elif name == GitTools.INIT:
-            result = git_init(repo)
-        elif name == GitTools.PUSH:
-            result = git_push(
-                repo,
-                remote=arguments.get("remote", "origin"),
-                branch=arguments.get("branch"),
-                force=arguments.get("force", False),
-            )
-        elif name == GitTools.PULL:
-            result = git_pull(
-                repo,
-                remote=arguments.get("remote", "origin"),
-                branch=arguments.get("branch"),
-            )
-        elif name == GitTools.DIFF_BRANCHES:
-            result = git_diff_branches(
-                repo, arguments["base_branch"], arguments["target_branch"]
-            )
-        elif name == GitTools.REBASE:
-            result = git_rebase(
-                repo,
-                arguments["target_branch"],
-            )
-        elif name == GitTools.MERGE:
-            result = git_merge(
-                repo,
-                arguments["source_branch"],
-                strategy=arguments.get("strategy", "merge"),
-                message=arguments.get("message"),
-            )
-        elif name == GitTools.CHERRY_PICK:
-            result = git_cherry_pick(repo, arguments["commit_hash"])
-        elif name == GitTools.ABORT:
-            result = git_abort(repo, arguments["operation"])
-        elif name == GitTools.CONTINUE:
-            result = git_continue(repo, arguments["operation"])
-        elif name == GitTools.BRANCH_LIST:
-            result = git_branch_list(
-                repo,
-                remote=arguments.get("remote", False),
-                all=arguments.get("all", False),
-                pattern=arguments.get("pattern"),
-            )
-        elif name == GitTools.FETCH:
-            result = git_fetch(repo, remote=arguments.get("remote", "origin"))
-        elif name == GitTools.REMOTE_ADD:
-            result = git_remote_add(repo, arguments["name"], arguments["url"])
-        elif name == GitTools.REMOTE_REMOVE:
-            result = git_remote_remove(repo, arguments["name"])
-        elif name == GitTools.REMOTE_LIST:
-            result = git_remote_list(repo)
-        elif name == GitTools.REMOTE_GET_URL:
-            result = git_remote_get_url(repo, arguments["name"])
-        # GitHub Tools
+            elif name == GitTools.ADD:
+                result = git_add(repo, arguments["files"])
+            elif name == GitTools.RESET:
+                result = git_reset(
+                    repo,
+                    mode=arguments.get("mode", "mixed"),
+                    target=arguments.get("target"),
+                )
+            elif name == GitTools.LOG:
+                result = git_log(repo, max_count=arguments.get("max_count", 10))
+            elif name == GitTools.CREATE_BRANCH:
+                base_branch_value = arguments.get("base_branch")
+                if base_branch_value is not None:
+                    result = git_create_branch(
+                        repo, arguments["branch_name"], base_branch_value
+                    )
+                else:
+                    result = git_create_branch(repo, arguments["branch_name"])
+            elif name == GitTools.CHECKOUT:
+                result = git_checkout(repo, arguments["branch_name"])
+            elif name == GitTools.SHOW:
+                result = git_show(repo, arguments["revision"])
+            elif name == GitTools.PUSH:
+                result = git_push(
+                    repo,
+                    remote=arguments.get("remote", "origin"),
+                    branch=arguments.get("branch"),
+                    force=arguments.get("force", False),
+                )
+            elif name == GitTools.PULL:
+                result = git_pull(
+                    repo,
+                    remote=arguments.get("remote", "origin"),
+                    branch=arguments.get("branch"),
+                )
+            elif name == GitTools.DIFF_BRANCHES:
+                result = git_diff_branches(
+                    repo, arguments["base_branch"], arguments["target_branch"]
+                )
+            elif name == GitTools.REBASE:
+                result = git_rebase(
+                    repo,
+                    arguments["target_branch"],
+                )
+            elif name == GitTools.MERGE:
+                result = git_merge(
+                    repo,
+                    arguments["source_branch"],
+                    strategy=arguments.get("strategy", "merge"),
+                    message=arguments.get("message"),
+                )
+            elif name == GitTools.CHERRY_PICK:
+                result = git_cherry_pick(repo, arguments["commit_hash"])
+            elif name == GitTools.ABORT:
+                result = git_abort(repo, arguments["operation"])
+            elif name == GitTools.CONTINUE:
+                result = git_continue(repo, arguments["operation"])
+            elif name == GitTools.BRANCH_LIST:
+                result = git_branch_list(
+                    repo,
+                    remote=arguments.get("remote", False),
+                    all=arguments.get("all", False),
+                    pattern=arguments.get("pattern"),
+                )
+            elif name == GitTools.FETCH:
+                result = git_fetch(repo, remote=arguments.get("remote", "origin"))
+            elif name == GitTools.REMOTE_ADD:
+                result = git_remote_add(repo, arguments["name"], arguments["url"])
+            elif name == GitTools.REMOTE_REMOVE:
+                result = git_remote_remove(repo, arguments["name"])
+            elif name == GitTools.REMOTE_LIST:
+                result = git_remote_list(repo)
+            elif name == GitTools.REMOTE_GET_URL:
+                result = git_remote_get_url(repo, arguments["name"])
+        # GitHub Tools (don't require a Repo object)
         elif name == GitHubTools.CREATE_ISSUE:
             from ..github.api import github_create_issue
 
