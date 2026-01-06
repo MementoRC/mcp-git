@@ -7,6 +7,7 @@ from typing import Any
 # Safe git import that handles ClaudeCode redirector conflicts
 from ..utils.git_import import Repo, git
 from .enhanced_error_handling import (
+    with_azure_error_handling,
     with_git_error_handling,
     with_github_error_handling,
     with_validation_error_handling,
@@ -572,6 +573,9 @@ class CallToolHandler:
     def _create_azure_handler(self, func, arg_names: list[str]):
         """Create a wrapper for Azure DevOps API functions"""
 
+        @with_azure_error_handling(
+            func.__name__ if hasattr(func, "__name__") else "azure_api"
+        )
         async def handler(**kwargs):
             # Build arguments in the correct order
             args = []
