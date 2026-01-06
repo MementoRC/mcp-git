@@ -36,6 +36,14 @@ from ..services.github_service import GitHubServiceConfig
 from ..services.server_metrics import MetricsService
 from ..services.server_session import SessionManager
 
+# Azure DevOps models for tool registration
+from ..azure.models import (
+    AzureGetBuildLogs,
+    AzureGetBuildStatus,
+    AzureGetFailingJobs,
+    AzureListBuilds,
+)
+
 logger = logging.getLogger(__name__)
 
 # ===== MCP TOOL MODELS =====
@@ -1404,6 +1412,27 @@ class ServerApplication(DebuggableComponent):
                     name=GitHubTools.GET_FAILING_JOBS,
                     description="Get detailed information about failing CI jobs for a pull request",
                     inputSchema=GitHubGetFailingJobs.model_json_schema(),
+                ),
+                # Azure DevOps Tools
+                Tool(
+                    name=AzureTools.GET_BUILD_STATUS,
+                    description="Get the status of an Azure DevOps build/pipeline run",
+                    inputSchema=AzureGetBuildStatus.model_json_schema(),
+                ),
+                Tool(
+                    name=AzureTools.GET_BUILD_LOGS,
+                    description="Get logs from an Azure DevOps build",
+                    inputSchema=AzureGetBuildLogs.model_json_schema(),
+                ),
+                Tool(
+                    name=AzureTools.GET_FAILING_JOBS,
+                    description="Get detailed information about failing jobs in an Azure DevOps build",
+                    inputSchema=AzureGetFailingJobs.model_json_schema(),
+                ),
+                Tool(
+                    name=AzureTools.LIST_BUILDS,
+                    description="List Azure DevOps builds with filtering options",
+                    inputSchema=AzureListBuilds.model_json_schema(),
                 ),
             ]
 
