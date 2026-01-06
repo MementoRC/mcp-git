@@ -87,6 +87,21 @@ class GitHubAPIError(MCPError):
         self.api_endpoint = api_endpoint
 
 
+class AzureAPIError(MCPError):
+    """Exception for Azure DevOps API failures."""
+
+    def __init__(
+        self,
+        message: str,
+        status_code: int | None = None,
+        api_endpoint: str | None = None,
+        **kwargs,
+    ):
+        super().__init__(message, category=ErrorCategory.NETWORK, **kwargs)
+        self.status_code = status_code
+        self.api_endpoint = api_endpoint
+
+
 class ValidationError(MCPError):
     """Exception for validation failures."""
 
@@ -335,6 +350,85 @@ class EnhancedErrorHandler:
 
         return decorator
 
+    def handle_azure_api_error(self, func: Callable, operation_name: str) -> Callable:
+        """Decorator for handling Azure DevOps API errors with granularity."""
+
+        async def decorator(*args, **kwargs):
+            try:
+                return await func(*args, **kwargs)
+
+            except ConnectionError as e:
+                error = AzureAPIError(
+                    f"Azure DevOps connection failed: {e}",
+                    category=ErrorCategory.NETWORK,
+                    severity=ErrorSeverity.HIGH,
+                    suggestion="Check network connectivity and Azure DevOps API status",
+                )
+                self._log_error(error, operation_name, {"args": args, "kwargs": kwargs})
+                return self._create_error_response(error, operation_name)
+
+            except TimeoutError as e:
+                error = AzureAPIError(
+                    f"Azure DevOps API request timed out: {e}",
+                    category=ErrorCategory.TIMEOUT,
+                    severity=ErrorSeverity.MEDIUM,
+                    suggestion="The request took too long. Try again or check Azure DevOps API status",
+                )
+                self._log_error(error, operation_name, {"timeout": True})
+                return self._create_error_response(error, operation_name)
+
+            except ValueError as e:
+                if "authentication" in str(e).lower() or "token" in str(e).lower():
+                    error = AzureAPIError(
+                        f"Azure DevOps authentication failed: {e}",
+                        category=ErrorCategory.AUTHENTICATION,
+                        severity=ErrorSeverity.HIGH,
+                        suggestion="Check your Azure DevOps token and permissions",
+                    )
+                else:
+                    error = ValidationError(
+                        f"Invalid Azure DevOps API parameter: {e}",
+                        field="unknown",
+                        value=kwargs,
+                        severity=ErrorSeverity.MEDIUM,
+                        suggestion="Verify API parameters match Azure DevOps API requirements",
+                    )
+                self._log_error(error, operation_name, {"args": args, "kwargs": kwargs})
+                return self._create_error_response(error, operation_name)
+
+            except json.JSONDecodeError as e:
+                error = AzureAPIError(
+                    f"Invalid JSON response from Azure DevOps API: {e}",
+                    category=ErrorCategory.NETWORK,
+                    severity=ErrorSeverity.MEDIUM,
+                    suggestion="Azure DevOps API returned malformed data. Try again or check API status",
+                )
+                self._log_error(error, operation_name, {"json_error": str(e)})
+                return self._create_error_response(error, operation_name)
+
+            except Exception as e:
+                # Log unexpected errors with full context
+                error_context = {
+                    "args": args,
+                    "kwargs": kwargs,
+                    "traceback": traceback.format_exc(),
+                }
+                logger.error(
+                    f"Unexpected error in Azure DevOps API {operation_name}: {e}",
+                    extra=error_context,
+                )
+
+                error = AzureAPIError(
+                    f"Unexpected Azure DevOps API error: {e}",
+                    category=ErrorCategory.UNKNOWN,
+                    severity=ErrorSeverity.HIGH,
+                    context={"error_type": type(e).__name__},
+                    suggestion="This is an unexpected error. Please report it to the development team.",
+                )
+                return self._create_error_response(error, operation_name)
+
+        return decorator
+
     def handle_validation_error(self, func: Callable, operation_name: str) -> Callable:
         """Decorator for handling validation errors with granularity."""
 
@@ -430,6 +524,15 @@ def with_github_error_handling(operation_name: str):
 
     def decorator(func):
         return error_handler.handle_github_api_error(func, operation_name)
+
+    return decorator
+
+
+def with_azure_error_handling(operation_name: str):
+    """Decorator for Azure DevOps API operations with enhanced error handling."""
+
+    def decorator(func):
+        return error_handler.handle_azure_api_error(func, operation_name)
 
     return decorator
 

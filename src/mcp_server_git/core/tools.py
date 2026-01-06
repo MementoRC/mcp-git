@@ -60,6 +60,12 @@ class GitTools(str, Enum):
     GIT_SECURITY_VALIDATE = "git_security_validate"
     GIT_SECURITY_ENFORCE = "git_security_enforce"
 
+    # Azure DevOps tools
+    AZURE_GET_BUILD_STATUS = "azure_get_build_status"
+    AZURE_GET_BUILD_LOGS = "azure_get_build_logs"
+    AZURE_GET_FAILING_JOBS = "azure_get_failing_jobs"
+    AZURE_LIST_BUILDS = "azure_list_builds"
+
 
 class ToolCategory(str, Enum):
     """Tool categories for organization and routing"""
@@ -67,6 +73,7 @@ class ToolCategory(str, Enum):
     GIT = "git"
     GITHUB = "github"
     SECURITY = "security"
+    AZURE = "azure"
 
 
 @dataclass
@@ -163,6 +170,12 @@ class ToolRegistry:
             GitHubListWorkflowRuns,
             GitHubSearchIssues,
             GitHubUpdateIssue,
+        )
+        from ..azure.models import (
+            AzureGetBuildLogs,
+            AzureGetBuildStatus,
+            AzureGetFailingJobs,
+            AzureListBuilds,
         )
 
         # Import handlers (will be set by the router)
@@ -492,8 +505,44 @@ class ToolRegistry:
             ),
         ]
 
+        # Register Azure DevOps tools
+        azure_tools = [
+            ToolDefinition(
+                name=GitTools.AZURE_GET_BUILD_STATUS,
+                category=ToolCategory.AZURE,
+                description="Get status of an Azure DevOps build/pipeline run",
+                schema=AzureGetBuildStatus,
+                handler=placeholder_handler,
+                requires_repo=False,
+            ),
+            ToolDefinition(
+                name=GitTools.AZURE_GET_BUILD_LOGS,
+                category=ToolCategory.AZURE,
+                description="Get logs from an Azure DevOps build",
+                schema=AzureGetBuildLogs,
+                handler=placeholder_handler,
+                requires_repo=False,
+            ),
+            ToolDefinition(
+                name=GitTools.AZURE_GET_FAILING_JOBS,
+                category=ToolCategory.AZURE,
+                description="Get detailed information about failing jobs in an Azure DevOps build",
+                schema=AzureGetFailingJobs,
+                handler=placeholder_handler,
+                requires_repo=False,
+            ),
+            ToolDefinition(
+                name=GitTools.AZURE_LIST_BUILDS,
+                category=ToolCategory.AZURE,
+                description="List builds for an Azure DevOps project with filtering",
+                schema=AzureListBuilds,
+                handler=placeholder_handler,
+                requires_repo=False,
+            ),
+        ]
+
         # Register all tools
-        for tool in git_tools + github_tools + security_tools:
+        for tool in git_tools + github_tools + security_tools + azure_tools:
             self.register(tool)
 
         self._initialized = True
@@ -512,6 +561,7 @@ class GitToolRouter:
         git_handlers: dict[str, Callable],
         github_handlers: dict[str, Callable],
         security_handlers: dict[str, Callable],
+        azure_handlers: dict[str, Callable] | None = None,
     ):
         """Set up actual tool handlers"""
 
@@ -529,6 +579,12 @@ class GitToolRouter:
         for tool_name, handler in security_handlers.items():
             if tool_name in self.registry.tools:
                 self.registry.tools[tool_name].handler = handler
+
+        # Update Azure DevOps tool handlers
+        if azure_handlers:
+            for tool_name, handler in azure_handlers.items():
+                if tool_name in self.registry.tools:
+                    self.registry.tools[tool_name].handler = handler
 
         self._handlers_initialized = True
         logger.info("Tool handlers initialized")
@@ -565,8 +621,8 @@ class GitToolRouter:
                     ]
 
             # Call the handler
-            if tool_def.category == ToolCategory.GITHUB:
-                # GitHub tools are async
+            if tool_def.category in (ToolCategory.GITHUB, ToolCategory.AZURE):
+                # GitHub and Azure tools are async
                 result = await tool_def.handler(**arguments)
             else:
                 # Git and security tools are sync
