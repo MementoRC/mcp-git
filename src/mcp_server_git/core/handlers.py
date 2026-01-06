@@ -32,8 +32,11 @@ class CallToolHandler:
         git_handlers = self._get_git_handlers()
         github_handlers = self._get_github_handlers()
         security_handlers = self._get_security_handlers()
+        azure_handlers = self._get_azure_handlers()
 
-        self.router.set_handlers(git_handlers, github_handlers, security_handlers)
+        self.router.set_handlers(
+            git_handlers, github_handlers, security_handlers, azure_handlers
+        )
 
     def _get_git_handlers(self) -> dict[str, Any]:
         """Get Git operation handlers from modular implementation"""
@@ -381,6 +384,57 @@ class CallToolHandler:
             ),
         }
 
+    def _get_azure_handlers(self) -> dict[str, Any]:
+        """Get Azure DevOps API handlers from modular implementation"""
+        try:
+            from ..azure.api import (
+                azure_get_build_logs,
+                azure_get_build_status,
+                azure_get_failing_jobs,
+                azure_list_builds,
+            )
+
+            logger.debug("Using modular Azure DevOps API")
+        except ImportError:
+            logger.warning("Azure DevOps API module not available, using fallback")
+
+            async def fallback_azure_function(*args, **kwargs):
+                return "❌ Azure DevOps API not available"
+
+            (
+                azure_get_build_status,
+                azure_get_build_logs,
+                azure_get_failing_jobs,
+                azure_list_builds,
+            ) = [fallback_azure_function] * 4
+
+        return {
+            "azure_get_build_status": self._create_azure_handler(
+                azure_get_build_status,
+                ["project", "build_id"],
+            ),
+            "azure_get_build_logs": self._create_azure_handler(
+                azure_get_build_logs,
+                ["project", "build_id", "log_id"],
+            ),
+            "azure_get_failing_jobs": self._create_azure_handler(
+                azure_get_failing_jobs,
+                ["project", "build_id", "include_logs"],
+            ),
+            "azure_list_builds": self._create_azure_handler(
+                azure_list_builds,
+                [
+                    "project",
+                    "repository_id",
+                    "branch_name",
+                    "status",
+                    "result",
+                    "top",
+                    "continuation_token",
+                ],
+            ),
+        }
+
     def _create_git_handler(
         self, func, requires_repo: bool = True, extra_args: list[str] | None = None
     ):
@@ -512,5 +566,28 @@ class CallToolHandler:
                         args.append(kwargs.get(arg))
 
             return func(*args) if args else func()
+
+        return handler
+
+    def _create_azure_handler(self, func, arg_names: list[str]):
+        """Create a wrapper for Azure DevOps API functions"""
+
+        async def handler(**kwargs):
+            # Build arguments in the correct order
+            args = []
+            for arg_name in arg_names:
+                if arg_name in kwargs:
+                    args.append(kwargs[arg_name])
+                elif arg_name == "include_logs":
+                    args.append(kwargs.get(arg_name, True))
+                elif arg_name == "top":
+                    args.append(kwargs.get(arg_name, 30))
+                elif arg_name in ["log_id", "repository_id", "branch_name", "status",
+                                  "result", "continuation_token"]:
+                    args.append(kwargs.get(arg_name, None))
+                else:
+                    args.append(kwargs.get(arg_name))
+
+            return await func(*args)
 
         return handler
