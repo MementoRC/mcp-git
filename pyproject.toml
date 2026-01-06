@@ -73,6 +73,14 @@ indent-style = "space"
 skip-magic-trailing-comma = false
 line-ending = "auto"
 
+[tool.vulture]
+# Vulture configuration for dead code detection
+min_confidence = 80
+paths = ["src/"]
+exclude = ["tests/", "docs/", "examples/"]
+ignore_decorators = ["@app.route", "@click.command", "@click.option"]
+ignore_names = ["__all__", "__version__", "__author__"]
+
 [tool.pixi.project]
 channels = ["conda-forge"]
 platforms = ["linux-64"]  # CI-optimized: single platform for reliability
@@ -115,6 +123,9 @@ bandit = ">=1.7.0"
 
 # Code Quality Analysis
 hypothesis = ">=6.0.0"
+
+# Dead Code Detection
+vulture = ">=2.0"
 
 # Git Hooks
 pre-commit = ">=3.0.0"
@@ -197,6 +208,11 @@ emergency-fix = "pixi run -e quality lint-fix && pixi run -e quality format && p
 # NOTE: These require quality-extended environment - run with: pixi run -e quality-extended security-scan
 security-scan = "bandit -r src/ --severity-level high"
 safety-check = "safety check"
+
+# Dead Code Detection
+# NOTE: Requires quality-extended environment - run with: pixi run -e quality-extended dead-code
+dead-code = "vulture src/ --min-confidence 80 --sort-by-size"
+dead-code-strict = "vulture src/ --min-confidence 60 --sort-by-size"
 
 # Static Analysis Suite
 static-analysis = { depends-on = ["security-scan", "safety-check"] }
