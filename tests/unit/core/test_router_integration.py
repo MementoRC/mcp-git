@@ -63,7 +63,7 @@ class TestRouterIntegration:
         
         assert len(result) == 1
         assert result[0].text == "Build #456 status"
-        handlers["azure"]["azure_get_build_status"].assert_called_once_with("test-project", 456)
+        handlers["azure"]["azure_get_build_status"].assert_called_once_with(project="test-project", build_id=456)
 
     @pytest.mark.asyncio
     async def test_azure_get_build_logs_async_routing(self, router_with_mocks):
@@ -77,7 +77,7 @@ class TestRouterIntegration:
         
         assert len(result) == 1
         assert result[0].text == "Build logs content"
-        handlers["azure"]["azure_get_build_logs"].assert_called_once_with("test-project", 456, 789)
+        handlers["azure"]["azure_get_build_logs"].assert_called_once_with(project="test-project", build_id=456, log_id=789)
 
     @pytest.mark.asyncio
     async def test_azure_get_failing_jobs_async_routing(self, router_with_mocks):
@@ -91,7 +91,7 @@ class TestRouterIntegration:
         
         assert len(result) == 1
         assert result[0].text == "No failing jobs"
-        handlers["azure"]["azure_get_failing_jobs"].assert_called_once_with("test-project", 456, True)
+        handlers["azure"]["azure_get_failing_jobs"].assert_called_once_with(project="test-project", build_id=456, include_logs=True)
 
     @pytest.mark.asyncio
     async def test_azure_list_builds_async_routing(self, router_with_mocks):
@@ -114,7 +114,13 @@ class TestRouterIntegration:
         assert len(result) == 1
         assert result[0].text == "Builds list"
         handlers["azure"]["azure_list_builds"].assert_called_once_with(
-            "test-project", "repo123", "refs/heads/main", "completed", "succeeded", 50, "token123"
+            project="test-project", 
+            repository_id="repo123", 
+            branch_name="refs/heads/main", 
+            status="completed", 
+            result="succeeded", 
+            top=50, 
+            continuation_token="token123"
         )
 
     @pytest.mark.asyncio

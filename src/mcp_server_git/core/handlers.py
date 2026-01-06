@@ -577,21 +577,22 @@ class CallToolHandler:
             func.__name__ if hasattr(func, "__name__") else "azure_api"
         )
         async def handler(**kwargs):
-            # Build arguments in the correct order
-            args = []
+            # Build keyword arguments for the Azure API function
+            azure_kwargs = {}
             for arg_name in arg_names:
                 if arg_name in kwargs:
-                    args.append(kwargs[arg_name])
+                    azure_kwargs[arg_name] = kwargs[arg_name]
                 elif arg_name == "include_logs":
-                    args.append(kwargs.get(arg_name, True))
+                    azure_kwargs[arg_name] = kwargs.get(arg_name, True)
                 elif arg_name == "top":
-                    args.append(kwargs.get(arg_name, 30))
+                    azure_kwargs[arg_name] = kwargs.get(arg_name, 30)
                 elif arg_name in ["log_id", "repository_id", "branch_name", "status",
                                   "result", "continuation_token"]:
-                    args.append(kwargs.get(arg_name, None))
+                    azure_kwargs[arg_name] = kwargs.get(arg_name, None)
                 else:
-                    args.append(kwargs.get(arg_name))
+                    if arg_name in kwargs:
+                        azure_kwargs[arg_name] = kwargs[arg_name]
 
-            return await func(*args)
+            return await func(**azure_kwargs)
 
         return handler
