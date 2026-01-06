@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 # Import from current modular architecture
-from mcp_server_git.core.tools import GitTools
+from mcp_server_git.applications.server_application import GitTools
 from mcp_server_git.git.operations import git_checkout, git_status
 from mcp_server_git.utils.git_import import git
 
