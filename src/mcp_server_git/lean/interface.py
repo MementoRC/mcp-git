@@ -139,10 +139,16 @@ class GitLeanInterface:
             """
             [STEP 1] Discover available Git, GitHub, and Azure DevOps tools.
 
-            USE WHEN: You need to find what operations are available for:
-            - Git operations: status, diff, commit, push, pull, merge, rebase, checkout, branches
-            - GitHub operations: PRs, issues, workflows, checks, releases, comments
-            - Azure DevOps: build status, logs, failing jobs
+            USE WHEN:
+            - You don't know if a specific Git/GitHub/Azure operation exists as a tool
+            - You want to see all available tools in a domain (git, github, azure)
+            - You need to find the exact tool name before calling get_tool_spec()
+            - You're exploring what operations are available
+
+            COMMON TASKS:
+            - Git: status, diff, commit, push, pull, merge, rebase, checkout, branch, reset, log
+            - GitHub: create/list/merge PRs, manage issues, check workflows, get CI status
+            - Azure: get build status/logs, list builds, analyze failing jobs
 
             This lean interface provides 57 tools across 3 domains, saving ~28k tokens
             vs loading all tool schemas upfront.
@@ -157,7 +163,25 @@ class GitLeanInterface:
                          Leave empty "" to see all 57 tools
 
             Returns:
-                List of matching tools with names, descriptions, and domains
+                Dictionary containing:
+                - available_tools: List of tools, each with:
+                  * name: Tool name to use in get_tool_spec() or execute_tool()
+                  * description: What the tool does
+                  * domain: "git", "github", or "azure"
+                  * complexity: "core", "focused", "advanced", or "comprehensive"
+                - total_tools: Total tools in registry (57)
+                - filtered_count: How many matched your pattern
+                - domains: Breakdown by domain (git: 25, github: 28, azure: 4)
+
+                Example output for discover_tools("status"):
+                {
+                  "available_tools": [
+                    {"name": "git_status", "description": "Shows working tree status", "domain": "git"},
+                    {"name": "github_get_pr_status", "description": "Get PR status", "domain": "github"}
+                  ],
+                  "filtered_count": 2,
+                  "total_tools": 57
+                }
 
             Examples:
                 discover_tools("")              # List all 57 tools
