@@ -137,13 +137,34 @@ class GitLeanInterface:
         @self.app.tool()
         def discover_tools(pattern: str = "") -> dict[str, Any]:
             """
-            Get available tools with minimal context consumption.
+            [STEP 1] Discover available Git, GitHub, and Azure DevOps tools.
+
+            USE WHEN: You need to find what operations are available for:
+            - Git operations: status, diff, commit, push, pull, merge, rebase, checkout, branches
+            - GitHub operations: PRs, issues, workflows, checks, releases, comments
+            - Azure DevOps: build status, logs, failing jobs
+
+            This lean interface provides 57 tools across 3 domains, saving ~28k tokens
+            vs loading all tool schemas upfront.
+
+            WORKFLOW:
+            1. discover_tools(pattern) ← YOU ARE HERE
+            2. get_tool_spec(tool_name) ← Get schema/parameters for a specific tool
+            3. execute_tool(tool_name, params) ← Execute the operation
 
             Args:
-                pattern: Filter by name pattern (substring match, empty string for all tools)
+                pattern: Filter tools by name (e.g., "status", "pr", "merge", "rebase")
+                         Leave empty "" to see all 57 tools
 
             Returns:
-                Compact tool list with names and brief descriptions
+                List of matching tools with names, descriptions, and domains
+
+            Examples:
+                discover_tools("")              # List all 57 tools
+                discover_tools("status")        # Find: git_status, github_get_pr_status
+                discover_tools("pr")            # Find all PR tools: create, list, merge, etc.
+                discover_tools("rebase")        # Find: git_rebase, git_abort, git_continue
+                discover_tools("workflow")      # Find GitHub workflow/CI tools
             """
             tools = []
 
@@ -173,13 +194,34 @@ class GitLeanInterface:
         @self.app.tool()
         def get_tool_spec(tool_name: str) -> dict[str, Any]:
             """
-            Get full specification for specific tool including schema and examples.
+            [STEP 2] Get detailed schema and parameters for a specific tool.
+
+            USE WHEN: You found a tool via discover_tools() and need to know:
+            - What parameters it requires (repo_path, commit_hash, branch_name, etc.)
+            - What parameters are optional vs required
+            - Parameter types and validation rules
+            - Examples of how to call it
+
+            WORKFLOW:
+            1. discover_tools(pattern) ← Already done
+            2. get_tool_spec(tool_name) ← YOU ARE HERE
+            3. execute_tool(tool_name, params) ← Execute with correct parameters
 
             Args:
-                tool_name: Name of tool to get specification for
+                tool_name: Exact tool name from discover_tools() output
+                          (e.g., "git_status", "github_create_pr", "azure_get_build_logs")
 
             Returns:
-                Complete tool specification with schema and usage details
+                Full tool specification including:
+                - Complete parameter schema (required/optional, types)
+                - Usage examples
+                - Domain and complexity level
+
+            Examples:
+                get_tool_spec("git_status")           # See: needs repo_path
+                get_tool_spec("github_create_pr")     # See: needs repo_owner, repo_name, title, head, base
+                get_tool_spec("git_rebase")           # See: needs repo_path, target_branch
+                get_tool_spec("github_get_pr_checks") # See: needs repo_owner, repo_name, pr_number
             """
             if tool_name not in self.tool_registry:
                 return {
@@ -204,14 +246,51 @@ class GitLeanInterface:
         @self.app.tool()
         def execute_tool(tool_name: str, parameters: dict[str, Any]) -> dict[str, Any]:
             """
-            Execute tool with parameters using dynamic dispatch.
+            [STEP 3] Execute a Git, GitHub, or Azure DevOps operation.
+
+            USE WHEN: You have the tool name and parameters ready to perform:
+            - Git operations: checking status, creating commits, pushing, merging
+            - GitHub operations: creating PRs, checking CI status, managing issues
+            - Azure DevOps: checking build status, fetching logs
+
+            WORKFLOW:
+            1. discover_tools(pattern) ← Found the right tool
+            2. get_tool_spec(tool_name) ← Got the parameter schema
+            3. execute_tool(tool_name, params) ← YOU ARE HERE
+
+            VALIDATION: Parameters are validated against the tool schema before execution.
+            Unexpected parameters will be rejected with an error listing valid parameters.
 
             Args:
-                tool_name: Name of tool to execute
-                parameters: Tool parameters as object
+                tool_name: Exact tool name (e.g., "git_status", "github_create_pr")
+                parameters: Dictionary of parameters matching the tool schema
+                           Use get_tool_spec() if unsure what parameters are needed
 
             Returns:
-                Tool execution result with standard error handling
+                Execution result with status and tool output, OR
+                Error details if validation/execution fails
+
+            Examples:
+                execute_tool("git_status", {"repo_path": "."})
+
+                execute_tool("github_create_pr", {
+                    "repo_owner": "owner",
+                    "repo_name": "repo",
+                    "title": "feat: new feature",
+                    "head": "feature-branch",
+                    "base": "main"
+                })
+
+                execute_tool("git_rebase", {
+                    "repo_path": ".",
+                    "target_branch": "origin/main"
+                })
+
+                execute_tool("github_get_pr_checks", {
+                    "repo_owner": "owner",
+                    "repo_name": "repo",
+                    "pr_number": 42
+                })
             """
             if tool_name not in self.tool_registry:
                 return {
