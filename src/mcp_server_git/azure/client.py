@@ -30,9 +30,10 @@ class AzureClient:
         if not token or len(token.strip()) == 0:
             return False
 
-        # Azure DevOps PAT tokens are typically 52 characters long (base64 encoded)
+        # Azure DevOps PAT tokens are variable length (base64 encoded)
         # They can contain alphanumeric characters, +, /, and =
-        pattern = r"^[a-zA-Z0-9+/=]{52}$"
+        # Accept tokens with 20 or more characters
+        pattern = r"^[a-zA-Z0-9+/=]{20,}$"
         return bool(re.match(pattern, token.strip()))
 
     async def get(self, endpoint: str, **kwargs) -> aiohttp.ClientResponse:

@@ -72,7 +72,7 @@ repos:
 
       - id: server-import-check
         name: Server Import Check
-        entry: python -c "import mcp_server_git.server; print('✅ Server imports OK')"
+        entry: python -c "import mcp_server_git.applications.server_application; print('✅ Server imports OK')"
         language: python
         files: '^src/mcp_server_git/'
         pass_filenames: false

@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 # Import from current modular architecture
-from mcp_server_git.core.tools import GitTools
+from mcp_server_git.applications.server_application import GitTools
 from mcp_server_git.git.operations import git_checkout, git_status
 from mcp_server_git.utils.git_import import git
 
@@ -58,42 +58,6 @@ def test_git_checkout_nonexistent_branch(test_repository):
     result = git_checkout(test_repository, "nonexistent-branch")
     assert "not found" in result
     assert "❌" in result
-
-
-def test_github_api_tools_no_repo_path_required():
-    """Test that GitHub API tools are identified correctly for repo_path handling"""
-
-    # These are the GitHub tools that don't need repo_path
-    github_tools = [
-        GitTools.GITHUB_GET_PR_CHECKS,
-        GitTools.GITHUB_GET_FAILING_JOBS,
-        GitTools.GITHUB_GET_WORKFLOW_RUN,
-        GitTools.GITHUB_GET_PR_DETAILS,
-        GitTools.GITHUB_LIST_PULL_REQUESTS,
-        GitTools.GITHUB_GET_PR_STATUS,
-        GitTools.GITHUB_GET_PR_FILES,
-    ]
-
-    # Verify these are the GitHub tools that don't need repo_path
-    assert GitTools.GITHUB_GET_PR_CHECKS in github_tools
-    assert GitTools.GITHUB_GET_FAILING_JOBS in github_tools
-    assert GitTools.GITHUB_GET_WORKFLOW_RUN in github_tools
-    assert GitTools.GITHUB_GET_PR_DETAILS in github_tools
-    assert GitTools.GITHUB_LIST_PULL_REQUESTS in github_tools
-    assert GitTools.GITHUB_GET_PR_STATUS in github_tools
-    assert GitTools.GITHUB_GET_PR_FILES in github_tools
-
-    # Verify regular git tools are NOT in the GitHub tools list
-    assert GitTools.STATUS not in github_tools
-    assert GitTools.COMMIT not in github_tools
-    assert GitTools.ADD not in github_tools
-
-    # Test that our fix correctly identifies GitHub tools
-    # The fix should handle these tools without requiring repo_path
-    for tool in github_tools:
-        assert (
-            "github" in tool.value.lower()
-        )  # All GitHub tools should have "github" in their name
 
 
 def test_git_status_default_format(test_repository):

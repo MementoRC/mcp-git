@@ -92,7 +92,7 @@ class TestGitInit:
 
     def test_git_init_with_server_application_flow(self):
         """Test the fix: git_init should work through server application without requiring existing repo"""
-        from src.mcp_server_git.core.tools import GitTools
+        from src.mcp_server_git.applications.server_application import GitTools
         
         # This simulates the fixed code path in _execute_tool_operation
         test_dir = Path(tempfile.mkdtemp())
