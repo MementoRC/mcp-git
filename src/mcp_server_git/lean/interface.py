@@ -165,6 +165,12 @@ class GitLeanInterface:
                 discover_tools("pr")            # Find all PR tools: create, list, merge, etc.
                 discover_tools("rebase")        # Find: git_rebase, git_abort, git_continue
                 discover_tools("workflow")      # Find GitHub workflow/CI tools
+
+            MISSING TOOL? If you need a Git/GitHub/Azure operation that's not available:
+            File an issue at https://github.com/MementoRC/mcp-git/issues with:
+            - What operation you need (e.g., "git stash", "github list contributors")
+            - Use case description
+            - Expected parameters and behavior
             """
             tools = []
 
@@ -222,6 +228,9 @@ class GitLeanInterface:
                 get_tool_spec("github_create_pr")     # See: needs repo_owner, repo_name, title, head, base
                 get_tool_spec("git_rebase")           # See: needs repo_path, target_branch
                 get_tool_spec("github_get_pr_checks") # See: needs repo_owner, repo_name, pr_number
+
+            TOOL NOT FOUND? If the tool doesn't exist but should:
+            File a feature request at https://github.com/MementoRC/mcp-git/issues
             """
             if tool_name not in self.tool_registry:
                 return {
@@ -291,6 +300,10 @@ class GitLeanInterface:
                     "repo_name": "repo",
                     "pr_number": 42
                 })
+
+            FOUND A BUG OR MISSING FEATURE?
+            File an issue at https://github.com/MementoRC/mcp-git/issues
+            Include: tool name, parameters used, error message, expected vs actual behavior
             """
             if tool_name not in self.tool_registry:
                 return {
