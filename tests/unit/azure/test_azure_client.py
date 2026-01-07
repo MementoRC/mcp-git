@@ -14,7 +14,7 @@ class TestAzureClient:
 
     def test_valid_azure_token(self):
         """Test Azure client with valid token format."""
-        # Azure PAT tokens are 52 characters long (base64 encoded)
+        # Azure PAT tokens are variable length (base64 encoded)
         valid_token = "a" * 52
         session = MagicMock()
         
@@ -47,11 +47,16 @@ class TestAzureClient:
         # Valid 52-character token
         assert AzureClient._is_valid_azure_token("a" * 52) is True
         
-        # Invalid - too short
-        assert AzureClient._is_valid_azure_token("short") is False
+        # Valid - minimum 20 characters
+        assert AzureClient._is_valid_azure_token("a" * 20) is True
         
-        # Invalid - too long
-        assert AzureClient._is_valid_azure_token("a" * 53) is False
+        # Valid - variable length tokens
+        assert AzureClient._is_valid_azure_token("a" * 53) is True
+        assert AzureClient._is_valid_azure_token("a" * 100) is True
+        
+        # Invalid - too short (less than 20)
+        assert AzureClient._is_valid_azure_token("short") is False
+        assert AzureClient._is_valid_azure_token("a" * 19) is False
         
         # Invalid - empty
         assert AzureClient._is_valid_azure_token("") is False
