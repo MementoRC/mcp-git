@@ -226,11 +226,14 @@ class GitLeanInterface:
             """
             [STEP 2] Get detailed schema and parameters for a specific tool.
 
-            USE WHEN: You found a tool via discover_tools() and need to know:
-            - What parameters it requires (repo_path, commit_hash, branch_name, etc.)
-            - What parameters are optional vs required
-            - Parameter types and validation rules
-            - Examples of how to call it
+            USE WHEN:
+            - You know the tool name but don't know what parameters it needs
+            - You need to see required vs optional parameters before calling execute_tool()
+            - You want to understand parameter types (string, int, bool, etc.)
+            - You're debugging parameter validation errors from execute_tool()
+
+            DON'T SKIP THIS STEP! Calling execute_tool() without checking the schema first
+            will likely fail parameter validation. This tool shows you exactly what to pass.
 
             WORKFLOW:
             1. discover_tools(pattern) ← Already done
@@ -242,10 +245,48 @@ class GitLeanInterface:
                           (e.g., "git_status", "github_create_pr", "azure_get_build_logs")
 
             Returns:
-                Full tool specification including:
-                - Complete parameter schema (required/optional, types)
-                - Usage examples
-                - Domain and complexity level
+                Dictionary containing:
+                - name: Tool name (same as input)
+                - description: What the tool does
+                - domain: "git", "github", or "azure"
+                - complexity: "core", "focused", "advanced", or "comprehensive"
+                - schema: JSON Schema with:
+                  * properties: Each parameter's type, description, default value
+                  * required: List of required parameters
+                - examples: Usage examples (if available)
+                - usage_note: How to call with execute_tool()
+
+                Example output for get_tool_spec("git_status"):
+                {
+                  "name": "git_status",
+                  "description": "Shows the working tree status",
+                  "domain": "git",
+                  "schema": {
+                    "type": "object",
+                    "properties": {
+                      "repo_path": {"type": "string", "description": "Path to repository"}
+                    },
+                    "required": ["repo_path"]
+                  },
+                  "usage_note": "Execute with: execute_tool('git_status', parameters)"
+                }
+
+                Example for get_tool_spec("github_create_pr"):
+                {
+                  "name": "github_create_pr",
+                  "schema": {
+                    "properties": {
+                      "repo_owner": {"type": "string"},
+                      "repo_name": {"type": "string"},
+                      "title": {"type": "string"},
+                      "head": {"type": "string"},
+                      "base": {"type": "string"},
+                      "body": {"type": "string"},  # Optional
+                      "draft": {"type": "boolean", "default": false}  # Optional
+                    },
+                    "required": ["repo_owner", "repo_name", "title", "head", "base"]
+                  }
+                }
 
             Examples:
                 get_tool_spec("git_status")           # See: needs repo_path
