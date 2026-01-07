@@ -288,7 +288,7 @@ jobs:
 
             # Test 3: Validate server module structure
             try:
-                import mcp_server_git.server
+                import mcp_server_git.applications.server_application
                 print("✅ Server module structure is valid")
             except ImportError as e:
                 print(f"❌ Server module import failed: {e}")
