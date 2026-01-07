@@ -535,8 +535,6 @@ jobs:
     - name: Dead code detection with vulture
       run: |
         echo "🔍 Running dead code detection with vulture..."
-        pixi add vulture --no-lockfile-update
-        pixi install -e ci
         
         # Run vulture with warnings only (not blocking)
         echo "📊 Checking for dead code..."
