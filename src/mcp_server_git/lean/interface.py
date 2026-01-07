@@ -276,8 +276,20 @@ class GitLeanInterface:
                            Use get_tool_spec() if unsure what parameters are needed
 
             Returns:
-                Execution result with status and tool output, OR
-                Error details if validation/execution fails
+                SUCCESS: Tool execution result containing:
+                - git_status: Working tree status, staged/unstaged changes, branch info
+                - github_create_pr: PR URL, number, merge status
+                - git_rebase: Rebase status, conflicts if any
+                - github_get_pr_checks: CI check results, pass/fail status
+                - azure_get_build_logs: Build logs, job details
+
+                ERROR: Validation/execution failure with:
+                - Error message explaining what went wrong
+                - Valid parameters list if parameter validation failed
+                - Suggestion to use discover_tools() if tool not found
+
+            DON'T KNOW WHAT TOOL TO USE?
+            Call discover_tools(pattern) first to find the right tool for your task
 
             Examples:
                 execute_tool("git_status", {"repo_path": "."})
