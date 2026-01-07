@@ -45,23 +45,10 @@ def main():
     if AZURE_AVAILABLE:
         azure_service = AzureClient()
     else:
-        # Create a placeholder service
-        azure_service = type(
-            "AzureService",
-            (),
-            {
-                "azure_get_build_status": lambda **kwargs: {
-                    "error": "Azure not available"
-                },
-                "azure_get_build_logs": lambda **kwargs: {
-                    "error": "Azure not available"
-                },
-                "azure_get_failing_jobs": lambda **kwargs: {
-                    "error": "Azure not available"
-                },
-                "azure_list_builds": lambda **kwargs: {"error": "Azure not available"},
-            },
-        )()
+        # Use null object pattern for Azure service
+        from .null_azure_service import NullAzureService
+
+        azure_service = NullAzureService()
 
     # Create lean interface
     app = create_git_lean_interface(

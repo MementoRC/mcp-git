@@ -223,8 +223,22 @@ class GitLeanInterface:
             tool_def = self.tool_registry[tool_name]
 
             try:
+                # Validate parameters against schema
+                schema_properties = tool_def.schema.get("properties", {})
+                validated_params = {}
+
+                for key, value in parameters.items():
+                    if key not in schema_properties:
+                        return {
+                            "tool": tool_name,
+                            "status": "error",
+                            "error": f"Unexpected parameter '{key}' not in schema",
+                            "valid_parameters": list(schema_properties.keys()),
+                        }
+                    validated_params[key] = value
+
                 # Execute tool through its implementation
-                result = tool_def.implementation(**parameters)
+                result = tool_def.implementation(**validated_params)
 
                 return {
                     "tool": tool_name,

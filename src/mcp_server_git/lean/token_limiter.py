@@ -71,14 +71,25 @@ class TokenEstimator:
     aren't available. This provides reasonable estimates for most use cases.
     """
 
-    # Approximate character-to-token ratios for different content types
-    CHAR_TO_TOKEN_RATIOS = {
+    # Default approximate character-to-token ratios for different content types
+    DEFAULT_CHAR_TO_TOKEN_RATIOS = {
         ContentType.TEXT: 4.0,  # ~4 chars per token for English text
         ContentType.JSON: 3.5,  # JSON is slightly more dense
         ContentType.STRUCTURED: 3.8,  # Structured data middle ground
         ContentType.LOGS: 4.2,  # Logs tend to be more verbose
         ContentType.METRICS: 3.0,  # Metrics are dense numerical data
     }
+
+    def __init__(self, custom_ratios: dict[ContentType, float] | None = None):
+        """
+        Initialize token estimator with optional custom ratios.
+
+        Args:
+            custom_ratios: Optional custom character-to-token ratios per content type
+        """
+        self.ratios = {**self.DEFAULT_CHAR_TO_TOKEN_RATIOS}
+        if custom_ratios:
+            self.ratios.update(custom_ratios)
 
     def estimate_tokens(self, content: str, content_type: ContentType) -> TokenEstimate:
         """
@@ -100,7 +111,7 @@ class TokenEstimator:
             )
 
         char_count = len(content)
-        ratio = self.CHAR_TO_TOKEN_RATIOS.get(content_type, 4.0)
+        ratio = self.ratios.get(content_type, 4.0)
         estimated_tokens = max(1, int(char_count / ratio))
 
         return TokenEstimate(
@@ -235,7 +246,7 @@ class ContentTruncator:
             elif isinstance(data, list):
                 # For lists, keep first N items
                 truncated_list = []
-                for _i, item in enumerate(data):
+                for _, item in enumerate(data):
                     test_list = truncated_list + [item]
                     test_content = json.dumps(test_list, indent=2)
                     if (
@@ -382,7 +393,7 @@ class ContentTruncator:
     def _truncate_text(self, content: str, max_tokens: int) -> str:
         """Truncate plain text content."""
         # Calculate approximate character limit
-        char_limit = max_tokens * TokenEstimator.CHAR_TO_TOKEN_RATIOS[ContentType.TEXT]
+        char_limit = max_tokens * self.token_estimator.ratios[ContentType.TEXT]
 
         if len(content) <= char_limit:
             return content
