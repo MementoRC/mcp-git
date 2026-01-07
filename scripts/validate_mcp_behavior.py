@@ -129,7 +129,7 @@ class MCPBehaviorValidator:
         """Test that the MCP server modules can be imported."""
         try:
             import mcp_server_git
-            import mcp_server_git.server  # noqa: F401
+            import mcp_server_git.applications.server_application  # noqa: F401
             from mcp_server_git.models.notifications import ClientNotification  # noqa: F401
 
             self.log_result(
