@@ -217,7 +217,9 @@ class TestTokenLimiterEdgeCases:
         # Metrics content
         metrics = '{"cpu": 75, "memory": 8192}\n' * 100
         metrics_est = estimator.estimate_tokens(metrics, ContentType.METRICS)
-        assert metrics_est.estimated_tokens == len(metrics) / CHAR_TO_TOKEN_RATIO_METRICS
+        assert (
+            metrics_est.estimated_tokens == len(metrics) / CHAR_TO_TOKEN_RATIO_METRICS
+        )
 
     def test_custom_token_ratios(self):
         """Test custom character-to-token ratios."""

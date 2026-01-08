@@ -140,7 +140,7 @@ def _register_git_tools(interface: Any, git_service: Any):
         ),
         ToolDefinition(
             name="git_diff",
-            implementation=lambda **kwargs: git_service.git_diff(**kwargs),
+            implementation=create_service_wrapper(git_service, "git_diff"),
             description="Shows differences between branches or commits",
             schema=GitDiff.model_json_schema(),
             domain="git",
@@ -148,7 +148,7 @@ def _register_git_tools(interface: Any, git_service: Any):
         ),
         ToolDefinition(
             name="git_commit",
-            implementation=lambda **kwargs: git_service.git_commit(**kwargs),
+            implementation=create_service_wrapper(git_service, "git_commit"),
             description="Records changes to the repository",
             schema=GitCommit.model_json_schema(),
             domain="git",
@@ -156,7 +156,7 @@ def _register_git_tools(interface: Any, git_service: Any):
         ),
         ToolDefinition(
             name="git_add",
-            implementation=lambda **kwargs: git_service.git_add(**kwargs),
+            implementation=create_service_wrapper(git_service, "git_add"),
             description="Adds file contents to the staging area",
             schema=GitAdd.model_json_schema(),
             domain="git",
@@ -164,7 +164,7 @@ def _register_git_tools(interface: Any, git_service: Any):
         ),
         ToolDefinition(
             name="git_reset",
-            implementation=lambda **kwargs: git_service.git_reset(**kwargs),
+            implementation=create_service_wrapper(git_service, "git_reset"),
             description="Reset repository with advanced options (--soft, --mixed, --hard)",
             schema=GitReset.model_json_schema(),
             domain="git",
@@ -172,7 +172,7 @@ def _register_git_tools(interface: Any, git_service: Any):
         ),
         ToolDefinition(
             name="git_log",
-            implementation=lambda **kwargs: git_service.git_log(**kwargs),
+            implementation=create_service_wrapper(git_service, "git_log"),
             description="Shows the commit logs",
             schema=GitLog.model_json_schema(),
             domain="git",
@@ -180,7 +180,7 @@ def _register_git_tools(interface: Any, git_service: Any):
         ),
         ToolDefinition(
             name="git_create_branch",
-            implementation=lambda **kwargs: git_service.git_create_branch(**kwargs),
+            implementation=create_service_wrapper(git_service, "git_create_branch"),
             description="Creates a new branch from an optional base branch",
             schema=GitCreateBranch.model_json_schema(),
             domain="git",
@@ -188,7 +188,7 @@ def _register_git_tools(interface: Any, git_service: Any):
         ),
         ToolDefinition(
             name="git_checkout",
-            implementation=lambda **kwargs: git_service.git_checkout(**kwargs),
+            implementation=create_service_wrapper(git_service, "git_checkout"),
             description="Switches branches",
             schema=GitCheckout.model_json_schema(),
             domain="git",
@@ -196,7 +196,7 @@ def _register_git_tools(interface: Any, git_service: Any):
         ),
         ToolDefinition(
             name="git_show",
-            implementation=lambda **kwargs: git_service.git_show(**kwargs),
+            implementation=create_service_wrapper(git_service, "git_show"),
             description="Shows the contents of a commit",
             schema=GitShow.model_json_schema(),
             domain="git",
@@ -204,7 +204,7 @@ def _register_git_tools(interface: Any, git_service: Any):
         ),
         ToolDefinition(
             name="git_init",
-            implementation=lambda **kwargs: git_service.git_init(**kwargs),
+            implementation=create_service_wrapper(git_service, "git_init"),
             description="Initialize a new Git repository",
             schema=GitInit.model_json_schema(),
             domain="git",
@@ -212,7 +212,7 @@ def _register_git_tools(interface: Any, git_service: Any):
         ),
         ToolDefinition(
             name="git_push",
-            implementation=lambda **kwargs: git_service.git_push(**kwargs),
+            implementation=create_service_wrapper(git_service, "git_push"),
             description="Push commits to remote repository",
             schema=GitPush.model_json_schema(),
             domain="git",
@@ -220,7 +220,7 @@ def _register_git_tools(interface: Any, git_service: Any):
         ),
         ToolDefinition(
             name="git_pull",
-            implementation=lambda **kwargs: git_service.git_pull(**kwargs),
+            implementation=create_service_wrapper(git_service, "git_pull"),
             description="Pull changes from remote repository",
             schema=GitPull.model_json_schema(),
             domain="git",
@@ -228,7 +228,7 @@ def _register_git_tools(interface: Any, git_service: Any):
         ),
         ToolDefinition(
             name="git_diff_branches",
-            implementation=lambda **kwargs: git_service.git_diff_branches(**kwargs),
+            implementation=create_service_wrapper(git_service, "git_diff_branches"),
             description="Show differences between two branches",
             schema=GitDiffBranches.model_json_schema(),
             domain="git",
@@ -236,7 +236,7 @@ def _register_git_tools(interface: Any, git_service: Any):
         ),
         ToolDefinition(
             name="git_rebase",
-            implementation=lambda **kwargs: git_service.git_rebase(**kwargs),
+            implementation=create_service_wrapper(git_service, "git_rebase"),
             description="Rebase current branch onto another branch",
             schema=GitRebase.model_json_schema(),
             domain="git",
@@ -244,7 +244,7 @@ def _register_git_tools(interface: Any, git_service: Any):
         ),
         ToolDefinition(
             name="git_merge",
-            implementation=lambda **kwargs: git_service.git_merge(**kwargs),
+            implementation=create_service_wrapper(git_service, "git_merge"),
             description="Merge a branch into the current branch",
             schema=GitMerge.model_json_schema(),
             domain="git",
@@ -252,7 +252,7 @@ def _register_git_tools(interface: Any, git_service: Any):
         ),
         ToolDefinition(
             name="git_cherry_pick",
-            implementation=lambda **kwargs: git_service.git_cherry_pick(**kwargs),
+            implementation=create_service_wrapper(git_service, "git_cherry_pick"),
             description="Apply a commit from another branch to current branch",
             schema=GitCherryPick.model_json_schema(),
             domain="git",
@@ -260,7 +260,7 @@ def _register_git_tools(interface: Any, git_service: Any):
         ),
         ToolDefinition(
             name="git_abort",
-            implementation=lambda **kwargs: git_service.git_abort(**kwargs),
+            implementation=create_service_wrapper(git_service, "git_abort"),
             description="Abort an in-progress git operation (rebase, merge, cherry-pick)",
             schema=GitAbort.model_json_schema(),
             domain="git",
@@ -268,7 +268,7 @@ def _register_git_tools(interface: Any, git_service: Any):
         ),
         ToolDefinition(
             name="git_continue",
-            implementation=lambda **kwargs: git_service.git_continue(**kwargs),
+            implementation=create_service_wrapper(git_service, "git_continue"),
             description="Continue an in-progress git operation after resolving conflicts",
             schema=GitContinue.model_json_schema(),
             domain="git",
@@ -277,7 +277,7 @@ def _register_git_tools(interface: Any, git_service: Any):
         # Remote operations (5 more tools from models)
         ToolDefinition(
             name="git_fetch",
-            implementation=lambda **kwargs: git_service.git_fetch(**kwargs),
+            implementation=create_service_wrapper(git_service, "git_fetch"),
             description="Fetch changes from remote repository",
             schema={
                 "type": "object",
@@ -291,7 +291,7 @@ def _register_git_tools(interface: Any, git_service: Any):
         ),
         ToolDefinition(
             name="git_remote_add",
-            implementation=lambda **kwargs: git_service.git_remote_add(**kwargs),
+            implementation=create_service_wrapper(git_service, "git_remote_add"),
             description="Add a remote repository",
             schema={
                 "type": "object",
@@ -306,7 +306,7 @@ def _register_git_tools(interface: Any, git_service: Any):
         ),
         ToolDefinition(
             name="git_remote_remove",
-            implementation=lambda **kwargs: git_service.git_remote_remove(**kwargs),
+            implementation=create_service_wrapper(git_service, "git_remote_remove"),
             description="Remove a remote repository",
             schema={
                 "type": "object",
@@ -320,7 +320,7 @@ def _register_git_tools(interface: Any, git_service: Any):
         ),
         ToolDefinition(
             name="git_remote_list",
-            implementation=lambda **kwargs: git_service.git_remote_list(**kwargs),
+            implementation=create_service_wrapper(git_service, "git_remote_list"),
             description="List remote repositories",
             schema={"type": "object", "properties": {"repo_path": {"type": "string"}}},
             domain="git",
@@ -328,7 +328,7 @@ def _register_git_tools(interface: Any, git_service: Any):
         ),
         ToolDefinition(
             name="git_remote_get_url",
-            implementation=lambda **kwargs: git_service.git_remote_get_url(**kwargs),
+            implementation=create_service_wrapper(git_service, "git_remote_get_url"),
             description="Get URL of a remote repository",
             schema={
                 "type": "object",
@@ -372,8 +372,8 @@ def _register_github_tools(interface: Any, github_service: Any):
         # PR Tools
         ToolDefinition(
             name="github_get_pr_checks",
-            implementation=lambda **kwargs: github_service.github_get_pr_checks(
-                **kwargs
+            implementation=create_service_wrapper(
+                github_service, "github_get_pr_checks"
             ),
             description="Get check runs for a pull request",
             schema=GitHubGetPRChecks.model_json_schema(),
@@ -382,8 +382,8 @@ def _register_github_tools(interface: Any, github_service: Any):
         ),
         ToolDefinition(
             name="github_get_failing_jobs",
-            implementation=lambda **kwargs: github_service.github_get_failing_jobs(
-                **kwargs
+            implementation=create_service_wrapper(
+                github_service, "github_get_failing_jobs"
             ),
             description="Get detailed information about failing CI jobs for a pull request",
             schema=GitHubGetFailingJobs.model_json_schema(),
@@ -392,8 +392,8 @@ def _register_github_tools(interface: Any, github_service: Any):
         ),
         ToolDefinition(
             name="github_get_pr_details",
-            implementation=lambda **kwargs: github_service.github_get_pr_details(
-                **kwargs
+            implementation=create_service_wrapper(
+                github_service, "github_get_pr_details"
             ),
             description="Get detailed information about a pull request",
             schema=GitHubGetPRDetails.model_json_schema(),
@@ -402,8 +402,8 @@ def _register_github_tools(interface: Any, github_service: Any):
         ),
         ToolDefinition(
             name="github_list_pull_requests",
-            implementation=lambda **kwargs: github_service.github_list_pull_requests(
-                **kwargs
+            implementation=create_service_wrapper(
+                github_service, "github_list_pull_requests"
             ),
             description="List pull requests with filtering options",
             schema=GitHubListPullRequests.model_json_schema(),
@@ -412,8 +412,8 @@ def _register_github_tools(interface: Any, github_service: Any):
         ),
         ToolDefinition(
             name="github_get_pr_status",
-            implementation=lambda **kwargs: github_service.github_get_pr_status(
-                **kwargs
+            implementation=create_service_wrapper(
+                github_service, "github_get_pr_status"
             ),
             description="Get the status of a pull request",
             schema=GitHubGetPRStatus.model_json_schema(),
@@ -422,8 +422,8 @@ def _register_github_tools(interface: Any, github_service: Any):
         ),
         ToolDefinition(
             name="github_get_pr_files",
-            implementation=lambda **kwargs: github_service.github_get_pr_files(
-                **kwargs
+            implementation=create_service_wrapper(
+                github_service, "github_get_pr_files"
             ),
             description="Get files changed in a pull request",
             schema=GitHubGetPRFiles.model_json_schema(),
@@ -432,8 +432,8 @@ def _register_github_tools(interface: Any, github_service: Any):
         ),
         ToolDefinition(
             name="github_edit_pr_description",
-            implementation=lambda **kwargs: github_service.github_edit_pr_description(
-                **kwargs
+            implementation=create_service_wrapper(
+                github_service, "github_edit_pr_description"
             ),
             description="Edit the description of a pull request",
             schema=GitHubEditPRDescription.model_json_schema(),
@@ -443,8 +443,8 @@ def _register_github_tools(interface: Any, github_service: Any):
         # Workflow Tools
         ToolDefinition(
             name="github_get_workflow_run",
-            implementation=lambda **kwargs: github_service.github_get_workflow_run(
-                **kwargs
+            implementation=create_service_wrapper(
+                github_service, "github_get_workflow_run"
             ),
             description="Get detailed workflow run information",
             schema=GitHubGetWorkflowRun.model_json_schema(),
@@ -453,8 +453,8 @@ def _register_github_tools(interface: Any, github_service: Any):
         ),
         ToolDefinition(
             name="github_list_workflow_runs",
-            implementation=lambda **kwargs: github_service.github_list_workflow_runs(
-                **kwargs
+            implementation=create_service_wrapper(
+                github_service, "github_list_workflow_runs"
             ),
             description="List workflow runs for a repository with comprehensive filtering",
             schema=GitHubListWorkflowRuns.model_json_schema(),
@@ -464,8 +464,8 @@ def _register_github_tools(interface: Any, github_service: Any):
         # Issue Tools
         ToolDefinition(
             name="github_create_issue",
-            implementation=lambda **kwargs: github_service.github_create_issue(
-                **kwargs
+            implementation=create_service_wrapper(
+                github_service, "github_create_issue"
             ),
             description="Create a new GitHub issue",
             schema=GitHubCreateIssue.model_json_schema(),
@@ -474,7 +474,7 @@ def _register_github_tools(interface: Any, github_service: Any):
         ),
         ToolDefinition(
             name="github_list_issues",
-            implementation=lambda **kwargs: github_service.github_list_issues(**kwargs),
+            implementation=create_service_wrapper(github_service, "github_list_issues"),
             description="List GitHub issues with filtering options",
             schema=GitHubListIssues.model_json_schema(),
             domain="github",
@@ -482,8 +482,8 @@ def _register_github_tools(interface: Any, github_service: Any):
         ),
         ToolDefinition(
             name="github_update_issue",
-            implementation=lambda **kwargs: github_service.github_update_issue(
-                **kwargs
+            implementation=create_service_wrapper(
+                github_service, "github_update_issue"
             ),
             description="Update an existing GitHub issue",
             schema=GitHubUpdateIssue.model_json_schema(),
@@ -492,8 +492,8 @@ def _register_github_tools(interface: Any, github_service: Any):
         ),
         ToolDefinition(
             name="github_search_issues",
-            implementation=lambda **kwargs: github_service.github_search_issues(
-                **kwargs
+            implementation=create_service_wrapper(
+                github_service, "github_search_issues"
             ),
             description="Search GitHub issues with advanced query capabilities",
             schema=GitHubSearchIssues.model_json_schema(),
@@ -502,8 +502,8 @@ def _register_github_tools(interface: Any, github_service: Any):
         ),
         ToolDefinition(
             name="github_create_issue_from_template",
-            implementation=lambda **kwargs: github_service.github_create_issue_from_template(
-                **kwargs
+            implementation=create_service_wrapper(
+                github_service, "github_create_issue_from_template"
             ),
             description="Create issue from template",
             schema=GitHubCreateIssueFromTemplate.model_json_schema(),
@@ -512,8 +512,8 @@ def _register_github_tools(interface: Any, github_service: Any):
         ),
         ToolDefinition(
             name="github_bulk_update_issues",
-            implementation=lambda **kwargs: github_service.github_bulk_update_issues(
-                **kwargs
+            implementation=create_service_wrapper(
+                github_service, "github_bulk_update_issues"
             ),
             description="Bulk update multiple issues",
             schema=GitHubBulkUpdateIssues.model_json_schema(),
@@ -523,7 +523,7 @@ def _register_github_tools(interface: Any, github_service: Any):
         # Additional GitHub tools from CLI (13 more to reach 28 total)
         ToolDefinition(
             name="github_create_pr",
-            implementation=lambda **kwargs: github_service.github_create_pr(**kwargs),
+            implementation=create_service_wrapper(github_service, "github_create_pr"),
             description="Create a new pull request",
             schema={
                 "type": "object",
@@ -538,7 +538,7 @@ def _register_github_tools(interface: Any, github_service: Any):
         ),
         ToolDefinition(
             name="github_merge_pr",
-            implementation=lambda **kwargs: github_service.github_merge_pr(**kwargs),
+            implementation=create_service_wrapper(github_service, "github_merge_pr"),
             description="Merge a pull request",
             schema={
                 "type": "object",
@@ -553,8 +553,8 @@ def _register_github_tools(interface: Any, github_service: Any):
         ),
         ToolDefinition(
             name="github_add_pr_comment",
-            implementation=lambda **kwargs: github_service.github_add_pr_comment(
-                **kwargs
+            implementation=create_service_wrapper(
+                github_service, "github_add_pr_comment"
             ),
             description="Add a comment to a pull request",
             schema={
@@ -571,7 +571,7 @@ def _register_github_tools(interface: Any, github_service: Any):
         ),
         ToolDefinition(
             name="github_close_pr",
-            implementation=lambda **kwargs: github_service.github_close_pr(**kwargs),
+            implementation=create_service_wrapper(github_service, "github_close_pr"),
             description="Close a pull request",
             schema={
                 "type": "object",
@@ -586,7 +586,7 @@ def _register_github_tools(interface: Any, github_service: Any):
         ),
         ToolDefinition(
             name="github_reopen_pr",
-            implementation=lambda **kwargs: github_service.github_reopen_pr(**kwargs),
+            implementation=create_service_wrapper(github_service, "github_reopen_pr"),
             description="Reopen a closed pull request",
             schema={
                 "type": "object",
@@ -601,7 +601,7 @@ def _register_github_tools(interface: Any, github_service: Any):
         ),
         ToolDefinition(
             name="github_update_pr",
-            implementation=lambda **kwargs: github_service.github_update_pr(**kwargs),
+            implementation=create_service_wrapper(github_service, "github_update_pr"),
             description="Update a pull request (title, body, state, or base)",
             schema={
                 "type": "object",
@@ -616,8 +616,8 @@ def _register_github_tools(interface: Any, github_service: Any):
         ),
         ToolDefinition(
             name="github_await_workflow_completion",
-            implementation=lambda **kwargs: github_service.github_await_workflow_completion(
-                **kwargs
+            implementation=create_service_wrapper(
+                github_service, "github_await_workflow_completion"
             ),
             description="Monitor a GitHub Actions workflow run until completion",
             schema={
@@ -634,8 +634,8 @@ def _register_github_tools(interface: Any, github_service: Any):
         # Additional placeholder tools to reach 28
         ToolDefinition(
             name="github_get_repo_info",
-            implementation=lambda **kwargs: github_service.github_get_repo_info(
-                **kwargs
+            implementation=create_service_wrapper(
+                github_service, "github_get_repo_info"
             ),
             description="Get repository information",
             schema={
@@ -650,8 +650,8 @@ def _register_github_tools(interface: Any, github_service: Any):
         ),
         ToolDefinition(
             name="github_list_branches",
-            implementation=lambda **kwargs: github_service.github_list_branches(
-                **kwargs
+            implementation=create_service_wrapper(
+                github_service, "github_list_branches"
             ),
             description="List repository branches",
             schema={
@@ -666,7 +666,7 @@ def _register_github_tools(interface: Any, github_service: Any):
         ),
         ToolDefinition(
             name="github_get_commit",
-            implementation=lambda **kwargs: github_service.github_get_commit(**kwargs),
+            implementation=create_service_wrapper(github_service, "github_get_commit"),
             description="Get commit details",
             schema={
                 "type": "object",
@@ -681,8 +681,8 @@ def _register_github_tools(interface: Any, github_service: Any):
         ),
         ToolDefinition(
             name="github_list_commits",
-            implementation=lambda **kwargs: github_service.github_list_commits(
-                **kwargs
+            implementation=create_service_wrapper(
+                github_service, "github_list_commits"
             ),
             description="List commits for a repository",
             schema={
@@ -697,8 +697,8 @@ def _register_github_tools(interface: Any, github_service: Any):
         ),
         ToolDefinition(
             name="github_compare_commits",
-            implementation=lambda **kwargs: github_service.github_compare_commits(
-                **kwargs
+            implementation=create_service_wrapper(
+                github_service, "github_compare_commits"
             ),
             description="Compare two commits",
             schema={
@@ -733,8 +733,8 @@ def _register_azure_tools(interface: Any, azure_service: Any):
     azure_tools = [
         ToolDefinition(
             name="azure_get_build_status",
-            implementation=lambda **kwargs: azure_service.azure_get_build_status(
-                **kwargs
+            implementation=create_service_wrapper(
+                azure_service, "azure_get_build_status"
             ),
             description="Get the status of an Azure DevOps build/pipeline run",
             schema=AzureGetBuildStatus.model_json_schema(),
@@ -743,8 +743,8 @@ def _register_azure_tools(interface: Any, azure_service: Any):
         ),
         ToolDefinition(
             name="azure_get_build_logs",
-            implementation=lambda **kwargs: azure_service.azure_get_build_logs(
-                **kwargs
+            implementation=create_service_wrapper(
+                azure_service, "azure_get_build_logs"
             ),
             description="Get logs from an Azure DevOps build",
             schema=AzureGetBuildLogs.model_json_schema(),
@@ -753,8 +753,8 @@ def _register_azure_tools(interface: Any, azure_service: Any):
         ),
         ToolDefinition(
             name="azure_get_failing_jobs",
-            implementation=lambda **kwargs: azure_service.azure_get_failing_jobs(
-                **kwargs
+            implementation=create_service_wrapper(
+                azure_service, "azure_get_failing_jobs"
             ),
             description="Get detailed information about failing jobs in an Azure DevOps build",
             schema=AzureGetFailingJobs.model_json_schema(),
@@ -763,7 +763,7 @@ def _register_azure_tools(interface: Any, azure_service: Any):
         ),
         ToolDefinition(
             name="azure_list_builds",
-            implementation=lambda **kwargs: azure_service.azure_list_builds(**kwargs),
+            implementation=create_service_wrapper(azure_service, "azure_list_builds"),
             description="List Azure DevOps builds with filtering options",
             schema=AzureListBuilds.model_json_schema(),
             domain="azure",

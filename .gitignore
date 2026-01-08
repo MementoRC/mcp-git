@@ -75,8 +75,8 @@ ai_docs/
 !README.md
 !SECURITY.md
 test_*.txt
-test_*.py
-!tests/**/test_*.py  # Allow test files in tests directory
+# Ignore test files in root directory only (allow tests/ directory test files)
+/test_*.py
 mcp_git_test.txt
 *_test.txt
 .commit-marker
@@ -96,15 +96,15 @@ mcp-server-git-simple
 security_test.txt
 
 # Remove existing tracked development files
-# Note: These files need to be manually removed from git tracking  
+# Note: These files need to be manually removed from git tracking
 BUG_FIX_SUMMARY.md
 CHERRY_PICK_LIST.md
 TASK_2_IMPLEMENTATION_SUMMARY.md
-TEST_COVERAGE_SUMMARY.md 
+TEST_COVERAGE_SUMMARY.md
 .coverage
 coverage.xml
 
 # Task files
 # tasks.json
-# tasks/ 
+# tasks/
 test_git_init_fix.py
