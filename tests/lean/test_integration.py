@@ -1,7 +1,5 @@
 """Integration tests for complete 3-meta-tool workflow."""
 
-import pytest
-
 from mcp_server_git.lean.interface import GitLeanInterface, ToolDefinition
 
 
@@ -21,7 +19,9 @@ class MockGitService:
         """Dynamic mock for any git method not explicitly defined."""
         if name.startswith("git_"):
             return lambda **kwargs: {"result": f"mock_{name}", "params": kwargs}
-        raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
+        raise AttributeError(
+            f"'{type(self).__name__}' object has no attribute '{name}'"
+        )
 
 
 class MockGitHubService:
@@ -31,7 +31,9 @@ class MockGitHubService:
         """Dynamic mock for any github method not explicitly defined."""
         if name.startswith("github_"):
             return lambda **kwargs: {"result": f"mock_{name}", "params": kwargs}
-        raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
+        raise AttributeError(
+            f"'{type(self).__name__}' object has no attribute '{name}'"
+        )
 
 
 class MockAzureService:
@@ -41,7 +43,9 @@ class MockAzureService:
         """Dynamic mock for any azure method not explicitly defined."""
         if name.startswith("azure_"):
             return lambda **kwargs: {"result": f"mock_{name}", "params": kwargs}
-        raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
+        raise AttributeError(
+            f"'{type(self).__name__}' object has no attribute '{name}'"
+        )
 
 
 class TestLeanMCPIntegration:

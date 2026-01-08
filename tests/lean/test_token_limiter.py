@@ -138,12 +138,9 @@ class TestTokenLimiterEdgeCases:
         """Test handling of malformed JSON during truncation."""
         limiter = MCPTokenLimiter(default_limit=100)
 
-        # Malformed JSON should be handled gracefully
-        malformed = {"valid_key": "value", "incomplete": "x" * 10000}
-        malformed_str = json.dumps(malformed)[:-5]  # Remove closing braces
-
-        # Should not crash, even with malformed input
+        # Test with dict that would produce large JSON
         # The limiter works on the dict, not the string
+        malformed = {"valid_key": "value", "incomplete": "x" * 10000}
         result = limiter.limit_response(malformed, "test_malformed")
 
         assert "_token_limit_info" in result
@@ -200,7 +197,6 @@ class TestTokenLimiterEdgeCases:
         from mcp_server_git.lean.token_limiter import (
             CHAR_TO_TOKEN_RATIO_LOGS,
             CHAR_TO_TOKEN_RATIO_METRICS,
-            CHAR_TO_TOKEN_RATIO_STRUCTURED,
             CHAR_TO_TOKEN_RATIO_TEXT,
         )
 
@@ -209,18 +205,22 @@ class TestTokenLimiterEdgeCases:
         # Text content
         text = "word " * 100
         text_est = estimator.estimate_tokens(text, ContentType.TEXT)
-        assert text_est.estimated_tokens == max(1, int(len(text) / CHAR_TO_TOKEN_RATIO_TEXT))
+        assert text_est.estimated_tokens == max(
+            1, int(len(text) / CHAR_TO_TOKEN_RATIO_TEXT)
+        )
 
         # Logs content
         logs = "[INFO] Log message\n" * 100
         logs_est = estimator.estimate_tokens(logs, ContentType.LOGS)
-        assert logs_est.estimated_tokens == max(1, int(len(logs) / CHAR_TO_TOKEN_RATIO_LOGS))
+        assert logs_est.estimated_tokens == max(
+            1, int(len(logs) / CHAR_TO_TOKEN_RATIO_LOGS)
+        )
 
         # Metrics content
         metrics = '{"cpu": 75, "memory": 8192}\n' * 100
         metrics_est = estimator.estimate_tokens(metrics, ContentType.METRICS)
-        assert (
-            metrics_est.estimated_tokens == max(1, int(len(metrics) / CHAR_TO_TOKEN_RATIO_METRICS))
+        assert metrics_est.estimated_tokens == max(
+            1, int(len(metrics) / CHAR_TO_TOKEN_RATIO_METRICS)
         )
 
     def test_custom_token_ratios(self):

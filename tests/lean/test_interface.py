@@ -1,7 +1,5 @@
 """Tests for lean MCP interface."""
 
-import pytest
-
 from mcp_server_git.lean.interface import GitLeanInterface, ToolDefinition
 
 
