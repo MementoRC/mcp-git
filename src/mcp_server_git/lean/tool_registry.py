@@ -10,11 +10,51 @@ Tool Distribution:
 """
 
 import logging
+from collections.abc import Callable
+from functools import wraps
 from typing import Any
 
 from .interface import ToolDefinition
 
 logger = logging.getLogger(__name__)
+
+
+def create_service_wrapper(service: Any, method_name: str) -> Callable:
+    """
+    Create a wrapped service method with better error handling and debugging.
+
+    Replaces lambdas for clearer stack traces and error messages.
+
+    Args:
+        service: Service instance (git_service, github_service, azure_service)
+        method_name: Name of the method to call on the service
+
+    Returns:
+        Wrapped callable with enhanced error reporting
+    """
+
+    @wraps(getattr(service, method_name))
+    def wrapper(**kwargs):
+        try:
+            method = getattr(service, method_name)
+            return method(**kwargs)
+        except AttributeError as e:
+            logger.error(
+                f"Service method '{method_name}' not found on {type(service).__name__}: {e}"
+            )
+            raise
+        except Exception as e:
+            logger.error(
+                f"Error in {type(service).__name__}.{method_name}(**{kwargs}): {e}",
+                exc_info=True,
+            )
+            raise
+
+    # Set a meaningful name for debugging
+    wrapper.__name__ = f"{method_name}_wrapper"
+    wrapper.__qualname__ = f"ServiceWrapper.{method_name}"
+
+    return wrapper
 
 
 def register_all_tools(
@@ -76,7 +116,7 @@ def _register_git_tools(interface: Any, git_service: Any):
     git_tools = [
         ToolDefinition(
             name="git_status",
-            implementation=lambda **kwargs: git_service.git_status(**kwargs),
+            implementation=create_service_wrapper(git_service, "git_status"),
             description="Shows the working tree status",
             schema=GitStatus.model_json_schema(),
             domain="git",
@@ -84,7 +124,7 @@ def _register_git_tools(interface: Any, git_service: Any):
         ),
         ToolDefinition(
             name="git_diff_unstaged",
-            implementation=lambda **kwargs: git_service.git_diff_unstaged(**kwargs),
+            implementation=create_service_wrapper(git_service, "git_diff_unstaged"),
             description="Shows changes in the working directory that are not yet staged",
             schema=GitDiffUnstaged.model_json_schema(),
             domain="git",
@@ -92,7 +132,7 @@ def _register_git_tools(interface: Any, git_service: Any):
         ),
         ToolDefinition(
             name="git_diff_staged",
-            implementation=lambda **kwargs: git_service.git_diff_staged(**kwargs),
+            implementation=create_service_wrapper(git_service, "git_diff_staged"),
             description="Shows changes that are staged for commit",
             schema=GitDiffStaged.model_json_schema(),
             domain="git",

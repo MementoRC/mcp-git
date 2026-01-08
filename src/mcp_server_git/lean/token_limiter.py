@@ -22,6 +22,35 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 
+def _safe_json_serializer(obj: Any) -> str | dict[str, Any]:
+    """
+    Safe JSON serializer that doesn't expose internal object details.
+
+    Only serializes known safe types. Raises TypeError for unknown types
+    rather than exposing object representations.
+
+    Args:
+        obj: Object to serialize
+
+    Returns:
+        String or dict representation for known safe types
+
+    Raises:
+        TypeError: For unknown/unsafe types
+    """
+    # Handle common safe types
+    if hasattr(obj, "isoformat"):  # datetime, date, time
+        return obj.isoformat()
+    if hasattr(obj, "__dict__") and isinstance(obj.__dict__, dict):
+        # For objects with __dict__, only include public attributes
+        return {k: v for k, v in obj.__dict__.items() if not k.startswith("_")}
+    # Reject unknown types for security
+    raise TypeError(
+        f"Object of type {type(obj).__name__} is not JSON serializable. "
+        "Add explicit handling for this type if needed."
+    )
+
+
 class ContentType(Enum):
     """Types of content for different truncation strategies."""
 
@@ -63,6 +92,15 @@ class TruncationResult:
     truncation_summary: str
 
 
+# Token estimation constants - configurable for tuning
+# These ratios are approximate chars-per-token based on empirical testing
+CHAR_TO_TOKEN_RATIO_TEXT = 4.0  # English text averages ~4 chars/token
+CHAR_TO_TOKEN_RATIO_JSON = 3.5  # JSON slightly more dense due to structure
+CHAR_TO_TOKEN_RATIO_STRUCTURED = 3.8  # Structured data middle ground
+CHAR_TO_TOKEN_RATIO_LOGS = 4.2  # Logs tend to be more verbose
+CHAR_TO_TOKEN_RATIO_METRICS = 3.0  # Metrics are dense numerical data
+
+
 class TokenEstimator:
     """
     Estimates token counts for different content types.
@@ -73,11 +111,11 @@ class TokenEstimator:
 
     # Default approximate character-to-token ratios for different content types
     DEFAULT_CHAR_TO_TOKEN_RATIOS = {
-        ContentType.TEXT: 4.0,  # ~4 chars per token for English text
-        ContentType.JSON: 3.5,  # JSON is slightly more dense
-        ContentType.STRUCTURED: 3.8,  # Structured data middle ground
-        ContentType.LOGS: 4.2,  # Logs tend to be more verbose
-        ContentType.METRICS: 3.0,  # Metrics are dense numerical data
+        ContentType.TEXT: CHAR_TO_TOKEN_RATIO_TEXT,
+        ContentType.JSON: CHAR_TO_TOKEN_RATIO_JSON,
+        ContentType.STRUCTURED: CHAR_TO_TOKEN_RATIO_STRUCTURED,
+        ContentType.LOGS: CHAR_TO_TOKEN_RATIO_LOGS,
+        ContentType.METRICS: CHAR_TO_TOKEN_RATIO_METRICS,
     }
 
     def __init__(self, custom_ratios: dict[ContentType, float] | None = None):
@@ -482,8 +520,8 @@ class MCPTokenLimiter:
         # Get operation-specific limit or use default
         token_limit = self.operation_limits.get(operation, self.default_limit)
 
-        # Convert response to JSON for processing
-        response_json = json.dumps(response, indent=2, default=str)
+        # Convert response to JSON for processing using safe serializer
+        response_json = json.dumps(response, indent=2, default=_safe_json_serializer)
 
         # Estimate tokens
         estimate = self.token_estimator.estimate_tokens(response_json, ContentType.JSON)

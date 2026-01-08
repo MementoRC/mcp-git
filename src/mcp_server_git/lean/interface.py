@@ -17,6 +17,7 @@ from functools import wraps
 from typing import Any
 
 from fastmcp import FastMCP
+from jsonschema import ValidationError, validate
 
 from .token_limiter import MCPTokenLimiter, apply_token_limits
 
@@ -86,6 +87,9 @@ class GitLeanInterface:
         # Tool registry
         self.tool_registry: dict[str, ToolDefinition] = {}
 
+        # Schema cache for performance optimization
+        self._schema_cache: dict[str, dict[str, Any]] = {}
+
         # Build tool registry
         self._build_tool_registry()
 
@@ -113,6 +117,10 @@ class GitLeanInterface:
         tool_def.implementation = wrapped_impl
 
         self.tool_registry[tool_def.name] = tool_def
+
+        # Cache the schema for performance
+        self._schema_cache[tool_def.name] = tool_def.schema
+
         logger.debug(
             f"Registered tool: {tool_def.name} ({tool_def.domain}/{tool_def.complexity})"
         )
@@ -392,22 +400,25 @@ class GitLeanInterface:
             tool_def = self.tool_registry[tool_name]
 
             try:
-                # Validate parameters against schema
-                schema_properties = tool_def.schema.get("properties", {})
-                validated_params = {}
+                # Get cached schema for validation
+                schema = self._schema_cache.get(tool_name, tool_def.schema)
 
-                for key, value in parameters.items():
-                    if key not in schema_properties:
-                        return {
-                            "tool": tool_name,
-                            "status": "error",
-                            "error": f"Unexpected parameter '{key}' not in schema",
-                            "valid_parameters": list(schema_properties.keys()),
-                        }
-                    validated_params[key] = value
+                # Validate parameters using JSON Schema
+                # This validates both parameter names AND values/types
+                try:
+                    validate(instance=parameters, schema=schema)
+                except ValidationError as ve:
+                    return {
+                        "tool": tool_name,
+                        "status": "error",
+                        "error": f"Parameter validation failed: {ve.message}",
+                        "validation_path": list(ve.path) if ve.path else [],
+                        "schema_path": list(ve.schema_path) if ve.schema_path else [],
+                        "valid_parameters": list(schema.get("properties", {}).keys()),
+                    }
 
                 # Execute tool through its implementation
-                result = tool_def.implementation(**validated_params)
+                result = tool_def.implementation(**parameters)
 
                 return {
                     "tool": tool_name,
@@ -416,6 +427,15 @@ class GitLeanInterface:
                     "execution_mode": "lean_mcp_dynamic",
                 }
 
+            except ValidationError as ve:
+                # Catch any schema validation errors not caught above
+                logger.error(f"Schema validation error in {tool_name}: {ve}")
+                return {
+                    "tool": tool_name,
+                    "status": "error",
+                    "error": f"Validation error: {ve.message}",
+                    "execution_mode": "lean_mcp_dynamic",
+                }
             except Exception as e:
                 logger.error(f"Error executing {tool_name}: {e}", exc_info=True)
                 return {
