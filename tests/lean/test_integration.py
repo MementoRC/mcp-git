@@ -6,10 +6,10 @@ from mcp_server_git.lean.interface import GitLeanInterface, ToolDefinition
 
 
 class MockGitService:
-    """Mock git service for integration testing."""
+    """Mock git service for integration testing with all required methods."""
 
     def git_status(self, repo_path: str) -> dict:
-        """Mock git status."""
+        """Mock git status with expected format."""
         return {
             "branch": "main",
             "staged": [],
@@ -17,48 +17,31 @@ class MockGitService:
             "untracked": [],
         }
 
-    def git_diff(self, repo_path: str, target: str) -> dict:
-        """Mock git diff."""
-        return {
-            "diff": f"diff between HEAD and {target}",
-            "files_changed": 2,
-        }
+    def __getattr__(self, name: str):
+        """Dynamic mock for any git method not explicitly defined."""
+        if name.startswith("git_"):
+            return lambda **kwargs: {"result": f"mock_{name}", "params": kwargs}
+        raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
 
 
 class MockGitHubService:
-    """Mock GitHub service for integration testing."""
+    """Mock GitHub service for integration testing with all required methods."""
 
-    def github_create_pr(
-        self,
-        repo_owner: str,
-        repo_name: str,
-        title: str,
-        head: str,
-        base: str,
-        body: str | None = None,
-        draft: bool = False,
-    ) -> dict:
-        """Mock GitHub PR creation."""
-        return {
-            "number": 42,
-            "url": f"https://github.com/{repo_owner}/{repo_name}/pull/42",
-            "title": title,
-            "state": "open",
-            "draft": draft,
-        }
+    def __getattr__(self, name: str):
+        """Dynamic mock for any github method not explicitly defined."""
+        if name.startswith("github_"):
+            return lambda **kwargs: {"result": f"mock_{name}", "params": kwargs}
+        raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
 
 
 class MockAzureService:
-    """Mock Azure service for integration testing."""
+    """Mock Azure service for integration testing with all required methods."""
 
-    def azure_get_build_status(self, project: str, build_id: int) -> dict:
-        """Mock Azure build status."""
-        return {
-            "id": build_id,
-            "project": project,
-            "status": "completed",
-            "result": "succeeded",
-        }
+    def __getattr__(self, name: str):
+        """Dynamic mock for any azure method not explicitly defined."""
+        if name.startswith("azure_"):
+            return lambda **kwargs: {"result": f"mock_{name}", "params": kwargs}
+        raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
 
 
 class TestLeanMCPIntegration:

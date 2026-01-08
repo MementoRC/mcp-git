@@ -6,11 +6,12 @@ from mcp_server_git.lean.interface import GitLeanInterface, ToolDefinition
 
 
 class MockService:
-    """Mock service for testing."""
+    """Mock service for testing with dynamic method support."""
 
-    def mock_operation(self, param1: str) -> str:
-        """Mock operation."""
-        return f"Result: {param1}"
+    def __getattr__(self, name: str):
+        """Dynamic mock for any method not explicitly defined."""
+        # Return a lambda that accepts any kwargs and returns a simple dict
+        return lambda **kwargs: {"result": f"mock_{name}", "params": kwargs}
 
 
 class TestToolDefinition:
@@ -18,7 +19,9 @@ class TestToolDefinition:
 
     def test_tool_creation(self):
         """Test creating a tool definition."""
-        def impl(x): return x * 2
+
+        def impl(x):
+            return x * 2
 
         tool = ToolDefinition(
             name="test_tool",

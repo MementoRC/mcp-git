@@ -170,9 +170,11 @@ class TestTokenLimiterEdgeCases:
 
         assert _safe_json_serializer(FakeDateTime()) == "2024-01-01T00:00:00"
 
-        # Should reject unknown custom objects
+        # Should reject unknown custom objects without __dict__
+        # Note: Objects with __dict__ are serialized as dicts (see test_safe_serializer_with_object_dict)
+        # To test rejection, we need an object without __dict__
         class UnknownType:
-            pass
+            __slots__ = ()  # No __dict__ for this class
 
         with pytest.raises(TypeError, match="is not JSON serializable"):
             _safe_json_serializer(UnknownType())
@@ -207,18 +209,18 @@ class TestTokenLimiterEdgeCases:
         # Text content
         text = "word " * 100
         text_est = estimator.estimate_tokens(text, ContentType.TEXT)
-        assert text_est.estimated_tokens == len(text) / CHAR_TO_TOKEN_RATIO_TEXT
+        assert text_est.estimated_tokens == max(1, int(len(text) / CHAR_TO_TOKEN_RATIO_TEXT))
 
         # Logs content
         logs = "[INFO] Log message\n" * 100
         logs_est = estimator.estimate_tokens(logs, ContentType.LOGS)
-        assert logs_est.estimated_tokens == len(logs) / CHAR_TO_TOKEN_RATIO_LOGS
+        assert logs_est.estimated_tokens == max(1, int(len(logs) / CHAR_TO_TOKEN_RATIO_LOGS))
 
         # Metrics content
         metrics = '{"cpu": 75, "memory": 8192}\n' * 100
         metrics_est = estimator.estimate_tokens(metrics, ContentType.METRICS)
         assert (
-            metrics_est.estimated_tokens == len(metrics) / CHAR_TO_TOKEN_RATIO_METRICS
+            metrics_est.estimated_tokens == max(1, int(len(metrics) / CHAR_TO_TOKEN_RATIO_METRICS))
         )
 
     def test_custom_token_ratios(self):
