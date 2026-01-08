@@ -23,6 +23,7 @@ dependencies = [
 
 [project.scripts]
 mcp-server-git = "mcp_server_git:main"
+mcp-git-lean = "mcp_server_git.lean:main"
 
 [build-system]
 requires = ["hatchling"]
@@ -91,7 +92,9 @@ python = ">=3.12"
 aiohttp = ">=3.8.0"
 click = ">=8.1.7"
 gitpython = ">=3.1.43"
+jsonschema = ">=4.17.0"
 mcp = ">=1.11.0"
+fastmcp = ">=2.11.3,<3"
 psutil = ">=5.9.0"
 pydantic = ">=2.0.0"
 python-dotenv = ">=1.0.0"

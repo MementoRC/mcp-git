@@ -1576,7 +1576,7 @@ class ServerApplication(DebuggableComponent):
         ]:
             # Create Repo object for operations that need an existing repository
             repo = Repo(repo_path)
-            
+
             if name == GitTools.STATUS:
                 result = git_status(repo)
             elif name == GitTools.DIFF_UNSTAGED:

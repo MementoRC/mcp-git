@@ -7,8 +7,9 @@ automated recovery strategies, and detailed error reporting capabilities.
 import json
 import logging
 import traceback
+from collections.abc import Callable
 from enum import Enum
-from typing import Any, Callable
+from typing import Any
 
 # Safe git import that handles ClaudeCode redirector conflicts
 from ..utils.git_import import GitCommandError, InvalidGitRepositoryError

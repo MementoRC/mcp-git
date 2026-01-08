@@ -868,7 +868,7 @@ def git_checkout(repo: Repo, branch_name: str) -> str:
                     return f"✅ Switched to '{branch_name}' (detached HEAD)"
             except Exception:
                 pass
-            
+
             # Check if branch exists on remote (short name)
             try:
                 remote_branches = [
@@ -1232,19 +1232,22 @@ def git_diff_branches(
         # Verify branches exist - support both short names and full remote refs
         # Special refs like HEAD are always valid
         special_refs = ["HEAD", "FETCH_HEAD", "ORIG_HEAD", "MERGE_HEAD"]
-        
+
         local_branches = [branch.name for branch in repo.branches]
-        
+
         # Add remote branches if remotes exist (with error handling)
         try:
             remote_refs = repo.remote().refs
-            # Include both full remote ref names (e.g., 'origin/development') 
+            # Include both full remote ref names (e.g., 'origin/development')
             # and short names (e.g., 'development') for compatibility
             remote_branch_names = [ref.name for ref in remote_refs]
             remote_branch_short_names = [ref.name.split("/")[-1] for ref in remote_refs]
             # Use set to avoid duplicates
             all_branches = set(
-                local_branches + remote_branch_names + remote_branch_short_names + special_refs
+                local_branches
+                + remote_branch_names
+                + remote_branch_short_names
+                + special_refs
             )
         except Exception:
             # Ignore remote access errors (e.g., no remotes configured)
@@ -1310,7 +1313,7 @@ def git_rebase(repo: Repo, target_branch: str) -> str:
         try:
             if repo.remotes:
                 for remote in repo.remotes:
-                    # Include both full remote ref names (e.g., 'origin/development') 
+                    # Include both full remote ref names (e.g., 'origin/development')
                     # and short names (e.g., 'development') for compatibility
                     all_branches.extend([ref.name for ref in remote.refs])
                     all_branches.extend(
@@ -1356,7 +1359,7 @@ def git_merge(
         try:
             if repo.remotes:
                 for remote in repo.remotes:
-                    # Include both full remote ref names (e.g., 'origin/development') 
+                    # Include both full remote ref names (e.g., 'origin/development')
                     # and short names (e.g., 'development') for compatibility
                     all_branches.extend([ref.name for ref in remote.refs])
                     all_branches.extend(

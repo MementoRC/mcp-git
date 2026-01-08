@@ -1432,7 +1432,8 @@ async def github_await_workflow_completion(
             if run_id is None:
                 logger.debug("No run_id provided, fetching latest workflow run...")
                 response = await client.get(
-                    f"/repos/{repo_owner}/{repo_name}/actions/runs", params={"per_page": 1}
+                    f"/repos/{repo_owner}/{repo_name}/actions/runs",
+                    params={"per_page": 1},
                 )
 
                 if response.status != 200:
@@ -1449,7 +1450,7 @@ async def github_await_workflow_completion(
                 run_id = workflow_runs[0].get("id")
                 if run_id is None:
                     return "Latest workflow run has no ID"
-                
+
                 logger.info(f"Using latest workflow run ID: {run_id}")
 
             # Start polling
@@ -1468,7 +1469,9 @@ async def github_await_workflow_completion(
                 # Check for timeout
                 if elapsed_time >= timeout_seconds:
                     # Cleanup any pending operations before timeout
-                    logger.info(f"Cleaning up resources after {elapsed_time:.1f}s of monitoring")
+                    logger.info(
+                        f"Cleaning up resources after {elapsed_time:.1f}s of monitoring"
+                    )
                     logger.warning(
                         f"Timeout reached after {elapsed_time:.1f}s ({poll_count} polls)"
                     )
@@ -1478,7 +1481,7 @@ async def github_await_workflow_completion(
                         "run_url": f"https://github.com/{repo_owner}/{repo_name}/actions/runs/{run_id}",
                         "elapsed_seconds": elapsed_time,
                         "message": f"Workflow run did not complete within {timeout_minutes} minutes. Consider increasing timeout_minutes for very long-running workflows (max: 350 minutes).",
-                        "polls_performed": poll_count
+                        "polls_performed": poll_count,
                     }
                     return json.dumps(timeout_result, indent=2)
 
@@ -1582,9 +1585,9 @@ async def github_await_workflow_completion(
                                     try:
                                         # Note: GitHub API doesn't provide direct log text access via REST API
                                         # We'll include a note about where to find logs
-                                        result[
-                                            "logs_note"
-                                        ] = f"View detailed logs at: {first_job.get('html_url')}"
+                                        result["logs_note"] = (
+                                            f"View detailed logs at: {first_job.get('html_url')}"
+                                        )
                                     except Exception as log_error:
                                         logger.debug(
                                             f"Could not fetch logs: {log_error}"
@@ -1594,7 +1597,9 @@ async def github_await_workflow_completion(
                     return json.dumps(result, indent=2)
 
                 # Not complete yet, wait before next poll
-                logger.debug(f"Workflow still {run_status}, waiting {poll_interval_seconds}s before next poll...")
+                logger.debug(
+                    f"Workflow still {run_status}, waiting {poll_interval_seconds}s before next poll..."
+                )
                 await asyncio.sleep(poll_interval_seconds)
 
     except ValueError as auth_error:
