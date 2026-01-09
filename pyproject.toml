@@ -250,6 +250,10 @@ serve = "python -m mcp_server_git"
 pixi-git-server = { cmd = "python -m mcp_server_git", env = { PYTHONPATH = "src", CLAUDECODE = "0" } }
 pixi-git-server-debug = { cmd = "python -m mcp_server_git -vv --enable-file-logging", env = { PYTHONPATH = "src", LOG_LEVEL = "DEBUG", CLAUDECODE = "0" } }
 
+# Lean interface (3-meta-tool pattern, 95% context reduction)
+pixi-git-server-lean = { cmd = "python -m mcp_server_git.lean", env = { PYTHONPATH = "src", CLAUDECODE = "0" } }
+pixi-git-server-lean-debug = { cmd = "python -m mcp_server_git.lean -vv --enable-file-logging", env = { PYTHONPATH = "src", LOG_LEVEL = "DEBUG", CLAUDECODE = "0" } }
+
 # Auto-install and run MCP server (for ClaudeCode integration)
 mcp-server-git = { cmd = "python -m mcp_server_git", env = { PYTHONPATH = "src", CLAUDECODE = "0" } }
 
