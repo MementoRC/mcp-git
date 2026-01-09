@@ -37,18 +37,15 @@ def main():
     logger.info("Initializing mcp-git-lean server...")
 
     # Initialize services
-    # Note: These need to be properly initialized with repository paths
-    # For now, we'll create placeholder services
     git_service = GitService()
     github_service = GitHubService()
 
-    if AZURE_AVAILABLE:
-        azure_service = AzureClient()
-    else:
-        # Use null object pattern for Azure service
-        from .null_azure_service import NullAzureService
+    # Always use NullAzureService for lean interface
+    # Azure support requires token, organization, and session configuration
+    # which is not set up by default
+    from .null_azure_service import NullAzureService
 
-        azure_service = NullAzureService()
+    azure_service = NullAzureService()
 
     # Create lean interface
     app = create_git_lean_interface(
