@@ -12,14 +12,6 @@ from dotenv import load_dotenv
 from ..services.git_service import GitService
 from ..services.github_service import GitHubService
 
-# Import Azure service when available
-try:
-    from ..azure.client import AzureClient
-
-    AZURE_AVAILABLE = True
-except ImportError:
-    AZURE_AVAILABLE = False
-
 from .interface import create_git_lean_interface
 
 # Configure logging
