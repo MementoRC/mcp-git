@@ -177,6 +177,7 @@ class GitMerge(BaseModel):
 class GitCherryPick(BaseModel):
     repo_path: str
     commit_hash: str
+    no_commit: bool = False
 
 
 class GitAbort(BaseModel):
