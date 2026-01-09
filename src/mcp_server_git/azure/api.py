@@ -170,6 +170,7 @@ async def azure_get_build_logs(
                     log_lines = log_text.split("\n")
 
                 # Apply tail_lines limit
+                original_line_count = len(log_lines)
                 if len(log_lines) > tail_lines:
                     truncated_count = len(log_lines) - tail_lines
                     log_lines = log_lines[-tail_lines:]
@@ -178,10 +179,12 @@ async def azure_get_build_logs(
                         f"... [truncated {truncated_count} lines] ...\n\n"
                         + log_content
                     )
+                    header = f"Log #{log_id} for Build #{build_id} (showing last {tail_lines} of {original_line_count} lines):\n\n"
                 else:
                     log_content = "\n".join(log_lines)
+                    header = f"Log #{log_id} for Build #{build_id} ({original_line_count} lines):\n\n"
 
-                return f"Log #{log_id} for Build #{build_id} (last {len(log_lines)} lines):\n\n{log_content}"
+                return header + log_content
 
     except ValueError as auth_error:
         logger.error(f"Authentication error getting build logs: {auth_error}")
@@ -306,20 +309,22 @@ async def azure_get_failing_jobs(
                                 log_lines = log_text.split("\n")
                             
                             # Get last N lines
+                            original_line_count = len(log_lines)
                             if len(log_lines) > log_tail_lines:
+                                truncated_count = original_line_count - log_tail_lines
                                 excerpt_lines = log_lines[-log_tail_lines:]
-                                excerpt = "\n".join(excerpt_lines)
                                 output.append(
-                                    f"   Log excerpt (last {log_tail_lines} lines):"
+                                    f"   Log excerpt (showing last {log_tail_lines} of {original_line_count} lines):"
                                 )
+                                output.append(f"   ... [truncated {truncated_count} lines] ...")
                             else:
-                                excerpt = "\n".join(log_lines)
+                                excerpt_lines = log_lines
                                 output.append(
-                                    f"   Log excerpt ({len(log_lines)} lines):"
+                                    f"   Log excerpt ({original_line_count} lines):"
                                 )
                             output.append("   ```")
                             # Indent each line
-                            for line in excerpt.split("\n"):
+                            for line in excerpt_lines:
                                 output.append(f"   {line}")
                             output.append("   ```")
                     except Exception as log_error:

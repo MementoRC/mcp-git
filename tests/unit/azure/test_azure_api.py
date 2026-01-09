@@ -176,6 +176,7 @@ class TestAzureGetBuildLogs:
             # Check that early lines are not in the output (avoiding the truncation message)
             assert "Log line 10\n" not in result  # Early line with newline to avoid matching in message
             assert "truncated 80 lines" in result
+            assert "showing last 20 of 100 lines" in result  # New format
 
 
 class TestAzureGetFailingJobs:
