@@ -1899,6 +1899,7 @@ class ServerApplication(DebuggableComponent):
                 project=arguments["project"],
                 build_id=arguments["build_id"],
                 log_id=arguments.get("log_id"),
+                tail_lines=arguments.get("tail_lines", 500),
             )
         elif name == AzureTools.GET_FAILING_JOBS:
             from ..azure.api import azure_get_failing_jobs
@@ -1907,6 +1908,7 @@ class ServerApplication(DebuggableComponent):
                 project=arguments["project"],
                 build_id=arguments["build_id"],
                 include_logs=arguments.get("include_logs", True),
+                log_tail_lines=arguments.get("log_tail_lines", 500),
             )
         elif name == AzureTools.LIST_BUILDS:
             from ..azure.api import azure_list_builds
