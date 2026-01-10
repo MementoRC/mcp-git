@@ -1501,6 +1501,29 @@ class ServerApplication(DebuggableComponent):
 
         logger.info("MCP tools registered successfully")
 
+    def _looks_like_file_path(self, value: str) -> bool:
+        """
+        Check if a string looks like a file path rather than a GitHub identifier.
+        
+        Args:
+            value: String to check
+            
+        Returns:
+            True if the value appears to be a file path, False otherwise
+        """
+        # Check for path separators (forward or back slash)
+        if "/" in value or "\\" in value:
+            return True
+        
+        # Check if it's an absolute path
+        # Note: This is a conservative check. While it might flag edge cases like
+        # "C:" on Windows, GitHub itself doesn't allow colons in repository names,
+        # so this provides an extra layer of safety.
+        if os.path.isabs(value):
+            return True
+        
+        return False
+
     def _validate_github_params(self, repo_owner: str, repo_name: str) -> None:
         """
         Validate GitHub API parameters to ensure they're not file paths.
@@ -1518,7 +1541,7 @@ class ServerApplication(DebuggableComponent):
             ValueError: If parameters look like file paths instead of GitHub identifiers
         """
         # Check if repo_owner looks like a file path
-        if "/" in repo_owner or "\\" in repo_owner or os.path.isabs(repo_owner):
+        if self._looks_like_file_path(repo_owner):
             raise ValueError(
                 f"Invalid repo_owner: '{repo_owner}' appears to be a file path. "
                 f"GitHub API operations require repository owner/name parameters, not local paths. "
@@ -1527,7 +1550,7 @@ class ServerApplication(DebuggableComponent):
             )
         
         # Check if repo_name looks like a file path
-        if "/" in repo_name or "\\" in repo_name or os.path.isabs(repo_name):
+        if self._looks_like_file_path(repo_name):
             raise ValueError(
                 f"Invalid repo_name: '{repo_name}' appears to be a file path. "
                 f"GitHub API operations require repository owner/name parameters, not local paths. "
