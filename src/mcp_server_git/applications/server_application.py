@@ -35,6 +35,7 @@ from ..services.git_service import GitService
 from ..services.github_service import GitHubServiceConfig
 from ..services.server_metrics import MetricsService
 from ..services.server_session import SessionManager
+from ..utils.repository_resolver import RepositoryResolver
 
 # Azure DevOps models for tool registration
 from ..azure.models import (
@@ -582,6 +583,13 @@ class ServerApplication(DebuggableComponent):
         # Infrastructure components
         self._middleware_manager: MiddlewareChainManager | None = None
         self._security_framework: SecurityFramework | None = None
+        
+        # Repository path resolver for proper repo_path handling
+        self._repository_resolver = RepositoryResolver(
+            bound_repository_path=str(self.config.repository_path) 
+            if self.config.repository_path 
+            else None
+        )
 
         logger.info("ServerApplication initialized")
 
@@ -1537,11 +1545,50 @@ class ServerApplication(DebuggableComponent):
         )
         from ..utils.git_import import Repo
 
-        # Get repository path from arguments
-        default_repo_path: str = (
-            str(self.config.repository_path) if self.config.repository_path else "."
+        # Resolve repository path using RepositoryResolver
+        # This handles "." correctly by resolving to bound repository
+        requested_repo_path = arguments.get("repo_path")
+        
+        # Special handling for git_init - it can create a repo at a new path
+        if name == GitTools.INIT:
+            # For git_init, use requested path directly if provided
+            # If no path provided and we have a bound repo, use that
+            # If no path and no bound repo, reject
+            if requested_repo_path:
+                # Allow relative paths for init, but resolve to absolute
+                repo_path = str(Path(requested_repo_path).resolve())
+            elif self.config.repository_path:
+                repo_path = str(Path(self.config.repository_path).resolve())
+            else:
+                error_msg = (
+                    "git_init requires a repository path. "
+                    "Please provide repo_path parameter or start server with --repository parameter."
+                )
+                logger.error(error_msg)
+                raise ValueError(error_msg)
+        else:
+            # For all other operations, use RepositoryResolver
+            resolved_repo_path = self._repository_resolver.resolve_repository_path(
+                requested_repo_path
+            )
+            
+            # Validate that we have a valid repository path
+            if resolved_repo_path is None:
+                error_msg = (
+                    "No repository path could be determined. "
+                    "Please provide an absolute path via repo_path parameter, "
+                    "or start the server with --repository parameter to bind a repository."
+                )
+                logger.error(error_msg)
+                raise ValueError(error_msg)
+            
+            # Convert to absolute path to prevent any relative path issues
+            repo_path = str(Path(resolved_repo_path).resolve())
+        
+        logger.debug(
+            f"Repository path resolved: requested={requested_repo_path}, "
+            f"resolved={repo_path}"
         )
-        repo_path = arguments.get("repo_path", default_repo_path)
 
         # Route to appropriate git or GitHub operation
         # Special case: git_init doesn't need an existing repository
