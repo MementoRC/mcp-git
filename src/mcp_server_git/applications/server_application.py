@@ -12,6 +12,7 @@ structure, maintainability, and LLM compatibility.
 
 import asyncio
 import logging
+import os
 import signal
 import sys
 from collections.abc import AsyncIterator
@@ -1516,8 +1517,6 @@ class ServerApplication(DebuggableComponent):
         Raises:
             ValueError: If parameters look like file paths instead of GitHub identifiers
         """
-        import os
-        
         # Check if repo_owner looks like a file path
         if "/" in repo_owner or "\\" in repo_owner or os.path.isabs(repo_owner):
             raise ValueError(

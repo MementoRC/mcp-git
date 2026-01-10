@@ -104,19 +104,18 @@ class TestGitHubParameterValidation:
 
     def test_validate_github_params_error_message_clarity(self):
         """Test that error messages clearly explain the issue."""
-        try:
+        with pytest.raises(ValueError) as exc_info:
             self.app._validate_github_params(
                 "/home/memento/ClaudeCode/Servers/hexagonal-architecture/development",
                 "mcp-git"
             )
-            pytest.fail("Should have raised ValueError")
-        except ValueError as e:
-            error_msg = str(e)
-            # Check that error message contains helpful information
-            assert "appears to be a file path" in error_msg
-            assert "GitHub API operations" in error_msg
-            assert "repo_owner" in error_msg or "repo_name" in error_msg
-            assert "'--repository'" in error_msg or "bound" in error_msg
+        
+        error_msg = str(exc_info.value)
+        # Check that error message contains helpful information
+        assert "appears to be a file path" in error_msg
+        assert "GitHub API operations" in error_msg
+        assert "repo_owner" in error_msg or "repo_name" in error_msg
+        assert "'--repository'" in error_msg or "bound" in error_msg
 
     def test_validate_github_params_preserves_case(self):
         """Test validation preserves case of identifiers."""
