@@ -1550,24 +1550,30 @@ class ServerApplication(DebuggableComponent):
         requested_repo_path = arguments.get("repo_path")
         
         # Special handling for git_init - it can create a repo at a new path
+        # that doesn't exist yet, so we can't rely on existence checks
         if name == GitTools.INIT:
-            # For git_init, use requested path directly if provided
-            # If no path provided and we have a bound repo, use that
-            # If no path and no bound repo, reject
-            if requested_repo_path:
-                # Allow relative paths for init, but resolve to absolute
+            if requested_repo_path and requested_repo_path != ".":
+                # For git_init with explicit path (not "."), use it directly
+                # even if it doesn't exist yet (git init can create it)
                 repo_path = str(Path(requested_repo_path).resolve())
-            elif self.config.repository_path:
-                repo_path = str(Path(self.config.repository_path).resolve())
             else:
-                error_msg = (
-                    "git_init requires a repository path. "
-                    "Please provide repo_path parameter or start server with --repository parameter."
+                # For git_init with "." or no path, use RepositoryResolver
+                # to get the bound repository
+                resolved_repo_path = self._repository_resolver.resolve_repository_path(
+                    requested_repo_path
                 )
-                logger.error(error_msg)
-                raise ValueError(error_msg)
+                
+                if resolved_repo_path is None:
+                    error_msg = (
+                        "git_init requires a repository path. "
+                        "Please provide repo_path parameter or start server with --repository parameter."
+                    )
+                    logger.error(error_msg)
+                    raise ValueError(error_msg)
+                
+                repo_path = str(Path(resolved_repo_path).resolve())
         else:
-            # For all other operations, use RepositoryResolver
+            # For all other operations, use RepositoryResolver which validates existence
             resolved_repo_path = self._repository_resolver.resolve_repository_path(
                 requested_repo_path
             )
