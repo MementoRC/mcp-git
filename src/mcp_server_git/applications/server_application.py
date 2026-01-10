@@ -585,11 +585,8 @@ class ServerApplication(DebuggableComponent):
         self._security_framework: SecurityFramework | None = None
         
         # Repository path resolver for proper repo_path handling
-        self._repository_resolver = RepositoryResolver(
-            bound_repository_path=str(self.config.repository_path) 
-            if self.config.repository_path 
-            else None
-        )
+        bound_path = str(self.config.repository_path) if self.config.repository_path else None
+        self._repository_resolver = RepositoryResolver(bound_repository_path=bound_path)
 
         logger.info("ServerApplication initialized")
 

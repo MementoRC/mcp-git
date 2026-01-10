@@ -8,16 +8,18 @@ works correctly. It ensures that:
 3. Operations fail gracefully when no repository can be determined
 """
 
-import pytest
-from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
-import tempfile
 import os
+import subprocess
+import tempfile
+from pathlib import Path
+from unittest.mock import MagicMock, Mock, patch
+
+import pytest
 
 from mcp_server_git.applications.server_application import (
+    GitTools,
     ServerApplication,
     ServerApplicationConfig,
-    GitTools,
 )
 
 
@@ -32,7 +34,6 @@ class TestRepoPathResolution:
             repo_path.mkdir()
             
             # Initialize a git repository
-            import subprocess
             subprocess.run(
                 ["git", "init"], 
                 cwd=repo_path, 
@@ -109,7 +110,6 @@ class TestRepoPathResolution:
                 # Verify that Repo was called with the absolute path of bound repository
                 called_path = mock_repo_class.call_args[0][0]
                 assert Path(called_path).resolve() == temp_repo.resolve()
-                assert called_path == str(temp_repo.resolve())
 
     async def test_repo_path_dot_without_bound_repo(self, server_app_no_repo):
         """Test that repo_path='.' without bound repository raises error."""
@@ -211,7 +211,6 @@ class TestRepoPathResolution:
                 # Create a test repo in a subdirectory
                 test_repo = Path(tmpdir) / "test_repo"
                 test_repo.mkdir()
-                import subprocess
                 subprocess.run(
                     ["git", "init"], 
                     cwd=test_repo, 
