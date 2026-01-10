@@ -177,6 +177,7 @@ class GitMerge(BaseModel):
 class GitCherryPick(BaseModel):
     repo_path: str
     commit_hash: str
+    no_commit: bool = False
 
 
 class GitAbort(BaseModel):
@@ -1644,7 +1645,9 @@ class ServerApplication(DebuggableComponent):
                     message=arguments.get("message"),
                 )
             elif name == GitTools.CHERRY_PICK:
-                result = git_cherry_pick(repo, arguments["commit_hash"])
+                result = git_cherry_pick(
+                    repo, arguments["commit_hash"], no_commit=arguments.get("no_commit", False)
+                )
             elif name == GitTools.ABORT:
                 result = git_abort(repo, arguments["operation"])
             elif name == GitTools.CONTINUE:
