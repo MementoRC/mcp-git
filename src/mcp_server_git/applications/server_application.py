@@ -1500,6 +1500,42 @@ class ServerApplication(DebuggableComponent):
 
         logger.info("MCP tools registered successfully")
 
+    def _validate_github_params(self, repo_owner: str, repo_name: str) -> None:
+        """
+        Validate GitHub API parameters to ensure they're not file paths.
+        
+        GitHub API operations use repo_owner and repo_name (e.g., "MementoRC", "mcp-git"),
+        NOT local file system paths. This validation prevents confusion between:
+        - Local git operations: use repository paths (e.g., "/home/user/repo")
+        - GitHub API operations: use owner/name pairs (e.g., "owner", "repo")
+        
+        Args:
+            repo_owner: GitHub repository owner/organization name
+            repo_name: GitHub repository name
+            
+        Raises:
+            ValueError: If parameters look like file paths instead of GitHub identifiers
+        """
+        import os
+        
+        # Check if repo_owner looks like a file path
+        if "/" in repo_owner or "\\" in repo_owner or os.path.isabs(repo_owner):
+            raise ValueError(
+                f"Invalid repo_owner: '{repo_owner}' appears to be a file path. "
+                f"GitHub API operations require repository owner/name parameters, not local paths. "
+                f"Use 'repo_owner' (e.g., 'MementoRC') and 'repo_name' (e.g., 'mcp-git'), "
+                f"not the bound '--repository' path."
+            )
+        
+        # Check if repo_name looks like a file path
+        if "/" in repo_name or "\\" in repo_name or os.path.isabs(repo_name):
+            raise ValueError(
+                f"Invalid repo_name: '{repo_name}' appears to be a file path. "
+                f"GitHub API operations require repository owner/name parameters, not local paths. "
+                f"Use 'repo_owner' (e.g., 'MementoRC') and 'repo_name' (e.g., 'mcp-git'), "
+                f"not the bound '--repository' path."
+            )
+
     async def _execute_tool_operation(self, name: str, arguments: dict):
         """Execute the actual tool logic without middleware."""
         # COMPREHENSIVE INTEGRATED LOGGING
@@ -1537,7 +1573,8 @@ class ServerApplication(DebuggableComponent):
         )
         from ..utils.git_import import Repo
 
-        # Get repository path from arguments
+        # Get repository path from arguments for LOCAL git operations ONLY
+        # NOTE: This path is used ONLY for git operations, NOT for GitHub API operations
         default_repo_path: str = (
             str(self.config.repository_path) if self.config.repository_path else "."
         )
@@ -1670,8 +1707,14 @@ class ServerApplication(DebuggableComponent):
             elif name == GitTools.REMOTE_GET_URL:
                 result = git_remote_get_url(repo, arguments["name"])
         # GitHub Tools (don't require a Repo object)
+        # NOTE: GitHub API operations use repo_owner/repo_name, NOT local file paths
         elif name == GitHubTools.CREATE_ISSUE:
             from ..github.api import github_create_issue
+
+            # Validate that repo_owner/repo_name are not file paths
+            self._validate_github_params(
+                arguments["repo_owner"], arguments["repo_name"]
+            )
 
             result = await github_create_issue(
                 repo_owner=arguments["repo_owner"],
@@ -1684,6 +1727,11 @@ class ServerApplication(DebuggableComponent):
             )
         elif name == GitHubTools.LIST_ISSUES:
             from ..github.api import github_list_issues
+
+            # Validate that repo_owner/repo_name are not file paths
+            self._validate_github_params(
+                arguments["repo_owner"], arguments["repo_name"]
+            )
 
             result = await github_list_issues(
                 repo_owner=arguments["repo_owner"],
@@ -1703,6 +1751,11 @@ class ServerApplication(DebuggableComponent):
         elif name == GitHubTools.UPDATE_ISSUE:
             from ..github.api import github_update_issue
 
+            # Validate that repo_owner/repo_name are not file paths
+            self._validate_github_params(
+                arguments["repo_owner"], arguments["repo_name"]
+            )
+
             result = await github_update_issue(
                 repo_owner=arguments["repo_owner"],
                 repo_name=arguments["repo_name"],
@@ -1717,6 +1770,11 @@ class ServerApplication(DebuggableComponent):
         elif name == GitHubTools.GET_PR_CHECKS:
             from ..github.api import github_get_pr_checks
 
+            # Validate that repo_owner/repo_name are not file paths
+            self._validate_github_params(
+                arguments["repo_owner"], arguments["repo_name"]
+            )
+
             result = await github_get_pr_checks(
                 repo_owner=arguments["repo_owner"],
                 repo_name=arguments["repo_name"],
@@ -1727,6 +1785,11 @@ class ServerApplication(DebuggableComponent):
         elif name == GitHubTools.GET_PR_DETAILS:
             from ..github.api import github_get_pr_details
 
+            # Validate that repo_owner/repo_name are not file paths
+            self._validate_github_params(
+                arguments["repo_owner"], arguments["repo_name"]
+            )
+
             result = await github_get_pr_details(
                 repo_owner=arguments["repo_owner"],
                 repo_name=arguments["repo_name"],
@@ -1736,6 +1799,11 @@ class ServerApplication(DebuggableComponent):
             )
         elif name == GitHubTools.LIST_PULL_REQUESTS:
             from ..github.api import github_list_pull_requests
+
+            # Validate that repo_owner/repo_name are not file paths
+            self._validate_github_params(
+                arguments["repo_owner"], arguments["repo_name"]
+            )
 
             result = await github_list_pull_requests(
                 repo_owner=arguments["repo_owner"],
@@ -1751,6 +1819,11 @@ class ServerApplication(DebuggableComponent):
         elif name == GitHubTools.GET_PR_STATUS:
             from ..github.api import github_get_pr_status
 
+            # Validate that repo_owner/repo_name are not file paths
+            self._validate_github_params(
+                arguments["repo_owner"], arguments["repo_name"]
+            )
+
             result = await github_get_pr_status(
                 repo_owner=arguments["repo_owner"],
                 repo_name=arguments["repo_name"],
@@ -1758,6 +1831,11 @@ class ServerApplication(DebuggableComponent):
             )
         elif name == GitHubTools.GET_PR_FILES:
             from ..github.api import github_get_pr_files
+
+            # Validate that repo_owner/repo_name are not file paths
+            self._validate_github_params(
+                arguments["repo_owner"], arguments["repo_name"]
+            )
 
             result = await github_get_pr_files(
                 repo_owner=arguments["repo_owner"],
@@ -1770,6 +1848,11 @@ class ServerApplication(DebuggableComponent):
         elif name == GitHubTools.EDIT_PR_DESCRIPTION:
             from ..github.api import github_edit_pr_description
 
+            # Validate that repo_owner/repo_name are not file paths
+            self._validate_github_params(
+                arguments["repo_owner"], arguments["repo_name"]
+            )
+
             result = await github_edit_pr_description(
                 repo_owner=arguments["repo_owner"],
                 repo_name=arguments["repo_name"],
@@ -1779,6 +1862,11 @@ class ServerApplication(DebuggableComponent):
         elif name == GitHubTools.GET_WORKFLOW_RUN:
             from ..github.api import github_get_workflow_run
 
+            # Validate that repo_owner/repo_name are not file paths
+            self._validate_github_params(
+                arguments["repo_owner"], arguments["repo_name"]
+            )
+
             result = await github_get_workflow_run(
                 repo_owner=arguments["repo_owner"],
                 repo_name=arguments["repo_name"],
@@ -1787,6 +1875,11 @@ class ServerApplication(DebuggableComponent):
             )
         elif name == GitHubTools.LIST_WORKFLOW_RUNS:
             from ..github.api import github_list_workflow_runs
+
+            # Validate that repo_owner/repo_name are not file paths
+            self._validate_github_params(
+                arguments["repo_owner"], arguments["repo_name"]
+            )
 
             result = await github_list_workflow_runs(
                 repo_owner=arguments["repo_owner"],
@@ -1811,6 +1904,11 @@ class ServerApplication(DebuggableComponent):
             if "repo_owner" not in arguments or "repo_name" not in arguments:
                 result = "Error: repo_owner and repo_name are required arguments"
             else:
+                # Validate that repo_owner/repo_name are not file paths
+                self._validate_github_params(
+                    arguments["repo_owner"], arguments["repo_name"]
+                )
+
                 result = await github_await_workflow_completion(
                     repo_owner=arguments["repo_owner"],
                     repo_name=arguments["repo_name"],
@@ -1820,6 +1918,11 @@ class ServerApplication(DebuggableComponent):
                 )
         elif name == GitHubTools.CREATE_PR:
             from ..github.api import github_create_pr
+
+            # Validate that repo_owner/repo_name are not file paths
+            self._validate_github_params(
+                arguments["repo_owner"], arguments["repo_name"]
+            )
 
             result = await github_create_pr(
                 repo_owner=arguments["repo_owner"],
@@ -1833,6 +1936,11 @@ class ServerApplication(DebuggableComponent):
         elif name == GitHubTools.MERGE_PR:
             from ..github.api import github_merge_pr
 
+            # Validate that repo_owner/repo_name are not file paths
+            self._validate_github_params(
+                arguments["repo_owner"], arguments["repo_name"]
+            )
+
             result = await github_merge_pr(
                 repo_owner=arguments["repo_owner"],
                 repo_name=arguments["repo_name"],
@@ -1844,6 +1952,11 @@ class ServerApplication(DebuggableComponent):
         elif name == GitHubTools.ADD_PR_COMMENT:
             from ..github.api import github_add_pr_comment
 
+            # Validate that repo_owner/repo_name are not file paths
+            self._validate_github_params(
+                arguments["repo_owner"], arguments["repo_name"]
+            )
+
             result = await github_add_pr_comment(
                 repo_owner=arguments["repo_owner"],
                 repo_name=arguments["repo_name"],
@@ -1853,6 +1966,11 @@ class ServerApplication(DebuggableComponent):
         elif name == GitHubTools.CLOSE_PR:
             from ..github.api import github_close_pr
 
+            # Validate that repo_owner/repo_name are not file paths
+            self._validate_github_params(
+                arguments["repo_owner"], arguments["repo_name"]
+            )
+
             result = await github_close_pr(
                 repo_owner=arguments["repo_owner"],
                 repo_name=arguments["repo_name"],
@@ -1861,6 +1979,11 @@ class ServerApplication(DebuggableComponent):
         elif name == GitHubTools.REOPEN_PR:
             from ..github.api import github_reopen_pr
 
+            # Validate that repo_owner/repo_name are not file paths
+            self._validate_github_params(
+                arguments["repo_owner"], arguments["repo_name"]
+            )
+
             result = await github_reopen_pr(
                 repo_owner=arguments["repo_owner"],
                 repo_name=arguments["repo_name"],
@@ -1868,6 +1991,11 @@ class ServerApplication(DebuggableComponent):
             )
         elif name == GitHubTools.UPDATE_PR:
             from ..github.api import github_update_pr
+
+            # Validate that repo_owner/repo_name are not file paths
+            self._validate_github_params(
+                arguments["repo_owner"], arguments["repo_name"]
+            )
 
             result = await github_update_pr(
                 repo_owner=arguments["repo_owner"],
@@ -1880,6 +2008,11 @@ class ServerApplication(DebuggableComponent):
             )
         elif name == GitHubTools.GET_FAILING_JOBS:
             from ..github.api import github_get_failing_jobs
+
+            # Validate that repo_owner/repo_name are not file paths
+            self._validate_github_params(
+                arguments["repo_owner"], arguments["repo_name"]
+            )
 
             result = await github_get_failing_jobs(
                 repo_owner=arguments["repo_owner"],
