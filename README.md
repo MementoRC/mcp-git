@@ -143,6 +143,28 @@ The server provides Azure DevOps integration for monitoring and analyzing Azure 
 
 **Configuration**: Azure DevOps integration requires setting `AZURE_DEVOPS_TOKEN` and `AZURE_DEVOPS_ORG` environment variables. See the Environment Variables section for details.
 
+### Important: Repository Path Resolution
+
+The `repo_path` parameter in all git tools supports the following behaviors:
+
+- **Absolute paths**: Always used directly (e.g., `/home/user/my-repo`)
+- **"." (current directory)**: Resolves to the bound repository when the server is started with the `--repository` parameter. If no repository is bound, the operation will fail with a clear error message.
+- **Relative paths**: Converted to absolute paths relative to the current working directory. For best reliability, use absolute paths or bind a repository with `--repository`.
+
+**Recommended Usage**:
+- When starting the server, use the `--repository` parameter to bind to a specific repository
+- In tool calls, use `repo_path: "."` to reference the bound repository
+- For operations on different repositories, provide absolute paths
+
+**Example**:
+```bash
+# Start server bound to a repository
+mcp-server-git --repository /path/to/my-repo
+
+# Then use "." in tool calls to reference the bound repository
+# This prevents cross-repository contamination
+```
+
 ## Installation
 
 ### Using uv (recommended)
