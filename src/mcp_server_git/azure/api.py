@@ -95,7 +95,7 @@ async def azure_get_build_status(project: str, build_id: int) -> str:
 
 
 async def azure_get_build_logs(
-    project: str, build_id: int, log_id: int | None = None
+    project: str, build_id: int, log_id: int | None = None, tail_lines: int = 500
 ) -> str:
     """Get logs from an Azure DevOps build
 
@@ -103,6 +103,7 @@ async def azure_get_build_logs(
         project: The project name or ID
         build_id: The build ID
         log_id: Optional specific log ID to retrieve. If None, lists all logs.
+        tail_lines: Number of lines to return from the end of the log (default: 500)
 
     Returns:
         Formatted string with log information or content
@@ -151,18 +152,39 @@ async def azure_get_build_logs(
                         f"{response.status} - {error_text}"
                     )
 
-                log_content = await response.text()
+                # Azure DevOps returns log content as JSON with a "value" array of strings
+                # Try JSON first, fall back to text for backwards compatibility
+                content_type = response.headers.get("Content-Type", "")
+                if "application/json" in content_type:
+                    log_data = await response.json()
+                    if isinstance(log_data, dict) and "value" in log_data:
+                        log_lines = log_data["value"]
+                    elif isinstance(log_data, list):
+                        log_lines = log_data
+                    else:
+                        # Unexpected format, try to convert to string
+                        log_lines = [str(log_data)]
+                else:
+                    # Plain text response
+                    log_text = await response.text()
+                    log_lines = log_text.split("\n")
 
-                # Truncate if too long (similar to GitHub implementation)
-                max_length = 10000
-                if len(log_content) > max_length:
-                    truncated_chars = len(log_content) - max_length
+                # Apply tail_lines limit
+                original_line_count = len(log_lines)
+                if len(log_lines) > tail_lines:
+                    truncated_count = len(log_lines) - tail_lines
+                    log_lines = log_lines[-tail_lines:]
+                    log_content = "\n".join(log_lines)
                     log_content = (
-                        log_content[:max_length]
-                        + f"\n... [truncated {truncated_chars} chars]"
+                        f"... [truncated {truncated_count} lines] ...\n\n"
+                        + log_content
                     )
+                    header = f"Log #{log_id} for Build #{build_id} (showing last {tail_lines} of {original_line_count} lines):\n\n"
+                else:
+                    log_content = "\n".join(log_lines)
+                    header = f"Log #{log_id} for Build #{build_id} ({original_line_count} lines):\n\n"
 
-                return f"Log #{log_id} for Build #{build_id}:\n\n{log_content}"
+                return header + log_content
 
     except ValueError as auth_error:
         logger.error(f"Authentication error getting build logs: {auth_error}")
@@ -175,7 +197,7 @@ async def azure_get_build_logs(
 
 
 async def azure_get_failing_jobs(
-    project: str, build_id: int, include_logs: bool = True
+    project: str, build_id: int, include_logs: bool = True, log_tail_lines: int = 500
 ) -> str:
     """Get detailed information about failing jobs in a build
 
@@ -183,6 +205,7 @@ async def azure_get_failing_jobs(
         project: The project name or ID
         build_id: The build ID
         include_logs: Whether to include log excerpts from failing jobs
+        log_tail_lines: Number of lines to include from each log (default: 500)
 
     Returns:
         Formatted string with failing job information
@@ -270,16 +293,39 @@ async def azure_get_failing_jobs(
                             f"{project}/_apis/build/builds/{build_id}/logs/{log_id}?api-version=7.1"
                         )
                         if log_response.status == 200:
-                            log_content = await log_response.text()
-                            # Get last 20 lines
-                            lines = log_content.strip().split("\n")
-                            if len(lines) > 20:
-                                excerpt = "\n".join(lines[-20:])
+                            # Azure DevOps returns log content as JSON with a "value" array
+                            content_type = log_response.headers.get("Content-Type", "")
+                            if "application/json" in content_type:
+                                log_data = await log_response.json()
+                                if isinstance(log_data, dict) and "value" in log_data:
+                                    log_lines = log_data["value"]
+                                elif isinstance(log_data, list):
+                                    log_lines = log_data
+                                else:
+                                    log_lines = [str(log_data)]
                             else:
-                                excerpt = log_content
-                            output.append("   Log excerpt (last 20 lines):")
+                                # Plain text response
+                                log_text = await log_response.text()
+                                log_lines = log_text.split("\n")
+                            
+                            # Get last N lines
+                            original_line_count = len(log_lines)
+                            if len(log_lines) > log_tail_lines:
+                                truncated_count = original_line_count - log_tail_lines
+                                excerpt_lines = log_lines[-log_tail_lines:]
+                                output.append(
+                                    f"   Log excerpt (showing last {log_tail_lines} of {original_line_count} lines):"
+                                )
+                                output.append(f"   ... [truncated {truncated_count} lines] ...")
+                            else:
+                                excerpt_lines = log_lines
+                                output.append(
+                                    f"   Log excerpt ({original_line_count} lines):"
+                                )
                             output.append("   ```")
-                            output.append(f"   {excerpt}")
+                            # Indent each line
+                            for line in excerpt_lines:
+                                output.append(f"   {line}")
                             output.append("   ```")
                     except Exception as log_error:
                         logger.warning(f"Failed to get log {log_id}: {log_error}")
