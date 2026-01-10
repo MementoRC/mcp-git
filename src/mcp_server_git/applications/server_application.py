@@ -585,6 +585,9 @@ class ServerApplication(DebuggableComponent):
         self._security_framework: SecurityFramework | None = None
         
         # Repository path resolver for proper repo_path handling
+        # Note: The resolver maintains an instance-based cache that persists for the server
+        # lifetime. Cache invalidation is not needed as bound_repository_path is immutable
+        # after initialization (set via --repository parameter at server startup).
         bound_path = str(self.config.repository_path) if self.config.repository_path else None
         self._repository_resolver = RepositoryResolver(bound_repository_path=bound_path)
 
@@ -1505,6 +1508,40 @@ class ServerApplication(DebuggableComponent):
 
         logger.info("MCP tools registered successfully")
 
+    def _resolve_repo_path_for_init(self, requested_repo_path: str | None) -> str:
+        """
+        Resolve repository path specifically for git_init operation.
+        
+        git_init is special because it can create repositories at paths that don't exist yet.
+        
+        Args:
+            requested_repo_path: The repo_path from tool arguments
+            
+        Returns:
+            Resolved absolute repository path
+            
+        Raises:
+            ValueError: If no valid path can be determined
+        """
+        if requested_repo_path and requested_repo_path != ".":
+            # For git_init with explicit path (not "."), use it directly
+            # even if it doesn't exist yet (git init can create it)
+            return str(Path(requested_repo_path).resolve())
+        else:
+            # For git_init with "." or no path, use RepositoryResolver
+            # to get the bound repository
+            resolved_repo_path = self._repository_resolver.resolve_repository_path(
+                requested_repo_path
+            )
+            
+            if resolved_repo_path is None:
+                raise ValueError(
+                    "git_init requires a repository path. "
+                    "Provide repo_path parameter or start server with --repository."
+                )
+            
+            return str(Path(resolved_repo_path).resolve())
+
     async def _execute_tool_operation(self, name: str, arguments: dict):
         """Execute the actual tool logic without middleware."""
         # COMPREHENSIVE INTEGRATED LOGGING
@@ -1546,29 +1583,10 @@ class ServerApplication(DebuggableComponent):
         # This handles "." correctly by resolving to bound repository
         requested_repo_path = arguments.get("repo_path")
         
-        # Special handling for git_init - it can create a repo at a new path
-        # that doesn't exist yet, so we can't rely on existence checks
+        # Use appropriate resolution strategy based on operation type
         if name == GitTools.INIT:
-            if requested_repo_path and requested_repo_path != ".":
-                # For git_init with explicit path (not "."), use it directly
-                # even if it doesn't exist yet (git init can create it)
-                repo_path = str(Path(requested_repo_path).resolve())
-            else:
-                # For git_init with "." or no path, use RepositoryResolver
-                # to get the bound repository
-                resolved_repo_path = self._repository_resolver.resolve_repository_path(
-                    requested_repo_path
-                )
-                
-                if resolved_repo_path is None:
-                    error_msg = (
-                        "git_init requires a repository path. "
-                        "Please provide repo_path parameter or start server with --repository parameter."
-                    )
-                    logger.error(error_msg)
-                    raise ValueError(error_msg)
-                
-                repo_path = str(Path(resolved_repo_path).resolve())
+            # git_init has special handling since it can create new repositories
+            repo_path = self._resolve_repo_path_for_init(requested_repo_path)
         else:
             # For all other operations, use RepositoryResolver which validates existence
             resolved_repo_path = self._repository_resolver.resolve_repository_path(
@@ -1577,13 +1595,10 @@ class ServerApplication(DebuggableComponent):
             
             # Validate that we have a valid repository path
             if resolved_repo_path is None:
-                error_msg = (
-                    "No repository path could be determined. "
-                    "Please provide an absolute path via repo_path parameter, "
-                    "or start the server with --repository parameter to bind a repository."
+                raise ValueError(
+                    "Cannot determine target repository. "
+                    "Provide an absolute repo_path or start server with --repository to bind a default repository."
                 )
-                logger.error(error_msg)
-                raise ValueError(error_msg)
             
             # Convert to absolute path to prevent any relative path issues
             repo_path = str(Path(resolved_repo_path).resolve())

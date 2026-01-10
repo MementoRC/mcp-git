@@ -119,8 +119,8 @@ class TestRepoPathResolution:
                 {"repo_path": "."}
             )
         
-        assert "No repository path could be determined" in str(exc_info.value)
-        assert "absolute path" in str(exc_info.value).lower()
+        assert "Cannot determine target repository" in str(exc_info.value)
+        assert "absolute" in str(exc_info.value).lower()
 
     async def test_repo_path_absolute_path(self, server_app_with_repo, temp_repo):
         """Test that absolute path is used directly."""
@@ -169,7 +169,7 @@ class TestRepoPathResolution:
                 {}  # No repo_path provided
             )
         
-        assert "No repository path could be determined" in str(exc_info.value)
+        assert "Cannot determine target repository" in str(exc_info.value)
 
     async def test_git_init_with_path(self, server_app_no_repo):
         """Test that git_init works with an explicit path."""
