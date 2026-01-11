@@ -5,7 +5,7 @@ This module provides the lean MCP interface for the mcp-git server, reducing
 context consumption from ~30k tokens to ~2k tokens through the 3-meta-tool pattern.
 
 Architecture:
-- Registers all 57 tools from git, github, and azure domains
+- Registers all 51 tools from git, github, and azure domains
 - Exposes only 3 meta-tools: discover_tools, get_tool_spec, execute_tool
 - Routes tool execution to appropriate handlers
 - Applies intelligent token limiting to responses
@@ -55,7 +55,7 @@ class GitLeanInterface:
     - get_tool_spec(): On-demand schema retrieval
     - execute_tool(): Unified tool execution
 
-    Registers all 57 tools across git, github, and azure domains.
+    Registers all 51 tools across git, github, and azure domains.
     """
 
     def __init__(
@@ -158,7 +158,7 @@ class GitLeanInterface:
             - GitHub: create/list/merge PRs, manage issues, check workflows, get CI status
             - Azure: get build status/logs, list builds, analyze failing jobs
 
-            This lean interface provides 57 tools across 3 domains, saving ~28k tokens
+            This lean interface provides 51 tools across 3 domains, saving ~25k tokens
             vs loading all tool schemas upfront.
 
             WORKFLOW:
@@ -168,7 +168,7 @@ class GitLeanInterface:
 
             Args:
                 pattern: Filter tools by name (e.g., "status", "pr", "merge", "rebase")
-                         Leave empty "" to see all 57 tools
+                         Leave empty "" to see all 51 tools
 
             Returns:
                 Dictionary containing:
@@ -177,9 +177,9 @@ class GitLeanInterface:
                   * description: What the tool does
                   * domain: "git", "github", or "azure"
                   * complexity: "core", "focused", "advanced", or "comprehensive"
-                - total_tools: Total tools in registry (57)
+                - total_tools: Total tools in registry (51)
                 - filtered_count: How many matched your pattern
-                - domains: Breakdown by domain (git: 25, github: 28, azure: 4)
+                - domains: Breakdown by domain (git: 25, github: 22, azure: 4)
 
                 Example output for discover_tools("status"):
                 {
@@ -188,11 +188,11 @@ class GitLeanInterface:
                     {"name": "github_get_pr_status", "description": "Get PR status", "domain": "github"}
                   ],
                   "filtered_count": 2,
-                  "total_tools": 57
+                  "total_tools": 51
                 }
 
             Examples:
-                discover_tools("")              # List all 57 tools
+                discover_tools("")              # List all 51 tools
                 discover_tools("status")        # Find: git_status, github_get_pr_status
                 discover_tools("pr")            # Find all PR tools: create, list, merge, etc.
                 discover_tools("rebase")        # Find: git_rebase, git_abort, git_continue
@@ -223,7 +223,11 @@ class GitLeanInterface:
                 "available_tools": tools,
                 "total_tools": len(self.tool_registry),
                 "filtered_count": len(tools),
-                "domains": {"git": 25, "github": 28, "azure": 4},
+                "domains": {
+                    "git": len([t for t in self.tool_registry.values() if t.domain == "git"]),
+                    "github": len([t for t in self.tool_registry.values() if t.domain == "github"]),
+                    "azure": len([t for t in self.tool_registry.values() if t.domain == "azure"]),
+                },
                 "context_saving": f"~{len(self.tool_registry) * 0.5}K tokens saved vs traditional MCP",
             }
 

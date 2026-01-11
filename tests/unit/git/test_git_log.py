@@ -272,9 +272,7 @@ class TestGitLogFileFiltering:
         mock_repo.git.log.return_value = "commit abc123"
 
         # Act
-        result = git_log(
-            mock_repo, max_count=10, files=["src/main.py", "src/utils.py"]
-        )
+        result = git_log(mock_repo, max_count=10, files=["src/main.py", "src/utils.py"])
 
         # Assert
         args = mock_repo.git.log.call_args[0]
@@ -353,9 +351,7 @@ class TestGitLogComplexScenarios:
         mock_repo.git.log.return_value = "commit abc123"
 
         # Act
-        result = git_log(
-            mock_repo, max_count=10, branch="main", files=["src/main.py"]
-        )
+        result = git_log(mock_repo, max_count=10, branch="main", files=["src/main.py"])
 
         # Assert
         args = mock_repo.git.log.call_args[0]
@@ -437,7 +433,9 @@ class TestGitLogRealWorldScenarios:
         """Scenario: Find recent fix commits."""
         # Arrange
         mock_repo = Mock()
-        mock_repo.git.log.return_value = "abc123 fix: resolve bug\ndef456 fix: memory leak"
+        mock_repo.git.log.return_value = (
+            "abc123 fix: resolve bug\ndef456 fix: memory leak"
+        )
 
         # Act
         result = git_log(mock_repo, max_count=20, grep="fix:", oneline=True)

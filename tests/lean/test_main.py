@@ -104,12 +104,10 @@ class TestLeanMain:
 
         # Verify logging
         assert mock_logger.info.called
-        log_messages = [
-            call.args[0] for call in mock_logger.info.call_args_list
-        ]
+        log_messages = [call.args[0] for call in mock_logger.info.call_args_list]
 
         # Should log initialization messages
         assert any("Initializing" in msg for msg in log_messages)
         assert any("initialized successfully" in msg for msg in log_messages)
         assert any("3 meta-tools" in msg for msg in log_messages)
-        assert any("57 tools" in msg for msg in log_messages)
+        assert any("51 tools" in msg for msg in log_messages)

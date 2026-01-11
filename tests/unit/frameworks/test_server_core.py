@@ -70,7 +70,7 @@ class TestMCPGitServerCore:
         with patch("mcp_server_git.frameworks.server_core.stdio_server") as mock_stdio:
             with patch("asyncio.sleep") as mock_sleep:
                 mock_stdio.return_value.__aenter__.return_value = (Mock(), Mock())
-                
+
                 await server_core.start_server(test_mode=True)
 
                 assert server_core.is_running is False  # Should stop after test
