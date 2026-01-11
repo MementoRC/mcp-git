@@ -110,4 +110,4 @@ class TestLeanMain:
         assert any("Initializing" in msg for msg in log_messages)
         assert any("initialized successfully" in msg for msg in log_messages)
         assert any("3 meta-tools" in msg for msg in log_messages)
-        assert any("52 tools" in msg for msg in log_messages)
+        assert any("51 tools" in msg for msg in log_messages)

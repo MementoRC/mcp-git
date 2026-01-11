@@ -1,11 +1,11 @@
 """
 Tool Registry for Git Lean MCP Interface.
 
-Registers all 52 tools across git, github, and azure domains with complete metadata.
+Registers all 51 tools across git, github, and azure domains with complete metadata.
 
 Tool Distribution:
 - Git tools (25): Core git operations
-- GitHub tools (23): PR, issues, workflows
+- GitHub tools (22): PR, issues, workflows
 - Azure tools (4): Build logs and status
 """
 
@@ -39,7 +39,7 @@ def register_all_tools(
     # Register Git tools (25 tools)
     _register_git_tools(interface, git_service)
 
-    # Register GitHub tools (23 tools)
+    # Register GitHub tools (22 tools)
     _register_github_tools(interface, github_service)
 
     # Register Azure tools (4 tools)
