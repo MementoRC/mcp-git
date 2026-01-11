@@ -1548,7 +1548,6 @@ class ServerApplication(DebuggableComponent):
         logger.debug(f"Executing tool: {name}")
 
         # Import git operations (must be done here since they're not at module level)
-
         from ..git.operations import (
             git_abort,
             git_add,
@@ -1579,34 +1578,59 @@ class ServerApplication(DebuggableComponent):
         )
         from ..utils.git_import import Repo
 
-        # Resolve repository path using RepositoryResolver
-        # This handles "." correctly by resolving to bound repository
-        requested_repo_path = arguments.get("repo_path")
-        
-        # Use appropriate resolution strategy based on operation type
-        if name == GitTools.INIT:
-            # git_init has special handling since it can create new repositories
-            repo_path = self._resolve_repo_path_for_init(requested_repo_path)
-        else:
-            # For all other operations, use RepositoryResolver which validates existence
-            resolved_repo_path = self._repository_resolver.resolve_repository_path(
-                requested_repo_path
-            )
+        # Check if this is a GitHub operation (which doesn't need repository path resolution)
+        github_operations = [
+            GitHubTools.CREATE_ISSUE,
+            GitHubTools.LIST_ISSUES,
+            GitHubTools.UPDATE_ISSUE,
+            GitHubTools.GET_PR_CHECKS,
+            GitHubTools.GET_PR_DETAILS,
+            GitHubTools.LIST_PULL_REQUESTS,
+            GitHubTools.GET_PR_STATUS,
+            GitHubTools.GET_PR_FILES,
+            GitHubTools.EDIT_PR_DESCRIPTION,
+            GitHubTools.GET_WORKFLOW_RUN,
+            GitHubTools.LIST_WORKFLOW_RUNS,
+            GitHubTools.AWAIT_WORKFLOW_COMPLETION,
+            GitHubTools.CREATE_PR,
+            GitHubTools.MERGE_PR,
+            GitHubTools.ADD_PR_COMMENT,
+            GitHubTools.CLOSE_PR,
+            GitHubTools.REOPEN_PR,
+            GitHubTools.UPDATE_PR,
+            GitHubTools.GET_FAILING_JOBS,
+        ]
+
+        # Only resolve repository path for Git operations, not GitHub operations
+        if name not in github_operations:
+            # Resolve repository path using RepositoryResolver for Git operations only
+            # This handles "." correctly by resolving to bound repository
+            requested_repo_path = arguments.get("repo_path")
             
-            # Validate that we have a valid repository path
-            if resolved_repo_path is None:
-                raise ValueError(
-                    "Cannot determine target repository. "
-                    "Provide an absolute repo_path or start server with --repository to bind a default repository."
+            # Use appropriate resolution strategy based on operation type
+            if name == GitTools.INIT:
+                # git_init has special handling since it can create new repositories
+                repo_path = self._resolve_repo_path_for_init(requested_repo_path)
+            else:
+                # For all other Git operations, use RepositoryResolver which validates existence
+                resolved_repo_path = self._repository_resolver.resolve_repository_path(
+                    requested_repo_path
                 )
+                
+                # Validate that we have a valid repository path
+                if resolved_repo_path is None:
+                    raise ValueError(
+                        "Cannot determine target repository. "
+                        "Provide an absolute repo_path or start server with --repository to bind a default repository."
+                    )
+                
+                # Convert to absolute path to prevent any relative path issues
+                repo_path = str(Path(resolved_repo_path).resolve())
             
-            # Convert to absolute path to prevent any relative path issues
-            repo_path = str(Path(resolved_repo_path).resolve())
-        
-        logger.debug(
-            f"Repository path resolved: requested={requested_repo_path}, "
-            f"resolved={repo_path}"
-        )
+            logger.debug(
+                f"Repository path resolved: requested={requested_repo_path}, "
+                f"resolved={repo_path}"
+            )
 
         # Route to appropriate git or GitHub operation
         # Special case: git_init doesn't need an existing repository
