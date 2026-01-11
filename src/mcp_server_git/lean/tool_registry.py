@@ -50,6 +50,7 @@ def register_all_tools(
 
 def _register_git_tools(interface: Any, git_service: Any):
     """Register all Git domain tools."""
+    # Import models for schema generation
     from ..git.models import (
         GitAbort,
         GitAdd,
@@ -73,13 +74,25 @@ def _register_git_tools(interface: Any, git_service: Any):
         GitStatus,
     )
 
-    # Use service methods directly - no wrapper needed
-    # The service is expected to have methods matching the tool names
+    # Import operations and Repo for path conversion
+    from ..git import operations as git_ops
+    from ..utils.git_import import Repo
+
+    # Create wrapper functions that convert repo_path to Repo object
+    # The underlying operations expect Repo objects, not path strings
+    def wrap_repo_op(op_func):
+        """Wrap a git operation that takes Repo as first argument."""
+
+        def wrapper(repo_path: str, **kwargs):
+            repo = Repo(repo_path)
+            return op_func(repo, **kwargs)
+
+        return wrapper
 
     git_tools = [
         ToolDefinition(
             name="git_status",
-            implementation=git_service.git_status,
+            implementation=wrap_repo_op(git_ops.git_status),
             description="Shows the working tree status",
             schema=GitStatus.model_json_schema(),
             domain="git",
@@ -87,7 +100,7 @@ def _register_git_tools(interface: Any, git_service: Any):
         ),
         ToolDefinition(
             name="git_diff_unstaged",
-            implementation=git_service.git_diff_unstaged,
+            implementation=wrap_repo_op(git_ops.git_diff_unstaged),
             description="Shows changes in the working directory that are not yet staged",
             schema=GitDiffUnstaged.model_json_schema(),
             domain="git",
@@ -95,7 +108,7 @@ def _register_git_tools(interface: Any, git_service: Any):
         ),
         ToolDefinition(
             name="git_diff_staged",
-            implementation=git_service.git_diff_staged,
+            implementation=wrap_repo_op(git_ops.git_diff_staged),
             description="Shows changes that are staged for commit",
             schema=GitDiffStaged.model_json_schema(),
             domain="git",
@@ -103,7 +116,7 @@ def _register_git_tools(interface: Any, git_service: Any):
         ),
         ToolDefinition(
             name="git_diff",
-            implementation=git_service.git_diff,
+            implementation=wrap_repo_op(git_ops.git_diff),
             description="Shows differences between branches or commits",
             schema=GitDiff.model_json_schema(),
             domain="git",
@@ -111,7 +124,7 @@ def _register_git_tools(interface: Any, git_service: Any):
         ),
         ToolDefinition(
             name="git_commit",
-            implementation=git_service.git_commit,
+            implementation=wrap_repo_op(git_ops.git_commit),
             description="Records changes to the repository",
             schema=GitCommit.model_json_schema(),
             domain="git",
@@ -119,7 +132,7 @@ def _register_git_tools(interface: Any, git_service: Any):
         ),
         ToolDefinition(
             name="git_add",
-            implementation=git_service.git_add,
+            implementation=wrap_repo_op(git_ops.git_add),
             description="Adds file contents to the staging area",
             schema=GitAdd.model_json_schema(),
             domain="git",
@@ -127,7 +140,7 @@ def _register_git_tools(interface: Any, git_service: Any):
         ),
         ToolDefinition(
             name="git_reset",
-            implementation=git_service.git_reset,
+            implementation=wrap_repo_op(git_ops.git_reset),
             description="Reset repository with advanced options (--soft, --mixed, --hard)",
             schema=GitReset.model_json_schema(),
             domain="git",
@@ -135,7 +148,7 @@ def _register_git_tools(interface: Any, git_service: Any):
         ),
         ToolDefinition(
             name="git_log",
-            implementation=git_service.git_log,
+            implementation=wrap_repo_op(git_ops.git_log),
             description="Shows the commit logs",
             schema=GitLog.model_json_schema(),
             domain="git",
@@ -143,7 +156,7 @@ def _register_git_tools(interface: Any, git_service: Any):
         ),
         ToolDefinition(
             name="git_create_branch",
-            implementation=git_service.git_create_branch,
+            implementation=wrap_repo_op(git_ops.git_create_branch),
             description="Creates a new branch from an optional base branch",
             schema=GitCreateBranch.model_json_schema(),
             domain="git",
@@ -151,7 +164,7 @@ def _register_git_tools(interface: Any, git_service: Any):
         ),
         ToolDefinition(
             name="git_checkout",
-            implementation=git_service.git_checkout,
+            implementation=wrap_repo_op(git_ops.git_checkout),
             description="Switches branches",
             schema=GitCheckout.model_json_schema(),
             domain="git",
@@ -159,7 +172,7 @@ def _register_git_tools(interface: Any, git_service: Any):
         ),
         ToolDefinition(
             name="git_show",
-            implementation=git_service.git_show,
+            implementation=wrap_repo_op(git_ops.git_show),
             description="Shows the contents of a commit",
             schema=GitShow.model_json_schema(),
             domain="git",
@@ -167,7 +180,7 @@ def _register_git_tools(interface: Any, git_service: Any):
         ),
         ToolDefinition(
             name="git_init",
-            implementation=git_service.git_init,
+            implementation=git_ops.git_init,  # git_init takes path directly, not Repo
             description="Initialize a new Git repository",
             schema=GitInit.model_json_schema(),
             domain="git",
@@ -175,7 +188,7 @@ def _register_git_tools(interface: Any, git_service: Any):
         ),
         ToolDefinition(
             name="git_push",
-            implementation=git_service.git_push,
+            implementation=wrap_repo_op(git_ops.git_push),
             description="Push commits to remote repository",
             schema=GitPush.model_json_schema(),
             domain="git",
@@ -183,7 +196,7 @@ def _register_git_tools(interface: Any, git_service: Any):
         ),
         ToolDefinition(
             name="git_pull",
-            implementation=git_service.git_pull,
+            implementation=wrap_repo_op(git_ops.git_pull),
             description="Pull changes from remote repository",
             schema=GitPull.model_json_schema(),
             domain="git",
@@ -191,7 +204,7 @@ def _register_git_tools(interface: Any, git_service: Any):
         ),
         ToolDefinition(
             name="git_diff_branches",
-            implementation=git_service.git_diff_branches,
+            implementation=wrap_repo_op(git_ops.git_diff_branches),
             description="Show differences between two branches",
             schema=GitDiffBranches.model_json_schema(),
             domain="git",
@@ -199,7 +212,7 @@ def _register_git_tools(interface: Any, git_service: Any):
         ),
         ToolDefinition(
             name="git_rebase",
-            implementation=git_service.git_rebase,
+            implementation=wrap_repo_op(git_ops.git_rebase),
             description="Rebase current branch onto another branch",
             schema=GitRebase.model_json_schema(),
             domain="git",
@@ -207,7 +220,7 @@ def _register_git_tools(interface: Any, git_service: Any):
         ),
         ToolDefinition(
             name="git_merge",
-            implementation=git_service.git_merge,
+            implementation=wrap_repo_op(git_ops.git_merge),
             description="Merge a branch into the current branch",
             schema=GitMerge.model_json_schema(),
             domain="git",
@@ -215,7 +228,7 @@ def _register_git_tools(interface: Any, git_service: Any):
         ),
         ToolDefinition(
             name="git_cherry_pick",
-            implementation=git_service.git_cherry_pick,
+            implementation=wrap_repo_op(git_ops.git_cherry_pick),
             description="Apply a commit from another branch to current branch",
             schema=GitCherryPick.model_json_schema(),
             domain="git",
@@ -223,7 +236,7 @@ def _register_git_tools(interface: Any, git_service: Any):
         ),
         ToolDefinition(
             name="git_abort",
-            implementation=git_service.git_abort,
+            implementation=wrap_repo_op(git_ops.git_abort),
             description="Abort an in-progress git operation (rebase, merge, cherry-pick)",
             schema=GitAbort.model_json_schema(),
             domain="git",
@@ -231,16 +244,16 @@ def _register_git_tools(interface: Any, git_service: Any):
         ),
         ToolDefinition(
             name="git_continue",
-            implementation=git_service.git_continue,
+            implementation=wrap_repo_op(git_ops.git_continue),
             description="Continue an in-progress git operation after resolving conflicts",
             schema=GitContinue.model_json_schema(),
             domain="git",
             complexity="advanced",
         ),
-        # Remote operations (5 more tools from models)
+        # Remote operations
         ToolDefinition(
             name="git_fetch",
-            implementation=git_service.git_fetch,
+            implementation=wrap_repo_op(git_ops.git_fetch),
             description="Fetch changes from remote repository",
             schema={
                 "type": "object",
@@ -254,7 +267,7 @@ def _register_git_tools(interface: Any, git_service: Any):
         ),
         ToolDefinition(
             name="git_remote_add",
-            implementation=git_service.git_remote_add,
+            implementation=wrap_repo_op(git_ops.git_remote_add),
             description="Add a remote repository",
             schema={
                 "type": "object",
@@ -269,7 +282,7 @@ def _register_git_tools(interface: Any, git_service: Any):
         ),
         ToolDefinition(
             name="git_remote_remove",
-            implementation=git_service.git_remote_remove,
+            implementation=wrap_repo_op(git_ops.git_remote_remove),
             description="Remove a remote repository",
             schema={
                 "type": "object",
@@ -283,7 +296,7 @@ def _register_git_tools(interface: Any, git_service: Any):
         ),
         ToolDefinition(
             name="git_remote_list",
-            implementation=git_service.git_remote_list,
+            implementation=wrap_repo_op(git_ops.git_remote_list),
             description="List remote repositories",
             schema={"type": "object", "properties": {"repo_path": {"type": "string"}}},
             domain="git",
@@ -291,7 +304,7 @@ def _register_git_tools(interface: Any, git_service: Any):
         ),
         ToolDefinition(
             name="git_remote_get_url",
-            implementation=git_service.git_remote_get_url,
+            implementation=wrap_repo_op(git_ops.git_remote_get_url),
             description="Get URL of a remote repository",
             schema={
                 "type": "object",
