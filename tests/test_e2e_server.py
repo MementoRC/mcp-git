@@ -144,14 +144,14 @@ async def mcp_server():
                     await asyncio.sleep(0.1)
             except Exception:
                 pass  # Ignore cleanup errors
-            
+
             # Then terminate the process with timeout
             try:
                 process.terminate()
             except ProcessLookupError:
                 # Process already exited, that's fine
                 pass
-            
+
             try:
                 await asyncio.wait_for(process.wait(), timeout=5.0)
             except asyncio.TimeoutError:
@@ -165,13 +165,13 @@ async def mcp_server():
                     await asyncio.wait_for(process.wait(), timeout=3.0)
                 except asyncio.TimeoutError:
                     pass  # Give up, let it be cleaned up by OS
-        
+
         # Ensure all streams are properly closed
         try:
             if process.stdin and not process.stdin.is_closing():
                 process.stdin.close()
             if process.stdout and not process.stdout.is_closing():
-                process.stdout.close()  
+                process.stdout.close()
             if process.stderr and not process.stderr.is_closing():
                 process.stderr.close()
             # Give event loop time to clean up transport
@@ -223,7 +223,7 @@ async def test_github_api_tools_routing(mcp_server):
             "github_get_pr_details",
             {"repo_owner": "test", "repo_name": "test", "pr_number": 1},
         ),
-        timeout=15.0
+        timeout=15.0,
     )
 
     # Should not get "not implemented" error anymore
@@ -262,8 +262,7 @@ async def test_git_tools_still_work(mcp_server):
 
         # Test git status tool
         response = await asyncio.wait_for(
-            client.call_tool("git_status", {"repo_path": str(repo_path)}),
-            timeout=15.0
+            client.call_tool("git_status", {"repo_path": str(repo_path)}), timeout=15.0
         )
 
         assert "result" in response, f"Git status tool failed: {response}"
@@ -287,7 +286,7 @@ async def test_tool_separation(mcp_server):
         client.call_tool(
             "github_list_pull_requests", {"repo_owner": "test", "repo_name": "test"}
         ),
-        timeout=15.0
+        timeout=15.0,
     )
 
     assert "result" in github_response, (
@@ -300,8 +299,7 @@ async def test_tool_separation(mcp_server):
         subprocess.run(["git", "init"], cwd=repo_path, check=True)
 
         git_response = await asyncio.wait_for(
-            client.call_tool("git_status", {"repo_path": str(repo_path)}),
-            timeout=15.0
+            client.call_tool("git_status", {"repo_path": str(repo_path)}), timeout=15.0
         )
 
         assert "result" in git_response, (

@@ -48,7 +48,7 @@ def main():
 
     logger.info("mcp-git-lean server initialized successfully")
     logger.info("3 meta-tools exposed: discover_tools, get_tool_spec, execute_tool")
-    logger.info("57 tools registered across git, github, and azure domains")
+    logger.info("52 tools registered across git, github, and azure domains")
 
     # Run the FastMCP server
     app.run()

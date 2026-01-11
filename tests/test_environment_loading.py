@@ -7,6 +7,7 @@ import pytest
 
 # Import from current modular architecture
 from mcp_server_git.github.client import get_github_client
+
 # Note: load_environment_variables is now handled by dotenv in main()
 from dotenv import load_dotenv
 
@@ -18,64 +19,65 @@ class TestEnvironmentLoading:
         """Helper method that mimics the old load_environment_variables function using dotenv."""
         from pathlib import Path
         import os
-        
+
         # Store the original environment state
         env_overrides = {}
-        
+
         # Check for ClaudeCode directory and load .env from there first
         current_path = Path.cwd()
         claude_code_path = None
-        
+
         # Walk up the directory tree to find ClaudeCode directory
         for parent in [current_path] + list(current_path.parents):
             if parent.name == "ClaudeCode" or (parent / "ClaudeCode").exists():
-                claude_code_path = parent if parent.name == "ClaudeCode" else parent / "ClaudeCode"
+                claude_code_path = (
+                    parent if parent.name == "ClaudeCode" else parent / "ClaudeCode"
+                )
                 break
-        
+
         # Load from ClaudeCode/.env if found
         if claude_code_path:
             claude_env = claude_code_path / ".env"
             if claude_env.exists():
-                with open(claude_env, 'r') as f:
+                with open(claude_env, "r") as f:
                     for line in f:
                         line = line.strip()
-                        if '=' in line and not line.startswith('#'):
-                            key, value = line.split('=', 1)
+                        if "=" in line and not line.startswith("#"):
+                            key, value = line.split("=", 1)
                             env_overrides[key] = value
-        
+
         # Load from repository .env if specified (repo level) - lower precedence
         if repository:
             repo_env = Path(repository) / ".env"
             if repo_env.exists():
-                with open(repo_env, 'r') as f:
+                with open(repo_env, "r") as f:
                     for line in f:
                         line = line.strip()
-                        if '=' in line and not line.startswith('#'):
-                            key, value = line.split('=', 1)
+                        if "=" in line and not line.startswith("#"):
+                            key, value = line.split("=", 1)
                             env_overrides[key] = value
-        
+
         # Load from current directory .env (project level) - highest precedence
         current_env = Path.cwd() / ".env"
         if current_env.exists():
             # Parse the .env file manually to get override values
-            with open(current_env, 'r') as f:
+            with open(current_env, "r") as f:
                 for line in f:
                     line = line.strip()
-                    if '=' in line and not line.startswith('#'):
-                        key, value = line.split('=', 1)
+                    if "=" in line and not line.startswith("#"):
+                        key, value = line.split("=", 1)
                         env_overrides[key] = value
-        
+
         # Apply overrides with the original function's logic
         for key, value in env_overrides.items():
-            current_value = os.getenv(key, '')
-            
+            current_value = os.getenv(key, "")
+
             # Override if:
             # 1. Environment variable is empty or whitespace-only
             # 2. Environment variable contains placeholder values
             placeholder_values = ["YOUR_TOKEN_HERE", "REPLACE_ME", "TODO", "CHANGEME"]
-            
-            if (not current_value.strip() or 
-                current_value.strip() in placeholder_values):
+
+            if not current_value.strip() or current_value.strip() in placeholder_values:
                 os.environ[key] = value
 
     def test_load_environment_with_empty_github_token(self, tmp_path, monkeypatch):
@@ -148,10 +150,10 @@ class TestEnvironmentLoading:
 
     def test_get_github_client_with_valid_token(self):
         """Test get_github_client with valid token."""
-        valid_token = "github_pat_" + "a" * 82  # 82 characters as required by regex pattern
-        with patch.dict(
-            os.environ, {"GITHUB_TOKEN": valid_token}, clear=False
-        ):
+        valid_token = (
+            "github_pat_" + "a" * 82
+        )  # 82 characters as required by regex pattern
+        with patch.dict(os.environ, {"GITHUB_TOKEN": valid_token}, clear=False):
             with patch("aiohttp.ClientSession") as mock_session:
                 client = get_github_client()
                 assert client is not None

@@ -100,25 +100,29 @@ async def llm_compliant_server():
     env["GITHUB_TOKEN"] = env.get("GITHUB_TOKEN", "test_token_placeholder")
     env["PYTHONPATH"] = str(cwd / "src")
     env["MCP_TEST_MODE"] = "true"  # Signal this is a test
-    
+
     # Clear any Python import caches that might contain mocks
     env["PYTHONDONTWRITEBYTECODE"] = "1"
     env["PYTHONUNBUFFERED"] = "1"
-    
+
     # CRITICAL: Remove ClaudeCode git redirectors to allow real git access
     # But keep pixi and other essential tools
     if "PATH" in env:
         path_entries = env["PATH"].split(os.pathsep)
         # Filter out only ClaudeCode's git redirect paths that block git
         clean_path = [
-            p for p in path_entries
-            if not any(redirect in p for redirect in [
-                "redirected_bins"  # Only remove the specific git redirector path
-            ])
+            p
+            for p in path_entries
+            if not any(
+                redirect in p
+                for redirect in [
+                    "redirected_bins"  # Only remove the specific git redirector path
+                ]
+            )
         ]
         env["PATH"] = os.pathsep.join(clean_path)
         # PATH cleaned to allow real git access in server subprocess
-    
+
     # Remove any existing module cache variables that could cause mock bleeding
     for key in list(env.keys()):
         if key.startswith("PYTEST_") or "mock" in key.lower():
@@ -165,13 +169,13 @@ async def llm_compliant_server():
         if process.returncode is None:
             # First, try to close the client connection gracefully
             try:
-                if hasattr(client, 'process') and client.process.stdin:
+                if hasattr(client, "process") and client.process.stdin:
                     client.process.stdin.close()
                     # Wait a moment for stdin close to propagate
                     await asyncio.sleep(0.1)
             except Exception:
                 pass  # Ignore cleanup errors
-            
+
             # Then terminate the process
             try:
                 if process.returncode is None:  # Double-check process is still running
@@ -190,13 +194,13 @@ async def llm_compliant_server():
                     await asyncio.wait_for(process.wait(), timeout=3.0)
                 except asyncio.TimeoutError:
                     pass  # Give up, let it be cleaned up by OS
-        
+
         # Ensure all streams are properly closed before fixture cleanup
         try:
             if process.stdin and not process.stdin.is_closing():
                 process.stdin.close()
             if process.stdout and not process.stdout.is_closing():
-                process.stdout.close()  
+                process.stdout.close()
             if process.stderr and not process.stderr.is_closing():
                 process.stderr.close()
             # Give event loop time to clean up transport
@@ -248,7 +252,9 @@ async def test_git_status_method_found(llm_compliant_server):
         repo_path = Path(tmp_dir)
 
         # Initialize git repo
-        _run_git_isolated(["git", "init"], cwd=repo_path, check=True, capture_output=True)
+        _run_git_isolated(
+            ["git", "init"], cwd=repo_path, check=True, capture_output=True
+        )
         _run_git_isolated(
             ["git", "config", "user.name", "Test User"], cwd=repo_path, check=True
         )
@@ -263,8 +269,7 @@ async def test_git_status_method_found(llm_compliant_server):
 
         # Call git_status tool
         response = await asyncio.wait_for(
-            client.call_tool("git_status", {"repo_path": str(repo_path)}), 
-            timeout=15.0
+            client.call_tool("git_status", {"repo_path": str(repo_path)}), timeout=15.0
         )
 
         # Should NOT get "Method not found" error
@@ -296,7 +301,9 @@ async def test_llm_compliant_architecture_validation(llm_compliant_server):
 
     with tempfile.TemporaryDirectory() as tmp_dir:
         repo_path = Path(tmp_dir)
-        _run_git_isolated(["git", "init"], cwd=repo_path, check=True, capture_output=True)
+        _run_git_isolated(
+            ["git", "init"], cwd=repo_path, check=True, capture_output=True
+        )
         _run_git_isolated(
             ["git", "config", "user.name", "Test User"], cwd=repo_path, check=True
         )
@@ -334,11 +341,12 @@ async def test_server_component_health(llm_compliant_server):
     # Test tool execution (tests handlers and operations)
     with tempfile.TemporaryDirectory() as tmp_dir:
         repo_path = Path(tmp_dir)
-        _run_git_isolated(["git", "init"], cwd=repo_path, check=True, capture_output=True)
+        _run_git_isolated(
+            ["git", "init"], cwd=repo_path, check=True, capture_output=True
+        )
 
         status_response = await asyncio.wait_for(
-            client.call_tool("git_status", {"repo_path": str(repo_path)}), 
-            timeout=15.0
+            client.call_tool("git_status", {"repo_path": str(repo_path)}), timeout=15.0
         )
         assert "result" in status_response
 

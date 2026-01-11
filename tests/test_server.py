@@ -142,7 +142,11 @@ def test_git_status_porcelain_string_parameter(test_repository):
 
 def test_git_rebase_success(test_repository):
     """Test successful rebase operation"""
-    from mcp_server_git.git.operations import git_checkout, git_create_branch, git_rebase
+    from mcp_server_git.git.operations import (
+        git_checkout,
+        git_create_branch,
+        git_rebase,
+    )
 
     # Create and switch to feature branch
     git_create_branch(test_repository, "feature-branch")
@@ -210,7 +214,11 @@ def test_git_merge_squash(test_repository):
 
 def test_git_cherry_pick_success(test_repository):
     """Test successful cherry-pick operation"""
-    from mcp_server_git.git.operations import git_checkout, git_cherry_pick, git_create_branch
+    from mcp_server_git.git.operations import (
+        git_checkout,
+        git_cherry_pick,
+        git_create_branch,
+    )
 
     # Create and switch to feature branch
     git_create_branch(test_repository, "cherry-source")
@@ -232,7 +240,11 @@ def test_git_cherry_pick_success(test_repository):
 
 def test_git_cherry_pick_no_commit(test_repository):
     """Test cherry-pick with --no-commit option"""
-    from mcp_server_git.git.operations import git_checkout, git_cherry_pick, git_create_branch
+    from mcp_server_git.git.operations import (
+        git_checkout,
+        git_cherry_pick,
+        git_create_branch,
+    )
 
     # Create and switch to feature branch
     git_create_branch(test_repository, "cherry-no-commit")

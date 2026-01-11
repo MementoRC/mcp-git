@@ -23,6 +23,7 @@ from mcp_server_git.git.operations import (
     git_diff_unstaged,
 )
 from mcp_server_git.utils.git_import import GitCommandError
+
 try:
     from git import Repo as GitRepo
 except ImportError:
@@ -42,7 +43,7 @@ class TestValidateCommitRange:
             "a1b2c3d4e5f6..f6e5d4c3b2a1",
             "1234567890abcdef..fedcba0987654321",
         ]
-        
+
         for commit_range in test_cases:
             is_valid, message = _validate_commit_range(commit_range)
             assert is_valid is True
@@ -57,7 +58,7 @@ class TestValidateCommitRange:
             "release-v1.0..develop",
             "feature/user-auth..release/v2.0",
         ]
-        
+
         for commit_range in test_cases:
             is_valid, message = _validate_commit_range(commit_range)
             assert is_valid is True
@@ -72,7 +73,7 @@ class TestValidateCommitRange:
             "HEAD~10...HEAD",
             "HEAD~..HEAD",
         ]
-        
+
         for commit_range in test_cases:
             is_valid, message = _validate_commit_range(commit_range)
             assert is_valid is True
@@ -87,7 +88,7 @@ class TestValidateCommitRange:
             "feature/test..HEAD",
             "abc123...HEAD~5",
         ]
-        
+
         for commit_range in test_cases:
             is_valid, message = _validate_commit_range(commit_range)
             assert is_valid is True
@@ -102,7 +103,7 @@ class TestValidateCommitRange:
             "\n",
             None,
         ]
-        
+
         for commit_range in test_cases:
             is_valid, message = _validate_commit_range(commit_range)
             assert is_valid is False
@@ -119,7 +120,7 @@ class TestValidateCommitRange:
             "HEAD(ls -la)..main",
             "main)..develop",
         ]
-        
+
         for commit_range in test_cases:
             is_valid, message = _validate_commit_range(commit_range)
             assert is_valid is False
@@ -131,9 +132,9 @@ class TestValidateCommitRange:
         test_cases = [
             "weird-format..another",
             "123..456",  # Too short for typical hashes but might be valid
-            "a..b",      # Very short but could be valid tags
+            "a..b",  # Very short but could be valid tags
         ]
-        
+
         for commit_range in test_cases:
             is_valid, message = _validate_commit_range(commit_range)
             assert is_valid is True
@@ -159,8 +160,7 @@ class TestValidateDiffParameters:
     def test_both_base_and_target_commit(self):
         """Should accept both base_commit and target_commit together."""
         is_valid, message = _validate_diff_parameters(
-            base_commit="main", 
-            target_commit="develop"
+            base_commit="main", target_commit="develop"
         )
         assert is_valid is True
         assert message == ""
@@ -168,8 +168,7 @@ class TestValidateDiffParameters:
     def test_conflicting_target_and_commit_range(self):
         """Should reject conflicting target and commit_range."""
         is_valid, message = _validate_diff_parameters(
-            target="main", 
-            commit_range="HEAD~1..HEAD"
+            target="main", commit_range="HEAD~1..HEAD"
         )
         assert is_valid is False
         assert "Conflicting diff parameters" in message
@@ -178,9 +177,7 @@ class TestValidateDiffParameters:
     def test_conflicting_target_and_commit_pair(self):
         """Should reject conflicting target and base/target commit pair."""
         is_valid, message = _validate_diff_parameters(
-            target="main",
-            base_commit="develop", 
-            target_commit="feature"
+            target="main", base_commit="develop", target_commit="feature"
         )
         assert is_valid is False
         assert "Conflicting diff parameters" in message
@@ -189,9 +186,7 @@ class TestValidateDiffParameters:
     def test_conflicting_commit_range_and_commit_pair(self):
         """Should reject conflicting commit_range and base/target commit pair."""
         is_valid, message = _validate_diff_parameters(
-            commit_range="HEAD~1..HEAD",
-            base_commit="develop",
-            target_commit="main"
+            commit_range="HEAD~1..HEAD", base_commit="develop", target_commit="main"
         )
         assert is_valid is False
         assert "Conflicting diff parameters" in message
@@ -215,11 +210,11 @@ class TestValidateDiffParameters:
             target="main",
             commit_range="HEAD~1..HEAD",
             base_commit="develop",
-            target_commit="feature"
+            target_commit="feature",
         )
         assert is_valid is False
         assert "Conflicting diff parameters" in message
-        
+
     def test_no_parameters(self):
         """Should accept no parameters (uses defaults)."""
         is_valid, message = _validate_diff_parameters()
@@ -228,9 +223,7 @@ class TestValidateDiffParameters:
 
     def test_invalid_commit_range_format(self):
         """Should reject invalid commit_range format."""
-        is_valid, message = _validate_diff_parameters(
-            commit_range="main; rm -rf /"
-        )
+        is_valid, message = _validate_diff_parameters(commit_range="main; rm -rf /")
         assert is_valid is False
         assert "Invalid commit_range" in message
         assert "Invalid characters detected" in message
@@ -251,7 +244,7 @@ class TestApplyDiffSizeLimiting:
         """Should handle empty diff output."""
         result = _apply_diff_size_limiting("", "test operation")
         assert result == "No changes detected in test operation"
-        
+
         result = _apply_diff_size_limiting("   \n\t  ", "test operation")
         assert result == "No changes detected in test operation"
 
@@ -265,7 +258,7 @@ class TestApplyDiffSizeLimiting:
         """Should limit output to max_lines when specified."""
         diff_output = "\n".join([f"Line {i}" for i in range(1, 11)])  # 10 lines
         result = _apply_diff_size_limiting(diff_output, "test", max_lines=5)
-        
+
         assert "Line 1" in result
         assert "Line 5" in result
         assert "Line 6" not in result
@@ -282,10 +275,10 @@ class TestApplyDiffSizeLimiting:
     def test_max_lines_zero_or_negative(self):
         """Should ignore max_lines when zero or negative."""
         diff_output = "Line 1\nLine 2\nLine 3"
-        
+
         result = _apply_diff_size_limiting(diff_output, "test", max_lines=0)
         assert result == diff_output
-        
+
         result = _apply_diff_size_limiting(diff_output, "test", max_lines=-5)
         assert result == diff_output
 
@@ -294,7 +287,7 @@ class TestApplyDiffSizeLimiting:
         # Create a diff larger than 50KB
         large_diff = "A" * 60000  # 60KB of content
         result = _apply_diff_size_limiting(large_diff, "test operation")
-        
+
         assert result.startswith("⚠️  Large diff detected")
         assert "Consider using stat_only=true" in result
         assert "max_lines parameter" in result
@@ -310,49 +303,43 @@ class TestApplyDiffSizeLimiting:
 class TestGitDiffValidationIntegration:
     """Test integration of validation with git diff functions."""
 
-    @patch('mcp_server_git.git.operations._validate_diff_parameters')
+    @patch("mcp_server_git.git.operations._validate_diff_parameters")
     def test_git_diff_calls_parameter_validation(self, mock_validate):
         """Should call parameter validation in git_diff function."""
         mock_repo = Mock()
         mock_repo.git.diff.return_value = "test output"
         mock_validate.return_value = (True, "")
-        
+
         # Call with conflicting parameters to trigger validation
-        git_diff(
-            mock_repo, 
-            target="main", 
-            commit_range="HEAD~1..HEAD"
-        )
-        
+        git_diff(mock_repo, target="main", commit_range="HEAD~1..HEAD")
+
         # Verify validation was called with the parameters
         mock_validate.assert_called_once()
         call_args = mock_validate.call_args
-        assert call_args[1]['target'] == "main"
-        assert call_args[1]['commit_range'] == "HEAD~1..HEAD"
+        assert call_args[1]["target"] == "main"
+        assert call_args[1]["commit_range"] == "HEAD~1..HEAD"
 
-    @patch('mcp_server_git.git.operations._validate_diff_parameters')
+    @patch("mcp_server_git.git.operations._validate_diff_parameters")
     def test_git_diff_handles_validation_failure(self, mock_validate):
         """Should return error message when parameter validation fails."""
         mock_repo = Mock()
         mock_validate.return_value = (False, "Conflicting parameters detected")
-        
-        result = git_diff(
-            mock_repo,
-            target="main",
-            commit_range="HEAD~1..HEAD"
-        )
-        
-        assert "❌ Parameter validation failed: Conflicting parameters detected" in result
 
-    @patch('mcp_server_git.git.operations._validate_diff_parameters')
+        result = git_diff(mock_repo, target="main", commit_range="HEAD~1..HEAD")
+
+        assert (
+            "❌ Parameter validation failed: Conflicting parameters detected" in result
+        )
+
+    @patch("mcp_server_git.git.operations._validate_diff_parameters")
     def test_git_diff_shows_validation_warnings(self, mock_validate):
         """Should include warnings from parameter validation."""
         mock_repo = Mock()
         mock_repo.git.diff.return_value = "test diff output"
         mock_validate.return_value = (True, "Warning: Unusual format detected")
-        
+
         result = git_diff(mock_repo, commit_range="a..b")
-        
+
         assert "⚠️ Warning: Unusual format detected" in result
         assert "test diff output" in result
 
@@ -360,9 +347,9 @@ class TestGitDiffValidationIntegration:
         """Should properly use commit_range in git diff command."""
         mock_repo = Mock()
         mock_repo.git.diff.return_value = "diff output"
-        
+
         git_diff(mock_repo, commit_range="HEAD~1..HEAD")
-        
+
         # Verify commit_range was passed to git diff
         mock_repo.git.diff.assert_called_once()
         args = mock_repo.git.diff.call_args[0]
