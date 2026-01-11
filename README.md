@@ -143,6 +143,46 @@ The server provides Azure DevOps integration for monitoring and analyzing Azure 
 
 **Configuration**: Azure DevOps integration requires setting `AZURE_DEVOPS_TOKEN` and `AZURE_DEVOPS_ORG` environment variables. See the Environment Variables section for details.
 
+### Lean MCP Interface (Context-Optimized)
+
+The server provides an alternative **lean interface** that reduces context consumption by ~97% (from ~30k tokens to ~900 tokens). Instead of exposing all 51 tools upfront, it uses a 3-meta-tool pattern:
+
+| Meta-Tool | Purpose |
+|-----------|---------|
+| `discover_tools(pattern)` | List available tools with optional filtering |
+| `get_tool_spec(tool_name)` | Get full schema for a specific tool on-demand |
+| `execute_tool(tool_name, params)` | Execute any tool dynamically |
+
+**Tool Coverage**: All 51 tools remain accessible (25 git, 22 GitHub, 4 Azure DevOps).
+
+**Usage Example**:
+```python
+# 1. Discover available tools (optional filtering)
+discover_tools("pr")  # Returns 11 PR-related tools
+
+# 2. Get schema when needed
+get_tool_spec("github_create_pr")  # Returns full parameter schema
+
+# 3. Execute the tool
+execute_tool("github_create_pr", {
+    "repo_owner": "owner",
+    "repo_name": "repo",
+    "title": "feat: new feature",
+    "head": "feature-branch",
+    "base": "main"
+})
+```
+
+**Configuration**: Use the `mcp-git-lean` entry point:
+```json
+"mcpServers": {
+  "git-lean": {
+    "command": "pixi",
+    "args": ["run", "-m", "mcp-git-lean", "--repository", "path/to/repo"]
+  }
+}
+```
+
 ### Important: Repository Path Resolution
 
 The `repo_path` parameter in all git tools supports the following behaviors:
