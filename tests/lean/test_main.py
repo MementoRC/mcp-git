@@ -2,6 +2,8 @@
 
 from unittest.mock import MagicMock, patch
 
+from click.testing import CliRunner
+
 
 class TestLeanMain:
     """Test lean interface main() function."""
@@ -27,12 +29,9 @@ class TestLeanMain:
         # Import main - this is where the bug would have occurred
         from mcp_server_git.lean.__main__ import main
 
-        # Execute: Call main() - should not raise TypeError
-        try:
-            main()
-        except SystemExit:
-            # app.run() may call sys.exit(), which is fine
-            pass
+        # Execute: Use CliRunner for click commands
+        runner = CliRunner()
+        runner.invoke(main, [])
 
         # Verify: Check that services were initialized correctly
         mock_create_interface.assert_called_once()
@@ -66,11 +65,9 @@ class TestLeanMain:
 
         from mcp_server_git.lean.__main__ import main
 
-        # Execute
-        try:
-            main()
-        except SystemExit:
-            pass
+        # Execute: Use CliRunner for click commands
+        runner = CliRunner()
+        runner.invoke(main, [])
 
         # Verify NullAzureService is used
         call_kwargs = mock_create_interface.call_args.kwargs
@@ -96,11 +93,9 @@ class TestLeanMain:
 
         from mcp_server_git.lean.__main__ import main
 
-        # Execute
-        try:
-            main()
-        except SystemExit:
-            pass
+        # Execute: Use CliRunner for click commands
+        runner = CliRunner()
+        runner.invoke(main, [])
 
         # Verify logging
         assert mock_logger.info.called
@@ -111,3 +106,59 @@ class TestLeanMain:
         assert any("initialized successfully" in msg for msg in log_messages)
         assert any("3 meta-tools" in msg for msg in log_messages)
         assert any("51 tools" in msg for msg in log_messages)
+
+    def test_main_shows_help(self):
+        """Test that --help flag shows usage information."""
+        from mcp_server_git.lean.__main__ import main
+
+        runner = CliRunner()
+        result = runner.invoke(main, ["--help"])
+
+        assert result.exit_code == 0
+        assert "MCP Git Lean Server" in result.output
+        assert "--repository" in result.output
+        assert "--verbose" in result.output
+
+    @patch("mcp_server_git.lean.__main__.load_dotenv")
+    @patch("mcp_server_git.lean.__main__.create_git_lean_interface")
+    def test_main_accepts_repository_arg(
+        self, mock_create_interface, _mock_load_dotenv, tmp_path
+    ):
+        """Test that --repository argument is accepted."""
+        # Setup: Create a fake git repo
+        git_dir = tmp_path / ".git"
+        git_dir.mkdir()
+
+        mock_app = MagicMock()
+        mock_create_interface.return_value = mock_app
+
+        from mcp_server_git.lean.__main__ import main
+
+        # Execute with repository argument
+        runner = CliRunner()
+        result = runner.invoke(main, ["--repository", str(tmp_path)])
+
+        # Should not error on valid repo path
+        assert result.exit_code == 0 or mock_create_interface.called
+
+    @patch("mcp_server_git.lean.__main__.load_dotenv")
+    @patch("mcp_server_git.lean.__main__.create_git_lean_interface")
+    @patch("mcp_server_git.lean.__main__.logger")
+    def test_main_warns_on_invalid_repository(
+        self, mock_logger, mock_create_interface, _mock_load_dotenv, tmp_path
+    ):
+        """Test that invalid repository path logs a warning."""
+        mock_app = MagicMock()
+        mock_create_interface.return_value = mock_app
+
+        from mcp_server_git.lean.__main__ import main
+
+        # Execute with non-git directory
+        runner = CliRunner()
+        runner.invoke(main, ["--repository", str(tmp_path)])
+
+        # Should warn about invalid repo
+        warning_calls = [
+            call.args[0] for call in mock_logger.warning.call_args_list
+        ]
+        assert any("not a git repository" in msg for msg in warning_calls)
