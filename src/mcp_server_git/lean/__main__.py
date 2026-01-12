@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 def main(repository: Path | None, verbose: int) -> None:
     """MCP Git Lean Server - Git functionality with 95% context reduction."""
     # Set up logging level
-    logging_level = logging.WARN
+    logging_level = logging.WARNING
     if verbose == 1:
         logging_level = logging.INFO
     elif verbose >= 2:
@@ -39,8 +39,14 @@ def main(repository: Path | None, verbose: int) -> None:
         stream=sys.stderr,
     )
 
-    # Load environment variables from repository if it exists
+    # Validate repository path if provided
     if repository:
+        if not repository.exists():
+            logger.warning(f"Repository path does not exist: {repository}")
+        elif not (repository / ".git").exists() and not (repository / ".git").is_file():
+            # .git can be a file for worktrees
+            logger.warning(f"Path is not a git repository: {repository}")
+
         env_file = repository / ".env"
         if env_file.exists():
             load_dotenv(env_file)
