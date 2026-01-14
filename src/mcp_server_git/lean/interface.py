@@ -11,6 +11,7 @@ Architecture:
 - Applies intelligent token limiting to responses
 """
 
+import inspect
 import logging
 from collections.abc import Callable
 from functools import wraps
@@ -126,18 +127,36 @@ class GitLeanInterface:
         )
 
     def _wrap_tool(self, tool_func: Callable, tool_name: str) -> Callable:
-        """Wrap tool function with token limiting and error handling."""
+        """Wrap tool function with token limiting and error handling.
 
-        @wraps(tool_func)
-        def wrapper(*args, **kwargs):
-            try:
-                result = tool_func(*args, **kwargs)
-                return self.token_limiter.limit_response(result, tool_name)
-            except Exception as e:
-                logger.error(f"Error in {tool_name}: {e}")
-                return {"error": str(e), "tool": tool_name, "success": False}
+        Handles both sync and async tool implementations correctly.
+        """
+        is_async = inspect.iscoroutinefunction(tool_func)
 
-        return wrapper
+        if is_async:
+
+            @wraps(tool_func)
+            async def async_wrapper(*args, **kwargs):
+                try:
+                    result = await tool_func(*args, **kwargs)
+                    return self.token_limiter.limit_response(result, tool_name)
+                except Exception as e:
+                    logger.error(f"Error in {tool_name}: {e}")
+                    return {"error": str(e), "tool": tool_name, "success": False}
+
+            return async_wrapper
+        else:
+
+            @wraps(tool_func)
+            def sync_wrapper(*args, **kwargs):
+                try:
+                    result = tool_func(*args, **kwargs)
+                    return self.token_limiter.limit_response(result, tool_name)
+                except Exception as e:
+                    logger.error(f"Error in {tool_name}: {e}")
+                    return {"error": str(e), "tool": tool_name, "success": False}
+
+            return sync_wrapper
 
     def _setup_meta_tools(self):
         """Setup the 3 meta-tools for dynamic discovery."""
@@ -330,7 +349,9 @@ class GitLeanInterface:
             return apply_token_limits(result, "get_tool_spec", 1500)
 
         @self.app.tool()
-        def execute_tool(tool_name: str, parameters: dict[str, Any]) -> dict[str, Any]:
+        async def execute_tool(
+            tool_name: str, parameters: dict[str, Any]
+        ) -> dict[str, Any]:
             """
             [STEP 3] Execute a Git, GitHub, or Azure DevOps operation.
 
@@ -422,7 +443,10 @@ class GitLeanInterface:
                     }
 
                 # Execute tool through its implementation
+                # Handle both sync and async implementations
                 result = tool_def.implementation(**parameters)
+                if inspect.iscoroutine(result):
+                    result = await result
 
                 return {
                     "tool": tool_name,
