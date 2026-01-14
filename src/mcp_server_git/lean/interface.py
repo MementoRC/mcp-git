@@ -443,10 +443,12 @@ class GitLeanInterface:
                     }
 
                 # Execute tool through its implementation
-                # Handle both sync and async implementations
-                result = tool_def.implementation(**parameters)
-                if inspect.iscoroutine(result):
-                    result = await result
+                # Check if implementation is async BEFORE calling to avoid race condition
+                # where a sync function might return a coroutine object as data
+                if inspect.iscoroutinefunction(tool_def.implementation):
+                    result = await tool_def.implementation(**parameters)
+                else:
+                    result = tool_def.implementation(**parameters)
 
                 return {
                     "tool": tool_name,
