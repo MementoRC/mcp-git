@@ -1543,22 +1543,62 @@ def git_abort(repo: Repo, operation: str) -> str:
 
 
 def git_continue(repo: Repo, operation: str) -> str:
-    """Continue operations after resolving conflicts"""
+    """Continue operations after resolving conflicts
+
+    Uses subprocess instead of GitPython for interactive operations to avoid
+    MCP client timeout issues (issue #97). GitPython's handling of interactive
+    git operations can trigger client-side AbortError (-32001).
+    """
     try:
         valid_operations = ["rebase", "merge", "cherry-pick"]
         if operation not in valid_operations:
             return f"❌ Invalid operation '{operation}'. Valid operations: {', '.join(valid_operations)}"
 
-        # Perform continue using the same pattern as other operations
+        # Use subprocess for all continue operations to ensure reliable execution
+        # This avoids GitPython's interactive operation handling issues
+        cmd = ["git"]
+
         if operation == "rebase":
-            repo.git.rebase("--continue")
+            cmd.extend(["rebase", "--continue"])
         elif operation == "merge":
-            repo.git.merge("--continue")
+            cmd.extend(["merge", "--continue"])
         elif operation == "cherry-pick":
-            repo.git.cherry_pick("--continue")
+            cmd.extend(["cherry-pick", "--continue"])
 
-        return f"✅ Successfully continued {operation}"
+        # Execute git command directly via subprocess
+        result = subprocess.run(
+            cmd,
+            cwd=repo.working_dir,
+            capture_output=True,
+            text=True,
+            timeout=60  # 60 second timeout for continue operations
+        )
 
+        if result.returncode == 0:
+            # Success - combine stdout and stderr for complete output
+            output = (result.stdout + result.stderr).strip()
+            success_msg = f"✅ Successfully continued {operation}"
+            if output:
+                success_msg += f"\n{output}"
+            return success_msg
+        else:
+            # Failed - return stderr which contains the error message
+            error_output = result.stderr.strip()
+            if not error_output:
+                error_output = result.stdout.strip()
+
+            # Provide helpful error messages based on common scenarios
+            if "No rebase in progress" in error_output or "no merge in progress" in error_output or "no cherry-pick in progress" in error_output:
+                return f"❌ No {operation} in progress to continue"
+            elif "conflicts" in error_output.lower():
+                return f"❌ Unresolved conflicts remain. Resolve conflicts before continuing {operation}"
+            elif "nothing to commit" in error_output.lower():
+                return f"❌ No changes to commit. Add changes before continuing {operation}"
+            else:
+                return f"❌ Continue {operation} failed: {error_output}"
+
+    except subprocess.TimeoutExpired:
+        return f"❌ {operation} continue operation timed out after 60 seconds"
     except GitCommandError as e:
         return f"❌ Continue {operation} failed: {str(e)}"
     except Exception as e:
