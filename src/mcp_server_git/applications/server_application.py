@@ -110,7 +110,10 @@ class GitCommit(BaseModel):
 
 class GitAdd(BaseModel):
     repo_path: str
-    files: list[str]
+    files: list[str] | None = None
+    add_all: bool = False
+    update_only: bool = False
+    patterns: list[str] | None = None
 
 
 class GitReset(BaseModel):
@@ -583,12 +586,14 @@ class ServerApplication(DebuggableComponent):
         # Infrastructure components
         self._middleware_manager: MiddlewareChainManager | None = None
         self._security_framework: SecurityFramework | None = None
-        
+
         # Repository path resolver for proper repo_path handling
         # Note: The resolver maintains an instance-based cache that persists for the server
         # lifetime. Cache invalidation is not needed as bound_repository_path is immutable
         # after initialization (set via --repository parameter at server startup).
-        bound_path = str(self.config.repository_path) if self.config.repository_path else None
+        bound_path = (
+            str(self.config.repository_path) if self.config.repository_path else None
+        )
         self._repository_resolver = RepositoryResolver(bound_repository_path=bound_path)
 
         logger.info("ServerApplication initialized")
@@ -1511,15 +1516,15 @@ class ServerApplication(DebuggableComponent):
     def _resolve_repo_path_for_init(self, requested_repo_path: str | None) -> str:
         """
         Resolve repository path specifically for git_init operation.
-        
+
         git_init is special because it can create repositories at paths that don't exist yet.
-        
+
         Args:
             requested_repo_path: The repo_path from tool arguments
-            
+
         Returns:
             Resolved absolute repository path
-            
+
         Raises:
             ValueError: If no valid path can be determined
         """
@@ -1533,13 +1538,13 @@ class ServerApplication(DebuggableComponent):
             resolved_repo_path = self._repository_resolver.resolve_repository_path(
                 requested_repo_path
             )
-            
+
             if resolved_repo_path is None:
                 raise ValueError(
                     "git_init requires a repository path. "
                     "Provide repo_path parameter or start server with --repository."
                 )
-            
+
             return str(Path(resolved_repo_path).resolve())
 
     async def _execute_tool_operation(self, name: str, arguments: dict):
@@ -1606,7 +1611,7 @@ class ServerApplication(DebuggableComponent):
             # Resolve repository path using RepositoryResolver for Git operations only
             # This handles "." correctly by resolving to bound repository
             requested_repo_path = arguments.get("repo_path")
-            
+
             # Use appropriate resolution strategy based on operation type
             if name == GitTools.INIT:
                 # git_init has special handling since it can create new repositories
@@ -1616,17 +1621,17 @@ class ServerApplication(DebuggableComponent):
                 resolved_repo_path = self._repository_resolver.resolve_repository_path(
                     requested_repo_path
                 )
-                
+
                 # Validate that we have a valid repository path
                 if resolved_repo_path is None:
                     raise ValueError(
                         "Cannot determine target repository. "
                         "Provide an absolute repo_path or start server with --repository to bind a default repository."
                     )
-                
+
                 # Convert to absolute path to prevent any relative path issues
                 repo_path = str(Path(resolved_repo_path).resolve())
-            
+
             logger.debug(
                 f"Repository path resolved: requested={requested_repo_path}, "
                 f"resolved={repo_path}"
@@ -1683,7 +1688,13 @@ class ServerApplication(DebuggableComponent):
                     gpg_key_id=arguments.get("gpg_key_id"),
                 )
             elif name == GitTools.ADD:
-                result = git_add(repo, arguments["files"])
+                result = git_add(
+                    repo,
+                    files=arguments.get("files"),
+                    add_all=arguments.get("add_all", False),
+                    update_only=arguments.get("update_only", False),
+                    patterns=arguments.get("patterns"),
+                )
             elif name == GitTools.RESET:
                 result = git_reset(
                     repo,
@@ -1735,7 +1746,9 @@ class ServerApplication(DebuggableComponent):
                 )
             elif name == GitTools.CHERRY_PICK:
                 result = git_cherry_pick(
-                    repo, arguments["commit_hash"], no_commit=arguments.get("no_commit", False)
+                    repo,
+                    arguments["commit_hash"],
+                    no_commit=arguments.get("no_commit", False),
                 )
             elif name == GitTools.ABORT:
                 result = git_abort(repo, arguments["operation"])
