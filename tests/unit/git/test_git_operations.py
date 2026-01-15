@@ -327,7 +327,7 @@ class TestGitAddBatchOperations:
         result = git_add(mock_repo, add_all=True)
 
         # Assert
-        assert "✅ Staged all changes (3 file(s))" in result
+        assert "✅ Added 3 file(s) to staging area (all changes)" in result
         mock_repo.git.add.assert_called_once_with("-A")
 
     def test_git_add_update_only_stages_tracked_changes(self):
@@ -342,7 +342,7 @@ class TestGitAddBatchOperations:
         result = git_add(mock_repo, update_only=True)
 
         # Assert
-        assert "✅ Staged tracked file updates and deletions (2 file(s))" in result
+        assert "✅ Added 2 file(s) to staging area (tracked updates)" in result
         mock_repo.git.add.assert_called_once_with("-u")
 
     def test_git_add_patterns_stages_matching_files(self):
@@ -358,7 +358,7 @@ class TestGitAddBatchOperations:
         result = git_add(mock_repo, patterns=patterns)
 
         # Assert
-        assert "✅ Added 2 file(s) matching patterns: *.py" in result
+        assert "✅ Added 2 file(s) to staging area: *.py" in result
         mock_repo.git.add.assert_called_once_with(*patterns)
 
     def test_git_add_patterns_multiple_patterns(self):
@@ -374,7 +374,7 @@ class TestGitAddBatchOperations:
         result = git_add(mock_repo, patterns=patterns)
 
         # Assert
-        assert "✅ Added 2 file(s) matching patterns: *.py, *.js" in result
+        assert "✅ Added 2 file(s) to staging area: *.py, *.js" in result
         mock_repo.git.add.assert_called_once_with(*patterns)
 
     def test_git_add_patterns_no_matches(self):
@@ -508,7 +508,7 @@ class TestGitAddBatchOperations:
         result = git_add(mock_repo, add_all=True)
 
         # Assert
-        assert "✅ Staged all changes (0 file(s))" in result
+        assert "✅ Added 0 file(s) to staging area (all changes)" in result
         mock_repo.git.add.assert_called_once_with("-A")
 
     def test_git_add_backward_compatible_with_files_list(self):
