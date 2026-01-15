@@ -110,7 +110,10 @@ class GitCommit(BaseModel):
 
 class GitAdd(BaseModel):
     repo_path: str
-    files: list[str]
+    files: list[str] | None = None
+    add_all: bool = False
+    update_only: bool = False
+    patterns: list[str] | None = None
 
 
 class GitReset(BaseModel):
@@ -1683,7 +1686,13 @@ class ServerApplication(DebuggableComponent):
                     gpg_key_id=arguments.get("gpg_key_id"),
                 )
             elif name == GitTools.ADD:
-                result = git_add(repo, arguments["files"])
+                result = git_add(
+                    repo,
+                    files=arguments.get("files"),
+                    add_all=arguments.get("add_all", False),
+                    update_only=arguments.get("update_only", False),
+                    patterns=arguments.get("patterns"),
+                )
             elif name == GitTools.RESET:
                 result = git_reset(
                     repo,

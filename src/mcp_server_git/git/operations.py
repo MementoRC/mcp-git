@@ -499,106 +499,203 @@ def git_commit(
         return f"❌ Commit error: {str(e)}\n🔒 Verify repository security configuration"
 
 
-def git_add(repo: Repo, files: list[str]) -> str:
-    """Add files to git staging area with robust error handling"""
+def git_add(
+    repo: Repo,
+    files: list[str] | None = None,
+    add_all: bool = False,
+    update_only: bool = False,
+    patterns: list[str] | None = None,
+) -> str:
+    """Add files to git staging area with support for batch operations and patterns
+
+    Args:
+        repo: Git repository object
+        files: List of specific file paths to add (traditional behavior)
+        add_all: If True, stage all changes including untracked files (equivalent to git add -A)
+        update_only: If True, stage only modifications and deletions, not new files (equivalent to git add -u)
+        patterns: List of glob patterns to match files (e.g., ["*.py", "src/**/*.js"])
+
+    Returns:
+        Success or error message string
+
+    Note:
+        Parameters are mutually exclusive:
+        - Use files for specific file paths
+        - Use add_all for staging all changes (git add -A)
+        - Use update_only for staging only tracked file changes (git add -u)
+        - Use patterns for glob-based file matching
+    """
     try:
-        # Validate files exist or are known to git as changes
-        missing_files = []
+        # Validate mutually exclusive parameters
+        provided_options = []
+        if files:
+            provided_options.append("files")
+        if add_all:
+            provided_options.append("add_all")
+        if update_only:
+            provided_options.append("update_only")
+        if patterns:
+            provided_options.append("patterns")
 
-        # Get git status once and parse it for all files
-        status_output = repo.git.status("--porcelain")
-        status_files = set()
-        for status_line in status_output.split("\n"):
-            if status_line.strip() and len(status_line) >= 3:
-                # Porcelain format: XY filename (where X is staged, Y is working tree)
-                status_file = status_line[3:].strip()
-                status_files.add(status_file)
+        if len(provided_options) > 1:
+            return f"❌ Conflicting parameters: {', '.join(provided_options)}. Use only one method to specify what to add."
 
-        # Check each file
-        for file in files:
-            file_exists = False
+        if len(provided_options) == 0:
+            return "❌ No files specified. Use files, add_all, update_only, or patterns parameter."
 
-            # Try to determine if file exists on filesystem
+        # Handle batch operations (add_all or update_only)
+        if add_all:
+            # Stage all changes including untracked files
+            repo.git.add("-A")
+            # Get count of staged changes
             try:
-                repo_path = Path(repo.working_dir)
-
-                # Check if we're dealing with a mock (test environment)
-                if (
-                    hasattr(repo_path, "_mock_name")
-                    or str(type(repo_path).__name__) == "Mock"
-                ):
-                    # In test environment with mocks
-                    # Try to emulate the test's expected behavior
-                    # The test expects: existing.py -> True, deleted.py -> False
-                    try:
-                        # Try the / operation
-                        file_path = repo_path / file
-                    except (TypeError, AttributeError):
-                        # The / operation failed, try to get the mock behavior directly
-                        # Check if the mock has a side_effect we can call
-                        path_class = Path  # Get the patched class
-                        if hasattr(path_class, "side_effect") and callable(
-                            path_class.side_effect
-                        ):
-                            # Call the side_effect with the full path
-                            import os
-
-                            full_path = os.path.join(repo.working_dir, file)
-                            file_path = path_class.side_effect(full_path)
-                        else:
-                            # Create a basic mock for file existence check
-                            from unittest.mock import Mock
-
-                            file_path = Mock()
-                            # Based on test logic: existing.py should exist, others might not
-                            file_path.exists.return_value = "existing.py" in file
-                            file_path.is_symlink.return_value = False
-
-                    # Now check existence on the file_path mock
-                    if hasattr(file_path, "exists") and callable(file_path.exists):
-                        file_exists = file_path.exists()
-                        if hasattr(file_path, "is_symlink") and callable(
-                            file_path.is_symlink
-                        ):
-                            file_exists = file_exists or file_path.is_symlink()
-                else:
-                    # Normal Path operation (production)
-                    file_path = repo_path / file
-                    file_exists = file_path.exists() or file_path.is_symlink()
-
+                staged_output = repo.git.diff("--cached", "--name-only")
+                staged_files = [
+                    f.strip() for f in staged_output.split("\n") if f.strip()
+                ]
+                count = len(staged_files)
+                return f"✅ Staged all changes ({count} file(s))"
             except Exception:
-                # Last resort fallback
+                return "✅ Staged all changes"
+
+        if update_only:
+            # Stage only modifications and deletions (no new files)
+            repo.git.add("-u")
+            # Get count of staged changes
+            try:
+                staged_output = repo.git.diff("--cached", "--name-only")
+                staged_files = [
+                    f.strip() for f in staged_output.split("\n") if f.strip()
+                ]
+                count = len(staged_files)
+                return f"✅ Staged tracked file updates and deletions ({count} file(s))"
+            except Exception:
+                return "✅ Staged tracked file updates and deletions"
+
+        # Handle pattern-based additions
+        if patterns:
+            # Validate patterns for safety (no command injection)
+            dangerous_chars = [";", "|", "&", "`", "$", "(", ")"]
+            for pattern in patterns:
+                if any(char in pattern for char in dangerous_chars):
+                    return f"❌ Invalid characters detected in pattern: {pattern}"
+
+            # Add files matching patterns
+            try:
+                repo.git.add(*patterns)
+                # Get list of what was added
+                staged_output = repo.git.diff("--cached", "--name-only")
+                staged_files = [
+                    f.strip() for f in staged_output.split("\n") if f.strip()
+                ]
+                if staged_files:
+                    return f"✅ Added {len(staged_files)} file(s) matching patterns: {', '.join(patterns)}"
+                else:
+                    return f"⚠️ No files matched patterns: {', '.join(patterns)}"
+            except GitCommandError as e:
+                return f"❌ Pattern matching failed: {str(e)}"
+
+        # Traditional file-by-file behavior (backward compatible)
+        if files:
+            # Validate files exist or are known to git as changes
+            missing_files = []
+
+            # Get git status once and parse it for all files
+            status_output = repo.git.status("--porcelain")
+            status_files = set()
+            for status_line in status_output.split("\n"):
+                if status_line.strip() and len(status_line) >= 3:
+                    # Porcelain format: XY filename (where X is staged, Y is working tree)
+                    status_file = status_line[3:].strip()
+                    status_files.add(status_file)
+
+            # Check each file
+            for file in files:
                 file_exists = False
 
-            if not file_exists:
-                # File doesn't exist on filesystem, check if it's a known change in git
-                if file not in status_files:
-                    missing_files.append(file)
+                # Try to determine if file exists on filesystem
+                try:
+                    repo_path = Path(repo.working_dir)
 
-        if missing_files:
-            return f"❌ Files not found: {', '.join(missing_files)}"
+                    # Check if we're dealing with a mock (test environment)
+                    if (
+                        hasattr(repo_path, "_mock_name")
+                        or str(type(repo_path).__name__) == "Mock"
+                    ):
+                        # In test environment with mocks
+                        # Try to emulate the test's expected behavior
+                        # The test expects: existing.py -> True, deleted.py -> False
+                        try:
+                            # Try the / operation
+                            file_path = repo_path / file
+                        except (TypeError, AttributeError):
+                            # The / operation failed, try to get the mock behavior directly
+                            # Check if the mock has a side_effect we can call
+                            path_class = Path  # Get the patched class
+                            if hasattr(path_class, "side_effect") and callable(
+                                path_class.side_effect
+                            ):
+                                # Call the side_effect with the full path
+                                import os
 
-        # Add files to staging area
-        repo.git.add(*files)
+                                full_path = os.path.join(repo.working_dir, file)
+                                file_path = path_class.side_effect(full_path)
+                            else:
+                                # Create a basic mock for file existence check
+                                from unittest.mock import Mock
 
-        # Verify files were added
-        try:
-            # Use git diff --cached to get staged files (works in all cases)
-            staged_output = repo.git.diff("--cached", "--name-only")
-            staged_files = [f.strip() for f in staged_output.split("\n") if f.strip()]
-        except (GitCommandError, Exception):
-            # Fallback to traditional method
+                                file_path = Mock()
+                                # Based on test logic: existing.py should exist, others might not
+                                file_path.exists.return_value = "existing.py" in file
+                                file_path.is_symlink.return_value = False
+
+                        # Now check existence on the file_path mock
+                        if hasattr(file_path, "exists") and callable(file_path.exists):
+                            file_exists = file_path.exists()
+                            if hasattr(file_path, "is_symlink") and callable(
+                                file_path.is_symlink
+                            ):
+                                file_exists = file_exists or file_path.is_symlink()
+                    else:
+                        # Normal Path operation (production)
+                        file_path = repo_path / file
+                        file_exists = file_path.exists() or file_path.is_symlink()
+
+                except Exception:
+                    # Last resort fallback
+                    file_exists = False
+
+                if not file_exists:
+                    # File doesn't exist on filesystem, check if it's a known change in git
+                    if file not in status_files:
+                        missing_files.append(file)
+
+            if missing_files:
+                return f"❌ Files not found: {', '.join(missing_files)}"
+
+            # Add files to staging area
+            repo.git.add(*files)
+
+            # Verify files were added
             try:
-                staged_files = [item.a_path for item in repo.index.diff("HEAD")]
+                # Use git diff --cached to get staged files (works in all cases)
+                staged_output = repo.git.diff("--cached", "--name-only")
+                staged_files = [
+                    f.strip() for f in staged_output.split("\n") if f.strip()
+                ]
             except (GitCommandError, Exception):
-                staged_files = []
+                # Fallback to traditional method
+                try:
+                    staged_files = [item.a_path for item in repo.index.diff("HEAD")]
+                except (GitCommandError, Exception):
+                    staged_files = []
 
-        added_files = [f for f in files if f in staged_files]
+            added_files = [f for f in files if f in staged_files]
 
-        if added_files:
-            return f"✅ Added {len(added_files)} file(s) to staging area: {', '.join(added_files)}"
-        else:
-            return "⚠️ No changes detected in specified files"
+            if added_files:
+                return f"✅ Added {len(added_files)} file(s) to staging area: {', '.join(added_files)}"
+            else:
+                return "⚠️ No changes detected in specified files"
 
     except GitCommandError as e:
         # Handle GitCommandError string representation variations

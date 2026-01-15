@@ -94,13 +94,28 @@ class ProtectedGitOperations:
         repo = Repo(validated_path)
         return git_status(repo)
 
-    async def protected_git_add(self, repo_path: str, files: list[str]) -> str:
+    async def protected_git_add(
+        self,
+        repo_path: str,
+        files: list[str] | None = None,
+        add_all: bool = False,
+        update_only: bool = False,
+        patterns: list[str] | None = None,
+    ) -> str:
         """Git add with repository binding protection."""
         validated_path = await self._validate_and_prepare_operation(repo_path)
 
-        logger.debug(f"Protected git add: {validated_path} - {files}")
+        logger.debug(
+            f"Protected git add: {validated_path} - files={files}, add_all={add_all}, update_only={update_only}, patterns={patterns}"
+        )
         repo = Repo(validated_path)
-        return git_add(repo, files)
+        return git_add(
+            repo,
+            files=files,
+            add_all=add_all,
+            update_only=update_only,
+            patterns=patterns,
+        )
 
     async def protected_git_commit(
         self,
