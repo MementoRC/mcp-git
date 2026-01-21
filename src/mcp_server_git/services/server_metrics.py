@@ -463,7 +463,7 @@ class MetricsService(DebuggableComponent):
 
         return json.dumps(state, indent=2, default=str)
 
-    def health_check(self) -> dict[str, bool | str | int | float]:
+    def health_check(self) -> dict[str, bool | str | int | float | None]:
         """Perform a health check on the component."""
         current_time = datetime.now()
         uptime = (current_time - self._start_time).total_seconds()

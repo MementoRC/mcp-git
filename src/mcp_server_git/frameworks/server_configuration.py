@@ -539,7 +539,7 @@ class ServerConfigurationManager(DebuggableComponent):
 
         return json.dumps(export_data, indent=2, default=str)
 
-    def health_check(self) -> dict[str, bool | str | int | float]:
+    def health_check(self) -> dict[str, bool | str | int | float | None]:
         """Perform a health check on the component."""
         is_healthy = True
         status = "healthy"
@@ -594,7 +594,7 @@ class ServerConfigurationManager(DebuggableComponent):
         Raises:
             ConfigurationError: If updates are invalid or update fails
         """
-        if not self._initialized:
+        if not self._initialized or self._current_config is None:
             raise ConfigurationError("Configuration not initialized")
 
         # Merge updates with current config

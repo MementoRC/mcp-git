@@ -299,6 +299,17 @@ class EnhancedErrorHandler:
                 self._log_error(error, operation_name, {"timeout": True})
                 return self._create_error_response(error, operation_name)
 
+            except json.JSONDecodeError as e:
+                # Must catch JSONDecodeError before ValueError since it's a subclass
+                error = GitHubAPIError(
+                    f"Invalid JSON response from GitHub API: {e}",
+                    category=ErrorCategory.NETWORK,
+                    severity=ErrorSeverity.MEDIUM,
+                    suggestion="GitHub API returned malformed data. Try again or check API status",
+                )
+                self._log_error(error, operation_name, {"json_error": str(e)})
+                return self._create_error_response(error, operation_name)
+
             except ValueError as e:
                 if "authentication" in str(e).lower() or "token" in str(e).lower():
                     error = GitHubAPIError(
@@ -316,16 +327,6 @@ class EnhancedErrorHandler:
                         suggestion="Verify API parameters match GitHub API requirements",
                     )
                 self._log_error(error, operation_name, {"args": args, "kwargs": kwargs})
-                return self._create_error_response(error, operation_name)
-
-            except json.JSONDecodeError as e:
-                error = GitHubAPIError(
-                    f"Invalid JSON response from GitHub API: {e}",
-                    category=ErrorCategory.NETWORK,
-                    severity=ErrorSeverity.MEDIUM,
-                    suggestion="GitHub API returned malformed data. Try again or check API status",
-                )
-                self._log_error(error, operation_name, {"json_error": str(e)})
                 return self._create_error_response(error, operation_name)
 
             except Exception as e:
@@ -378,6 +379,17 @@ class EnhancedErrorHandler:
                 self._log_error(error, operation_name, {"timeout": True})
                 return self._create_error_response(error, operation_name)
 
+            except json.JSONDecodeError as e:
+                # Must catch JSONDecodeError before ValueError since it's a subclass
+                error = AzureAPIError(
+                    f"Invalid JSON response from Azure DevOps API: {e}",
+                    category=ErrorCategory.NETWORK,
+                    severity=ErrorSeverity.MEDIUM,
+                    suggestion="Azure DevOps API returned malformed data. Try again or check API status",
+                )
+                self._log_error(error, operation_name, {"json_error": str(e)})
+                return self._create_error_response(error, operation_name)
+
             except ValueError as e:
                 if "authentication" in str(e).lower() or "token" in str(e).lower():
                     error = AzureAPIError(
@@ -395,16 +407,6 @@ class EnhancedErrorHandler:
                         suggestion="Verify API parameters match Azure DevOps API requirements",
                     )
                 self._log_error(error, operation_name, {"args": args, "kwargs": kwargs})
-                return self._create_error_response(error, operation_name)
-
-            except json.JSONDecodeError as e:
-                error = AzureAPIError(
-                    f"Invalid JSON response from Azure DevOps API: {e}",
-                    category=ErrorCategory.NETWORK,
-                    severity=ErrorSeverity.MEDIUM,
-                    suggestion="Azure DevOps API returned malformed data. Try again or check API status",
-                )
-                self._log_error(error, operation_name, {"json_error": str(e)})
                 return self._create_error_response(error, operation_name)
 
             except Exception as e:

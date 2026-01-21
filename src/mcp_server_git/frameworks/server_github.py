@@ -493,7 +493,7 @@ class GitHubService(DebuggableComponent):
 
             @property
             def debug_data(self) -> dict[str, Any]:
-                data = {
+                data: dict[str, Any] = {
                     "service_state": {
                         "initialized": self._state.is_initialized,
                         "running": self._state.is_running,

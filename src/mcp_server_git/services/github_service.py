@@ -614,7 +614,7 @@ class GitHubService(DebuggableComponent):
             indent=2,
         )
 
-    def health_check(self) -> dict[str, bool | str | int | float]:
+    def health_check(self) -> dict[str, bool | str | int | float | None]:
         """Perform health check on the GitHub service."""
         return {
             "healthy": self.state.is_running and self.state.is_authenticated,
