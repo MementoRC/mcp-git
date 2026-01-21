@@ -166,7 +166,10 @@ class TokenLimitConfigManager:
         self._lock = threading.Lock()
 
     def load_configuration(
-        self, config_file: str | None = None, profile: TokenLimitProfile | None = None, **overrides
+        self,
+        config_file: str | None = None,
+        profile: TokenLimitProfile | None = None,
+        **overrides,
     ) -> TokenLimitSettings:
         """
         Load configuration from multiple sources.

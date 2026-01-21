@@ -158,7 +158,5 @@ class TestLeanMain:
         runner.invoke(main, ["--repository", str(tmp_path)])
 
         # Should warn about invalid repo
-        warning_calls = [
-            call.args[0] for call in mock_logger.warning.call_args_list
-        ]
+        warning_calls = [call.args[0] for call in mock_logger.warning.call_args_list]
         assert any("not a git repository" in msg for msg in warning_calls)

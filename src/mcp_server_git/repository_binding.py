@@ -137,7 +137,9 @@ class RepositoryBindingManager:
         """
         async with self._lock:
             if self._state == RepositoryBindingState.BOUND and not force:
-                assert self._binding is not None, "Binding must exist when state is BOUND"
+                assert self._binding is not None, (
+                    "Binding must exist when state is BOUND"
+                )
                 raise RepositoryBindingError(
                     f"Server already bound to {self._binding.repository_path}. "
                     f"Use force=True or unbind first."
@@ -198,7 +200,9 @@ class RepositoryBindingManager:
                     "Cannot unbind protected repository. Use force=True if necessary."
                 )
 
-            assert self._binding is not None, "Binding must exist when not in UNBOUND state"
+            assert self._binding is not None, (
+                "Binding must exist when not in UNBOUND state"
+            )
             old_binding = self._binding
             self._binding = None
             self._state = RepositoryBindingState.UNBOUND

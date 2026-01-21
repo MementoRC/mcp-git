@@ -243,9 +243,15 @@ class GitLeanInterface:
                 "total_tools": len(self.tool_registry),
                 "filtered_count": len(tools),
                 "domains": {
-                    "git": len([t for t in self.tool_registry.values() if t.domain == "git"]),
-                    "github": len([t for t in self.tool_registry.values() if t.domain == "github"]),
-                    "azure": len([t for t in self.tool_registry.values() if t.domain == "azure"]),
+                    "git": len(
+                        [t for t in self.tool_registry.values() if t.domain == "git"]
+                    ),
+                    "github": len(
+                        [t for t in self.tool_registry.values() if t.domain == "github"]
+                    ),
+                    "azure": len(
+                        [t for t in self.tool_registry.values() if t.domain == "azure"]
+                    ),
                 },
                 "context_saving": f"~{len(self.tool_registry) * 0.5}K tokens saved vs traditional MCP",
             }

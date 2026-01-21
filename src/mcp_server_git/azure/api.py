@@ -176,8 +176,7 @@ async def azure_get_build_logs(
                     log_lines = log_lines[-tail_lines:]
                     log_content = "\n".join(log_lines)
                     log_content = (
-                        f"... [truncated {truncated_count} lines] ...\n\n"
-                        + log_content
+                        f"... [truncated {truncated_count} lines] ...\n\n" + log_content
                     )
                     header = f"Log #{log_id} for Build #{build_id} (showing last {tail_lines} of {original_line_count} lines):\n\n"
                 else:
@@ -307,7 +306,7 @@ async def azure_get_failing_jobs(
                                 # Plain text response
                                 log_text = await log_response.text()
                                 log_lines = log_text.split("\n")
-                            
+
                             # Get last N lines
                             original_line_count = len(log_lines)
                             if len(log_lines) > log_tail_lines:
@@ -316,7 +315,9 @@ async def azure_get_failing_jobs(
                                 output.append(
                                     f"   Log excerpt (showing last {log_tail_lines} of {original_line_count} lines):"
                                 )
-                                output.append(f"   ... [truncated {truncated_count} lines] ...")
+                                output.append(
+                                    f"   ... [truncated {truncated_count} lines] ..."
+                                )
                             else:
                                 excerpt_lines = log_lines
                                 output.append(

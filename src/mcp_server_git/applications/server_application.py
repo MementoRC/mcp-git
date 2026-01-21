@@ -32,6 +32,7 @@ from ..frameworks.server_security import SecurityFramework
 from ..operations.server_notifications import NotificationOperations
 from ..protocols.debugging_protocol import DebuggableComponent
 from ..services.git_service import GitService
+
 # GitHubServiceConfig imported from frameworks.server_github above
 from ..services.server_metrics import MetricsService
 from ..services.server_session import SessionManager
@@ -618,7 +619,9 @@ class ServerApplication(DebuggableComponent):
 
             # Phase 2: Initialize configuration management
             await self._initialize_configuration()
-            assert self._configuration_manager is not None, "Configuration manager must be initialized"
+            assert self._configuration_manager is not None, (
+                "Configuration manager must be initialized"
+            )
 
             # Phase 3: Initialize infrastructure components
             await self._initialize_infrastructure()
@@ -696,7 +699,9 @@ class ServerApplication(DebuggableComponent):
 
     async def _initialize_services(self) -> None:
         """Initialize service components."""
-        assert self._configuration_manager is not None, "Configuration manager must be initialized"
+        assert self._configuration_manager is not None, (
+            "Configuration manager must be initialized"
+        )
         logger.debug("Initializing service components...")
 
         # Get configuration for services
@@ -714,6 +719,7 @@ class ServerApplication(DebuggableComponent):
 
         # Initialize GitHub service
         from ..configuration.github_config import GitHubConfig
+
         github_config = GitHubServiceConfig(
             github_config=GitHubConfig(
                 api_token=server_config.github_token,
@@ -749,7 +755,9 @@ class ServerApplication(DebuggableComponent):
 
     async def _register_components(self) -> None:
         """Register all components with the framework."""
-        assert self._framework is not None, "Framework must be initialized before registering components"
+        assert self._framework is not None, (
+            "Framework must be initialized before registering components"
+        )
         logger.debug("Registering components with framework...")
 
         # Register core components
@@ -845,7 +853,9 @@ class ServerApplication(DebuggableComponent):
             logger.warning("ServerApplication already running")
             return
 
-        assert self._framework is not None, "Framework must be initialized before starting"
+        assert self._framework is not None, (
+            "Framework must be initialized before starting"
+        )
         logger.info("Starting ServerApplication...")
 
         try:
@@ -1109,16 +1119,32 @@ class ServerApplication(DebuggableComponent):
         # Return specific component state (convert to dict via state_data property)
         if path == "framework" and self._framework:
             state = self._framework.get_component_state()
-            return state.state_data if hasattr(state, "state_data") else {"state": str(state)}
+            return (
+                state.state_data
+                if hasattr(state, "state_data")
+                else {"state": str(state)}
+            )
         elif path == "git_service" and self._git_service:
             state = self._git_service.get_component_state()
-            return state.state_data if hasattr(state, "state_data") else {"state": str(state)}
+            return (
+                state.state_data
+                if hasattr(state, "state_data")
+                else {"state": str(state)}
+            )
         elif path == "github_service" and self._github_service:
             state = self._github_service.get_component_state()
-            return state.state_data if hasattr(state, "state_data") else {"state": str(state)}
+            return (
+                state.state_data
+                if hasattr(state, "state_data")
+                else {"state": str(state)}
+            )
         elif path == "security_framework" and self._security_framework:
             state = self._security_framework.get_component_state()
-            return state.state_data if hasattr(state, "state_data") else {"state": str(state)}
+            return (
+                state.state_data
+                if hasattr(state, "state_data")
+                else {"state": str(state)}
+            )
         else:
             return {"error": f"Component '{path}' not found or not initialized"}
 

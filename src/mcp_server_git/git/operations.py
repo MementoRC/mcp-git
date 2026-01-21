@@ -678,9 +678,13 @@ def _file_exists_or_in_git(repo: Repo, file: str, status_files: set) -> bool:
         if hasattr(repo_path, "_mock_name") or str(type(repo_path).__name__) == "Mock":
             # Test environment - try to work with mocked Path
             file_path = _get_mocked_file_path(repo_path, repo.working_dir, file)
-            if hasattr(file_path, "exists") and callable(getattr(file_path, "exists", None)):
+            if hasattr(file_path, "exists") and callable(
+                getattr(file_path, "exists", None)
+            ):
                 file_exists: bool = bool(file_path.exists())  # type: ignore[union-attr]
-                if hasattr(file_path, "is_symlink") and callable(getattr(file_path, "is_symlink", None)):
+                if hasattr(file_path, "is_symlink") and callable(
+                    getattr(file_path, "is_symlink", None)
+                ):
                     file_exists = file_exists or bool(file_path.is_symlink())  # type: ignore[union-attr]
                 return file_exists or file in status_files
             # Mock doesn't have exists method - fall back to status_files
@@ -1575,7 +1579,7 @@ def git_continue(repo: Repo, operation: str) -> str:
             cwd=repo.working_dir,
             capture_output=True,
             text=True,
-            timeout=60  # 60 second timeout for continue operations
+            timeout=60,  # 60 second timeout for continue operations
         )
 
         if result.returncode == 0:
@@ -1592,7 +1596,11 @@ def git_continue(repo: Repo, operation: str) -> str:
                 error_output = result.stdout.strip()
 
             # Provide helpful error messages based on common scenarios
-            if "No rebase in progress" in error_output or "no merge in progress" in error_output or "no cherry-pick in progress" in error_output:
+            if (
+                "No rebase in progress" in error_output
+                or "no merge in progress" in error_output
+                or "no cherry-pick in progress" in error_output
+            ):
                 return f"❌ No {operation} in progress to continue"
             elif "conflicts" in error_output.lower():
                 return f"❌ Unresolved conflicts remain. Resolve conflicts before continuing {operation}"
