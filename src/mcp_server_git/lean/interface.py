@@ -126,6 +126,30 @@ class GitLeanInterface:
             f"Registered tool: {tool_def.name} ({tool_def.domain}/{tool_def.complexity})"
         )
 
+    def _validate_path_parameters(self, parameters: dict[str, Any]) -> None:
+        """
+        Reject relative paths to prevent CWD confusion between client and server.
+
+        MCP servers resolve paths relative to their process CWD, not Claude Code's
+        working directory. This causes cross-repository pollution when using ".".
+
+        Args:
+            parameters: Dictionary of tool parameters
+
+        Raises:
+            ValueError: If any path parameter is relative
+        """
+        for param_name, param_value in parameters.items():
+            # Check all parameters containing "path" in their name
+            if "path" in param_name.lower() and isinstance(param_value, str):
+                # Reject ".", "..", or any path not starting with "/"
+                if param_value in (".", "..") or not param_value.startswith("/"):
+                    raise ValueError(
+                        f"Relative path '{param_value}' not supported. MCP servers "
+                        f"resolve paths relative to their process CWD, not Claude Code's "
+                        f"working directory. Use absolute path instead."
+                    )
+
     def _wrap_tool(self, tool_func: Callable, tool_name: str) -> Callable:
         """Wrap tool function with token limiting and error handling.
 
@@ -446,6 +470,17 @@ class GitLeanInterface:
                         "validation_path": list(ve.path) if ve.path else [],
                         "schema_path": list(ve.schema_path) if ve.schema_path else [],
                         "valid_parameters": list(schema.get("properties", {}).keys()),
+                    }
+
+                # Validate path parameters to prevent relative path issues
+                try:
+                    self._validate_path_parameters(parameters)
+                except ValueError as ve:
+                    return {
+                        "tool": tool_name,
+                        "status": "error",
+                        "error": str(ve),
+                        "execution_mode": "lean_mcp_dynamic",
                     }
 
                 # Execute tool through its implementation
