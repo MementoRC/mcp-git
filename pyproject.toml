@@ -117,8 +117,7 @@ ruff = ">=0.7.3"
 
 # Type Checking
 mypy = ">=1.0.0"
-
-# Type checking moved to conda-forge in quality dependencies
+pyright = ">=1.1.0"
 
 # TIER 2: Extended Quality & Security
 [tool.pixi.feature.quality-extended.dependencies]
