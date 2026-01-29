@@ -687,7 +687,7 @@ class MCPServerFramework(DebuggableComponent):
             logger.error(f"Failed to export state as JSON: {e}")
             return json.dumps({"error": f"JSON export failed: {e}"})
 
-    def health_check(self) -> dict[str, bool | str | int | float]:
+    def health_check(self) -> dict[str, bool | str | int | float | None]:
         """Perform framework health check."""
         healthy = True
         status = "healthy"

@@ -161,12 +161,15 @@ class TokenLimitConfigManager:
 
     def __init__(self):
         self.logger = logging.getLogger(f"{__name__}.TokenLimitConfigManager")
-        self._settings: TokenLimitSettings = None
-        self._config_file_path: Path = None
+        self._settings: TokenLimitSettings | None = None
+        self._config_file_path: Path | None = None
         self._lock = threading.Lock()
 
     def load_configuration(
-        self, config_file: str = None, profile: TokenLimitProfile = None, **overrides
+        self,
+        config_file: str | None = None,
+        profile: TokenLimitProfile | None = None,
+        **overrides,
     ) -> TokenLimitSettings:
         """
         Load configuration from multiple sources.

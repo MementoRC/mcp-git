@@ -66,13 +66,11 @@ jobs:
       run: |
         echo "🔍 Running format checks..."
         pixi run -e quality format-check
-      continue-on-error: true
 
     - name: Run type checking with pyright
       run: |
         echo "🔍 Running type checking..."
         pixi run -e quality typecheck
-      continue-on-error: true
 
   # Job 2: Unit and Integration Tests
   test:

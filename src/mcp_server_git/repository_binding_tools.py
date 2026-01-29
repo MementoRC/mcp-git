@@ -110,10 +110,11 @@ async def handle_repository_bind(
             f"Binding Hash: {binding_info['binding_hash'][:16]}...\n"
             f"Session: {result['binding']['session_id']}"
         )
+    except RemoteContaminationError as e:
+        # Must catch subclass before parent class
+        return f"🚨 Remote contamination detected: {e}"
     except RepositoryBindingError as e:
         return f"❌ Repository binding failed: {e}"
-    except RemoteContaminationError as e:
-        return f"🚨 Remote contamination detected: {e}"
     except Exception as e:
         return f"💥 Unexpected error during binding: {e}"
 

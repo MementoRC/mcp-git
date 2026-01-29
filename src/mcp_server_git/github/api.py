@@ -681,8 +681,9 @@ async def github_update_pr(
     title: str | None = None,
     body: str | None = None,
     state: str | None = None,
+    base: str | None = None,
 ) -> str:
-    """Update a pull request's title, body, or state."""
+    """Update a pull request's title, body, state, or base branch."""
     logger.debug(f"🚀 Updating PR #{pr_number} in {repo_owner}/{repo_name}")
 
     try:
@@ -696,9 +697,11 @@ async def github_update_pr(
                 if state not in ["open", "closed"]:
                     return "❌ State must be 'open' or 'closed'"
                 payload["state"] = state
+            if base is not None:
+                payload["base"] = base
 
             if not payload:
-                return "⚠️ No update parameters provided. Please specify title, body, or state."
+                return "⚠️ No update parameters provided. Please specify title, body, state, or base."
 
             response = await client.patch(
                 f"/repos/{repo_owner}/{repo_name}/pulls/{pr_number}", json=payload

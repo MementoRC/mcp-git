@@ -44,7 +44,7 @@ class TestGitContinueSubprocessFix:
             cwd="/test/repo",
             capture_output=True,
             text=True,
-            timeout=60
+            timeout=60,
         )
 
     @patch("mcp_server_git.git.operations.subprocess.run")
@@ -70,7 +70,7 @@ class TestGitContinueSubprocessFix:
             cwd="/test/repo",
             capture_output=True,
             text=True,
-            timeout=60
+            timeout=60,
         )
 
     @patch("mcp_server_git.git.operations.subprocess.run")
@@ -96,7 +96,7 @@ class TestGitContinueSubprocessFix:
             cwd="/test/repo",
             capture_output=True,
             text=True,
-            timeout=60
+            timeout=60,
         )
 
     @patch("mcp_server_git.git.operations.subprocess.run")
@@ -165,8 +165,7 @@ class TestGitContinueSubprocessFix:
         mock_repo.working_dir = "/test/repo"
 
         mock_subprocess.side_effect = subprocess.TimeoutExpired(
-            cmd=["git", "rebase", "--continue"],
-            timeout=60
+            cmd=["git", "rebase", "--continue"], timeout=60
         )
 
         # Act

@@ -151,13 +151,11 @@ class TestAzureGetBuildLogs:
         mock_response.status = 200
         mock_response.headers = {"Content-Type": "application/json"}
         # Azure DevOps returns log content as JSON with a "value" array
-        mock_response.json = AsyncMock(return_value={
-            "value": [
-                "Build log line 1",
-                "Build log line 2",
-                "Build log line 3"
-            ]
-        })
+        mock_response.json = AsyncMock(
+            return_value={
+                "value": ["Build log line 1", "Build log line 2", "Build log line 3"]
+            }
+        )
         mock_client.get = AsyncMock(return_value=mock_response)
 
         with patch("src.mcp_server_git.azure.api.azure_client_context") as mock_context:
@@ -176,7 +174,7 @@ class TestAzureGetBuildLogs:
     async def test_get_specific_log_with_tail_lines(self):
         """Test getting a specific log with tail_lines parameter."""
         mock_client = MagicMock()
-        
+
         mock_response = AsyncMock()
         mock_response.status = 200
         mock_response.headers = {"Content-Type": "application/json"}
@@ -184,19 +182,21 @@ class TestAzureGetBuildLogs:
         log_lines = [f"Log line {i}" for i in range(1, 101)]
         mock_response.json = AsyncMock(return_value={"value": log_lines})
         mock_client.get = AsyncMock(return_value=mock_response)
-        
-        with patch('src.mcp_server_git.azure.api.azure_client_context') as mock_context:
+
+        with patch("src.mcp_server_git.azure.api.azure_client_context") as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
-            
+
             result = await azure_get_build_logs(
                 project="myproject", build_id=123, log_id=1, tail_lines=20
             )
-            
+
             assert "Log #1" in result
             assert "Log line 81" in result  # Should start from line 81 (100 - 20 + 1)
             assert "Log line 100" in result
             # Check that early lines are not in the output (avoiding the truncation message)
-            assert "Log line 10\n" not in result  # Early line with newline to avoid matching in message
+            assert (
+                "Log line 10\n" not in result
+            )  # Early line with newline to avoid matching in message
             assert "truncated 80 lines" in result
             assert "showing last 20 of 100 lines" in result  # New format
 
@@ -246,9 +246,9 @@ class TestAzureGetFailingJobs:
         log_response = AsyncMock()
         log_response.status = 200
         log_response.headers = {"Content-Type": "application/json"}
-        log_response.json = AsyncMock(return_value={
-            "value": ["Error log line 1", "Error log line 2"]
-        })
+        log_response.json = AsyncMock(
+            return_value={"value": ["Error log line 1", "Error log line 2"]}
+        )
 
         async def mock_get(url, **kwargs):
             if "timeline" in url:

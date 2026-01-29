@@ -14,6 +14,7 @@ from datetime import datetime
 from typing import Any
 
 from mcp.types import (
+    ErrorData,
     JSONRPCError,
 )
 
@@ -154,11 +155,11 @@ class AuthenticationMiddleware(BaseMiddleware):
         return JSONRPCError(
             jsonrpc="2.0",
             id="auth-error",
-            error={
-                "code": -32001,
-                "message": "Authentication Error",
-                "data": {"details": message},
-            },
+            error=ErrorData(
+                code=-32001,
+                message="Authentication Error",
+                data={"details": message},
+            ),
         )
 
 
@@ -287,11 +288,11 @@ class ErrorHandlingMiddleware(BaseMiddleware):
         return JSONRPCError(
             jsonrpc="2.0",
             id="error",
-            error={
-                "code": error_code,
-                "message": "Internal Server Error",
-                "data": {"details": error_message, "error_type": type(error).__name__},
-            },
+            error=ErrorData(
+                code=error_code,
+                message="Internal Server Error",
+                data={"details": error_message, "error_type": type(error).__name__},
+            ),
         )
 
     def _mask_sensitive_info(self, message: str) -> str:

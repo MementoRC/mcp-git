@@ -32,27 +32,24 @@ class TestRepoPathResolution:
         with tempfile.TemporaryDirectory() as tmpdir:
             repo_path = Path(tmpdir) / "test_repo"
             repo_path.mkdir()
-            
+
             # Initialize a git repository
             subprocess.run(
-                ["git", "init"], 
-                cwd=repo_path, 
-                capture_output=True, 
-                check=True
+                ["git", "init"], cwd=repo_path, capture_output=True, check=True
             )
             subprocess.run(
                 ["git", "config", "user.email", "test@example.com"],
                 cwd=repo_path,
                 capture_output=True,
-                check=True
+                check=True,
             )
             subprocess.run(
                 ["git", "config", "user.name", "Test User"],
                 cwd=repo_path,
                 capture_output=True,
-                check=True
+                check=True,
             )
-            
+
             # Create an initial commit
             test_file = repo_path / "test.txt"
             test_file.write_text("test content")
@@ -60,15 +57,15 @@ class TestRepoPathResolution:
                 ["git", "add", "test.txt"],
                 cwd=repo_path,
                 capture_output=True,
-                check=True
+                check=True,
             )
             subprocess.run(
                 ["git", "commit", "-m", "Initial commit"],
                 cwd=repo_path,
                 capture_output=True,
-                check=True
+                check=True,
             )
-            
+
             yield repo_path
 
     @pytest.fixture
@@ -94,19 +91,18 @@ class TestRepoPathResolution:
     async def test_repo_path_dot_with_bound_repo(self, server_app_with_repo, temp_repo):
         """Test that repo_path='.' resolves to bound repository."""
         # Mock the git operations to avoid actual git calls
-        with patch('mcp_server_git.git.operations.git_status') as mock_status:
+        with patch("mcp_server_git.git.operations.git_status") as mock_status:
             mock_status.return_value = "Mock status"
-            
-            with patch('mcp_server_git.utils.git_import.Repo') as mock_repo_class:
+
+            with patch("mcp_server_git.utils.git_import.Repo") as mock_repo_class:
                 mock_repo = MagicMock()
                 mock_repo_class.return_value = mock_repo
-                
+
                 # Execute tool with repo_path="."
                 result = await server_app_with_repo._execute_tool_operation(
-                    GitTools.STATUS,
-                    {"repo_path": "."}
+                    GitTools.STATUS, {"repo_path": "."}
                 )
-                
+
                 # Verify that Repo was called with the absolute path of bound repository
                 called_path = mock_repo_class.call_args[0][0]
                 assert Path(called_path).resolve() == temp_repo.resolve()
@@ -115,48 +111,48 @@ class TestRepoPathResolution:
         """Test that repo_path='.' without bound repository raises error."""
         with pytest.raises(ValueError) as exc_info:
             await server_app_no_repo._execute_tool_operation(
-                GitTools.STATUS,
-                {"repo_path": "."}
+                GitTools.STATUS, {"repo_path": "."}
             )
-        
+
         assert "Cannot determine target repository" in str(exc_info.value)
         assert "absolute" in str(exc_info.value).lower()
 
     async def test_repo_path_absolute_path(self, server_app_with_repo, temp_repo):
         """Test that absolute path is used directly."""
-        with patch('mcp_server_git.git.operations.git_status') as mock_status:
+        with patch("mcp_server_git.git.operations.git_status") as mock_status:
             mock_status.return_value = "Mock status"
-            
-            with patch('mcp_server_git.utils.git_import.Repo') as mock_repo_class:
+
+            with patch("mcp_server_git.utils.git_import.Repo") as mock_repo_class:
                 mock_repo = MagicMock()
                 mock_repo_class.return_value = mock_repo
-                
+
                 # Execute tool with absolute path
                 abs_path = str(temp_repo.resolve())
                 result = await server_app_with_repo._execute_tool_operation(
-                    GitTools.STATUS,
-                    {"repo_path": abs_path}
+                    GitTools.STATUS, {"repo_path": abs_path}
                 )
-                
+
                 # Verify that Repo was called with the provided absolute path
                 called_path = mock_repo_class.call_args[0][0]
                 assert called_path == abs_path
 
-    async def test_repo_path_none_with_bound_repo(self, server_app_with_repo, temp_repo):
+    async def test_repo_path_none_with_bound_repo(
+        self, server_app_with_repo, temp_repo
+    ):
         """Test that None repo_path uses bound repository."""
-        with patch('mcp_server_git.git.operations.git_status') as mock_status:
+        with patch("mcp_server_git.git.operations.git_status") as mock_status:
             mock_status.return_value = "Mock status"
-            
-            with patch('mcp_server_git.utils.git_import.Repo') as mock_repo_class:
+
+            with patch("mcp_server_git.utils.git_import.Repo") as mock_repo_class:
                 mock_repo = MagicMock()
                 mock_repo_class.return_value = mock_repo
-                
+
                 # Execute tool without repo_path argument
                 result = await server_app_with_repo._execute_tool_operation(
                     GitTools.STATUS,
-                    {}  # No repo_path provided
+                    {},  # No repo_path provided
                 )
-                
+
                 # Verify that Repo was called with bound repository path
                 called_path = mock_repo_class.call_args[0][0]
                 assert Path(called_path).resolve() == temp_repo.resolve()
@@ -166,9 +162,9 @@ class TestRepoPathResolution:
         with pytest.raises(ValueError) as exc_info:
             await server_app_no_repo._execute_tool_operation(
                 GitTools.STATUS,
-                {}  # No repo_path provided
+                {},  # No repo_path provided
             )
-        
+
         assert "Cannot determine target repository" in str(exc_info.value)
 
     async def test_git_init_with_path(self, server_app_no_repo):
@@ -176,16 +172,15 @@ class TestRepoPathResolution:
         with tempfile.TemporaryDirectory() as tmpdir:
             new_repo_path = Path(tmpdir) / "new_repo"
             new_repo_path.mkdir()
-            
-            with patch('mcp_server_git.git.operations.git_init') as mock_init:
+
+            with patch("mcp_server_git.git.operations.git_init") as mock_init:
                 mock_init.return_value = "Initialized"
-                
+
                 # Execute git_init with explicit path
                 result = await server_app_no_repo._execute_tool_operation(
-                    GitTools.INIT,
-                    {"repo_path": str(new_repo_path)}
+                    GitTools.INIT, {"repo_path": str(new_repo_path)}
                 )
-                
+
                 # Verify git_init was called with resolved absolute path
                 called_path = mock_init.call_args[0][0]
                 assert Path(called_path).resolve() == new_repo_path.resolve()
@@ -195,9 +190,9 @@ class TestRepoPathResolution:
         with pytest.raises(ValueError) as exc_info:
             await server_app_no_repo._execute_tool_operation(
                 GitTools.INIT,
-                {}  # No repo_path provided
+                {},  # No repo_path provided
             )
-        
+
         assert "git_init requires a repository path" in str(exc_info.value)
 
     async def test_relative_path_converted_to_absolute(self, server_app_no_repo):
@@ -207,26 +202,22 @@ class TestRepoPathResolution:
             old_cwd = os.getcwd()
             try:
                 os.chdir(tmpdir)
-                
+
                 # Create a test repo in a subdirectory
                 test_repo = Path(tmpdir) / "test_repo"
                 test_repo.mkdir()
                 subprocess.run(
-                    ["git", "init"], 
-                    cwd=test_repo, 
-                    capture_output=True, 
-                    check=True
+                    ["git", "init"], cwd=test_repo, capture_output=True, check=True
                 )
-                
-                with patch('mcp_server_git.git.operations.git_init') as mock_init:
+
+                with patch("mcp_server_git.git.operations.git_init") as mock_init:
                     mock_init.return_value = "Initialized"
-                    
+
                     # Execute with relative path
                     result = await server_app_no_repo._execute_tool_operation(
-                        GitTools.INIT,
-                        {"repo_path": "./test_repo"}
+                        GitTools.INIT, {"repo_path": "./test_repo"}
                     )
-                    
+
                     # Verify the path was converted to absolute
                     called_path = mock_init.call_args[0][0]
                     assert Path(called_path).is_absolute()
@@ -236,10 +227,12 @@ class TestRepoPathResolution:
 
     async def test_repository_resolver_instance_exists(self, server_app_with_repo):
         """Test that ServerApplication has a RepositoryResolver instance."""
-        assert hasattr(server_app_with_repo, '_repository_resolver')
+        assert hasattr(server_app_with_repo, "_repository_resolver")
         assert server_app_with_repo._repository_resolver is not None
 
-    async def test_repository_resolver_bound_path(self, server_app_with_repo, temp_repo):
+    async def test_repository_resolver_bound_path(
+        self, server_app_with_repo, temp_repo
+    ):
         """Test that RepositoryResolver is initialized with bound repository path."""
         resolver = server_app_with_repo._repository_resolver
         assert resolver.bound_repository_path is not None

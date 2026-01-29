@@ -185,12 +185,16 @@ class PerformanceProfiler:
 
             # Disk I/O
             current_io = self._process.io_counters()
-            disk_read_mb = (current_io.read_bytes - self._initial_io.read_bytes) / (
-                1024 * 1024
-            )
-            disk_write_mb = (current_io.write_bytes - self._initial_io.write_bytes) / (
-                1024 * 1024
-            )
+            if self._initial_io is not None:
+                disk_read_mb = (current_io.read_bytes - self._initial_io.read_bytes) / (
+                    1024 * 1024
+                )
+                disk_write_mb = (
+                    current_io.write_bytes - self._initial_io.write_bytes
+                ) / (1024 * 1024)
+            else:
+                disk_read_mb = 0.0
+                disk_write_mb = 0.0
 
             # Network I/O
             current_net = psutil.net_io_counters()

@@ -644,6 +644,9 @@ def git_add(
             else:
                 return "⚠️ No changes detected in specified files"
 
+        # Fallback (should not be reached due to parameter validation above)
+        return "❌ No files specified. Use files, add_all, update_only, or patterns parameter."
+
     except GitCommandError as e:
         # Handle GitCommandError string representation variations
         error_msg = str(e)
@@ -675,11 +678,17 @@ def _file_exists_or_in_git(repo: Repo, file: str, status_files: set) -> bool:
         if hasattr(repo_path, "_mock_name") or str(type(repo_path).__name__) == "Mock":
             # Test environment - try to work with mocked Path
             file_path = _get_mocked_file_path(repo_path, repo.working_dir, file)
-            if hasattr(file_path, "exists") and callable(file_path.exists):
-                file_exists = file_path.exists()
-                if hasattr(file_path, "is_symlink") and callable(file_path.is_symlink):
-                    file_exists = file_exists or file_path.is_symlink()
+            if hasattr(file_path, "exists") and callable(
+                getattr(file_path, "exists", None)
+            ):
+                file_exists: bool = bool(file_path.exists())  # type: ignore[union-attr]
+                if hasattr(file_path, "is_symlink") and callable(
+                    getattr(file_path, "is_symlink", None)
+                ):
+                    file_exists = file_exists or bool(file_path.is_symlink())  # type: ignore[union-attr]
                 return file_exists or file in status_files
+            # Mock doesn't have exists method - fall back to status_files
+            return file in status_files
         else:
             # Production - normal Path operations
             file_path = repo_path / file
@@ -698,13 +707,14 @@ def _get_mocked_file_path(repo_path, working_dir: str, file: str):
         # Try the / operator
         return repo_path / file
     except (TypeError, AttributeError):
-        # Fallback: try to use Path class side_effect
+        # Fallback: try to use Path class side_effect (when Path is mocked)
         path_class = Path
-        if hasattr(path_class, "side_effect") and callable(path_class.side_effect):
+        side_effect = getattr(path_class, "side_effect", None)
+        if side_effect is not None and callable(side_effect):
             import os
 
             full_path = os.path.join(working_dir, file)
-            return path_class.side_effect(full_path)
+            return side_effect(full_path)
         else:
             # Last resort: create a basic mock
             from unittest.mock import Mock
@@ -1116,8 +1126,6 @@ def git_push(
         # GitHub HTTPS authentication handling
         if is_github and remote_url.startswith("https://"):
             # Try to load .env from current repository first
-            from pathlib import Path
-
             from dotenv import load_dotenv
 
             repo_env = Path(repo.working_dir) / ".env"
@@ -1571,7 +1579,7 @@ def git_continue(repo: Repo, operation: str) -> str:
             cwd=repo.working_dir,
             capture_output=True,
             text=True,
-            timeout=60  # 60 second timeout for continue operations
+            timeout=60,  # 60 second timeout for continue operations
         )
 
         if result.returncode == 0:
@@ -1588,7 +1596,11 @@ def git_continue(repo: Repo, operation: str) -> str:
                 error_output = result.stdout.strip()
 
             # Provide helpful error messages based on common scenarios
-            if "No rebase in progress" in error_output or "no merge in progress" in error_output or "no cherry-pick in progress" in error_output:
+            if (
+                "No rebase in progress" in error_output
+                or "no merge in progress" in error_output
+                or "no cherry-pick in progress" in error_output
+            ):
                 return f"❌ No {operation} in progress to continue"
             elif "conflicts" in error_output.lower():
                 return f"❌ Unresolved conflicts remain. Resolve conflicts before continuing {operation}"
