@@ -550,7 +550,9 @@ class TestPathValidation:
             error_msg = str(e)
             # Verify error message contains key information
             assert "relative/path" in error_msg
-            assert "MCP servers resolve paths relative to their process CWD" in error_msg
+            assert (
+                "MCP servers resolve paths relative to their process CWD" in error_msg
+            )
             assert "Claude Code's working directory" in error_msg
             assert "Use absolute path instead" in error_msg
 
