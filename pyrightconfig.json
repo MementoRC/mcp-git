@@ -17,5 +17,7 @@
   "reportUnusedImport": "warning",
   "reportUnusedClass": "information",
   "reportUnusedFunction": "information",
-  "reportUnusedVariable": "warning"
+  "reportUnusedVariable": "warning",
+  "venvPath": ".pixi/envs",
+  "venv": "quality"
 }
