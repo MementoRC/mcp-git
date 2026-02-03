@@ -29,25 +29,6 @@ mcp-git-lean = "mcp_server_git.lean:main"
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
-[project]
-name = "mcp-server-git"
-version = "0.1.0"
-description = "A Model Context Protocol (MCP) server that provides comprehensive Git repository management and GitHub integration capabilities for AI-powered development tools"
-authors = [{name = "Claude Sonnet 3.5", email = "claude@anthropic.com"}]
-license = {file = "LICENSE"}
-readme = "README.md"
-requires-python = ">=3.12"
-dependencies = [
-    "aiohttp>=3.8.0",
-    "click>=8.1.7",
-    "gitpython>=3.1.43",
-    "mcp>=1.11.0",
-    "psutil>=5.9.0",
-    "pydantic>=2.0.0",
-    "python-dotenv>=1.0.0",
-    "httpx>=0.24.0",
-]
-
 [project.urls]
 Homepage = "https://github.com/MementoRC/mcp-git"
 Repository = "https://github.com/MementoRC/mcp-git.git"
@@ -201,7 +182,6 @@ dev = "python -m mcp_server_git"
 # ===== TIER 1: CORE QUALITY TASKS =====
 # Basic Code Quality
 test = "pytest"
-test-coverage = "pytest --cov=src/mcp_server_git --cov-report=term-missing"
 test-unit = "pytest tests/unit/ -v"
 test-e2e = "pytest tests/e2e/ -v -m 'not ci_skip'"
 test-phase1 = "pytest -m phase1 -v"
