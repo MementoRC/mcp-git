@@ -474,7 +474,7 @@ class MCPGitServerCore(DebuggableComponent):
         # Check repository binding validation
         binding_info = self.binding_manager.get_binding_info()
         is_bound = binding_info.get("bound", False)
-        
+
         if not is_bound and self.repository_path:
             warnings.append(
                 "Repository specified but not bound - operations may be unprotected"

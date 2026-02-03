@@ -221,9 +221,9 @@ class TestClientDetector:
 
         for user_agent in test_cases:
             result = self.detector.detect_client_type(user_agent)
-            assert (
-                result == ClientType.LLM
-            ), f"Failed to detect LLM client: {user_agent}"
+            assert result == ClientType.LLM, (
+                f"Failed to detect LLM client: {user_agent}"
+            )
 
     def test_human_client_detection(self):
         """Test detection of human clients."""
@@ -236,9 +236,9 @@ class TestClientDetector:
 
         for user_agent in test_cases:
             result = self.detector.detect_client_type(user_agent)
-            assert (
-                result == ClientType.HUMAN
-            ), f"Failed to detect human client: {user_agent}"
+            assert result == ClientType.HUMAN, (
+                f"Failed to detect human client: {user_agent}"
+            )
 
     def test_unknown_client_detection(self):
         """Test handling of unknown clients."""

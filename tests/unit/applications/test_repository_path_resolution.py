@@ -19,7 +19,7 @@ import os
 
 from mcp_server_git.applications.server_application import (
     ServerApplication,
-    ServerApplicationConfig
+    ServerApplicationConfig,
 )
 
 
@@ -30,21 +30,21 @@ class TestRepositoryPathResolution:
         """Test ServerApplicationConfig with explicit repository path."""
         test_path = Path("/path/to/repo")
         config = ServerApplicationConfig(repository_path=test_path)
-        
+
         assert config.repository_path == test_path
         assert config.repository_path.is_absolute()
 
     def test_config_with_none_repository_path(self):
         """Test ServerApplicationConfig with None repository path."""
         config = ServerApplicationConfig(repository_path=None)
-        
+
         assert config.repository_path is None
 
     def test_config_with_relative_repository_path(self):
         """Test ServerApplicationConfig with relative repository path."""
         test_path = Path("relative/path")
         config = ServerApplicationConfig(repository_path=test_path)
-        
+
         assert config.repository_path == test_path
         assert not config.repository_path.is_absolute()
 
@@ -53,7 +53,7 @@ class TestRepositoryPathResolution:
         test_path_str = "/string/path/to/repo"
         test_path = Path(test_path_str)
         config = ServerApplicationConfig(repository_path=test_path)
-        
+
         assert isinstance(config.repository_path, Path)
         assert str(config.repository_path) == test_path_str
 
@@ -63,18 +63,19 @@ class TestRepositoryPathResolution:
         test_repo_path = "/test/repository/path"
         config = ServerApplicationConfig(repository_path=Path(test_repo_path))
         app = ServerApplication(config)
-        
+
         # Mock the Repo class and git_status function
-        with patch("mcp_server_git.utils.git_import.Repo") as mock_repo_class, \
-             patch("mcp_server_git.git.operations.git_status") as mock_git_status:
-            
+        with (
+            patch("mcp_server_git.utils.git_import.Repo") as mock_repo_class,
+            patch("mcp_server_git.git.operations.git_status") as mock_git_status,
+        ):
             mock_repo_instance = MagicMock()
             mock_repo_class.return_value = mock_repo_instance
             mock_git_status.return_value = "mocked status"
-            
+
             # Call _execute_tool_operation with git_status (no repo_path in arguments)
             result = await app._execute_tool_operation("git_status", {})
-            
+
             # Verify that Repo was instantiated with the config repository path
             mock_repo_class.assert_called_once_with(test_repo_path)
             mock_git_status.assert_called_once_with(mock_repo_instance)
@@ -85,73 +86,78 @@ class TestRepositoryPathResolution:
         """Test that _execute_tool_operation uses repo_path from arguments when provided."""
         config_repo_path = "/config/repository/path"
         argument_repo_path = "/argument/repository/path"
-        
+
         config = ServerApplicationConfig(repository_path=Path(config_repo_path))
         app = ServerApplication(config)
-        
-        with patch("mcp_server_git.utils.git_import.Repo") as mock_repo_class, \
-             patch("mcp_server_git.git.operations.git_status") as mock_git_status:
-            
+
+        with (
+            patch("mcp_server_git.utils.git_import.Repo") as mock_repo_class,
+            patch("mcp_server_git.git.operations.git_status") as mock_git_status,
+        ):
             mock_repo_instance = MagicMock()
             mock_repo_class.return_value = mock_repo_instance
             mock_git_status.return_value = "mocked status"
-            
+
             # Call _execute_tool_operation with explicit repo_path in arguments
-            result = await app._execute_tool_operation("git_status", {
-                "repo_path": argument_repo_path
-            })
-            
+            result = await app._execute_tool_operation(
+                "git_status", {"repo_path": argument_repo_path}
+            )
+
             # Verify that Repo was instantiated with the argument repo_path (not config)
             mock_repo_class.assert_called_once_with(argument_repo_path)
             mock_git_status.assert_called_once_with(mock_repo_instance)
             assert result == "mocked status"
 
     @pytest.mark.asyncio
-    async def test_execute_tool_operation_defaults_to_current_directory_when_no_config(self):
+    async def test_execute_tool_operation_defaults_to_current_directory_when_no_config(
+        self,
+    ):
         """Test that _execute_tool_operation defaults to '.' when no config repository path."""
         config = ServerApplicationConfig(repository_path=None)
         app = ServerApplication(config)
-        
-        with patch("mcp_server_git.utils.git_import.Repo") as mock_repo_class, \
-             patch("mcp_server_git.git.operations.git_status") as mock_git_status:
-            
+
+        with (
+            patch("mcp_server_git.utils.git_import.Repo") as mock_repo_class,
+            patch("mcp_server_git.git.operations.git_status") as mock_git_status,
+        ):
             mock_repo_instance = MagicMock()
             mock_repo_class.return_value = mock_repo_instance
             mock_git_status.return_value = "mocked status"
-            
+
             # Call _execute_tool_operation with no repo_path in arguments and no config path
             result = await app._execute_tool_operation("git_status", {})
-            
+
             # Verify that Repo was instantiated with "." as default
             mock_repo_class.assert_called_once_with(".")
             mock_git_status.assert_called_once_with(mock_repo_instance)
             assert result == "mocked status"
 
-    @pytest.mark.asyncio 
+    @pytest.mark.asyncio
     async def test_execute_tool_operation_path_resolution_priority(self):
         """Test the priority order: argument repo_path > config repository_path > '.'"""
         config_repo_path = "/config/path"
         config = ServerApplicationConfig(repository_path=Path(config_repo_path))
         app = ServerApplication(config)
-        
-        with patch("mcp_server_git.utils.git_import.Repo") as mock_repo_class, \
-             patch("mcp_server_git.git.operations.git_status") as mock_git_status:
-            
+
+        with (
+            patch("mcp_server_git.utils.git_import.Repo") as mock_repo_class,
+            patch("mcp_server_git.git.operations.git_status") as mock_git_status,
+        ):
             mock_repo_class.return_value = MagicMock()
             mock_git_status.return_value = "mocked"
-            
+
             # Test 1: Only config path available
             await app._execute_tool_operation("git_status", {})
             mock_repo_class.assert_called_with(config_repo_path)
-            
+
             # Reset mock
             mock_repo_class.reset_mock()
-            
+
             # Test 2: Both config and argument path - argument should win
             argument_repo_path = "/argument/path"
-            await app._execute_tool_operation("git_status", {
-                "repo_path": argument_repo_path
-            })
+            await app._execute_tool_operation(
+                "git_status", {"repo_path": argument_repo_path}
+            )
             mock_repo_class.assert_called_with(argument_repo_path)
 
     @pytest.mark.asyncio
@@ -160,31 +166,36 @@ class TestRepositoryPathResolution:
         test_repo_path = "/test/repo"
         config = ServerApplicationConfig(repository_path=Path(test_repo_path))
         app = ServerApplication(config)
-        
+
         git_operations = [
             ("git_status", "git_status"),
             ("git_diff_unstaged", "git_diff_unstaged"),
             ("git_diff_staged", "git_diff_staged"),
             ("git_log", "git_log"),
         ]
-        
+
         for tool_name, function_name in git_operations:
-            with patch("mcp_server_git.utils.git_import.Repo") as mock_repo_class, \
-                 patch(f"mcp_server_git.git.operations.{function_name}") as mock_function:
-                
+            with (
+                patch("mcp_server_git.utils.git_import.Repo") as mock_repo_class,
+                patch(
+                    f"mcp_server_git.git.operations.{function_name}"
+                ) as mock_function,
+            ):
                 mock_repo_instance = MagicMock()
                 mock_repo_class.return_value = mock_repo_instance
                 mock_function.return_value = f"mocked {function_name}"
-                
+
                 # Call the tool operation
                 result = await app._execute_tool_operation(tool_name, {})
-                
+
                 # Verify repository path resolution
                 mock_repo_class.assert_called_once_with(test_repo_path)
-                
+
                 # Verify the function was called with the repo instance
                 if function_name == "git_log":
-                    mock_function.assert_called_once_with(mock_repo_instance, max_count=10)
+                    mock_function.assert_called_once_with(
+                        mock_repo_instance, max_count=10
+                    )
                 else:
                     mock_function.assert_called_once_with(mock_repo_instance)
 
@@ -193,7 +204,7 @@ class TestRepositoryPathResolution:
         absolute_path = Path("/absolute/path/to/repo")
         config = ServerApplicationConfig(repository_path=absolute_path)
         app = ServerApplication(config)
-        
+
         # The path should be stored as-is when it's absolute
         assert app.config.repository_path == absolute_path
         assert app.config.repository_path.is_absolute()
@@ -203,7 +214,7 @@ class TestRepositoryPathResolution:
         relative_path = Path("relative/path/to/repo")
         config = ServerApplicationConfig(repository_path=relative_path)
         app = ServerApplication(config)
-        
+
         # The path should be stored as-is when it's relative
         assert app.config.repository_path == relative_path
         assert not app.config.repository_path.is_absolute()
@@ -214,15 +225,16 @@ class TestRepositoryPathResolution:
         test_repo_path = Path("/test/repository/path")
         config = ServerApplicationConfig(repository_path=test_repo_path)
         app = ServerApplication(config)
-        
-        with patch("mcp_server_git.utils.git_import.Repo") as mock_repo_class, \
-             patch("mcp_server_git.git.operations.git_status") as mock_git_status:
-            
+
+        with (
+            patch("mcp_server_git.utils.git_import.Repo") as mock_repo_class,
+            patch("mcp_server_git.git.operations.git_status") as mock_git_status,
+        ):
             mock_repo_class.return_value = MagicMock()
             mock_git_status.return_value = "mocked"
-            
+
             await app._execute_tool_operation("git_status", {})
-            
+
             # Verify that the Path object was converted to string
             mock_repo_class.assert_called_once_with(str(test_repo_path))
 
@@ -230,11 +242,13 @@ class TestRepositoryPathResolution:
         """Test proper handling when repository_path is None in config."""
         config = ServerApplicationConfig(repository_path=None)
         app = ServerApplication(config)
-        
+
         assert app.config.repository_path is None
-        
+
         # Test the default path logic that would be used in _execute_tool_operation
-        default_repo_path = str(app.config.repository_path) if app.config.repository_path else "."
+        default_repo_path = (
+            str(app.config.repository_path) if app.config.repository_path else "."
+        )
         assert default_repo_path == "."
 
 
@@ -246,13 +260,14 @@ class TestRepositoryPathResolutionEdgeCases:
         """Test handling of empty string repo_path in arguments."""
         config = ServerApplicationConfig(repository_path=Path("/config/path"))
         app = ServerApplication(config)
-        
-        with patch("mcp_server_git.utils.git_import.Repo") as mock_repo_class, \
-             patch("mcp_server_git.git.operations.git_status") as mock_git_status:
-            
+
+        with (
+            patch("mcp_server_git.utils.git_import.Repo") as mock_repo_class,
+            patch("mcp_server_git.git.operations.git_status") as mock_git_status,
+        ):
             mock_repo_class.return_value = MagicMock()
             mock_git_status.return_value = "mocked"
-            
+
             # Empty string should still be used (not fall back to config)
             await app._execute_tool_operation("git_status", {"repo_path": ""})
             mock_repo_class.assert_called_once_with("")
@@ -262,13 +277,14 @@ class TestRepositoryPathResolutionEdgeCases:
         """Test handling of whitespace-only repo_path in arguments."""
         config = ServerApplicationConfig(repository_path=Path("/config/path"))
         app = ServerApplication(config)
-        
-        with patch("mcp_server_git.utils.git_import.Repo") as mock_repo_class, \
-             patch("mcp_server_git.git.operations.git_status") as mock_git_status:
-            
+
+        with (
+            patch("mcp_server_git.utils.git_import.Repo") as mock_repo_class,
+            patch("mcp_server_git.git.operations.git_status") as mock_git_status,
+        ):
             mock_repo_class.return_value = MagicMock()
             mock_git_status.return_value = "mocked"
-            
+
             # Whitespace should still be used as-is
             await app._execute_tool_operation("git_status", {"repo_path": "   "})
             mock_repo_class.assert_called_once_with("   ")
@@ -282,7 +298,7 @@ class TestRepositoryPathResolutionEdgeCases:
             Path("/path/with.dots/repo"),
             Path("/path/with@symbols/repo"),
         ]
-        
+
         for path in special_paths:
             config = ServerApplicationConfig(repository_path=path)
             app = ServerApplication(config)
@@ -295,24 +311,25 @@ class TestRepositoryPathResolutionEdgeCases:
             # Create actual directory and symlink
             actual_repo = Path(temp_dir) / "actual_repo"
             actual_repo.mkdir()
-            
+
             symlink_repo = Path(temp_dir) / "symlink_repo"
             symlink_repo.symlink_to(actual_repo)
-            
+
             config = ServerApplicationConfig(repository_path=symlink_repo)
             app = ServerApplication(config)
-            
+
             # The path should be stored as provided (symlink path)
             assert app.config.repository_path == symlink_repo
-            
-            with patch("mcp_server_git.utils.git_import.Repo") as mock_repo_class, \
-                 patch("mcp_server_git.git.operations.git_status") as mock_git_status:
-                
+
+            with (
+                patch("mcp_server_git.utils.git_import.Repo") as mock_repo_class,
+                patch("mcp_server_git.git.operations.git_status") as mock_git_status,
+            ):
                 mock_repo_class.return_value = MagicMock()
                 mock_git_status.return_value = "mocked"
-                
+
                 await app._execute_tool_operation("git_status", {})
-                
+
                 # Should use the symlink path as provided
                 mock_repo_class.assert_called_once_with(str(symlink_repo))
 
@@ -326,10 +343,10 @@ class TestRepositoryPathResolutionIntegration:
         cwd_path = Path.cwd()
         config = ServerApplicationConfig(repository_path=cwd_path)
         app = ServerApplication(config)
-        
+
         assert app.config.repository_path == cwd_path
         assert app.config.repository_path.exists()  # Should exist since it's cwd
-        
+
         # Test string conversion
         path_str = str(app.config.repository_path)
         assert isinstance(path_str, str)
@@ -340,11 +357,11 @@ class TestRepositoryPathResolutionIntegration:
         test_path = Path("/consistent/test/path")
         config = ServerApplicationConfig(repository_path=test_path)
         app = ServerApplication(config)
-        
+
         # Multiple accesses should return the same object
         path1 = app.config.repository_path
         path2 = app.config.repository_path
-        
+
         assert path1 is path2  # Same object reference
         assert path1 == path2  # Same value
         assert str(path1) == str(path2)  # Same string representation
@@ -356,7 +373,7 @@ class TestRepositoryPathResolutionIntegration:
         config = ServerApplicationConfig(repository_path=unix_path)
         app = ServerApplication(config)
         assert app.config.repository_path == unix_path
-        
+
         # Test relative path
         rel_path = Path("relative/path")
         config2 = ServerApplicationConfig(repository_path=rel_path)
