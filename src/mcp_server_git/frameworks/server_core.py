@@ -168,7 +168,7 @@ class MCPGitServerCore(DebuggableComponent):
 
         if auto_bind:
             try:
-                await self.binding_manager.bind_repository(
+                self.binding_manager.bind_repository(
                     repository_path, expected_remote_url, verify_remote=True
                 )
 
@@ -336,7 +336,7 @@ class MCPGitServerCore(DebuggableComponent):
         repository_path: Path,
         expected_remote_url: str,
         verify_remote: bool = True,
-        force: bool = False,
+        force: bool = False,  # noqa: ARG002 - Reserved for future force-rebind
     ) -> dict:
         """Bind server to repository with remote protection.
 
@@ -344,14 +344,16 @@ class MCPGitServerCore(DebuggableComponent):
             repository_path: Path to git repository
             expected_remote_url: Expected remote URL for validation
             verify_remote: Verify remote URL matches expectation
-            force: Force binding even if already bound
+            force: Force binding even if already bound (reserved for future use)
 
         Returns:
             Binding status information
         """
+        # Note: force parameter reserved for future implementation
+        _ = force  # Suppress unused variable warning
         try:
-            await self.binding_manager.bind_repository(
-                repository_path, expected_remote_url, verify_remote, force
+            self.binding_manager.bind_repository(
+                repository_path, expected_remote_url, verify_remote=verify_remote
             )
             self._update_state_history()
             return {
@@ -363,17 +365,22 @@ class MCPGitServerCore(DebuggableComponent):
             self.last_error = str(e)
             raise
 
-    async def unbind_repository(self, force: bool = False) -> dict:
+    async def unbind_repository(
+        self,
+        force: bool = False,  # noqa: ARG002 - Reserved for future force-unbind
+    ) -> dict:
         """Unbind server from repository.
 
         Args:
-            force: Force unbind even if operations are in progress
+            force: Force unbind even if operations are in progress (reserved for future use)
 
         Returns:
             Unbinding status
         """
+        # Note: force parameter reserved for future implementation
+        _ = force  # Suppress unused variable warning
         try:
-            await self.binding_manager.unbind_repository(force)
+            self.binding_manager.unbind_repository()
             self._update_state_history()
             return {"status": "unbound"}
         except RepositoryBindingError as e:

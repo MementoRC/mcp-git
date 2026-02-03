@@ -224,7 +224,8 @@ class TokenLimitConfigManager:
                     import yaml
 
                     with open(config_path) as f:
-                        return yaml.safe_load(f).get("token_limits", {})
+                        data = yaml.safe_load(f)
+                        return data.get("token_limits", {}) if data else {}
                 except ImportError:
                     self.logger.error("PyYAML required for YAML config files")
                     return {}

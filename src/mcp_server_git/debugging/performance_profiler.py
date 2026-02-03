@@ -195,7 +195,7 @@ class PerformanceProfiler:
 
             # Network I/O
             current_net = psutil.net_io_counters()
-            if self._initial_net:
+            if self._initial_net and current_net:
                 net_sent_mb = (
                     current_net.bytes_sent - self._initial_net.bytes_sent
                 ) / (1024 * 1024)

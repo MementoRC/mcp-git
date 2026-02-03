@@ -2,6 +2,8 @@
   "include": ["src"],
   "exclude": ["**/__pycache__", "tests"],
   "reportMissingImports": "error",
+  "reportMissingModuleSource": "warning",
+  "extraPaths": [".pixi/envs/default/lib/python3.12/site-packages"],
   "reportMissingTypeStubs": "warning",
   "reportUndefinedVariable": "error",
   "reportGeneralTypeIssues": "warning",

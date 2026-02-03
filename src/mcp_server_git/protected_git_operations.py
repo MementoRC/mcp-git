@@ -280,7 +280,7 @@ class ProtectedGitOperations:
         result = git_remote_add(repo, remote_name, new_remote_url)
 
         # Unbind server since remote changed
-        await self.binding_manager.unbind_repository(force=True)
+        self.binding_manager.unbind_repository()
 
         return result
 

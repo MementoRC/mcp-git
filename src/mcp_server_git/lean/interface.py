@@ -17,7 +17,7 @@ from collections.abc import Callable
 from functools import wraps
 from typing import Any
 
-from fastmcp import FastMCP
+from fastmcp import FastMCP  # pyright: ignore[reportMissingImports]
 from jsonschema import ValidationError, validate
 
 from .token_limiter import MCPTokenLimiter, apply_token_limits
