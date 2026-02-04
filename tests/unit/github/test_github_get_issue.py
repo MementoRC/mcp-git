@@ -77,7 +77,9 @@ class TestGitHubGetIssue:
             assert "Milestone: v1.0.0" in result
             assert "Comments: 5" in result
             assert "https://github.com/owner/repo/issues/42" in result
-            assert "This is a detailed issue description about the bug we found." in result
+            assert (
+                "This is a detailed issue description about the bug we found." in result
+            )
 
     @pytest.mark.asyncio
     async def test_closed_issue_retrieval(self):
