@@ -45,6 +45,7 @@ __all__ = [
     "git_stash_push",
     "git_stash_pop",
     "git_branch_list",
+    "git_merge_base",
 ]
 
 
@@ -944,10 +945,25 @@ def git_create_branch(
 
         # Create new branch
         if effective_base:
+            # Build list of all valid branch references
+            all_branches = list(existing_branches)
+
+            # Add remote branches if remotes exist
+            try:
+                if repo.remotes:
+                    for remote in repo.remotes:
+                        # Include both full remote ref names (e.g., 'origin/main')
+                        # and short names (e.g., 'main') for compatibility
+                        all_branches.extend([ref.name for ref in remote.refs])
+                        all_branches.extend(
+                            [ref.name.split("/")[-1] for ref in remote.refs]
+                        )
+            except Exception:
+                # Ignore remote access errors (e.g., no remotes configured)
+                pass
+
             # Verify base branch exists
-            if effective_base not in existing_branches and effective_base not in [
-                branch.name for branch in repo.remote().refs
-            ]:
+            if effective_base not in all_branches:
                 return f"❌ Base branch '{effective_base}' not found"
 
             repo.create_head(branch_name, effective_base)
@@ -1888,3 +1904,39 @@ def git_branch_list(
         return f"❌ Branch list failed: {str(e)}"
     except Exception as e:
         return f"❌ Branch list error: {str(e)}"
+
+
+def git_merge_base(
+    repo: Repo,
+    ref1: str,
+    ref2: str,
+) -> str:
+    """Find the common ancestor (merge-base) of two references.
+
+    Args:
+        repo: Git repository object
+        ref1: First reference (branch, commit, or tag)
+        ref2: Second reference (branch, commit, or tag)
+
+    Returns:
+        Formatted merge-base information including SHA, author, date, and message
+    """
+    try:
+        # Execute git merge-base
+        merge_base_sha = repo.git.merge_base(ref1, ref2)
+
+        # Get commit details for context
+        commit = repo.commit(merge_base_sha)
+
+        # Format output
+        return (
+            f"Merge base: {merge_base_sha[:8]}\n"
+            f"Full SHA: {merge_base_sha}\n"
+            f"Author: {commit.author.name} <{commit.author.email}>\n"
+            f"Date: {commit.committed_datetime.isoformat()}\n"
+            f"Message: {commit.message.strip()}"
+        )
+    except GitCommandError as e:
+        return f"❌ Error finding merge-base: {str(e)}"
+    except Exception as e:
+        return f"❌ Merge-base error: {str(e)}"

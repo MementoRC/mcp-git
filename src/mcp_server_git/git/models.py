@@ -157,3 +157,9 @@ class GitBranchList(BaseModel):
     remote: bool = False
     all: bool = False
     pattern: str | None = None
+
+
+class GitMergeBase(BaseModel):
+    repo_path: str
+    ref1: str
+    ref2: str
