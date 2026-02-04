@@ -10,7 +10,6 @@ Tests the GitHub issue retrieval functionality including:
 - Connection error handling
 """
 
-import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
