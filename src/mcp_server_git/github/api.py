@@ -1034,6 +1034,7 @@ async def github_get_issue(
     Returns full issue details including title, body, state, labels,
     assignees, milestone, comments count, and timestamps.
     """
+    BODY_TRUNCATION_LIMIT = 2000
     logger.debug(f"🔍 Getting issue #{issue_number} for {repo_owner}/{repo_name}")
 
     try:
@@ -1043,7 +1044,7 @@ async def github_get_issue(
             )
 
             if response.status == 404:
-                return f"❌ Issue #{issue_number} not found in {repo_owner}/{repo_name}"
+                return f"❌ Issue #{issue_number} not found in {repo_owner}/{repo_name}. Check issue number and repository access."
 
             if response.status != 200:
                 error_text = await response.text()
@@ -1061,7 +1062,7 @@ async def github_get_issue(
             output = [
                 f"Issue #{issue['number']}: {issue['title']}",
                 f"State: {state_emoji} {issue.get('state', 'unknown')}",
-                f"Author: {issue.get('user', {}).get('login', 'N/A')}",
+                f"Author: {(issue.get('user') or {}).get('login', 'N/A')}",
                 f"Created: {issue.get('created_at', 'N/A')}",
                 f"Updated: {issue.get('updated_at', 'N/A')}",
             ]
@@ -1096,8 +1097,8 @@ async def github_get_issue(
             output.append("Description:")
             output.append("-" * 40)
             # Truncate very long bodies
-            if len(body) > 2000:
-                output.append(body[:2000] + "\n\n... (truncated)")
+            if len(body) > BODY_TRUNCATION_LIMIT:
+                output.append(body[:BODY_TRUNCATION_LIMIT] + "\n\n... (truncated)")
             else:
                 output.append(body)
 
