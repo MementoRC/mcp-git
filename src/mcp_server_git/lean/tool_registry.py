@@ -333,6 +333,7 @@ def _register_github_tools(interface: Any, github_service: Any):
         GitHubCreateIssueFromTemplate,
         GitHubEditPRDescription,
         GitHubGetFailingJobs,
+        GitHubGetIssue,
         GitHubGetPRChecks,
         GitHubGetPRDetails,
         GitHubGetPRFiles,
@@ -436,6 +437,14 @@ def _register_github_tools(interface: Any, github_service: Any):
             schema=GitHubListIssues.model_json_schema(),
             domain="github",
             complexity="focused",
+        ),
+        ToolDefinition(
+            name="github_get_issue",
+            implementation=github_ops.github_get_issue,
+            description="Get a single GitHub issue by number with full details",
+            schema=GitHubGetIssue.model_json_schema(),
+            domain="github",
+            complexity="core",
         ),
         ToolDefinition(
             name="github_update_issue",

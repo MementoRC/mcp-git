@@ -173,6 +173,18 @@ class GitHubListIssues(BaseModel):
     page: int = 1
 
 
+class GitHubGetIssue(BaseModel):
+    """Model for fetching a single GitHub issue by number.
+
+    Returns full issue details including title, body, state, labels,
+    assignees, milestone, comments count, and timestamps.
+    """
+
+    repo_owner: str
+    repo_name: str
+    issue_number: int
+
+
 class GitHubUpdateIssue(BaseModel):
     repo_owner: str
     repo_name: str
