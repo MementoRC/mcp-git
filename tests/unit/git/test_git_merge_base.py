@@ -21,7 +21,9 @@ class TestGitMergeBaseSuccess:
         """Should return formatted merge-base information."""
         # Arrange
         mock_repo = Mock()
-        mock_repo.git.merge_base.return_value = "abc1234567890def1234567890abcdef12345678"
+        mock_repo.git.merge_base.return_value = (
+            "abc1234567890def1234567890abcdef12345678"
+        )
 
         mock_commit = Mock()
         mock_commit.author.name = "Test Author"
