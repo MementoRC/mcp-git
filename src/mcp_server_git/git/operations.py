@@ -1922,6 +1922,12 @@ def git_merge_base(
         Formatted merge-base information including SHA, author, date, and message
     """
     try:
+        # Validate inputs for dangerous characters
+        dangerous_chars = [";", "|", "&", "`", "$", "(", ")"]
+        for ref_name, ref_value in [("ref1", ref1), ("ref2", ref2)]:
+            if any(char in ref_value for char in dangerous_chars):
+                return f"❌ Invalid characters detected in {ref_name}: {ref_value}"
+
         # Execute git merge-base
         merge_base_sha = repo.git.merge_base(ref1, ref2)
 
