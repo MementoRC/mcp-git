@@ -308,3 +308,246 @@ class GitHubUpdatePR(BaseModel):
     body: str | None = None
     state: str | None = None
     base: str | None = None
+
+
+# ============================================================================
+# Repository Settings Management Models (Issue #41)
+# ============================================================================
+
+
+class GitHubGetRepoSettings(BaseModel):
+    """Model for fetching repository settings."""
+
+    repo_owner: str
+    repo_name: str
+
+
+class GitHubUpdateRepoSettings(BaseModel):
+    """Model for updating repository settings.
+
+    Configurable settings include:
+    - Visibility and access settings
+    - Feature toggles (issues, wiki, projects, discussions)
+    - Merge strategies and options
+    - Branch and security settings
+    """
+
+    repo_owner: str
+    repo_name: str
+    # Basic settings
+    description: str | None = None
+    homepage: str | None = None
+    private: bool | None = None
+    visibility: str | None = None  # public, private, internal
+    # Feature toggles
+    has_issues: bool | None = None
+    has_projects: bool | None = None
+    has_wiki: bool | None = None
+    has_discussions: bool | None = None
+    # Merge settings
+    allow_squash_merge: bool | None = None
+    allow_merge_commit: bool | None = None
+    allow_rebase_merge: bool | None = None
+    allow_auto_merge: bool | None = None
+    delete_branch_on_merge: bool | None = None
+    allow_update_branch: bool | None = None
+    # Squash merge settings
+    squash_merge_commit_title: str | None = None  # PR_TITLE, COMMIT_OR_PR_TITLE
+    squash_merge_commit_message: str | None = None  # PR_BODY, COMMIT_MESSAGES, BLANK
+    # Merge commit settings
+    merge_commit_title: str | None = None  # PR_TITLE, MERGE_MESSAGE
+    merge_commit_message: str | None = None  # PR_BODY, PR_TITLE, BLANK
+    # Security settings
+    archived: bool | None = None
+    web_commit_signoff_required: bool | None = None
+
+
+# ============================================================================
+# GitHub Actions Configuration Models (Issue #41)
+# ============================================================================
+
+
+class GitHubGetActionsPermissions(BaseModel):
+    """Model for fetching GitHub Actions permissions for a repository."""
+
+    repo_owner: str
+    repo_name: str
+
+
+class GitHubUpdateActionsPermissions(BaseModel):
+    """Model for updating GitHub Actions permissions.
+
+    Settings include:
+    - enabled: Whether GitHub Actions is enabled
+    - allowed_actions: Which actions can be used (all, local_only, selected)
+    """
+
+    repo_owner: str
+    repo_name: str
+    enabled: bool | None = None
+    allowed_actions: str | None = None  # all, local_only, selected
+
+
+class GitHubGetAllowedActions(BaseModel):
+    """Model for fetching allowed actions for a repository."""
+
+    repo_owner: str
+    repo_name: str
+
+
+class GitHubUpdateAllowedActions(BaseModel):
+    """Model for updating allowed actions.
+
+    Specifies which actions and reusable workflows are allowed.
+    """
+
+    repo_owner: str
+    repo_name: str
+    github_owned_allowed: bool | None = None
+    verified_allowed: bool | None = None
+    patterns_allowed: list[str] | None = None  # e.g., ["actions/checkout@*"]
+
+
+class GitHubGetWorkflowPermissions(BaseModel):
+    """Model for fetching default workflow permissions."""
+
+    repo_owner: str
+    repo_name: str
+
+
+class GitHubUpdateWorkflowPermissions(BaseModel):
+    """Model for updating default workflow permissions.
+
+    Controls the default permissions granted to the GITHUB_TOKEN.
+    """
+
+    repo_owner: str
+    repo_name: str
+    default_workflow_permissions: str | None = None  # read, write
+    can_approve_pull_request_reviews: bool | None = None
+
+
+# ============================================================================
+# Branch Protection Rules Models (Issue #41)
+# ============================================================================
+
+
+class GitHubGetBranchProtection(BaseModel):
+    """Model for fetching branch protection rules."""
+
+    repo_owner: str
+    repo_name: str
+    branch: str
+
+
+class GitHubUpdateBranchProtection(BaseModel):
+    """Model for creating/updating branch protection rules.
+
+    Comprehensive branch protection settings including:
+    - Required status checks
+    - Required pull request reviews
+    - Enforce admins
+    - Restrictions on who can push
+    """
+
+    repo_owner: str
+    repo_name: str
+    branch: str
+    # Required status checks
+    required_status_checks_strict: bool | None = None
+    required_status_checks_contexts: list[str] | None = None
+    # Required pull request reviews
+    require_pull_request_reviews: bool | None = None
+    dismiss_stale_reviews: bool | None = None
+    require_code_owner_reviews: bool | None = None
+    required_approving_review_count: int | None = None
+    require_last_push_approval: bool | None = None
+    # Restrictions
+    enforce_admins: bool | None = None
+    restrict_pushes: bool | None = None
+    push_allowances_users: list[str] | None = None
+    push_allowances_teams: list[str] | None = None
+    # Other settings
+    required_linear_history: bool | None = None
+    allow_force_pushes: bool | None = None
+    allow_deletions: bool | None = None
+    block_creations: bool | None = None
+    required_conversation_resolution: bool | None = None
+    lock_branch: bool | None = None
+    allow_fork_syncing: bool | None = None
+
+
+class GitHubDeleteBranchProtection(BaseModel):
+    """Model for deleting branch protection rules."""
+
+    repo_owner: str
+    repo_name: str
+    branch: str
+
+
+# ============================================================================
+# Security & Compliance Models (Issue #41)
+# ============================================================================
+
+
+class GitHubGetVulnerabilityAlerts(BaseModel):
+    """Model for checking if vulnerability alerts are enabled."""
+
+    repo_owner: str
+    repo_name: str
+
+
+class GitHubEnableVulnerabilityAlerts(BaseModel):
+    """Model for enabling vulnerability alerts (Dependabot alerts)."""
+
+    repo_owner: str
+    repo_name: str
+
+
+class GitHubDisableVulnerabilityAlerts(BaseModel):
+    """Model for disabling vulnerability alerts."""
+
+    repo_owner: str
+    repo_name: str
+
+
+class GitHubGetAutomatedSecurityFixes(BaseModel):
+    """Model for checking if automated security fixes are enabled."""
+
+    repo_owner: str
+    repo_name: str
+
+
+class GitHubEnableAutomatedSecurityFixes(BaseModel):
+    """Model for enabling automated security fixes (Dependabot security updates)."""
+
+    repo_owner: str
+    repo_name: str
+
+
+class GitHubDisableAutomatedSecurityFixes(BaseModel):
+    """Model for disabling automated security fixes."""
+
+    repo_owner: str
+    repo_name: str
+
+
+class GitHubGetSecretScanning(BaseModel):
+    """Model for getting secret scanning status."""
+
+    repo_owner: str
+    repo_name: str
+
+
+class GitHubGetSecurityAnalysis(BaseModel):
+    """Model for getting comprehensive security analysis status.
+
+    Returns status of:
+    - Vulnerability alerts (Dependabot alerts)
+    - Automated security fixes (Dependabot security updates)
+    - Secret scanning
+    - Code scanning (if available)
+    """
+
+    repo_owner: str
+    repo_name: str
