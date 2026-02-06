@@ -1841,8 +1841,6 @@ async def github_update_repo_settings(
             if private is not None:
                 payload["private"] = private
             if visibility is not None:
-                if visibility not in ["public", "private", "internal"]:
-                    return "❌ visibility must be 'public', 'private', or 'internal'"
                 payload["visibility"] = visibility
             if has_issues is not None:
                 payload["has_issues"] = has_issues
@@ -2621,83 +2619,126 @@ async def github_get_security_analysis(
     - Automated security fixes (Dependabot security updates)
     - Secret scanning (if available)
     - Repository security settings
+
+    Each check is performed independently with graceful error handling,
+    so partial failures don't prevent other checks from completing.
     """
     logger.debug(f"🔍 Getting security analysis for {repo_owner}/{repo_name}")
 
+    output = [f"Security Analysis for {repo_owner}/{repo_name}:\n"]
+    checks_succeeded = 0
+    checks_failed = 0
+
     try:
         async with github_client_context() as client:
-            output = [f"Security Analysis for {repo_owner}/{repo_name}:\n"]
-
             # Check vulnerability alerts
-            vuln_response = await client.get(
-                f"/repos/{repo_owner}/{repo_name}/vulnerability-alerts"
-            )
-            if vuln_response.status == 204:
-                output.append("✅ Vulnerability Alerts (Dependabot): ENABLED")
-            else:
-                output.append("❌ Vulnerability Alerts (Dependabot): DISABLED")
+            try:
+                vuln_response = await client.get(
+                    f"/repos/{repo_owner}/{repo_name}/vulnerability-alerts"
+                )
+                if vuln_response.status == 204:
+                    output.append("✅ Vulnerability Alerts (Dependabot): ENABLED")
+                elif vuln_response.status == 404:
+                    output.append("❌ Vulnerability Alerts (Dependabot): DISABLED")
+                else:
+                    output.append(
+                        f"⚠️ Vulnerability Alerts: Unable to determine (HTTP {vuln_response.status})"
+                    )
+                checks_succeeded += 1
+            except Exception as e:
+                logger.warning(f"Failed to check vulnerability alerts: {e}")
+                output.append(f"⚠️ Vulnerability Alerts: Check failed ({e})")
+                checks_failed += 1
 
             # Check automated security fixes
-            auto_response = await client.get(
-                f"/repos/{repo_owner}/{repo_name}/automated-security-fixes"
-            )
-            if auto_response.status == 200:
-                auto_data = await auto_response.json()
-                enabled = auto_data.get("enabled", False)
-                paused = auto_data.get("paused", False)
-                status = "ENABLED" if enabled else "DISABLED"
-                if paused:
-                    status += " (PAUSED)"
-                output.append(
-                    f"{'✅' if enabled else '❌'} Automated Security Fixes: {status}"
+            try:
+                auto_response = await client.get(
+                    f"/repos/{repo_owner}/{repo_name}/automated-security-fixes"
                 )
-            else:
-                output.append("❌ Automated Security Fixes: DISABLED or unavailable")
+                if auto_response.status == 200:
+                    auto_data = await auto_response.json()
+                    enabled = auto_data.get("enabled", False)
+                    paused = auto_data.get("paused", False)
+                    status = "ENABLED" if enabled else "DISABLED"
+                    if paused:
+                        status += " (PAUSED)"
+                    output.append(
+                        f"{'✅' if enabled else '❌'} Automated Security Fixes: {status}"
+                    )
+                else:
+                    output.append("❌ Automated Security Fixes: DISABLED or unavailable")
+                checks_succeeded += 1
+            except Exception as e:
+                logger.warning(f"Failed to check automated security fixes: {e}")
+                output.append(f"⚠️ Automated Security Fixes: Check failed ({e})")
+                checks_failed += 1
 
             # Get repository settings for additional security info
-            repo_response = await client.get(f"/repos/{repo_owner}/{repo_name}")
-            if repo_response.status == 200:
-                repo_data = await repo_response.json()
+            try:
+                repo_response = await client.get(f"/repos/{repo_owner}/{repo_name}")
+                if repo_response.status == 200:
+                    repo_data = await repo_response.json()
 
-                # Security-related repo settings
-                output.append("\n📋 Repository Security Settings:")
-                output.append(
-                    f"   Visibility: {repo_data.get('visibility', 'unknown')}"
-                )
-                output.append(
-                    f"   Private: {'✅' if repo_data.get('private') else '❌'}"
-                )
-                output.append(
-                    f"   Archived: {'✅' if repo_data.get('archived') else '❌'}"
-                )
-
-                # Check for security policy
-                security_policy = repo_data.get("security_and_analysis", {})
-                if security_policy:
-                    output.append("\n🔐 Security & Analysis Features:")
-
-                    # Secret scanning
-                    secret_scanning = security_policy.get("secret_scanning", {})
-                    if secret_scanning.get("status") == "enabled":
-                        output.append("   ✅ Secret Scanning: ENABLED")
-                    else:
-                        output.append("   ❌ Secret Scanning: DISABLED")
-
-                    # Secret scanning push protection
-                    push_protection = security_policy.get(
-                        "secret_scanning_push_protection", {}
+                    # Security-related repo settings
+                    output.append("\n📋 Repository Security Settings:")
+                    output.append(
+                        f"   Visibility: {repo_data.get('visibility', 'unknown')}"
                     )
-                    if push_protection.get("status") == "enabled":
-                        output.append("   ✅ Secret Scanning Push Protection: ENABLED")
-                    else:
-                        output.append("   ❌ Secret Scanning Push Protection: DISABLED")
+                    output.append(
+                        f"   Private: {'✅' if repo_data.get('private') else '❌'}"
+                    )
+                    output.append(
+                        f"   Archived: {'✅' if repo_data.get('archived') else '❌'}"
+                    )
 
-                    # Dependabot security updates
-                    dependabot = security_policy.get("dependabot_security_updates", {})
-                    if dependabot.get("status") == "enabled":
-                        output.append("   ✅ Dependabot Security Updates: ENABLED")
-                    else:
-                        output.append("   ❌ Dependabot Security Updates: DISABLED")
+                    # Check for security policy
+                    security_policy = repo_data.get("security_and_analysis", {})
+                    if security_policy:
+                        output.append("\n🔐 Security & Analysis Features:")
+
+                        # Secret scanning
+                        secret_scanning = security_policy.get("secret_scanning", {})
+                        if secret_scanning.get("status") == "enabled":
+                            output.append("   ✅ Secret Scanning: ENABLED")
+                        else:
+                            output.append("   ❌ Secret Scanning: DISABLED")
+
+                        # Secret scanning push protection
+                        push_protection = security_policy.get(
+                            "secret_scanning_push_protection", {}
+                        )
+                        if push_protection.get("status") == "enabled":
+                            output.append(
+                                "   ✅ Secret Scanning Push Protection: ENABLED"
+                            )
+                        else:
+                            output.append(
+                                "   ❌ Secret Scanning Push Protection: DISABLED"
+                            )
+
+                        # Dependabot security updates
+                        dependabot = security_policy.get(
+                            "dependabot_security_updates", {}
+                        )
+                        if dependabot.get("status") == "enabled":
+                            output.append("   ✅ Dependabot Security Updates: ENABLED")
+                        else:
+                            output.append("   ❌ Dependabot Security Updates: DISABLED")
+                else:
+                    output.append(
+                        f"\n⚠️ Repository Settings: Unable to fetch (HTTP {repo_response.status})"
+                    )
+                checks_succeeded += 1
+            except Exception as e:
+                logger.warning(f"Failed to get repository settings: {e}")
+                output.append(f"\n⚠️ Repository Settings: Check failed ({e})")
+                checks_failed += 1
+
+            # Add summary if there were any failures
+            if checks_failed > 0:
+                output.append(
+                    f"\n⚠️ Note: {checks_failed} of {checks_succeeded + checks_failed} checks failed"
+                )
 
             output.append(
                 f"\n🔗 Security Settings: https://github.com/{repo_owner}/{repo_name}/settings/security_analysis"

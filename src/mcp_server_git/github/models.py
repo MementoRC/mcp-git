@@ -1,6 +1,61 @@
 """Pydantic models for GitHub API tools"""
 
+import re
+
 from pydantic import BaseModel, field_validator
+
+
+# ============================================================================
+# Validation Constants
+# ============================================================================
+
+# GitHub merge commit settings
+SQUASH_MERGE_COMMIT_TITLES = frozenset({"PR_TITLE", "COMMIT_OR_PR_TITLE"})
+SQUASH_MERGE_COMMIT_MESSAGES = frozenset({"PR_BODY", "COMMIT_MESSAGES", "BLANK"})
+MERGE_COMMIT_TITLES = frozenset({"PR_TITLE", "MERGE_MESSAGE"})
+MERGE_COMMIT_MESSAGES = frozenset({"PR_BODY", "PR_TITLE", "BLANK"})
+
+# Visibility settings
+REPO_VISIBILITY_OPTIONS = frozenset({"public", "private", "internal"})
+
+# Branch name validation pattern (based on git-check-ref-format rules)
+# Invalid patterns: starts with -, contains .., ~, ^, :, \, @{, ends with .lock
+INVALID_BRANCH_PATTERNS = re.compile(
+    r"(^-|"  # starts with -
+    r"\.\.|"  # contains ..
+    r"[\x00-\x1f\x7f]|"  # control characters
+    r"~|"  # tilde
+    r"\^|"  # caret
+    r":|"  # colon
+    r"\\|"  # backslash
+    r"@\{|"  # @{
+    r"^/|"  # starts with /
+    r"/$|"  # ends with /
+    r"\.lock$)"  # ends with .lock
+)
+
+
+def validate_branch_name(branch: str) -> str:
+    """Validate branch name follows git-check-ref-format rules.
+
+    Args:
+        branch: The branch name to validate
+
+    Returns:
+        The validated branch name
+
+    Raises:
+        ValueError: If the branch name is invalid
+    """
+    if not branch or not branch.strip():
+        raise ValueError("branch name cannot be empty")
+    if INVALID_BRANCH_PATTERNS.search(branch):
+        raise ValueError(
+            f"Invalid branch name '{branch}'. Branch names cannot: "
+            "start with '-' or '/', contain '..', '~', '^', ':', '\\', '@{{', "
+            "control characters, or end with '/' or '.lock'"
+        )
+    return branch
 
 
 class GitHubGetPRChecks(BaseModel):
@@ -361,6 +416,66 @@ class GitHubUpdateRepoSettings(BaseModel):
     archived: bool | None = None
     web_commit_signoff_required: bool | None = None
 
+    @field_validator("visibility")
+    @classmethod
+    def validate_visibility(cls, v: str | None) -> str | None:
+        """Validate visibility is a valid GitHub option."""
+        if v is None:
+            return v
+        if v not in REPO_VISIBILITY_OPTIONS:
+            raise ValueError(
+                f"visibility must be one of: {', '.join(sorted(REPO_VISIBILITY_OPTIONS))}"
+            )
+        return v
+
+    @field_validator("squash_merge_commit_title")
+    @classmethod
+    def validate_squash_merge_commit_title(cls, v: str | None) -> str | None:
+        """Validate squash merge commit title option."""
+        if v is None:
+            return v
+        if v not in SQUASH_MERGE_COMMIT_TITLES:
+            raise ValueError(
+                f"squash_merge_commit_title must be one of: {', '.join(sorted(SQUASH_MERGE_COMMIT_TITLES))}"
+            )
+        return v
+
+    @field_validator("squash_merge_commit_message")
+    @classmethod
+    def validate_squash_merge_commit_message(cls, v: str | None) -> str | None:
+        """Validate squash merge commit message option."""
+        if v is None:
+            return v
+        if v not in SQUASH_MERGE_COMMIT_MESSAGES:
+            raise ValueError(
+                f"squash_merge_commit_message must be one of: {', '.join(sorted(SQUASH_MERGE_COMMIT_MESSAGES))}"
+            )
+        return v
+
+    @field_validator("merge_commit_title")
+    @classmethod
+    def validate_merge_commit_title(cls, v: str | None) -> str | None:
+        """Validate merge commit title option."""
+        if v is None:
+            return v
+        if v not in MERGE_COMMIT_TITLES:
+            raise ValueError(
+                f"merge_commit_title must be one of: {', '.join(sorted(MERGE_COMMIT_TITLES))}"
+            )
+        return v
+
+    @field_validator("merge_commit_message")
+    @classmethod
+    def validate_merge_commit_message(cls, v: str | None) -> str | None:
+        """Validate merge commit message option."""
+        if v is None:
+            return v
+        if v not in MERGE_COMMIT_MESSAGES:
+            raise ValueError(
+                f"merge_commit_message must be one of: {', '.join(sorted(MERGE_COMMIT_MESSAGES))}"
+            )
+        return v
+
 
 # ============================================================================
 # GitHub Actions Configuration Models (Issue #41)
@@ -439,6 +554,12 @@ class GitHubGetBranchProtection(BaseModel):
     repo_name: str
     branch: str
 
+    @field_validator("branch")
+    @classmethod
+    def validate_branch(cls, v: str) -> str:
+        """Validate branch name is a valid Git reference."""
+        return validate_branch_name(v)
+
 
 class GitHubUpdateBranchProtection(BaseModel):
     """Model for creating/updating branch protection rules.
@@ -476,6 +597,12 @@ class GitHubUpdateBranchProtection(BaseModel):
     lock_branch: bool | None = None
     allow_fork_syncing: bool | None = None
 
+    @field_validator("branch")
+    @classmethod
+    def validate_branch(cls, v: str) -> str:
+        """Validate branch name is a valid Git reference."""
+        return validate_branch_name(v)
+
 
 class GitHubDeleteBranchProtection(BaseModel):
     """Model for deleting branch protection rules."""
@@ -483,6 +610,12 @@ class GitHubDeleteBranchProtection(BaseModel):
     repo_owner: str
     repo_name: str
     branch: str
+
+    @field_validator("branch")
+    @classmethod
+    def validate_branch(cls, v: str) -> str:
+        """Validate branch name is a valid Git reference."""
+        return validate_branch_name(v)
 
 
 # ============================================================================
