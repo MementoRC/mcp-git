@@ -1,12 +1,21 @@
 """
 Tool Registry for Git Lean MCP Interface.
 
-Registers all 51 tools across git, github, and azure domains with complete metadata.
+Registers all 68 tools across git, github, and azure domains with complete metadata.
 
 Tool Distribution:
 - Git tools (25): Core git operations
-- GitHub tools (22): PR, issues, workflows
+- GitHub tools (39): PR, issues, workflows, repo settings, actions, branch protection, security
 - Azure tools (4): Build logs and status
+
+New in Issue #41:
+- Repository Settings: get_repo_settings, update_repo_settings
+- Actions Config: get_actions_permissions, update_actions_permissions,
+                  get_workflow_permissions, update_workflow_permissions
+- Branch Protection: get_branch_protection, update_branch_protection, delete_branch_protection
+- Security: get_vulnerability_alerts, enable/disable_vulnerability_alerts,
+           get_automated_security_fixes, enable/disable_automated_security_fixes,
+           get_security_analysis
 """
 
 import logging
@@ -340,19 +349,35 @@ def _register_github_tools(interface: Any, github_service: Any):
         GitHubBulkUpdateIssues,
         GitHubCreateIssue,
         GitHubCreateIssueFromTemplate,
+        GitHubDeleteBranchProtection,
+        GitHubDisableAutomatedSecurityFixes,
+        GitHubDisableVulnerabilityAlerts,
         GitHubEditPRDescription,
+        GitHubEnableAutomatedSecurityFixes,
+        GitHubEnableVulnerabilityAlerts,
+        GitHubGetActionsPermissions,
+        GitHubGetAutomatedSecurityFixes,
+        GitHubGetBranchProtection,
         GitHubGetFailingJobs,
         GitHubGetIssue,
         GitHubGetPRChecks,
         GitHubGetPRDetails,
         GitHubGetPRFiles,
         GitHubGetPRStatus,
+        GitHubGetRepoSettings,
+        GitHubGetSecurityAnalysis,
+        GitHubGetVulnerabilityAlerts,
+        GitHubGetWorkflowPermissions,
         GitHubGetWorkflowRun,
         GitHubListIssues,
         GitHubListPullRequests,
         GitHubListWorkflowRuns,
         GitHubSearchIssues,
+        GitHubUpdateActionsPermissions,
+        GitHubUpdateBranchProtection,
         GitHubUpdateIssue,
+        GitHubUpdateRepoSettings,
+        GitHubUpdateWorkflowPermissions,
     )
 
     github_tools = [
@@ -593,6 +618,138 @@ def _register_github_tools(interface: Any, github_service: Any):
             },
             domain="github",
             complexity="focused",
+        ),
+        # Repository Settings Management (Issue #41)
+        ToolDefinition(
+            name="github_get_repo_settings",
+            implementation=github_ops.github_get_repo_settings,
+            description="Get repository settings including features, merge options, and security settings",
+            schema=GitHubGetRepoSettings.model_json_schema(),
+            domain="github",
+            complexity="focused",
+        ),
+        ToolDefinition(
+            name="github_update_repo_settings",
+            implementation=github_ops.github_update_repo_settings,
+            description="Update repository settings (merge strategies, features, security)",
+            schema=GitHubUpdateRepoSettings.model_json_schema(),
+            domain="github",
+            complexity="comprehensive",
+        ),
+        # GitHub Actions Configuration (Issue #41)
+        ToolDefinition(
+            name="github_get_actions_permissions",
+            implementation=github_ops.github_get_actions_permissions,
+            description="Get GitHub Actions permissions for a repository",
+            schema=GitHubGetActionsPermissions.model_json_schema(),
+            domain="github",
+            complexity="focused",
+        ),
+        ToolDefinition(
+            name="github_update_actions_permissions",
+            implementation=github_ops.github_update_actions_permissions,
+            description="Update GitHub Actions permissions (enable/disable, allowed actions)",
+            schema=GitHubUpdateActionsPermissions.model_json_schema(),
+            domain="github",
+            complexity="comprehensive",
+        ),
+        ToolDefinition(
+            name="github_get_workflow_permissions",
+            implementation=github_ops.github_get_workflow_permissions,
+            description="Get default workflow permissions (GITHUB_TOKEN permissions)",
+            schema=GitHubGetWorkflowPermissions.model_json_schema(),
+            domain="github",
+            complexity="focused",
+        ),
+        ToolDefinition(
+            name="github_update_workflow_permissions",
+            implementation=github_ops.github_update_workflow_permissions,
+            description="Update default workflow permissions and PR approval settings",
+            schema=GitHubUpdateWorkflowPermissions.model_json_schema(),
+            domain="github",
+            complexity="comprehensive",
+        ),
+        # Branch Protection Rules (Issue #41)
+        ToolDefinition(
+            name="github_get_branch_protection",
+            implementation=github_ops.github_get_branch_protection,
+            description="Get branch protection rules for a specific branch",
+            schema=GitHubGetBranchProtection.model_json_schema(),
+            domain="github",
+            complexity="focused",
+        ),
+        ToolDefinition(
+            name="github_update_branch_protection",
+            implementation=github_ops.github_update_branch_protection,
+            description="Create or update branch protection rules (status checks, reviews, restrictions)",
+            schema=GitHubUpdateBranchProtection.model_json_schema(),
+            domain="github",
+            complexity="comprehensive",
+        ),
+        ToolDefinition(
+            name="github_delete_branch_protection",
+            implementation=github_ops.github_delete_branch_protection,
+            description="Delete branch protection rules",
+            schema=GitHubDeleteBranchProtection.model_json_schema(),
+            domain="github",
+            complexity="focused",
+        ),
+        # Security & Compliance (Issue #41)
+        ToolDefinition(
+            name="github_get_vulnerability_alerts",
+            implementation=github_ops.github_get_vulnerability_alerts,
+            description="Check if vulnerability alerts (Dependabot alerts) are enabled",
+            schema=GitHubGetVulnerabilityAlerts.model_json_schema(),
+            domain="github",
+            complexity="core",
+        ),
+        ToolDefinition(
+            name="github_enable_vulnerability_alerts",
+            implementation=github_ops.github_enable_vulnerability_alerts,
+            description="Enable vulnerability alerts (Dependabot alerts) for a repository",
+            schema=GitHubEnableVulnerabilityAlerts.model_json_schema(),
+            domain="github",
+            complexity="focused",
+        ),
+        ToolDefinition(
+            name="github_disable_vulnerability_alerts",
+            implementation=github_ops.github_disable_vulnerability_alerts,
+            description="Disable vulnerability alerts (Dependabot alerts) for a repository",
+            schema=GitHubDisableVulnerabilityAlerts.model_json_schema(),
+            domain="github",
+            complexity="focused",
+        ),
+        ToolDefinition(
+            name="github_get_automated_security_fixes",
+            implementation=github_ops.github_get_automated_security_fixes,
+            description="Check if automated security fixes (Dependabot security updates) are enabled",
+            schema=GitHubGetAutomatedSecurityFixes.model_json_schema(),
+            domain="github",
+            complexity="core",
+        ),
+        ToolDefinition(
+            name="github_enable_automated_security_fixes",
+            implementation=github_ops.github_enable_automated_security_fixes,
+            description="Enable automated security fixes (Dependabot security updates)",
+            schema=GitHubEnableAutomatedSecurityFixes.model_json_schema(),
+            domain="github",
+            complexity="focused",
+        ),
+        ToolDefinition(
+            name="github_disable_automated_security_fixes",
+            implementation=github_ops.github_disable_automated_security_fixes,
+            description="Disable automated security fixes (Dependabot security updates)",
+            schema=GitHubDisableAutomatedSecurityFixes.model_json_schema(),
+            domain="github",
+            complexity="focused",
+        ),
+        ToolDefinition(
+            name="github_get_security_analysis",
+            implementation=github_ops.github_get_security_analysis,
+            description="Get comprehensive security analysis status (vulnerability alerts, security fixes, secret scanning)",
+            schema=GitHubGetSecurityAnalysis.model_json_schema(),
+            domain="github",
+            complexity="comprehensive",
         ),
     ]
 

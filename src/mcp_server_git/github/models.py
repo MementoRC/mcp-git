@@ -1,6 +1,61 @@
 """Pydantic models for GitHub API tools"""
 
+import re
+
 from pydantic import BaseModel, field_validator
+
+
+# ============================================================================
+# Validation Constants
+# ============================================================================
+
+# GitHub merge commit settings
+SQUASH_MERGE_COMMIT_TITLES = frozenset({"PR_TITLE", "COMMIT_OR_PR_TITLE"})
+SQUASH_MERGE_COMMIT_MESSAGES = frozenset({"PR_BODY", "COMMIT_MESSAGES", "BLANK"})
+MERGE_COMMIT_TITLES = frozenset({"PR_TITLE", "MERGE_MESSAGE"})
+MERGE_COMMIT_MESSAGES = frozenset({"PR_BODY", "PR_TITLE", "BLANK"})
+
+# Visibility settings
+REPO_VISIBILITY_OPTIONS = frozenset({"public", "private", "internal"})
+
+# Branch name validation pattern (based on git-check-ref-format rules)
+# Invalid patterns: starts with -, contains .., ~, ^, :, \, @{, ends with .lock
+INVALID_BRANCH_PATTERNS = re.compile(
+    r"(^-|"  # starts with -
+    r"\.\.|"  # contains ..
+    r"[\x00-\x1f\x7f]|"  # control characters
+    r"~|"  # tilde
+    r"\^|"  # caret
+    r":|"  # colon
+    r"\\|"  # backslash
+    r"@\{|"  # @{
+    r"^/|"  # starts with /
+    r"/$|"  # ends with /
+    r"\.lock$)"  # ends with .lock
+)
+
+
+def validate_branch_name(branch: str) -> str:
+    """Validate branch name follows git-check-ref-format rules.
+
+    Args:
+        branch: The branch name to validate
+
+    Returns:
+        The validated branch name
+
+    Raises:
+        ValueError: If the branch name is invalid
+    """
+    if not branch or not branch.strip():
+        raise ValueError("branch name cannot be empty")
+    if INVALID_BRANCH_PATTERNS.search(branch):
+        raise ValueError(
+            f"Invalid branch name '{branch}'. Branch names cannot: "
+            "start with '-' or '/', contain '..', '~', '^', ':', '\\', '@{{', "
+            "control characters, or end with '/' or '.lock'"
+        )
+    return branch
 
 
 class GitHubGetPRChecks(BaseModel):
@@ -308,3 +363,324 @@ class GitHubUpdatePR(BaseModel):
     body: str | None = None
     state: str | None = None
     base: str | None = None
+
+
+# ============================================================================
+# Repository Settings Management Models (Issue #41)
+# ============================================================================
+
+
+class GitHubGetRepoSettings(BaseModel):
+    """Model for fetching repository settings."""
+
+    repo_owner: str
+    repo_name: str
+
+
+class GitHubUpdateRepoSettings(BaseModel):
+    """Model for updating repository settings.
+
+    Configurable settings include:
+    - Visibility and access settings
+    - Feature toggles (issues, wiki, projects, discussions)
+    - Merge strategies and options
+    - Branch and security settings
+    """
+
+    repo_owner: str
+    repo_name: str
+    # Basic settings
+    description: str | None = None
+    homepage: str | None = None
+    private: bool | None = None
+    visibility: str | None = None  # public, private, internal
+    # Feature toggles
+    has_issues: bool | None = None
+    has_projects: bool | None = None
+    has_wiki: bool | None = None
+    has_discussions: bool | None = None
+    # Merge settings
+    allow_squash_merge: bool | None = None
+    allow_merge_commit: bool | None = None
+    allow_rebase_merge: bool | None = None
+    allow_auto_merge: bool | None = None
+    delete_branch_on_merge: bool | None = None
+    allow_update_branch: bool | None = None
+    # Squash merge settings
+    squash_merge_commit_title: str | None = None  # PR_TITLE, COMMIT_OR_PR_TITLE
+    squash_merge_commit_message: str | None = None  # PR_BODY, COMMIT_MESSAGES, BLANK
+    # Merge commit settings
+    merge_commit_title: str | None = None  # PR_TITLE, MERGE_MESSAGE
+    merge_commit_message: str | None = None  # PR_BODY, PR_TITLE, BLANK
+    # Security settings
+    archived: bool | None = None
+    web_commit_signoff_required: bool | None = None
+
+    @field_validator("visibility")
+    @classmethod
+    def validate_visibility(cls, v: str | None) -> str | None:
+        """Validate visibility is a valid GitHub option."""
+        if v is None:
+            return v
+        if v not in REPO_VISIBILITY_OPTIONS:
+            raise ValueError(
+                f"visibility must be one of: {', '.join(sorted(REPO_VISIBILITY_OPTIONS))}"
+            )
+        return v
+
+    @field_validator("squash_merge_commit_title")
+    @classmethod
+    def validate_squash_merge_commit_title(cls, v: str | None) -> str | None:
+        """Validate squash merge commit title option."""
+        if v is None:
+            return v
+        if v not in SQUASH_MERGE_COMMIT_TITLES:
+            raise ValueError(
+                f"squash_merge_commit_title must be one of: {', '.join(sorted(SQUASH_MERGE_COMMIT_TITLES))}"
+            )
+        return v
+
+    @field_validator("squash_merge_commit_message")
+    @classmethod
+    def validate_squash_merge_commit_message(cls, v: str | None) -> str | None:
+        """Validate squash merge commit message option."""
+        if v is None:
+            return v
+        if v not in SQUASH_MERGE_COMMIT_MESSAGES:
+            raise ValueError(
+                f"squash_merge_commit_message must be one of: {', '.join(sorted(SQUASH_MERGE_COMMIT_MESSAGES))}"
+            )
+        return v
+
+    @field_validator("merge_commit_title")
+    @classmethod
+    def validate_merge_commit_title(cls, v: str | None) -> str | None:
+        """Validate merge commit title option."""
+        if v is None:
+            return v
+        if v not in MERGE_COMMIT_TITLES:
+            raise ValueError(
+                f"merge_commit_title must be one of: {', '.join(sorted(MERGE_COMMIT_TITLES))}"
+            )
+        return v
+
+    @field_validator("merge_commit_message")
+    @classmethod
+    def validate_merge_commit_message(cls, v: str | None) -> str | None:
+        """Validate merge commit message option."""
+        if v is None:
+            return v
+        if v not in MERGE_COMMIT_MESSAGES:
+            raise ValueError(
+                f"merge_commit_message must be one of: {', '.join(sorted(MERGE_COMMIT_MESSAGES))}"
+            )
+        return v
+
+
+# ============================================================================
+# GitHub Actions Configuration Models (Issue #41)
+# ============================================================================
+
+
+class GitHubGetActionsPermissions(BaseModel):
+    """Model for fetching GitHub Actions permissions for a repository."""
+
+    repo_owner: str
+    repo_name: str
+
+
+class GitHubUpdateActionsPermissions(BaseModel):
+    """Model for updating GitHub Actions permissions.
+
+    Settings include:
+    - enabled: Whether GitHub Actions is enabled
+    - allowed_actions: Which actions can be used (all, local_only, selected)
+    """
+
+    repo_owner: str
+    repo_name: str
+    enabled: bool | None = None
+    allowed_actions: str | None = None  # all, local_only, selected
+
+
+class GitHubGetAllowedActions(BaseModel):
+    """Model for fetching allowed actions for a repository."""
+
+    repo_owner: str
+    repo_name: str
+
+
+class GitHubUpdateAllowedActions(BaseModel):
+    """Model for updating allowed actions.
+
+    Specifies which actions and reusable workflows are allowed.
+    """
+
+    repo_owner: str
+    repo_name: str
+    github_owned_allowed: bool | None = None
+    verified_allowed: bool | None = None
+    patterns_allowed: list[str] | None = None  # e.g., ["actions/checkout@*"]
+
+
+class GitHubGetWorkflowPermissions(BaseModel):
+    """Model for fetching default workflow permissions."""
+
+    repo_owner: str
+    repo_name: str
+
+
+class GitHubUpdateWorkflowPermissions(BaseModel):
+    """Model for updating default workflow permissions.
+
+    Controls the default permissions granted to the GITHUB_TOKEN.
+    """
+
+    repo_owner: str
+    repo_name: str
+    default_workflow_permissions: str | None = None  # read, write
+    can_approve_pull_request_reviews: bool | None = None
+
+
+# ============================================================================
+# Branch Protection Rules Models (Issue #41)
+# ============================================================================
+
+
+class GitHubGetBranchProtection(BaseModel):
+    """Model for fetching branch protection rules."""
+
+    repo_owner: str
+    repo_name: str
+    branch: str
+
+    @field_validator("branch")
+    @classmethod
+    def validate_branch(cls, v: str) -> str:
+        """Validate branch name is a valid Git reference."""
+        return validate_branch_name(v)
+
+
+class GitHubUpdateBranchProtection(BaseModel):
+    """Model for creating/updating branch protection rules.
+
+    Comprehensive branch protection settings including:
+    - Required status checks
+    - Required pull request reviews
+    - Enforce admins
+    - Restrictions on who can push
+    """
+
+    repo_owner: str
+    repo_name: str
+    branch: str
+    # Required status checks
+    required_status_checks_strict: bool | None = None
+    required_status_checks_contexts: list[str] | None = None
+    # Required pull request reviews
+    require_pull_request_reviews: bool | None = None
+    dismiss_stale_reviews: bool | None = None
+    require_code_owner_reviews: bool | None = None
+    required_approving_review_count: int | None = None
+    require_last_push_approval: bool | None = None
+    # Restrictions
+    enforce_admins: bool | None = None
+    restrict_pushes: bool | None = None
+    push_allowances_users: list[str] | None = None
+    push_allowances_teams: list[str] | None = None
+    # Other settings
+    required_linear_history: bool | None = None
+    allow_force_pushes: bool | None = None
+    allow_deletions: bool | None = None
+    block_creations: bool | None = None
+    required_conversation_resolution: bool | None = None
+    lock_branch: bool | None = None
+    allow_fork_syncing: bool | None = None
+
+    @field_validator("branch")
+    @classmethod
+    def validate_branch(cls, v: str) -> str:
+        """Validate branch name is a valid Git reference."""
+        return validate_branch_name(v)
+
+
+class GitHubDeleteBranchProtection(BaseModel):
+    """Model for deleting branch protection rules."""
+
+    repo_owner: str
+    repo_name: str
+    branch: str
+
+    @field_validator("branch")
+    @classmethod
+    def validate_branch(cls, v: str) -> str:
+        """Validate branch name is a valid Git reference."""
+        return validate_branch_name(v)
+
+
+# ============================================================================
+# Security & Compliance Models (Issue #41)
+# ============================================================================
+
+
+class GitHubGetVulnerabilityAlerts(BaseModel):
+    """Model for checking if vulnerability alerts are enabled."""
+
+    repo_owner: str
+    repo_name: str
+
+
+class GitHubEnableVulnerabilityAlerts(BaseModel):
+    """Model for enabling vulnerability alerts (Dependabot alerts)."""
+
+    repo_owner: str
+    repo_name: str
+
+
+class GitHubDisableVulnerabilityAlerts(BaseModel):
+    """Model for disabling vulnerability alerts."""
+
+    repo_owner: str
+    repo_name: str
+
+
+class GitHubGetAutomatedSecurityFixes(BaseModel):
+    """Model for checking if automated security fixes are enabled."""
+
+    repo_owner: str
+    repo_name: str
+
+
+class GitHubEnableAutomatedSecurityFixes(BaseModel):
+    """Model for enabling automated security fixes (Dependabot security updates)."""
+
+    repo_owner: str
+    repo_name: str
+
+
+class GitHubDisableAutomatedSecurityFixes(BaseModel):
+    """Model for disabling automated security fixes."""
+
+    repo_owner: str
+    repo_name: str
+
+
+class GitHubGetSecretScanning(BaseModel):
+    """Model for getting secret scanning status."""
+
+    repo_owner: str
+    repo_name: str
+
+
+class GitHubGetSecurityAnalysis(BaseModel):
+    """Model for getting comprehensive security analysis status.
+
+    Returns status of:
+    - Vulnerability alerts (Dependabot alerts)
+    - Automated security fixes (Dependabot security updates)
+    - Secret scanning
+    - Code scanning (if available)
+    """
+
+    repo_owner: str
+    repo_name: str
