@@ -159,9 +159,7 @@ class TestGitHubGetBranchProtection:
             )
 
             assert "❌ Branch protection not found for feature/new-branch" in result
-            assert (
-                "The branch may not exist or have no protection rules" in result
-            )
+            assert "The branch may not exist or have no protection rules" in result
 
     @pytest.mark.asyncio
     async def test_authentication_error(self):
@@ -208,7 +206,9 @@ class TestGitHubGetBranchProtection:
 
         mock_response = AsyncMock()
         mock_response.status = 403
-        mock_response.text = AsyncMock(return_value="Forbidden - insufficient permissions")
+        mock_response.text = AsyncMock(
+            return_value="Forbidden - insufficient permissions"
+        )
         mock_client.get = AsyncMock(return_value=mock_response)
 
         with patch(
@@ -277,9 +277,15 @@ class TestGitHubUpdateBranchProtection:
             assert call_args[0][0] == "/repos/owner/repo/branches/main/protection"
             payload = call_args[1]["json"]
             assert payload["required_status_checks"]["strict"] is True
-            assert payload["required_status_checks"]["contexts"] == ["ci/test", "ci/lint"]
+            assert payload["required_status_checks"]["contexts"] == [
+                "ci/test",
+                "ci/lint",
+            ]
 
-            assert "✅ Successfully updated branch protection for owner/repo:main" in result
+            assert (
+                "✅ Successfully updated branch protection for owner/repo:main"
+                in result
+            )
 
     @pytest.mark.asyncio
     async def test_successful_update_with_pr_reviews(self):
@@ -555,7 +561,10 @@ class TestGitHubDeleteBranchProtection:
                 "/repos/owner/repo/branches/main/protection"
             )
 
-            assert "✅ Successfully deleted branch protection for owner/repo:main" in result
+            assert (
+                "✅ Successfully deleted branch protection for owner/repo:main"
+                in result
+            )
 
     @pytest.mark.asyncio
     async def test_delete_not_found_404(self):

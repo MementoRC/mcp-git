@@ -403,7 +403,9 @@ class TestGitHubUpdateActionsPermissions:
             )
 
             assert "❌" in result
-            assert "allowed_actions must be 'all', 'local_only', or 'selected'" in result
+            assert (
+                "allowed_actions must be 'all', 'local_only', or 'selected'" in result
+            )
 
     @pytest.mark.asyncio
     async def test_no_parameters_provided(self):

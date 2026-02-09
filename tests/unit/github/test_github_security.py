@@ -633,9 +633,7 @@ class TestGitHubGetSecurityAnalysis:
             assert "✅ Dependabot Security Updates: ENABLED" in result
 
             # Verify settings URL
-            assert (
-                "https://github.com/owner/repo/settings/security_analysis" in result
-            )
+            assert "https://github.com/owner/repo/settings/security_analysis" in result
 
             # Should not have failure warnings
             assert "checks failed" not in result
@@ -878,9 +876,7 @@ class TestGitHubGetSecurityAnalysis:
 
             # Should still have header and settings URL
             assert "Security Analysis for owner/repo" in result
-            assert (
-                "https://github.com/owner/repo/settings/security_analysis" in result
-            )
+            assert "https://github.com/owner/repo/settings/security_analysis" in result
 
     @pytest.mark.asyncio
     async def test_security_analysis_auth_error(self):

@@ -2666,7 +2666,9 @@ async def github_get_security_analysis(
                         f"{'✅' if enabled else '❌'} Automated Security Fixes: {status}"
                     )
                 else:
-                    output.append("❌ Automated Security Fixes: DISABLED or unavailable")
+                    output.append(
+                        "❌ Automated Security Fixes: DISABLED or unavailable"
+                    )
                 checks_succeeded += 1
             except Exception as e:
                 logger.warning(f"Failed to check automated security fixes: {e}")
