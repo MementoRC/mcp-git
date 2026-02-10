@@ -840,12 +840,13 @@ class TestGitHubUploadReleaseAsset:
         mock_client.get = AsyncMock(return_value=release_response)
         mock_client.post = AsyncMock(side_effect=mock_get_post)
 
-        with patch(
-            "src.mcp_server_git.github.api.github_client_context"
-        ) as mock_context, patch("builtins.open", mock_open(read_data=b"file content")), patch(
-            "pathlib.Path.exists", return_value=True
-        ), patch(
-            "pathlib.Path.is_file", return_value=True
+        with (
+            patch(
+                "src.mcp_server_git.github.api.github_client_context"
+            ) as mock_context,
+            patch("builtins.open", mock_open(read_data=b"file content")),
+            patch("pathlib.Path.exists", return_value=True),
+            patch("pathlib.Path.is_file", return_value=True),
         ):
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -884,12 +885,13 @@ class TestGitHubUploadReleaseAsset:
         release_response.status = 404
         mock_client.get = AsyncMock(return_value=release_response)
 
-        with patch(
-            "src.mcp_server_git.github.api.github_client_context"
-        ) as mock_context, patch("builtins.open", mock_open(read_data=b"file content")), patch(
-            "pathlib.Path.exists", return_value=True
-        ), patch(
-            "pathlib.Path.is_file", return_value=True
+        with (
+            patch(
+                "src.mcp_server_git.github.api.github_client_context"
+            ) as mock_context,
+            patch("builtins.open", mock_open(read_data=b"file content")),
+            patch("pathlib.Path.exists", return_value=True),
+            patch("pathlib.Path.is_file", return_value=True),
         ):
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -905,14 +907,13 @@ class TestGitHubUploadReleaseAsset:
     @pytest.mark.asyncio
     async def test_upload_asset_auth_error(self):
         """Test that authentication errors are handled properly."""
-        with patch(
-            "src.mcp_server_git.github.api.github_client_context"
-        ) as mock_context, patch(
-            "builtins.open", mock_open(read_data=b"file content")
-        ), patch(
-            "pathlib.Path.exists", return_value=True
-        ), patch(
-            "pathlib.Path.is_file", return_value=True
+        with (
+            patch(
+                "src.mcp_server_git.github.api.github_client_context"
+            ) as mock_context,
+            patch("builtins.open", mock_open(read_data=b"file content")),
+            patch("pathlib.Path.exists", return_value=True),
+            patch("pathlib.Path.is_file", return_value=True),
         ):
             mock_context.return_value.__aenter__.side_effect = ValueError(
                 "GitHub token not configured"

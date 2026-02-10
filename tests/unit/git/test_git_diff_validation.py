@@ -11,13 +11,14 @@ Critical for TDD Compliance:
     implementation must be fixed to pass these tests.
 """
 
-import pytest
 from unittest.mock import Mock, patch
 
+import pytest
+
 from mcp_server_git.git.operations import (
+    _apply_diff_size_limiting,
     _validate_commit_range,
     _validate_diff_parameters,
-    _apply_diff_size_limiting,
     git_diff,
     git_diff_staged,
     git_diff_unstaged,

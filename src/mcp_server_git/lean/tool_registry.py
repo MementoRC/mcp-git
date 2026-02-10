@@ -64,6 +64,8 @@ def register_all_tools(
 def _register_git_tools(interface: Any, git_service: Any):
     """Register all Git domain tools."""
     # Import models for schema generation
+    # Import operations and Repo for path conversion
+    from ..git import operations as git_ops
     from ..git.models import (
         GitAbort,
         GitAdd,
@@ -87,9 +89,6 @@ def _register_git_tools(interface: Any, git_service: Any):
         GitShow,
         GitStatus,
     )
-
-    # Import operations and Repo for path conversion
-    from ..git import operations as git_ops
     from ..utils.git_import import Repo
 
     # Create wrapper functions that convert repo_path to Repo object
@@ -377,10 +376,10 @@ def _register_github_tools(interface: Any, github_service: Any):
         GitHubGetVulnerabilityAlerts,
         GitHubGetWorkflowPermissions,
         GitHubGetWorkflowRun,
-        GitHubListReleaseAssets,
-        GitHubListReleases,
         GitHubListIssues,
         GitHubListPullRequests,
+        GitHubListReleaseAssets,
+        GitHubListReleases,
         GitHubListWorkflowRuns,
         GitHubSearchIssues,
         GitHubUpdateActionsPermissions,

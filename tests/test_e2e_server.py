@@ -154,7 +154,7 @@ async def mcp_server():
 
             try:
                 await asyncio.wait_for(process.wait(), timeout=5.0)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 # Force kill if it doesn't terminate
                 try:
                     process.kill()
@@ -163,7 +163,7 @@ async def mcp_server():
                     pass
                 try:
                     await asyncio.wait_for(process.wait(), timeout=3.0)
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     pass  # Give up, let it be cleaned up by OS
 
         # Ensure all streams are properly closed

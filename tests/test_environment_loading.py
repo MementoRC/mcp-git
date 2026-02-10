@@ -5,11 +5,11 @@ from unittest.mock import patch
 
 import pytest
 
-# Import from current modular architecture
-from mcp_server_git.github.client import get_github_client
-
 # Note: load_environment_variables is now handled by dotenv in main()
 from dotenv import load_dotenv
+
+# Import from current modular architecture
+from mcp_server_git.github.client import get_github_client
 
 
 class TestEnvironmentLoading:
@@ -17,8 +17,8 @@ class TestEnvironmentLoading:
 
     def load_environment_variables(self, repository=None):
         """Helper method that mimics the old load_environment_variables function using dotenv."""
-        from pathlib import Path
         import os
+        from pathlib import Path
 
         # Store the original environment state
         env_overrides = {}
@@ -39,7 +39,7 @@ class TestEnvironmentLoading:
         if claude_code_path:
             claude_env = claude_code_path / ".env"
             if claude_env.exists():
-                with open(claude_env, "r") as f:
+                with open(claude_env) as f:
                     for line in f:
                         line = line.strip()
                         if "=" in line and not line.startswith("#"):
@@ -50,7 +50,7 @@ class TestEnvironmentLoading:
         if repository:
             repo_env = Path(repository) / ".env"
             if repo_env.exists():
-                with open(repo_env, "r") as f:
+                with open(repo_env) as f:
                     for line in f:
                         line = line.strip()
                         if "=" in line and not line.startswith("#"):
@@ -61,7 +61,7 @@ class TestEnvironmentLoading:
         current_env = Path.cwd() / ".env"
         if current_env.exists():
             # Parse the .env file manually to get override values
-            with open(current_env, "r") as f:
+            with open(current_env) as f:
                 for line in f:
                     line = line.strip()
                     if "=" in line and not line.startswith("#"):

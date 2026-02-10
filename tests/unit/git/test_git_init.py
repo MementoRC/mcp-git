@@ -1,8 +1,9 @@
 """Tests for git_init operation on non-initialized directories"""
 
-import tempfile
 import shutil
+import tempfile
 from pathlib import Path
+
 import pytest
 
 
