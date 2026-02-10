@@ -23,6 +23,13 @@ from typing import Any, Literal
 from mcp.types import Tool
 from pydantic import BaseModel, Field, field_validator
 
+# Azure DevOps models for tool registration
+from ..azure.models import (
+    AzureGetBuildLogs,
+    AzureGetBuildStatus,
+    AzureGetFailingJobs,
+    AzureListBuilds,
+)
 from ..frameworks.mcp_server_framework import MCPServerFramework
 from ..frameworks.server_configuration import ServerConfigurationManager
 from ..frameworks.server_core import MCPGitServerCore
@@ -37,14 +44,6 @@ from ..services.git_service import GitService
 from ..services.server_metrics import MetricsService
 from ..services.server_session import SessionManager
 from ..utils.repository_resolver import RepositoryResolver
-
-# Azure DevOps models for tool registration
-from ..azure.models import (
-    AzureGetBuildLogs,
-    AzureGetBuildStatus,
-    AzureGetFailingJobs,
-    AzureListBuilds,
-)
 
 logger = logging.getLogger(__name__)
 

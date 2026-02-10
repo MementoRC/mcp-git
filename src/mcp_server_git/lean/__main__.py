@@ -14,7 +14,6 @@ from dotenv import load_dotenv
 # Import services from the main server
 from ..services.git_service import GitService
 from ..services.github_service import GitHubService
-
 from .interface import create_git_lean_interface
 
 logger = logging.getLogger(__name__)

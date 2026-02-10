@@ -1,12 +1,13 @@
 """Unit tests for server application tool integration."""
 
-import pytest
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from mcp_server_git.applications.server_application import (
-    GitTools,
-    GitHubTools,
     AzureTools,
+    GitHubTools,
+    GitTools,
     ServerApplication,
 )
 
@@ -58,7 +59,7 @@ class TestServerToolIntegration:
 
         # Verify the method exists and is callable
         assert hasattr(app, "_execute_tool_operation")
-        assert callable(getattr(app, "_execute_tool_operation"))
+        assert callable(app._execute_tool_operation)
 
     def test_github_tools_registered(self):
         """Test that GitHub tools are properly defined in GitHubTools enum."""

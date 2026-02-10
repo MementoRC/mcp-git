@@ -1,12 +1,16 @@
 """
 Tool Registry for Git Lean MCP Interface.
 
-Registers all 68 tools across git, github, and azure domains with complete metadata.
+Registers all 77 tools across git, github, and azure domains with complete metadata.
 
 Tool Distribution:
-- Git tools (25): Core git operations
-- GitHub tools (39): PR, issues, workflows, repo settings, actions, branch protection, security
+- Git tools (26): Core git operations
+- GitHub tools (47): PR, issues, workflows, repo settings, actions, branch protection, security, releases
 - Azure tools (4): Build logs and status
+
+New in Issue #57:
+- Releases: create_release, get_release, list_releases, update_release, delete_release,
+           upload_release_asset, list_release_assets, delete_release_asset
 
 New in Issue #41:
 - Repository Settings: get_repo_settings, update_repo_settings
@@ -60,6 +64,8 @@ def register_all_tools(
 def _register_git_tools(interface: Any, git_service: Any):
     """Register all Git domain tools."""
     # Import models for schema generation
+    # Import operations and Repo for path conversion
+    from ..git import operations as git_ops
     from ..git.models import (
         GitAbort,
         GitAdd,
@@ -83,9 +89,6 @@ def _register_git_tools(interface: Any, git_service: Any):
         GitShow,
         GitStatus,
     )
-
-    # Import operations and Repo for path conversion
-    from ..git import operations as git_ops
     from ..utils.git_import import Repo
 
     # Create wrapper functions that convert repo_path to Repo object
@@ -349,7 +352,10 @@ def _register_github_tools(interface: Any, github_service: Any):
         GitHubBulkUpdateIssues,
         GitHubCreateIssue,
         GitHubCreateIssueFromTemplate,
+        GitHubCreateRelease,
         GitHubDeleteBranchProtection,
+        GitHubDeleteRelease,
+        GitHubDeleteReleaseAsset,
         GitHubDisableAutomatedSecurityFixes,
         GitHubDisableVulnerabilityAlerts,
         GitHubEditPRDescription,
@@ -364,6 +370,7 @@ def _register_github_tools(interface: Any, github_service: Any):
         GitHubGetPRDetails,
         GitHubGetPRFiles,
         GitHubGetPRStatus,
+        GitHubGetRelease,
         GitHubGetRepoSettings,
         GitHubGetSecurityAnalysis,
         GitHubGetVulnerabilityAlerts,
@@ -371,13 +378,17 @@ def _register_github_tools(interface: Any, github_service: Any):
         GitHubGetWorkflowRun,
         GitHubListIssues,
         GitHubListPullRequests,
+        GitHubListReleaseAssets,
+        GitHubListReleases,
         GitHubListWorkflowRuns,
         GitHubSearchIssues,
         GitHubUpdateActionsPermissions,
         GitHubUpdateBranchProtection,
         GitHubUpdateIssue,
+        GitHubUpdateRelease,
         GitHubUpdateRepoSettings,
         GitHubUpdateWorkflowPermissions,
+        GitHubUploadReleaseAsset,
     )
 
     github_tools = [
@@ -750,6 +761,71 @@ def _register_github_tools(interface: Any, github_service: Any):
             schema=GitHubGetSecurityAnalysis.model_json_schema(),
             domain="github",
             complexity="comprehensive",
+        ),
+        # Release Management Tools
+        ToolDefinition(
+            name="github_create_release",
+            implementation=github_ops.github_create_release,
+            description="Create a new GitHub release with tag, title, and notes",
+            schema=GitHubCreateRelease.model_json_schema(),
+            domain="github",
+            complexity="focused",
+        ),
+        ToolDefinition(
+            name="github_get_release",
+            implementation=github_ops.github_get_release,
+            description="Get release information by ID or tag name",
+            schema=GitHubGetRelease.model_json_schema(),
+            domain="github",
+            complexity="core",
+        ),
+        ToolDefinition(
+            name="github_list_releases",
+            implementation=github_ops.github_list_releases,
+            description="List releases for a repository with pagination",
+            schema=GitHubListReleases.model_json_schema(),
+            domain="github",
+            complexity="core",
+        ),
+        ToolDefinition(
+            name="github_update_release",
+            implementation=github_ops.github_update_release,
+            description="Update an existing release's properties",
+            schema=GitHubUpdateRelease.model_json_schema(),
+            domain="github",
+            complexity="focused",
+        ),
+        ToolDefinition(
+            name="github_delete_release",
+            implementation=github_ops.github_delete_release,
+            description="Delete a GitHub release (does not delete the git tag)",
+            schema=GitHubDeleteRelease.model_json_schema(),
+            domain="github",
+            complexity="focused",
+        ),
+        ToolDefinition(
+            name="github_upload_release_asset",
+            implementation=github_ops.github_upload_release_asset,
+            description="Upload a file as an asset to a GitHub release",
+            schema=GitHubUploadReleaseAsset.model_json_schema(),
+            domain="github",
+            complexity="advanced",
+        ),
+        ToolDefinition(
+            name="github_list_release_assets",
+            implementation=github_ops.github_list_release_assets,
+            description="List assets attached to a release",
+            schema=GitHubListReleaseAssets.model_json_schema(),
+            domain="github",
+            complexity="core",
+        ),
+        ToolDefinition(
+            name="github_delete_release_asset",
+            implementation=github_ops.github_delete_release_asset,
+            description="Delete an asset from a release",
+            schema=GitHubDeleteReleaseAsset.model_json_schema(),
+            domain="github",
+            complexity="focused",
         ),
     ]
 

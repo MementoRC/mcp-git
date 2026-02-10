@@ -153,10 +153,10 @@ class RepositoryBindingManager:
 
             try:
                 Repo(repository_path)
-            except git.InvalidGitRepositoryError:
+            except git.InvalidGitRepositoryError as err:
                 raise RepositoryBindingError(
                     f"Invalid git repository: {repository_path}"
-                )
+                ) from err
 
             # Verify remote URL if requested
             if verify_remote:
@@ -254,11 +254,11 @@ class RepositoryBindingManager:
                 raise RepositoryBindingError(
                     f"Operation path {operation_path} is outside bound repository {bound_path}. "
                     f"This prevents cross-repository contamination."
-                )
+                ) from e
             else:
                 raise RepositoryBindingError(
                     f"Cannot determine path relationship between {operation_path} and {bound_path}: {e}"
-                )
+                ) from e
 
     async def validate_remote_integrity(self) -> None:
         """
@@ -296,15 +296,15 @@ class RepositoryBindingManager:
                         f"'{DEFAULT_REMOTE_NAME}' remote has no URLs in {repo_path}"
                     )
                 return urls[0]
-            except AttributeError:
+            except AttributeError as err:
                 # origin remote doesn't exist
                 raise RepositoryBindingError(
                     f"No '{DEFAULT_REMOTE_NAME}' remote found in {repo_path}"
-                )
+                ) from err
         except Exception as e:
             raise RepositoryBindingError(
                 f"Failed to get remote URL from {repo_path}: {e}"
-            )
+            ) from e
 
     def get_binding_info(self) -> dict:
         """Get current binding information."""

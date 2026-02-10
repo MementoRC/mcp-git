@@ -2,8 +2,7 @@
 
 import re
 
-from pydantic import BaseModel, field_validator
-
+from pydantic import BaseModel, field_validator, model_validator
 
 # ============================================================================
 # Validation Constants
@@ -684,3 +683,128 @@ class GitHubGetSecurityAnalysis(BaseModel):
 
     repo_owner: str
     repo_name: str
+
+
+# ============================================================================
+# GitHub Release Management Models (Issue #57)
+# ============================================================================
+
+
+class GitHubCreateRelease(BaseModel):
+    """Model for creating a new GitHub release.
+
+    Creates a release with optional release notes, draft mode, and prerelease flags.
+    Can optionally generate release notes automatically from commit history.
+    """
+
+    repo_owner: str
+    repo_name: str
+    tag_name: str
+    target_commitish: str | None = None  # defaults to default branch
+    name: str | None = None  # release title, defaults to tag_name
+    body: str | None = None  # release notes
+    draft: bool = False
+    prerelease: bool = False
+    generate_release_notes: bool = False
+
+
+class GitHubGetRelease(BaseModel):
+    """Model for fetching a specific release by ID or tag.
+
+    Either release_id or tag must be provided (mutually exclusive).
+    Returns full release details including assets, author, and timestamps.
+    """
+
+    repo_owner: str
+    repo_name: str
+    release_id: int | None = None  # mutually exclusive with tag
+    tag: str | None = None  # mutually exclusive with release_id
+
+    @model_validator(mode="after")
+    def validate_exclusive_params(self) -> "GitHubGetRelease":
+        """Ensure either release_id or tag is provided, but not both."""
+        if self.release_id is None and self.tag is None:
+            raise ValueError("Either release_id or tag must be provided")
+        if self.release_id is not None and self.tag is not None:
+            raise ValueError("Cannot specify both release_id and tag")
+        return self
+
+
+class GitHubListReleases(BaseModel):
+    """Model for listing repository releases.
+
+    Returns a paginated list of releases ordered by creation date (newest first).
+    """
+
+    repo_owner: str
+    repo_name: str
+    per_page: int = 30
+    page: int = 1
+
+
+class GitHubUpdateRelease(BaseModel):
+    """Model for updating an existing release.
+
+    All fields except repo_owner, repo_name, and release_id are optional.
+    Only provided fields will be updated.
+    """
+
+    repo_owner: str
+    repo_name: str
+    release_id: int
+    tag_name: str | None = None
+    target_commitish: str | None = None
+    name: str | None = None
+    body: str | None = None
+    draft: bool | None = None
+    prerelease: bool | None = None
+
+
+class GitHubDeleteRelease(BaseModel):
+    """Model for deleting a release.
+
+    Note: This does not delete the associated Git tag.
+    """
+
+    repo_owner: str
+    repo_name: str
+    release_id: int
+
+
+class GitHubUploadReleaseAsset(BaseModel):
+    """Model for uploading an asset to a release.
+
+    Uploads a file from the local filesystem to a GitHub release.
+    Asset name defaults to the filename if not provided.
+    """
+
+    repo_owner: str
+    repo_name: str
+    release_id: int
+    file_path: str  # local path to file
+    name: str | None = None  # asset name, defaults to filename
+    label: str | None = None  # description
+
+
+class GitHubListReleaseAssets(BaseModel):
+    """Model for listing assets of a release.
+
+    Returns paginated list of release assets with download URLs and metadata.
+    """
+
+    repo_owner: str
+    repo_name: str
+    release_id: int
+    per_page: int = 30
+    page: int = 1
+
+
+class GitHubDeleteReleaseAsset(BaseModel):
+    """Model for deleting a release asset.
+
+    Removes an asset from a release by asset ID.
+    """
+
+    repo_owner: str
+    repo_name: str
+    asset_id: int

@@ -5,8 +5,8 @@ import json
 import pytest
 
 from mcp_server_git.lean.token_limiter import (
-    ContentType,
     ContentTruncator,
+    ContentType,
     MCPTokenLimiter,
     TokenEstimator,
     TruncationConfig,
