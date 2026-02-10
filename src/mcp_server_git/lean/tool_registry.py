@@ -1,12 +1,16 @@
 """
 Tool Registry for Git Lean MCP Interface.
 
-Registers all 76 tools across git, github, and azure domains with complete metadata.
+Registers all 77 tools across git, github, and azure domains with complete metadata.
 
 Tool Distribution:
-- Git tools (25): Core git operations
+- Git tools (26): Core git operations
 - GitHub tools (47): PR, issues, workflows, repo settings, actions, branch protection, security, releases
 - Azure tools (4): Build logs and status
+
+New in Issue #57:
+- Releases: create_release, get_release, list_releases, update_release, delete_release,
+           upload_release_asset, list_release_assets, delete_release_asset
 
 New in Issue #41:
 - Repository Settings: get_repo_settings, update_repo_settings
