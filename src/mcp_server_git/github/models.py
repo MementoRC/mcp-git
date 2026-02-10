@@ -808,3 +808,23 @@ class GitHubDeleteReleaseAsset(BaseModel):
     repo_owner: str
     repo_name: str
     asset_id: int
+
+
+# ============================================================================
+# GitHub Actions Job Logs Models (Issue #125)
+# ============================================================================
+
+
+class GitHubGetJobLogs(BaseModel):
+    """Model for fetching GitHub Actions job logs.
+
+    Fetches the actual log content for a specific job, useful for debugging
+    CI failures without navigating to the GitHub UI.
+
+    The job_id can be obtained from github_get_failing_jobs or github_get_workflow_run.
+    """
+
+    repo_owner: str
+    repo_name: str
+    job_id: int
+    tail_lines: int | None = None  # Return only last N lines (default: all)

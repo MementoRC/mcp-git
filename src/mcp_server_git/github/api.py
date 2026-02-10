@@ -3592,3 +3592,105 @@ async def github_list_workflow_runs(
     except Exception as e:
         logger.error(f"Unexpected error listing workflow runs: {e}", exc_info=True)
         return f"❌ Error listing workflow runs: {str(e)}"
+
+
+async def github_get_job_logs(
+    repo_owner: str,
+    repo_name: str,
+    job_id: int,
+    tail_lines: int | None = None,
+) -> str:
+    """Get logs for a specific GitHub Actions job.
+
+    Fetches the actual log content for a job, enabling CI failure diagnosis
+    without navigating to the GitHub UI. The job_id can be obtained from
+    github_get_failing_jobs or github_get_workflow_run output.
+
+    Args:
+        repo_owner: Repository owner/organization
+        repo_name: Repository name
+        job_id: The job ID (from check runs or workflow jobs)
+        tail_lines: Return only last N lines (default: all lines)
+
+    Returns:
+        Formatted string with job information and log content.
+    """
+    logger.debug(f"🔍 Fetching logs for job {job_id} in {repo_owner}/{repo_name}")
+
+    try:
+        async with github_client_context() as client:
+            # First get job details for context
+            job_response = await client.get(
+                f"/repos/{repo_owner}/{repo_name}/actions/jobs/{job_id}"
+            )
+            if job_response.status == 404:
+                return f"❌ Job #{job_id} not found in {repo_owner}/{repo_name}"
+            if job_response.status != 200:
+                return f"❌ Failed to get job #{job_id}: HTTP {job_response.status}"
+
+            job_data = await job_response.json()
+
+            # Build job info header
+            output = [f"Job #{job_id} - {job_data.get('name', 'N/A')}:\n"]
+            output.append(f"Status: {job_data.get('status', 'N/A')}")
+            if job_data.get("conclusion"):
+                output.append(f"Conclusion: {job_data['conclusion']}")
+            if job_data.get("started_at"):
+                output.append(f"Started: {job_data['started_at']}")
+            if job_data.get("completed_at"):
+                output.append(f"Completed: {job_data['completed_at']}")
+            if job_data.get("html_url"):
+                output.append(f"URL: {job_data['html_url']}")
+
+            # Fetch the actual logs
+            # Note: GitHub API returns logs as plain text, not JSON
+            # and may redirect to a download URL
+            logs_response = await client.get(
+                f"/repos/{repo_owner}/{repo_name}/actions/jobs/{job_id}/logs",
+                allow_redirects=True,
+            )
+
+            if logs_response.status == 404:
+                output.append("\n⚠️ Logs not available (may have been deleted)")
+                return "\n".join(output)
+
+            if logs_response.status != 200:
+                output.append(f"\n❌ Failed to fetch logs: HTTP {logs_response.status}")
+                return "\n".join(output)
+
+            # Get logs as text
+            logs_text = await logs_response.text()
+
+            if not logs_text.strip():
+                output.append("\n📭 Log content is empty")
+                return "\n".join(output)
+
+            # Apply tail_lines filter if specified
+            if tail_lines is not None and tail_lines > 0:
+                lines = logs_text.splitlines()
+                if len(lines) > tail_lines:
+                    logs_text = "\n".join(lines[-tail_lines:])
+                    output.append(
+                        f"\n📋 Logs (last {tail_lines} of {len(lines)} lines):"
+                    )
+                else:
+                    output.append(f"\n📋 Logs ({len(lines)} lines):")
+            else:
+                line_count = len(logs_text.splitlines())
+                output.append(f"\n📋 Logs ({line_count} lines):")
+
+            output.append("-" * 60)
+            output.append(logs_text)
+            output.append("-" * 60)
+
+            return "\n".join(output)
+
+    except ValueError as auth_error:
+        logger.error(f"Authentication error getting job logs: {auth_error}")
+        return f"❌ {str(auth_error)}"
+    except ConnectionError as conn_error:
+        logger.error(f"Connection error getting job logs: {conn_error}")
+        return f"❌ Network connection failed: {str(conn_error)}"
+    except Exception as e:
+        logger.error(f"Unexpected error getting job logs: {e}", exc_info=True)
+        return f"❌ Error getting job logs: {str(e)}"
