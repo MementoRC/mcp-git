@@ -818,13 +818,27 @@ class GitHubDeleteReleaseAsset(BaseModel):
 class GitHubGetJobLogs(BaseModel):
     """Model for fetching GitHub Actions job logs.
 
-    Fetches the actual log content for a specific job, useful for debugging
-    CI failures without navigating to the GitHub UI.
+    Fetches the actual log content for a specific job, enabling CI failure
+    diagnosis without navigating to the GitHub UI.
 
-    The job_id can be obtained from github_get_failing_jobs or github_get_workflow_run.
+    The job_id can be obtained from:
+    - github_get_failing_jobs: Returns failing job IDs for a PR
+    - github_get_workflow_run: Returns job IDs for a workflow run
+    - github_get_pr_checks: Returns check run IDs (which are job IDs)
+
+    Example usage:
+        # Get failing jobs first
+        failing = github_get_failing_jobs(owner, repo, pr_number)
+        # Extract job_id from output, then fetch logs
+        logs = github_get_job_logs(owner, repo, job_id=12345, tail_lines=500)
+
+    Note:
+        - Logs are automatically truncated if they exceed 10MB
+        - Logs may not be available for old jobs (GitHub retention policy)
+        - Rate limiting (429) may occur with frequent requests
     """
 
-    repo_owner: str
-    repo_name: str
-    job_id: int
-    tail_lines: int | None = None  # Return only last N lines (default: all)
+    repo_owner: str  # GitHub repository owner or organization name
+    repo_name: str  # GitHub repository name
+    job_id: int  # Job ID from GitHub Actions (from check runs or workflow jobs)
+    tail_lines: int | None = None  # Return only last N lines; None returns all lines

@@ -3594,6 +3594,11 @@ async def github_list_workflow_runs(
         return f"❌ Error listing workflow runs: {str(e)}"
 
 
+# Constants for job logs processing
+_JOB_LOGS_MAX_SIZE_BYTES = 10 * 1024 * 1024  # 10 MB max log size
+_JOB_LOGS_SEPARATOR_LENGTH = 60
+
+
 async def github_get_job_logs(
     repo_owner: str,
     repo_name: str,
@@ -3610,10 +3615,11 @@ async def github_get_job_logs(
         repo_owner: Repository owner/organization
         repo_name: Repository name
         job_id: The job ID (from check runs or workflow jobs)
-        tail_lines: Return only last N lines (default: all lines)
+        tail_lines: Return only last N lines (default: all lines, subject to size limit)
 
     Returns:
         Formatted string with job information and log content.
+        Large logs (>10MB) are automatically truncated from the beginning.
     """
     logger.debug(f"🔍 Fetching logs for job {job_id} in {repo_owner}/{repo_name}")
 
@@ -3625,6 +3631,10 @@ async def github_get_job_logs(
             )
             if job_response.status == 404:
                 return f"❌ Job #{job_id} not found in {repo_owner}/{repo_name}"
+            if job_response.status == 403:
+                return f"❌ Access denied for job #{job_id}. Check repository permissions or API rate limits."
+            if job_response.status == 429:
+                return "❌ GitHub API rate limit exceeded. Please wait and try again."
             if job_response.status != 200:
                 return f"❌ Failed to get job #{job_id}: HTTP {job_response.status}"
 
@@ -3653,7 +3663,14 @@ async def github_get_job_logs(
             if logs_response.status == 404:
                 output.append("\n⚠️ Logs not available (may have been deleted)")
                 return "\n".join(output)
-
+            if logs_response.status == 403:
+                output.append(
+                    "\n❌ Access denied for logs. Check repository permissions."
+                )
+                return "\n".join(output)
+            if logs_response.status == 429:
+                output.append("\n❌ GitHub API rate limit exceeded for logs.")
+                return "\n".join(output)
             if logs_response.status != 200:
                 output.append(f"\n❌ Failed to fetch logs: HTTP {logs_response.status}")
                 return "\n".join(output)
@@ -3665,23 +3682,36 @@ async def github_get_job_logs(
                 output.append("\n📭 Log content is empty")
                 return "\n".join(output)
 
-            # Apply tail_lines filter if specified
-            if tail_lines is not None and tail_lines > 0:
-                lines = logs_text.splitlines()
-                if len(lines) > tail_lines:
-                    logs_text = "\n".join(lines[-tail_lines:])
-                    output.append(
-                        f"\n📋 Logs (last {tail_lines} of {len(lines)} lines):"
-                    )
-                else:
-                    output.append(f"\n📋 Logs ({len(lines)} lines):")
-            else:
-                line_count = len(logs_text.splitlines())
-                output.append(f"\n📋 Logs ({line_count} lines):")
+            # Check for oversized logs and truncate if necessary
+            original_size = len(logs_text)
+            was_truncated = False
+            if original_size > _JOB_LOGS_MAX_SIZE_BYTES:
+                logs_text = logs_text[-_JOB_LOGS_MAX_SIZE_BYTES:]
+                was_truncated = True
+                logger.warning(
+                    f"Job logs truncated from {original_size} to {_JOB_LOGS_MAX_SIZE_BYTES} bytes"
+                )
 
-            output.append("-" * 60)
-            output.append(logs_text)
-            output.append("-" * 60)
+            # Split lines once for efficient processing
+            lines = logs_text.splitlines()
+            total_lines = len(lines)
+
+            # Apply tail_lines filter if specified
+            if tail_lines is not None and tail_lines > 0 and total_lines > tail_lines:
+                lines = lines[-tail_lines:]
+                output.append(f"\n📋 Logs (last {tail_lines} of {total_lines} lines):")
+            else:
+                output.append(f"\n📋 Logs ({total_lines} lines):")
+
+            if was_truncated:
+                output.append(
+                    f"⚠️ Log truncated (original size: {original_size:,} bytes)"
+                )
+
+            separator = "-" * _JOB_LOGS_SEPARATOR_LENGTH
+            output.append(separator)
+            output.append("\n".join(lines))
+            output.append(separator)
 
             return "\n".join(output)
 

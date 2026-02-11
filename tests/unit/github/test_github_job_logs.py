@@ -187,6 +187,116 @@ class TestGitHubGetJobLogs:
             assert "📭" in result
             assert "empty" in result
 
+    @pytest.mark.asyncio
+    async def test_get_job_logs_rate_limited_job(self):
+        """Test handling of rate limiting (429) when fetching job details."""
+        mock_client = MagicMock()
+
+        mock_response = AsyncMock()
+        mock_response.status = 429
+
+        mock_client.get = AsyncMock(return_value=mock_response)
+
+        with patch(
+            "src.mcp_server_git.github.api.github_client_context"
+        ) as mock_context:
+            mock_context.return_value.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_context.return_value.__aexit__ = AsyncMock(return_value=None)
+
+            result = await github_get_job_logs("owner", "repo", 12345)
+
+            assert "❌" in result
+            assert "rate limit" in result.lower()
+
+    @pytest.mark.asyncio
+    async def test_get_job_logs_access_denied(self):
+        """Test handling of access denied (403) for job details."""
+        mock_client = MagicMock()
+
+        mock_response = AsyncMock()
+        mock_response.status = 403
+
+        mock_client.get = AsyncMock(return_value=mock_response)
+
+        with patch(
+            "src.mcp_server_git.github.api.github_client_context"
+        ) as mock_context:
+            mock_context.return_value.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_context.return_value.__aexit__ = AsyncMock(return_value=None)
+
+            result = await github_get_job_logs("owner", "repo", 12345)
+
+            assert "❌" in result
+            assert "Access denied" in result
+
+    @pytest.mark.asyncio
+    async def test_get_job_logs_rate_limited_logs(self):
+        """Test handling of rate limiting (429) when fetching logs."""
+        mock_client = MagicMock()
+
+        mock_job_response = AsyncMock()
+        mock_job_response.status = 200
+        mock_job_response.json = AsyncMock(
+            return_value={
+                "id": 12345,
+                "name": "Test Job",
+                "status": "completed",
+            }
+        )
+
+        mock_logs_response = AsyncMock()
+        mock_logs_response.status = 429
+
+        mock_client.get = AsyncMock(side_effect=[mock_job_response, mock_logs_response])
+
+        with patch(
+            "src.mcp_server_git.github.api.github_client_context"
+        ) as mock_context:
+            mock_context.return_value.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_context.return_value.__aexit__ = AsyncMock(return_value=None)
+
+            result = await github_get_job_logs("owner", "repo", 12345)
+
+            assert "❌" in result
+            assert "rate limit" in result.lower()
+
+    @pytest.mark.asyncio
+    async def test_get_job_logs_large_log_truncation(self):
+        """Test that large logs are truncated to prevent memory issues."""
+        mock_client = MagicMock()
+
+        mock_job_response = AsyncMock()
+        mock_job_response.status = 200
+        mock_job_response.json = AsyncMock(
+            return_value={
+                "id": 12345,
+                "name": "Large Log Job",
+                "status": "completed",
+            }
+        )
+
+        # Create a log larger than the 10MB limit
+        large_log = "X" * (11 * 1024 * 1024)  # 11 MB
+        mock_logs_response = AsyncMock()
+        mock_logs_response.status = 200
+        mock_logs_response.text = AsyncMock(return_value=large_log)
+
+        mock_client.get = AsyncMock(side_effect=[mock_job_response, mock_logs_response])
+
+        with patch(
+            "src.mcp_server_git.github.api.github_client_context"
+        ) as mock_context:
+            mock_context.return_value.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_context.return_value.__aexit__ = AsyncMock(return_value=None)
+
+            result = await github_get_job_logs("owner", "repo", 12345)
+
+            # Should indicate truncation occurred
+            assert "⚠️" in result
+            assert "truncated" in result.lower()
+            # The result should not be the full 11MB
+            assert len(result) < 11 * 1024 * 1024
+
 
 class TestGitHubGetJobLogsModel:
     """Test GitHubGetJobLogs Pydantic model."""
