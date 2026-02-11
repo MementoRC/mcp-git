@@ -3594,8 +3594,10 @@ async def github_list_workflow_runs(
         return f"❌ Error listing workflow runs: {str(e)}"
 
 
-# Constants for job logs processing
-_JOB_LOGS_MAX_SIZE_BYTES = 10 * 1024 * 1024  # 10 MB max log size
+# Constants for job logs processing - LLM-friendly defaults
+_JOB_LOGS_MAX_SIZE_BYTES = 10 * 1024 * 1024  # 10 MB hard limit (memory protection)
+_JOB_LOGS_DEFAULT_TAIL_LINES = 500  # Default lines for LLM context efficiency
+_JOB_LOGS_MAX_CHARS_FOR_LLM = 100 * 1024  # 100 KB soft limit (~25k tokens)
 _JOB_LOGS_SEPARATOR_LENGTH = 60
 
 
@@ -3604,6 +3606,7 @@ async def github_get_job_logs(
     repo_name: str,
     job_id: int,
     tail_lines: int | None = None,
+    full_log: bool = False,
 ) -> str:
     """Get logs for a specific GitHub Actions job.
 
@@ -3611,15 +3614,19 @@ async def github_get_job_logs(
     without navigating to the GitHub UI. The job_id can be obtained from
     github_get_failing_jobs or github_get_workflow_run output.
 
+    IMPORTANT: By default, logs are truncated to the last 500 lines to be
+    LLM-context-friendly. Use tail_lines to adjust or full_log=True for complete logs.
+
     Args:
         repo_owner: Repository owner/organization
         repo_name: Repository name
         job_id: The job ID (from check runs or workflow jobs)
-        tail_lines: Return only last N lines (default: all lines, subject to size limit)
+        tail_lines: Return only last N lines (default: 500 for LLM efficiency)
+        full_log: If True, return complete log without line limit (still has 100KB char limit)
 
     Returns:
         Formatted string with job information and log content.
-        Large logs (>10MB) are automatically truncated from the beginning.
+        Logs are automatically truncated to be LLM-context-friendly.
     """
     logger.debug(f"🔍 Fetching logs for job {job_id} in {repo_owner}/{repo_name}")
 
@@ -3682,12 +3689,12 @@ async def github_get_job_logs(
                 output.append("\n📭 Log content is empty")
                 return "\n".join(output)
 
-            # Check for oversized logs and truncate if necessary
+            # Check for oversized logs and truncate if necessary (memory protection)
             original_size = len(logs_text)
-            was_truncated = False
+            was_size_truncated = False
             if original_size > _JOB_LOGS_MAX_SIZE_BYTES:
                 logs_text = logs_text[-_JOB_LOGS_MAX_SIZE_BYTES:]
-                was_truncated = True
+                was_size_truncated = True
                 logger.warning(
                     f"Job logs truncated from {original_size} to {_JOB_LOGS_MAX_SIZE_BYTES} bytes"
                 )
@@ -3696,21 +3703,59 @@ async def github_get_job_logs(
             lines = logs_text.splitlines()
             total_lines = len(lines)
 
-            # Apply tail_lines filter if specified
-            if tail_lines is not None and tail_lines > 0 and total_lines > tail_lines:
-                lines = lines[-tail_lines:]
-                output.append(f"\n📋 Logs (last {tail_lines} of {total_lines} lines):")
+            # Apply LLM-friendly truncation
+            # Priority: explicit tail_lines > full_log flag > default limit
+            effective_tail_lines = tail_lines
+            was_line_truncated = False
+
+            if tail_lines is None and not full_log:
+                # Apply default LLM-friendly limit
+                effective_tail_lines = _JOB_LOGS_DEFAULT_TAIL_LINES
+
+            if (
+                effective_tail_lines is not None
+                and effective_tail_lines > 0
+                and total_lines > effective_tail_lines
+            ):
+                lines = lines[-effective_tail_lines:]
+                was_line_truncated = True
+                output.append(
+                    f"\n📋 Logs (last {effective_tail_lines} of {total_lines} lines):"
+                )
             else:
                 output.append(f"\n📋 Logs ({total_lines} lines):")
 
-            if was_truncated:
+            # Apply character limit for LLM context efficiency
+            logs_output = "\n".join(lines)
+            was_char_truncated = False
+            if len(logs_output) > _JOB_LOGS_MAX_CHARS_FOR_LLM:
+                logs_output = logs_output[-_JOB_LOGS_MAX_CHARS_FOR_LLM:]
+                # Find first complete line after truncation
+                first_newline = logs_output.find("\n")
+                if first_newline > 0:
+                    logs_output = logs_output[first_newline + 1 :]
+                was_char_truncated = True
+                logger.info(
+                    f"Job logs char-truncated to {_JOB_LOGS_MAX_CHARS_FOR_LLM} chars for LLM context"
+                )
+
+            # Add truncation warnings
+            truncation_notes = []
+            if was_size_truncated:
+                truncation_notes.append(f"size: {original_size:,} bytes")
+            if was_line_truncated:
+                truncation_notes.append(f"lines: {total_lines} total")
+            if was_char_truncated:
+                truncation_notes.append("chars: exceeded 100KB limit")
+
+            if truncation_notes:
                 output.append(
-                    f"⚠️ Log truncated (original size: {original_size:,} bytes)"
+                    f"⚠️ Truncated for LLM context ({', '.join(truncation_notes)})"
                 )
 
             separator = "-" * _JOB_LOGS_SEPARATOR_LENGTH
             output.append(separator)
-            output.append("\n".join(lines))
+            output.append(logs_output)
             output.append(separator)
 
             return "\n".join(output)

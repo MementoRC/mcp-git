@@ -293,9 +293,120 @@ class TestGitHubGetJobLogs:
 
             # Should indicate truncation occurred
             assert "⚠️" in result
-            assert "truncated" in result.lower()
-            # The result should not be the full 11MB
-            assert len(result) < 11 * 1024 * 1024
+            assert "Truncated" in result
+            # The result should be much smaller than 11MB (100KB limit)
+            assert len(result) < 150 * 1024  # 150KB with overhead
+
+    @pytest.mark.asyncio
+    async def test_get_job_logs_default_llm_limit(self):
+        """Test that logs are limited to 500 lines by default for LLM context."""
+        mock_client = MagicMock()
+
+        mock_job_response = AsyncMock()
+        mock_job_response.status = 200
+        mock_job_response.json = AsyncMock(
+            return_value={
+                "id": 12345,
+                "name": "Many Lines Job",
+                "status": "completed",
+            }
+        )
+
+        # Create log with 1000 lines (more than default 500)
+        log_lines = "\n".join([f"Log line {i}" for i in range(1000)])
+        mock_logs_response = AsyncMock()
+        mock_logs_response.status = 200
+        mock_logs_response.text = AsyncMock(return_value=log_lines)
+
+        mock_client.get = AsyncMock(side_effect=[mock_job_response, mock_logs_response])
+
+        with patch(
+            "src.mcp_server_git.github.api.github_client_context"
+        ) as mock_context:
+            mock_context.return_value.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_context.return_value.__aexit__ = AsyncMock(return_value=None)
+
+            # No tail_lines specified - should use default 500
+            result = await github_get_job_logs("owner", "repo", 12345)
+
+            assert "last 500 of 1000 lines" in result
+            assert "Log line 999" in result  # Last line should be present
+            assert "Log line 500" in result  # 500th from end
+            assert "Log line 499\n" not in result  # 501st from end should be cut
+
+    @pytest.mark.asyncio
+    async def test_get_job_logs_full_log_flag(self):
+        """Test that full_log=True bypasses line limit."""
+        mock_client = MagicMock()
+
+        mock_job_response = AsyncMock()
+        mock_job_response.status = 200
+        mock_job_response.json = AsyncMock(
+            return_value={
+                "id": 12345,
+                "name": "Full Log Job",
+                "status": "completed",
+            }
+        )
+
+        # Create log with 600 lines (more than default 500)
+        log_lines = "\n".join([f"Line {i}" for i in range(600)])
+        mock_logs_response = AsyncMock()
+        mock_logs_response.status = 200
+        mock_logs_response.text = AsyncMock(return_value=log_lines)
+
+        mock_client.get = AsyncMock(side_effect=[mock_job_response, mock_logs_response])
+
+        with patch(
+            "src.mcp_server_git.github.api.github_client_context"
+        ) as mock_context:
+            mock_context.return_value.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_context.return_value.__aexit__ = AsyncMock(return_value=None)
+
+            # full_log=True should return all 600 lines
+            result = await github_get_job_logs("owner", "repo", 12345, full_log=True)
+
+            assert "600 lines" in result
+            assert "Line 0" in result  # First line should be present
+            assert "Line 599" in result  # Last line should be present
+
+    @pytest.mark.asyncio
+    async def test_get_job_logs_char_limit(self):
+        """Test that logs exceeding 100KB char limit are truncated."""
+        mock_client = MagicMock()
+
+        mock_job_response = AsyncMock()
+        mock_job_response.status = 200
+        mock_job_response.json = AsyncMock(
+            return_value={
+                "id": 12345,
+                "name": "Large Char Job",
+                "status": "completed",
+            }
+        )
+
+        # Create log with very long lines (will exceed 100KB but have few lines)
+        long_line = "X" * 1000  # 1KB per line
+        log_lines = "\n".join([f"{i:03d}:{long_line}" for i in range(200)])  # 200KB
+        mock_logs_response = AsyncMock()
+        mock_logs_response.status = 200
+        mock_logs_response.text = AsyncMock(return_value=log_lines)
+
+        mock_client.get = AsyncMock(side_effect=[mock_job_response, mock_logs_response])
+
+        with patch(
+            "src.mcp_server_git.github.api.github_client_context"
+        ) as mock_context:
+            mock_context.return_value.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_context.return_value.__aexit__ = AsyncMock(return_value=None)
+
+            result = await github_get_job_logs("owner", "repo", 12345, full_log=True)
+
+            # Should indicate char truncation
+            assert "⚠️" in result
+            assert "100KB" in result
+            # Result should be under 150KB (100KB limit + overhead)
+            assert len(result) < 150 * 1024
 
 
 class TestGitHubGetJobLogsModel:
@@ -323,6 +434,16 @@ class TestGitHubGetJobLogsModel:
         )
         assert model.tail_lines == 100
 
+    def test_model_with_full_log(self):
+        """Test model with full_log parameter."""
+        model = GitHubGetJobLogs(
+            repo_owner="owner",
+            repo_name="repo",
+            job_id=12345,
+            full_log=True,
+        )
+        assert model.full_log is True
+
     def test_model_schema(self):
         """Test model generates valid JSON schema."""
         schema = GitHubGetJobLogs.model_json_schema()
@@ -331,3 +452,4 @@ class TestGitHubGetJobLogsModel:
         assert "repo_name" in schema["properties"]
         assert "job_id" in schema["properties"]
         assert "tail_lines" in schema["properties"]
+        assert "full_log" in schema["properties"]

@@ -821,6 +821,10 @@ class GitHubGetJobLogs(BaseModel):
     Fetches the actual log content for a specific job, enabling CI failure
     diagnosis without navigating to the GitHub UI.
 
+    IMPORTANT - LLM Context Efficiency:
+        By default, logs are truncated to the last 500 lines and 100KB to prevent
+        overwhelming the LLM context window. This is intentional for MCP server usage.
+
     The job_id can be obtained from:
     - github_get_failing_jobs: Returns failing job IDs for a PR
     - github_get_workflow_run: Returns job IDs for a workflow run
@@ -829,11 +833,17 @@ class GitHubGetJobLogs(BaseModel):
     Example usage:
         # Get failing jobs first
         failing = github_get_failing_jobs(owner, repo, pr_number)
-        # Extract job_id from output, then fetch logs
-        logs = github_get_job_logs(owner, repo, job_id=12345, tail_lines=500)
+        # Extract job_id from output, then fetch logs (default: last 500 lines)
+        logs = github_get_job_logs(owner, repo, job_id=12345)
+        # For more context, increase tail_lines
+        logs = github_get_job_logs(owner, repo, job_id=12345, tail_lines=1000)
+        # For complete logs (still capped at 100KB for LLM safety)
+        logs = github_get_job_logs(owner, repo, job_id=12345, full_log=True)
 
     Note:
-        - Logs are automatically truncated if they exceed 10MB
+        - Default: last 500 lines (LLM-friendly)
+        - Hard limit: 100KB character limit for LLM context protection
+        - Memory limit: 10MB for very large logs
         - Logs may not be available for old jobs (GitHub retention policy)
         - Rate limiting (429) may occur with frequent requests
     """
@@ -841,4 +851,5 @@ class GitHubGetJobLogs(BaseModel):
     repo_owner: str  # GitHub repository owner or organization name
     repo_name: str  # GitHub repository name
     job_id: int  # Job ID from GitHub Actions (from check runs or workflow jobs)
-    tail_lines: int | None = None  # Return only last N lines; None returns all lines
+    tail_lines: int | None = None  # Return only last N lines; None uses default (500)
+    full_log: bool = False  # If True, skip line limit (still has 100KB char limit)
