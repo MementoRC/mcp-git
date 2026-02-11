@@ -7,6 +7,7 @@ from .api import (
     github_create_issue,
     github_create_pr,
     github_get_failing_jobs,
+    github_get_job_logs,
     github_get_pr_checks,
     github_get_pr_details,
     github_get_pr_files,
@@ -25,6 +26,7 @@ from .models import (
     # GitHub Issues Models
     GitHubCreateIssue,
     GitHubGetFailingJobs,
+    GitHubGetJobLogs,
     GitHubGetPRChecks,
     GitHubGetPRDetails,
     GitHubGetPRFiles,
@@ -42,6 +44,7 @@ __all__ = [
     # Read operations
     "github_get_pr_checks",
     "github_get_failing_jobs",
+    "github_get_job_logs",
     "github_get_workflow_run",
     "github_list_workflow_runs",
     "github_get_pr_details",
@@ -60,6 +63,7 @@ __all__ = [
     "github_update_issue",
     # Models
     "GitHubGetFailingJobs",
+    "GitHubGetJobLogs",
     "GitHubGetPRChecks",
     "GitHubGetPRDetails",
     "GitHubGetPRFiles",
