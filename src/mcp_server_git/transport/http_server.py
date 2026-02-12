@@ -112,7 +112,14 @@ class HTTPGitServer:
     - Localhost-only access by default
     - Optional API key authentication
     - Per-session repository isolation
+
+    Auto-session mode:
+    - When default_repo is specified, creates a default session at startup
+    - MCP clients can omit MCP-Session-Id header and use default session
+    - Enables compatibility with standard MCP clients
     """
+
+    DEFAULT_SESSION_ID = "default"
 
     def __init__(
         self,
@@ -120,6 +127,7 @@ class HTTPGitServer:
         port: int = 8765,
         api_key: Optional[str] = None,
         session_timeout: float = 3600.0,
+        default_repo: Optional[Path] = None,
     ):
         """
         Initialize HTTP Git server.
@@ -129,10 +137,12 @@ class HTTPGitServer:
             port: Port to listen on (default: 8765)
             api_key: Optional API key for authentication
             session_timeout: Session timeout in seconds (default: 3600 = 1 hour)
+            default_repo: Optional default repository for auto-session mode
         """
         self.host = host
         self.port = port
         self.api_key = api_key
+        self.default_repo = default_repo
         self.session_manager = HTTPSessionManager(session_timeout=session_timeout)
 
         # Create FastAPI app with lifespan context manager
@@ -147,6 +157,22 @@ class HTTPGitServer:
                 logger.info("API key authentication enabled")
             else:
                 logger.info("API key authentication disabled")
+
+            # Create default session if default_repo is specified
+            if self.default_repo:
+                try:
+                    await self.session_manager.create_session(
+                        repo_path=self.default_repo,
+                        expected_remote_url=None,  # Skip URL validation for default session
+                        session_id=self.DEFAULT_SESSION_ID,
+                    )
+                    logger.info(
+                        f"Default session created for: {self.default_repo}"
+                    )
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to create default session: {e}"
+                    )
 
             yield
 
@@ -283,17 +309,18 @@ class HTTPGitServer:
         @self.app.post("/mcp", response_model=JSONRPCResponse)
         async def execute_mcp_tool(
             request: JSONRPCRequest,
-            mcp_session_id: str = Header(..., alias="MCP-Session-Id"),
+            mcp_session_id: Optional[str] = Header(None, alias="MCP-Session-Id"),
         ):
             """
             Execute an MCP tool via JSON-RPC 2.0.
 
             This endpoint accepts JSON-RPC 2.0 formatted requests for tool execution.
-            The session ID must be provided via the MCP-Session-Id header.
+            The session ID can be provided via the MCP-Session-Id header.
+            If no session ID is provided and a default session exists, uses the default.
 
             Args:
                 request: JSON-RPC 2.0 request with method and params
-                mcp_session_id: Session identifier from header
+                mcp_session_id: Optional session identifier from header
 
             Returns:
                 JSON-RPC 2.0 response with result or error
@@ -302,6 +329,20 @@ class HTTPGitServer:
                 HTTPException 400: If request is invalid
                 HTTPException 404: If session not found
             """
+            # Use default session if none provided
+            if not mcp_session_id:
+                if self.default_repo and self.DEFAULT_SESSION_ID in self.session_manager._sessions:
+                    mcp_session_id = self.DEFAULT_SESSION_ID
+                else:
+                    return JSONRPCResponse(
+                        jsonrpc="2.0",
+                        error={
+                            "code": -32000,
+                            "message": "MCP-Session-Id header required (no default session configured)",
+                        },
+                        id=request.id,
+                    )
+
             # Validate JSON-RPC version
             if request.jsonrpc != "2.0":
                 return JSONRPCResponse(

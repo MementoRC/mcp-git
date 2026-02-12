@@ -28,8 +28,9 @@ Environment=MCP_GIT_HTTP_PORT=4100
 Environment=LOG_LEVEL=INFO
 Environment=PYTHONPATH=%h/ClaudeCode/Servers/git/worktrees/feat-issues-impl/src
 
-# Use pixi to run the server
-ExecStart=%h/.conda/envs/ClaudeCode/bin/pixi run pixi-git-server-http --port 4100
+# Use pixi to run the server with default repo for MCP client compatibility
+# The --default-repo enables auto-session mode so MCP clients work without explicit session management
+ExecStart=%h/.conda/envs/ClaudeCode/bin/pixi run pixi-git-server-http --default-repo %h/ClaudeCode/Servers/git/worktrees/feat-issues-impl
 ExecReload=/bin/kill -HUP $MAINPID
 
 # Restart configuration

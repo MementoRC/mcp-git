@@ -15,6 +15,7 @@ Key features:
 
 import logging
 import sys
+from pathlib import Path
 
 import click
 from dotenv import load_dotenv
@@ -52,6 +53,12 @@ logger = logging.getLogger(__name__)
     help="Session timeout in seconds (default: 3600 = 1 hour)",
 )
 @click.option(
+    "--default-repo",
+    type=click.Path(exists=True, file_okay=False, dir_okay=True, resolve_path=True),
+    default=None,
+    help="Default repository for auto-session mode (enables MCP client compatibility)",
+)
+@click.option(
     "-v",
     "--verbose",
     count=True,
@@ -62,6 +69,7 @@ def main(
     port: int,
     api_key: str | None,
     session_timeout: int,
+    default_repo: str | None,
     verbose: int,
 ) -> None:
     """
@@ -113,6 +121,7 @@ def main(
         port=port,
         api_key=api_key,
         session_timeout=float(session_timeout),
+        default_repo=Path(default_repo) if default_repo else None,
     )
 
     logger.info(f"HTTP Server configured: {host}:{port}")
@@ -121,6 +130,8 @@ def main(
     else:
         logger.info("API key authentication disabled")
     logger.info(f"Session timeout: {session_timeout} seconds")
+    if default_repo:
+        logger.info(f"Default repository: {default_repo} (auto-session mode enabled)")
 
     logger.info("Starting HTTP Lean Server...")
 

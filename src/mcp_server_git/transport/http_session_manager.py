@@ -99,21 +99,23 @@ class HTTPSessionManager:
     async def create_session(
         self,
         repo_path: Path,
-        expected_remote_url: str,
+        expected_remote_url: str | None = None,
+        session_id: str | None = None,
     ) -> SessionContext:
         """
         Create a new HTTP session with isolated context.
 
         Each session gets:
-        - Unique session ID with "mcp-" prefix
+        - Unique session ID with "mcp-" prefix (or custom ID if provided)
         - New GitService instance
         - New GitHubService instance
         - New RepositoryBindingManager
-        - Repository binding with remote validation
+        - Repository binding with optional remote validation
 
         Args:
             repo_path: Path to git repository
-            expected_remote_url: Expected remote URL for validation
+            expected_remote_url: Expected remote URL for validation (optional for default sessions)
+            session_id: Custom session ID (optional, auto-generated if not provided)
 
         Returns:
             SessionContext with bound repository
@@ -123,8 +125,9 @@ class HTTPSessionManager:
             RemoteContaminationError: If remote URL doesn't match
         """
         async with self._lock:
-            # Generate unique session ID
-            session_id = f"mcp-{secrets.token_urlsafe(16)}"
+            # Use provided session ID or generate a unique one
+            if session_id is None:
+                session_id = f"mcp-{secrets.token_urlsafe(16)}"
 
             # Create isolated service instances
             git_service = GitService()
@@ -135,11 +138,11 @@ class HTTPSessionManager:
                 server_name=f"http-session-{session_id}"
             )
 
-            # Bind repository with remote validation
+            # Bind repository with optional remote validation
             repository_binding = await binding_manager.bind_repository(
                 repository_path=repo_path,
                 expected_remote_url=expected_remote_url,
-                verify_remote=True,
+                verify_remote=expected_remote_url is not None,
             )
 
             # Create session context
@@ -157,9 +160,10 @@ class HTTPSessionManager:
             # Store session
             self._sessions[session_id] = session_context
 
+            remote_info = f"with remote {expected_remote_url}" if expected_remote_url else "(no remote validation)"
             logger.info(
                 f"Session created: {session_id} for repository {repo_path} "
-                f"with remote {expected_remote_url}"
+                f"{remote_info}"
             )
 
             return session_context
