@@ -18,6 +18,7 @@ Architecture:
 """
 
 import logging
+import secrets
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any, Optional
@@ -306,17 +307,19 @@ class HTTPGitServer:
 
             return SessionStatusResponse(**session_info)
 
-        @self.app.post("/mcp", response_model=JSONRPCResponse)
-        async def execute_mcp_tool(
+        @self.app.post("/mcp")
+        async def handle_mcp_request(
             request: JSONRPCRequest,
             mcp_session_id: Optional[str] = Header(None, alias="MCP-Session-Id"),
         ):
             """
-            Execute an MCP tool via JSON-RPC 2.0.
+            Handle MCP JSON-RPC 2.0 requests.
 
-            This endpoint accepts JSON-RPC 2.0 formatted requests for tool execution.
-            The session ID can be provided via the MCP-Session-Id header.
-            If no session ID is provided and a default session exists, uses the default.
+            Supports MCP protocol methods:
+            - initialize: Create new session, returns session ID in header
+            - notifications/initialized: Acknowledge initialization
+            - tools/list: List available tools (3 meta-tools)
+            - tools/call: Execute a tool
 
             Args:
                 request: JSON-RPC 2.0 request with method and params
@@ -324,102 +327,159 @@ class HTTPGitServer:
 
             Returns:
                 JSON-RPC 2.0 response with result or error
-
-            Raises:
-                HTTPException 400: If request is invalid
-                HTTPException 404: If session not found
             """
-            # Use default session if none provided
-            if not mcp_session_id:
-                if self.default_repo and self.DEFAULT_SESSION_ID in self.session_manager._sessions:
-                    mcp_session_id = self.DEFAULT_SESSION_ID
-                else:
-                    return JSONRPCResponse(
-                        jsonrpc="2.0",
-                        error={
-                            "code": -32000,
-                            "message": "MCP-Session-Id header required (no default session configured)",
-                        },
-                        id=request.id,
-                    )
+            from fastapi.responses import JSONResponse
 
             # Validate JSON-RPC version
             if request.jsonrpc != "2.0":
-                return JSONRPCResponse(
-                    jsonrpc="2.0",
-                    error={
-                        "code": -32600,
-                        "message": "Invalid Request - only JSON-RPC 2.0 supported",
-                    },
-                    id=request.id,
-                )
+                return JSONResponse(content={
+                    "jsonrpc": "2.0",
+                    "id": request.id,
+                    "error": {"code": -32600, "message": "Invalid Request - only JSON-RPC 2.0 supported"},
+                })
 
-            # Validate method
-            if request.method != "tools/call":
-                return JSONRPCResponse(
-                    jsonrpc="2.0",
-                    error={
-                        "code": -32601,
-                        "message": f"Method not found: {request.method}",
-                    },
-                    id=request.id,
-                )
+            # Handle initialize - creates new MCP session
+            if request.method == "initialize":
+                # Create a new session with default repo if configured
+                if self.default_repo:
+                    new_session_id = f"mcp-{secrets.token_urlsafe(8)}"
+                    try:
+                        await self.session_manager.create_session(
+                            repo_path=self.default_repo,
+                            expected_remote_url=None,
+                            session_id=new_session_id,
+                        )
+                    except Exception as e:
+                        logger.warning(f"Session creation failed, using default: {e}")
+                        new_session_id = self.DEFAULT_SESSION_ID
+                else:
+                    new_session_id = f"mcp-{secrets.token_urlsafe(8)}"
 
-            # Extract tool name and arguments
-            try:
-                tool_name = request.params.get("name")
-                arguments = request.params.get("arguments", {})
-
-                if not tool_name:
-                    return JSONRPCResponse(
-                        jsonrpc="2.0",
-                        error={
-                            "code": -32602,
-                            "message": "Invalid params - 'name' required",
+                response = JSONResponse(content={
+                    "jsonrpc": "2.0",
+                    "id": request.id,
+                    "result": {
+                        "protocolVersion": "2024-11-05",
+                        "capabilities": {
+                            "tools": {"listChanged": True},
                         },
-                        id=request.id,
+                        "serverInfo": {"name": "mcp-git", "version": "1.0.0"},
+                    },
+                })
+                response.headers["MCP-Session-Id"] = new_session_id
+                response.headers["MCP-Protocol-Version"] = "2024-11-05"
+                return response
+
+            # Handle notifications/initialized - just acknowledge
+            if request.method == "notifications/initialized":
+                return JSONResponse(content={
+                    "jsonrpc": "2.0",
+                    "id": request.id,
+                    "result": {},
+                })
+
+            # Handle tools/list - return the 3 meta-tools
+            if request.method == "tools/list":
+                return JSONResponse(content={
+                    "jsonrpc": "2.0",
+                    "id": request.id,
+                    "result": {
+                        "tools": [
+                            {
+                                "name": "discover_tools",
+                                "description": "Discover available Git, GitHub, and Azure DevOps tools. USE WHEN: finding tools by pattern",
+                                "inputSchema": {
+                                    "type": "object",
+                                    "properties": {"pattern": {"type": "string", "default": ""}},
+                                },
+                            },
+                            {
+                                "name": "get_tool_spec",
+                                "description": "Get full specification for specific tool including schema and examples.",
+                                "inputSchema": {
+                                    "type": "object",
+                                    "properties": {"tool_name": {"type": "string"}},
+                                    "required": ["tool_name"],
+                                },
+                            },
+                            {
+                                "name": "execute_tool",
+                                "description": "Execute Git, GitHub, or Azure DevOps operation.",
+                                "inputSchema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "tool_name": {"type": "string"},
+                                        "parameters": {"type": "object"},
+                                    },
+                                    "required": ["tool_name", "parameters"],
+                                },
+                            },
+                        ]
+                    },
+                })
+
+            # For tools/call, we need a session
+            if request.method == "tools/call":
+                # Use default session if none provided
+                if not mcp_session_id:
+                    if self.default_repo and self.DEFAULT_SESSION_ID in self.session_manager._sessions:
+                        mcp_session_id = self.DEFAULT_SESSION_ID
+                    else:
+                        return JSONResponse(content={
+                            "jsonrpc": "2.0",
+                            "id": request.id,
+                            "error": {"code": -32000, "message": "MCP-Session-Id header required"},
+                        })
+
+                # Extract tool name and arguments
+                try:
+                    tool_name = request.params.get("name")
+                    arguments = request.params.get("arguments", {})
+
+                    if not tool_name:
+                        return JSONResponse(content={
+                            "jsonrpc": "2.0",
+                            "id": request.id,
+                            "error": {"code": -32602, "message": "Invalid params - 'name' required"},
+                        })
+
+                    # Execute tool via session manager
+                    result = await self.session_manager.execute_tool(
+                        session_id=mcp_session_id,
+                        tool_name=tool_name,
+                        args=arguments,
                     )
 
-                # Execute tool via session manager
-                result = await self.session_manager.execute_tool(
-                    session_id=mcp_session_id,
-                    tool_name=tool_name,
-                    args=arguments,
-                )
+                    logger.debug(f"Tool executed: {tool_name} for session {mcp_session_id}")
 
-                logger.debug(
-                    f"Tool executed: {tool_name} for session {mcp_session_id}"
-                )
+                    return JSONResponse(content={
+                        "jsonrpc": "2.0",
+                        "id": request.id,
+                        "result": {"content": [{"type": "text", "text": str(result)}]},
+                    })
 
-                return JSONRPCResponse(
-                    jsonrpc="2.0",
-                    result=result,
-                    id=request.id,
-                )
+                except ValueError as e:
+                    logger.error(f"Tool execution error: {e}")
+                    return JSONResponse(content={
+                        "jsonrpc": "2.0",
+                        "id": request.id,
+                        "error": {"code": -32000, "message": str(e)},
+                    })
 
-            except ValueError as e:
-                # Session not found or validation error
-                logger.error(f"Tool execution error: {e}")
-                return JSONRPCResponse(
-                    jsonrpc="2.0",
-                    error={
-                        "code": -32000,
-                        "message": str(e),
-                    },
-                    id=request.id,
-                )
+                except Exception as e:
+                    logger.error(f"Tool execution failed: {e}", exc_info=True)
+                    return JSONResponse(content={
+                        "jsonrpc": "2.0",
+                        "id": request.id,
+                        "error": {"code": -32603, "message": f"Internal error: {str(e)}"},
+                    })
 
-            except Exception as e:
-                # Internal error
-                logger.error(f"Tool execution failed: {e}", exc_info=True)
-                return JSONRPCResponse(
-                    jsonrpc="2.0",
-                    error={
-                        "code": -32603,
-                        "message": f"Internal error: {str(e)}",
-                    },
-                    id=request.id,
-                )
+            # Unknown method
+            return JSONResponse(content={
+                "jsonrpc": "2.0",
+                "id": request.id,
+                "error": {"code": -32601, "message": f"Method not found: {request.method}"},
+            })
 
         @self.app.get("/health", response_model=HealthResponse)
         async def health_check():
