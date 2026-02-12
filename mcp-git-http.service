@@ -1,0 +1,47 @@
+# User-level systemd service for mcp-git HTTP server
+# Install to: ~/.config/systemd/user/mcp-git-http.service
+#
+# Installation:
+#   mkdir -p ~/.config/systemd/user
+#   cp mcp-git-http.service ~/.config/systemd/user/mcp-git-http.service
+#   systemctl --user daemon-reload
+#   systemctl --user enable mcp-git-http
+#   systemctl --user start mcp-git-http
+#
+# Commands:
+#   systemctl --user status mcp-git-http
+#   systemctl --user stop mcp-git-http
+#   systemctl --user restart mcp-git-http
+#   journalctl --user -u mcp-git-http -f
+
+[Unit]
+Description=MCP Git HTTP Server (User)
+Documentation=https://github.com/MementoRC/mcp-git
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/ClaudeCode/Servers/git/worktrees/feat-issues-impl
+
+# Environment
+Environment=MCP_GIT_HTTP_PORT=4100
+Environment=LOG_LEVEL=INFO
+Environment=PYTHONPATH=%h/ClaudeCode/Servers/git/worktrees/feat-issues-impl/src
+
+# Use pixi to run the server
+ExecStart=%h/.conda/envs/ClaudeCode/bin/pixi run pixi-git-server-http --port 4100
+ExecReload=/bin/kill -HUP $MAINPID
+
+# Restart configuration
+Restart=on-failure
+RestartSec=5
+StartLimitBurst=3
+StartLimitIntervalSec=60
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=mcp-git-http
+
+[Install]
+WantedBy=default.target

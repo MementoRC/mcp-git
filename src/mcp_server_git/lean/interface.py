@@ -82,6 +82,7 @@ class GitLeanInterface:
         self.git_service = git_service
         self.github_service = github_service
         self.azure_service = azure_service
+        self.app_name = app_name
         self.app = FastMCP(app_name, version=version)
         self.token_limiter = token_limiter or MCPTokenLimiter()
 
@@ -519,6 +520,54 @@ class GitLeanInterface:
     def get_app(self) -> FastMCP:
         """Get the FastMCP application instance."""
         return self.app
+
+    async def execute_tool_direct(
+        self, tool_name: str, parameters: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Execute a tool directly without going through FastMCP protocol.
+
+        Used by HTTP transport for direct programmatic tool invocation.
+
+        Args:
+            tool_name: Name of the tool to execute
+            parameters: Tool parameters
+
+        Returns:
+            Dictionary containing:
+            - tool: Tool name
+            - status: "success" or "error"
+            - result: Tool execution result (on success)
+            - error: Error message (on failure)
+        """
+        if tool_name not in self.tool_registry:
+            return {
+                "error": f"Tool '{tool_name}' not found",
+                "available_tools": list(self.tool_registry.keys()),
+            }
+
+        tool_def = self.tool_registry[tool_name]
+
+        try:
+            # Validate path parameters
+            self._validate_path_parameters(parameters)
+
+            # Execute tool
+            if inspect.iscoroutinefunction(tool_def.implementation):
+                result = await tool_def.implementation(**parameters)
+            else:
+                result = tool_def.implementation(**parameters)
+
+            return {
+                "tool": tool_name,
+                "status": "success",
+                "result": result,
+            }
+        except Exception as e:
+            return {
+                "tool": tool_name,
+                "status": "error",
+                "error": str(e),
+            }
 
     def health_check(self) -> dict[str, Any]:
         """Perform health check on the lean MCP interface."""
