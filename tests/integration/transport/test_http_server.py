@@ -283,13 +283,21 @@ class TestMCPToolExecution:
         assert data["id"] == 1
         assert "error" not in data or data["error"] is None
 
-        # Result should contain tool information
+        # Result is in MCP content format
         result = data["result"]
-        assert "available_tools" in result or "tools" in result
+        assert "content" in result
+        assert len(result["content"]) > 0
+        assert result["content"][0]["type"] == "text"
+
+        # Parse the JSON text to get actual tool info
+        import json
+
+        tool_result = json.loads(result["content"][0]["text"])
+        assert "available_tools" in tool_result or "tools" in tool_result
 
     @pytest.mark.asyncio
     async def test_mcp_missing_session_header(self, async_client):
-        """Test POST /mcp without MCP-Session-Id header returns error."""
+        """Test POST /mcp without MCP-Session-Id header returns JSON-RPC error."""
         response = await async_client.post(
             "/mcp",
             json={
@@ -303,8 +311,13 @@ class TestMCPToolExecution:
             },
         )
 
-        # FastAPI should return 422 for missing required header
-        assert response.status_code == 422
+        # JSON-RPC error response (not HTTP error)
+        assert response.status_code == 200
+        data = response.json()
+        assert data["jsonrpc"] == "2.0"
+        assert "error" in data
+        assert data["error"]["code"] == -32000
+        assert "MCP-Session-Id" in data["error"]["message"]
 
     @pytest.mark.asyncio
     async def test_mcp_invalid_session(self, async_client):

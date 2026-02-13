@@ -18,6 +18,7 @@ Architecture:
 """
 
 import asyncio
+import json
 import logging
 import secrets
 from collections.abc import AsyncGenerator
@@ -331,6 +332,20 @@ class HTTPGitServer:
             method = body.get("method")
             params = body.get("params", {})
             req_id = body.get("id")
+            jsonrpc_version = body.get("jsonrpc")
+
+            # Validate JSON-RPC version
+            if jsonrpc_version != "2.0":
+                return JSONResponse(
+                    content={
+                        "jsonrpc": "2.0",
+                        "id": req_id,
+                        "error": {
+                            "code": -32600,
+                            "message": "Invalid Request - jsonrpc must be '2.0'",
+                        },
+                    }
+                )
 
             # Handle initialize - creates new MCP session
             if method == "initialize":
@@ -529,7 +544,9 @@ class HTTPGitServer:
                             "jsonrpc": "2.0",
                             "id": req_id,
                             "result": {
-                                "content": [{"type": "text", "text": str(result)}]
+                                "content": [
+                                    {"type": "text", "text": json.dumps(result)}
+                                ]
                             },
                         }
                     )
