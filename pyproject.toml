@@ -24,6 +24,7 @@ dependencies = [
 [project.scripts]
 mcp-server-git = "mcp_server_git:main"
 mcp-git-lean = "mcp_server_git.lean:main"
+mcp-git-http = "mcp_server_git.http_lean_server:main"
 
 [build-system]
 requires = ["hatchling"]
@@ -99,6 +100,11 @@ psutil = ">=5.9.0"
 pydantic = ">=2.0.0"
 python-dotenv = ">=1.0.0"
 lupa = ">=2.6,<3"
+
+# HTTP transport dependencies
+fastapi = ">=0.115.0"
+uvicorn = ">=0.34.0"
+sse-starlette = ">=2.2.0"
 
 # No PyPI dependencies - everything from conda-forge
 
@@ -254,6 +260,10 @@ pixi-git-server-debug = { cmd = "python -m mcp_server_git -vv --enable-file-logg
 # Lean interface (3-meta-tool pattern, 95% context reduction)
 pixi-git-server-lean = { cmd = "python -m mcp_server_git.lean", env = { PYTHONPATH = "src", CLAUDECODE = "0" } }
 pixi-git-server-lean-debug = { cmd = "python -m mcp_server_git.lean -vv --enable-file-logging", env = { PYTHONPATH = "src", LOG_LEVEL = "DEBUG", CLAUDECODE = "0" } }
+
+# HTTP lean interface (FastAPI + SSE transport)
+pixi-git-server-http = { cmd = "python -m mcp_server_git.http_lean_server --port 4100", env = { PYTHONPATH = "src", CLAUDECODE = "0" } }
+pixi-git-server-http-debug = { cmd = "python -m mcp_server_git.http_lean_server -vv --port 4100", env = { PYTHONPATH = "src", LOG_LEVEL = "DEBUG", CLAUDECODE = "0" } }
 
 # Auto-install and run MCP server (for ClaudeCode integration)
 mcp-server-git = { cmd = "python -m mcp_server_git", env = { PYTHONPATH = "src", CLAUDECODE = "0" } }

@@ -82,6 +82,7 @@ class GitLeanInterface:
         self.git_service = git_service
         self.github_service = github_service
         self.azure_service = azure_service
+        self.app_name = app_name
         self.app = FastMCP(app_name, version=version)
         self.token_limiter = token_limiter or MCPTokenLimiter()
 
@@ -519,6 +520,108 @@ class GitLeanInterface:
     def get_app(self) -> FastMCP:
         """Get the FastMCP application instance."""
         return self.app
+
+    async def execute_tool_direct(
+        self, tool_name: str, parameters: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Execute a tool directly without going through FastMCP protocol.
+
+        Used by HTTP transport for direct programmatic tool invocation.
+
+        Args:
+            tool_name: Name of the tool to execute
+            parameters: Tool parameters
+
+        Returns:
+            Dictionary containing:
+            - tool: Tool name
+            - status: "success" or "error"
+            - result: Tool execution result (on success)
+            - error: Error message (on failure)
+        """
+        if tool_name not in self.tool_registry:
+            return {
+                "error": f"Tool '{tool_name}' not found",
+                "available_tools": list(self.tool_registry.keys()),
+            }
+
+        tool_def = self.tool_registry[tool_name]
+
+        try:
+            # Validate path parameters
+            self._validate_path_parameters(parameters)
+
+            # Execute tool
+            if inspect.iscoroutinefunction(tool_def.implementation):
+                result = await tool_def.implementation(**parameters)
+            else:
+                result = tool_def.implementation(**parameters)
+
+            return {
+                "tool": tool_name,
+                "status": "success",
+                "result": result,
+            }
+        except Exception as e:
+            return {
+                "tool": tool_name,
+                "status": "error",
+                "error": str(e),
+            }
+
+    def discover_tools(self, pattern: str = "") -> dict[str, Any]:
+        """Discover available tools (direct method for HTTP transport)."""
+        tools = []
+
+        for name, tool_def in self.tool_registry.items():
+            if pattern and pattern.strip() and pattern.lower() not in name.lower():
+                continue
+
+            tools.append(
+                {
+                    "name": name,
+                    "description": tool_def.description,
+                    "domain": tool_def.domain,
+                    "complexity": tool_def.complexity,
+                }
+            )
+
+        return {
+            "available_tools": tools,
+            "total_tools": len(self.tool_registry),
+            "filtered_count": len(tools),
+            "domains": {
+                "git": len(
+                    [t for t in self.tool_registry.values() if t.domain == "git"]
+                ),
+                "github": len(
+                    [t for t in self.tool_registry.values() if t.domain == "github"]
+                ),
+                "azure": len(
+                    [t for t in self.tool_registry.values() if t.domain == "azure"]
+                ),
+            },
+            "context_saving": f"~{len(self.tool_registry) * 0.5}K tokens saved vs traditional MCP",
+        }
+
+    def get_tool_spec(self, tool_name: str) -> dict[str, Any]:
+        """Get tool specification (direct method for HTTP transport)."""
+        if tool_name not in self.tool_registry:
+            return {
+                "error": f"Tool '{tool_name}' not found",
+                "available_tools": list(self.tool_registry.keys()),
+            }
+
+        tool_def = self.tool_registry[tool_name]
+        return {
+            "name": tool_name,
+            "description": tool_def.description,
+            "domain": tool_def.domain,
+            "complexity": tool_def.complexity,
+            "schema": tool_def.schema,
+            "examples": tool_def.examples,
+            "usage_note": f"Execute with: execute_tool('{tool_name}', parameters)",
+        }
 
     def health_check(self) -> dict[str, Any]:
         """Perform health check on the lean MCP interface."""

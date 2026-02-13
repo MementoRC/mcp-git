@@ -270,6 +270,10 @@ class RepositoryBindingManager:
         if self._state == RepositoryBindingState.UNBOUND or not self._binding:
             return
 
+        # Skip validation if no expected remote URL was set (e.g., default sessions)
+        if self._binding.expected_remote_url is None:
+            return
+
         current_remote = await self._get_current_remote_url(
             self._binding.repository_path
         )

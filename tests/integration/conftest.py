@@ -11,6 +11,16 @@ def event_loop():
     """Create an instance of the default event loop for the session."""
     loop = asyncio.get_event_loop_policy().new_event_loop()
     yield loop
+
+    # Cancel all pending tasks before closing
+    pending = asyncio.all_tasks(loop)
+    for task in pending:
+        task.cancel()
+
+    # Wait for cancellation to complete
+    if pending:
+        loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
+
     loop.close()
 
 

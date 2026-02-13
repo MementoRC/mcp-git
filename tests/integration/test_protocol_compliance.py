@@ -63,29 +63,29 @@ async def test_notification_interceptor_handles_malformed(malformed_notification
 @pytest.mark.asyncio
 async def test_session_lifecycle_integration():
     """Test session creation, activation, pausing, and closing."""
-    manager = SessionManager(idle_timeout=2, heartbeat_timeout=1)
-    session = await manager.create_session("sess-1", user="alice")
-    assert session.state == SessionState.ACTIVE
-    await session.pause()
-    assert session.state == SessionState.PAUSED
-    await session.resume()
-    assert session.state == SessionState.ACTIVE
-    await session.close(reason="test done")
-    assert session.state == SessionState.CLOSED
+    async with SessionManager(idle_timeout=2, heartbeat_timeout=1) as manager:
+        session = await manager.create_session("sess-1", user="alice")
+        assert session.state == SessionState.ACTIVE
+        await session.pause()
+        assert session.state == SessionState.PAUSED
+        await session.resume()
+        assert session.state == SessionState.ACTIVE
+        await session.close(reason="test done")
+        assert session.state == SessionState.CLOSED
 
 
 @pytest.mark.asyncio
 async def test_session_error_handling():
     """Test error context integration with session command handling."""
-    manager = SessionManager()
-    session = await manager.create_session("sess-err", user="bob")
-    # Simulate a command that raises an error
-    with pytest.raises(RuntimeError):
-        await session.handle_command("bad_command")
-    ctx = session.get_error_context()
-    assert isinstance(ctx, ErrorContext)
-    assert ctx.operation == "bad_command"
-    await session.close()
+    async with SessionManager() as manager:
+        session = await manager.create_session("sess-err", user="bob")
+        # Simulate a command that raises an error
+        with pytest.raises(RuntimeError):
+            await session.handle_command("bad_command")
+        ctx = session.get_error_context()
+        assert isinstance(ctx, ErrorContext)
+        assert ctx.operation == "bad_command"
+        await session.close()
 
 
 @pytest.mark.asyncio
