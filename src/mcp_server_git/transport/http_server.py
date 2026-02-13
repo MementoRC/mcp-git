@@ -31,6 +31,7 @@ from fastapi import FastAPI, Header, HTTPException, Request, status
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
+from ..repository_binding import RemoteContaminationError, RepositoryBindingError
 from .http_session_manager import HTTPSessionManager
 from .security import APIKeyMiddleware, LocalhostOnlyMiddleware
 
@@ -358,6 +359,47 @@ class HTTPGitServer:
                             expected_remote_url=None,
                             session_id=new_session_id,
                         )
+                    except FileNotFoundError as e:
+                        logger.error(
+                            f"Repository path not found: {self.default_repo}: {e}"
+                        )
+                        return JSONResponse(
+                            content={
+                                "jsonrpc": "2.0",
+                                "id": req_id,
+                                "error": {
+                                    "code": -32602,
+                                    "message": f"Invalid repository path: {self.default_repo}",
+                                    "data": {"error_type": "path_not_found"},
+                                },
+                            },
+                        )
+                    except RemoteContaminationError as e:
+                        logger.error(f"Remote URL mismatch: {e}")
+                        return JSONResponse(
+                            content={
+                                "jsonrpc": "2.0",
+                                "id": req_id,
+                                "error": {
+                                    "code": -32602,
+                                    "message": f"Remote URL validation failed: {e}",
+                                    "data": {"error_type": "remote_mismatch"},
+                                },
+                            },
+                        )
+                    except RepositoryBindingError as e:
+                        logger.error(f"Repository binding failed: {e}")
+                        return JSONResponse(
+                            content={
+                                "jsonrpc": "2.0",
+                                "id": req_id,
+                                "error": {
+                                    "code": -32602,
+                                    "message": f"Repository binding failed: {e}",
+                                    "data": {"error_type": "binding_error"},
+                                },
+                            },
+                        )
                     except Exception as e:
                         logger.error(
                             f"Session creation failed for {self.default_repo}: {e}"
@@ -369,7 +411,8 @@ class HTTPGitServer:
                                 "id": req_id,
                                 "error": {
                                     "code": -32603,
-                                    "message": f"Failed to initialize session: {e}",
+                                    "message": f"Internal error during session initialization: {e}",
+                                    "data": {"error_type": "internal_error"},
                                 },
                             },
                         )
@@ -599,7 +642,14 @@ class HTTPGitServer:
             """
 
             async def event_generator() -> AsyncGenerator[str, None]:
-                """Generate SSE events."""
+                """Generate SSE events.
+
+                TODO: Expand to send actual MCP notifications:
+                - Tool execution progress events
+                - Repository state change notifications
+                - Session health updates
+                Currently only sends heartbeats for connection keepalive.
+                """
                 try:
                     # Keep connection alive with periodic heartbeats
                     while True:
@@ -627,11 +677,9 @@ class HTTPGitServer:
             Returns:
                 Server health status and active session count
             """
-            active_sessions = len(self.session_manager._sessions)
-
             return HealthResponse(
                 status="healthy",
-                active_sessions=active_sessions,
+                active_sessions=self.session_manager.get_session_count(),
             )
 
     def run(self):

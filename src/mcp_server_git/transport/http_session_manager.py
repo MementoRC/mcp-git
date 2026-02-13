@@ -357,6 +357,15 @@ class HTTPSessionManager:
 
             return session_infos
 
+    def get_session_count(self) -> int:
+        """
+        Get number of active sessions.
+
+        Returns:
+            Number of active sessions (thread-safe read)
+        """
+        return len(self._sessions)
+
     async def close_all_sessions(self) -> int:
         """
         Close all active sessions.
