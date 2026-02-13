@@ -569,6 +569,54 @@ class GitLeanInterface:
                 "error": str(e),
             }
 
+    def discover_tools(self, pattern: str = "") -> dict[str, Any]:
+        """Discover available tools (direct method for HTTP transport)."""
+        tools = []
+
+        for name, tool_def in self.tool_registry.items():
+            if pattern and pattern.strip() and pattern.lower() not in name.lower():
+                continue
+
+            tools.append(
+                {
+                    "name": name,
+                    "description": tool_def.description,
+                    "domain": tool_def.domain,
+                    "complexity": tool_def.complexity,
+                }
+            )
+
+        return {
+            "available_tools": tools,
+            "total_tools": len(self.tool_registry),
+            "filtered_count": len(tools),
+            "domains": {
+                "git": len([t for t in self.tool_registry.values() if t.domain == "git"]),
+                "github": len([t for t in self.tool_registry.values() if t.domain == "github"]),
+                "azure": len([t for t in self.tool_registry.values() if t.domain == "azure"]),
+            },
+            "context_saving": f"~{len(self.tool_registry) * 0.5}K tokens saved vs traditional MCP",
+        }
+
+    def get_tool_spec(self, tool_name: str) -> dict[str, Any]:
+        """Get tool specification (direct method for HTTP transport)."""
+        if tool_name not in self.tool_registry:
+            return {
+                "error": f"Tool '{tool_name}' not found",
+                "available_tools": list(self.tool_registry.keys()),
+            }
+
+        tool_def = self.tool_registry[tool_name]
+        return {
+            "name": tool_name,
+            "description": tool_def.description,
+            "domain": tool_def.domain,
+            "complexity": tool_def.complexity,
+            "schema": tool_def.schema,
+            "examples": tool_def.examples,
+            "usage_note": f"Execute with: execute_tool('{tool_name}', parameters)",
+        }
+
     def health_check(self) -> dict[str, Any]:
         """Perform health check on the lean MCP interface."""
         return {

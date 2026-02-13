@@ -354,3 +354,45 @@ class HTTPSessionManager:
                 })
 
             return session_infos
+
+    async def discover_tools(
+        self,
+        session_id: str,
+        pattern: str = "",
+    ) -> dict:
+        """
+        Discover available tools via session's lean interface.
+
+        Args:
+            session_id: Session identifier
+            pattern: Optional filter pattern
+
+        Returns:
+            Tool discovery result
+        """
+        session = await self.get_session(session_id)
+        if not session:
+            raise ValueError(f"Session not found: {session_id}")
+
+        return session.lean_interface.discover_tools(pattern)
+
+    async def get_tool_spec(
+        self,
+        session_id: str,
+        tool_name: str,
+    ) -> dict:
+        """
+        Get tool specification via session's lean interface.
+
+        Args:
+            session_id: Session identifier
+            tool_name: Name of tool to get spec for
+
+        Returns:
+            Tool specification
+        """
+        session = await self.get_session(session_id)
+        if not session:
+            raise ValueError(f"Session not found: {session_id}")
+
+        return session.lean_interface.get_tool_spec(tool_name)
