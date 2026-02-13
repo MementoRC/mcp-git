@@ -1,6 +1,6 @@
 """Pydantic models for Git operations"""
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class GitStatus(BaseModel):
@@ -109,8 +109,8 @@ class GitPull(BaseModel):
 
 class GitDiffBranches(BaseModel):
     repo_path: str
-    base_branch: str
-    compare_branch: str
+    base_branch: str = Field(validation_alias="branch1")
+    compare_branch: str = Field(validation_alias="branch2")
     stat_only: bool | None = False
     max_lines: int | None = None
 

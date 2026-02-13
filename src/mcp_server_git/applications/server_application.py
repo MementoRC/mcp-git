@@ -205,13 +205,13 @@ class GitFetch(BaseModel):
 
 class GitRemoteAdd(BaseModel):
     repo_path: str
-    name: str
+    name: str = Field(validation_alias="remote_name")
     url: str
 
 
 class GitRemoteRemove(BaseModel):
     repo_path: str
-    name: str
+    name: str = Field(validation_alias="remote_name")
 
 
 class GitRemoteList(BaseModel):
@@ -220,7 +220,7 @@ class GitRemoteList(BaseModel):
 
 class GitRemoteGetUrl(BaseModel):
     repo_path: str
-    name: str
+    name: str = Field(validation_alias="remote_name")
 
 
 class GitHubTools(str, Enum):
