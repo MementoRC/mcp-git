@@ -103,6 +103,7 @@ class TestLocalhostOnlyMiddleware:
         # Mock call_next to return a success response
         async def mock_call_next(request):
             from starlette.responses import JSONResponse
+
             return JSONResponse({"message": "success"})
 
         response = await middleware.dispatch(mock_request, mock_call_next)
@@ -132,7 +133,10 @@ class TestLocalhostOnlyMiddleware:
 
         # Verify the response
         assert response.status_code == 403
-        assert response.body == b'{"error":"Forbidden","message":"Access restricted to localhost only"}'
+        assert (
+            response.body
+            == b'{"error":"Forbidden","message":"Access restricted to localhost only"}'
+        )
 
         # Verify call_next was not called
         call_next.assert_not_called()
@@ -161,7 +165,7 @@ class TestLocalhostOnlyMiddleware:
         assert "application/json" in response.headers.get("content-type", "")
 
         # Verify JSON structure
-        body = json.loads(response.body.decode('utf-8'))
+        body = json.loads(response.body.decode("utf-8"))
         assert "error" in body
         assert "message" in body
         assert body["error"] == "Forbidden"
@@ -187,18 +191,14 @@ class TestAPIKeyMiddleware:
     def test_valid_key_allowed(self, with_key_client):
         """Test that requests with correct X-API-Key header are allowed."""
         response = with_key_client.get(
-            "/test",
-            headers={"X-API-Key": "test-secret-key"}
+            "/test", headers={"X-API-Key": "test-secret-key"}
         )
         assert response.status_code == 200
         assert response.json() == {"message": "success"}
 
     def test_invalid_key_rejected(self, with_key_client):
         """Test that requests with wrong API key are rejected with 401."""
-        response = with_key_client.get(
-            "/test",
-            headers={"X-API-Key": "wrong-key"}
-        )
+        response = with_key_client.get("/test", headers={"X-API-Key": "wrong-key"})
         assert response.status_code == 401
 
         body = response.json()
@@ -226,10 +226,7 @@ class TestAPIKeyMiddleware:
         assert "message" in body
 
         # Test invalid key response
-        response = with_key_client.get(
-            "/test",
-            headers={"X-API-Key": "invalid"}
-        )
+        response = with_key_client.get("/test", headers={"X-API-Key": "invalid"})
         assert response.status_code == 401
         assert "application/json" in response.headers.get("content-type", "")
 

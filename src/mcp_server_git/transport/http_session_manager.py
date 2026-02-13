@@ -92,9 +92,7 @@ class HTTPSessionManager:
         self.session_timeout = session_timeout
         self._sessions: dict[str, SessionContext] = {}
         self._lock = asyncio.Lock()
-        logger.info(
-            f"HTTPSessionManager initialized with {session_timeout}s timeout"
-        )
+        logger.info(f"HTTPSessionManager initialized with {session_timeout}s timeout")
 
     async def create_session(
         self,
@@ -160,7 +158,11 @@ class HTTPSessionManager:
             # Store session
             self._sessions[session_id] = session_context
 
-            remote_info = f"with remote {expected_remote_url}" if expected_remote_url else "(no remote validation)"
+            remote_info = (
+                f"with remote {expected_remote_url}"
+                if expected_remote_url
+                else "(no remote validation)"
+            )
             logger.info(
                 f"Session created: {session_id} for repository {repo_path} "
                 f"{remote_info}"
@@ -249,9 +251,7 @@ class HTTPSessionManager:
         # Validate repository binding integrity
         if session.repository_binding:
             if not session.repository_binding.verify_integrity():
-                logger.error(
-                    f"Binding integrity check failed for session {session_id}"
-                )
+                logger.error(f"Binding integrity check failed for session {session_id}")
                 raise ValueError(
                     "Repository binding corrupted - potential tampering detected"
                 )
@@ -344,14 +344,16 @@ class HTTPSessionManager:
             current_time = time.time()
 
             for session in self._sessions.values():
-                session_infos.append({
-                    "session_id": session.session_id,
-                    "created_at": session.created_at,
-                    "last_activity": session.last_activity,
-                    "age": current_time - session.created_at,
-                    "idle_time": current_time - session.last_activity,
-                    "binding_info": session.binding_manager.get_binding_info(),
-                })
+                session_infos.append(
+                    {
+                        "session_id": session.session_id,
+                        "created_at": session.created_at,
+                        "last_activity": session.last_activity,
+                        "age": current_time - session.created_at,
+                        "idle_time": current_time - session.last_activity,
+                        "binding_info": session.binding_manager.get_binding_info(),
+                    }
+                )
 
             return session_infos
 

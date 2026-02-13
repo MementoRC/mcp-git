@@ -42,14 +42,14 @@ class LocalhostOnlyMiddleware(BaseHTTPMiddleware):
             logger.warning(
                 "Blocked non-localhost request from %s to %s",
                 client_host,
-                request.url.path
+                request.url.path,
             )
             return JSONResponse(
                 status_code=403,
                 content={
                     "error": "Forbidden",
-                    "message": "Access restricted to localhost only"
-                }
+                    "message": "Access restricted to localhost only",
+                },
             )
 
         return await call_next(request)
@@ -100,29 +100,20 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
         provided_key = request.headers.get("X-API-Key")
 
         if not provided_key:
-            logger.warning(
-                "Request to %s missing X-API-Key header",
-                request.url.path
-            )
+            logger.warning("Request to %s missing X-API-Key header", request.url.path)
             return JSONResponse(
                 status_code=401,
                 content={
                     "error": "Unauthorized",
-                    "message": "X-API-Key header required"
-                }
+                    "message": "X-API-Key header required",
+                },
             )
 
         if provided_key != self.api_key:
-            logger.warning(
-                "Request to %s with invalid API key",
-                request.url.path
-            )
+            logger.warning("Request to %s with invalid API key", request.url.path)
             return JSONResponse(
                 status_code=401,
-                content={
-                    "error": "Unauthorized",
-                    "message": "Invalid API key"
-                }
+                content={"error": "Unauthorized", "message": "Invalid API key"},
             )
 
         # API key is valid, proceed with request

@@ -342,7 +342,11 @@ def _register_git_tools(interface: Any, git_service: Any):
             name="git_stash_list",
             implementation=wrap_repo_op(git_ops.git_stash_list),
             description="List all stashes in the repository",
-            schema={"type": "object", "properties": {"repo_path": {"type": "string"}}, "required": ["repo_path"]},
+            schema={
+                "type": "object",
+                "properties": {"repo_path": {"type": "string"}},
+                "required": ["repo_path"],
+            },
             domain="git",
             complexity="core",
         ),
@@ -354,8 +358,15 @@ def _register_git_tools(interface: Any, git_service: Any):
                 "type": "object",
                 "properties": {
                     "repo_path": {"type": "string"},
-                    "message": {"type": "string", "description": "Optional stash message"},
-                    "include_untracked": {"type": "boolean", "default": False, "description": "Include untracked files"},
+                    "message": {
+                        "type": "string",
+                        "description": "Optional stash message",
+                    },
+                    "include_untracked": {
+                        "type": "boolean",
+                        "default": False,
+                        "description": "Include untracked files",
+                    },
                 },
                 "required": ["repo_path"],
             },
@@ -370,7 +381,10 @@ def _register_git_tools(interface: Any, git_service: Any):
                 "type": "object",
                 "properties": {
                     "repo_path": {"type": "string"},
-                    "stash_id": {"type": "string", "description": "Stash ID (e.g., stash@{0}), defaults to latest"},
+                    "stash_id": {
+                        "type": "string",
+                        "description": "Stash ID (e.g., stash@{0}), defaults to latest",
+                    },
                 },
                 "required": ["repo_path"],
             },
@@ -385,7 +399,10 @@ def _register_git_tools(interface: Any, git_service: Any):
                 "type": "object",
                 "properties": {
                     "repo_path": {"type": "string"},
-                    "stash_id": {"type": "string", "description": "Stash ID (e.g., stash@{0}), defaults to latest"},
+                    "stash_id": {
+                        "type": "string",
+                        "description": "Stash ID (e.g., stash@{0}), defaults to latest",
+                    },
                 },
                 "required": ["repo_path"],
             },

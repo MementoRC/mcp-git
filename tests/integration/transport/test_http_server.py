@@ -36,9 +36,7 @@ def temp_git_repo():
         repo_path.mkdir()
 
         # Initialize git repo
-        subprocess.run(
-            ["git", "init"], cwd=repo_path, check=True, capture_output=True
-        )
+        subprocess.run(["git", "init"], cwd=repo_path, check=True, capture_output=True)
         subprocess.run(
             ["git", "config", "user.name", "Test User"],
             cwd=repo_path,
@@ -523,9 +521,7 @@ class TestConcurrentSessions:
                 binding_info = status_data["binding_info"]
                 # repository_path is inside binding object
                 binding = binding_info.get("binding", {})
-                assert repos[i][0].name in str(
-                    binding.get("repository_path", "")
-                )
+                assert repos[i][0].name in str(binding.get("repository_path", ""))
 
             # Execute tool in each session concurrently
             tool_tasks = [

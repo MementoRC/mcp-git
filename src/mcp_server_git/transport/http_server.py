@@ -44,9 +44,7 @@ __all__ = ["HTTPGitServer"]
 class CreateSessionRequest(BaseModel):
     """Request model for creating a new session."""
 
-    repository_path: str = Field(
-        ..., description="Absolute path to the git repository"
-    )
+    repository_path: str = Field(..., description="Absolute path to the git repository")
     expected_remote_url: str = Field(
         ..., description="Expected remote URL for validation"
     )
@@ -89,7 +87,9 @@ class JSONRPCRequest(BaseModel):
 
     jsonrpc: str = Field(default="2.0", description="JSON-RPC version")
     method: str = Field(..., description="Method name (e.g., 'tools/call')")
-    params: Optional[dict[str, Any]] = Field(default=None, description="Method parameters")
+    params: Optional[dict[str, Any]] = Field(
+        default=None, description="Method parameters"
+    )
     id: Optional[int | str] = Field(None, description="Request ID")
 
 
@@ -154,9 +154,7 @@ class HTTPGitServer:
         async def lifespan(app: FastAPI):
             """Lifespan context manager for startup/shutdown."""
             # Startup
-            logger.info(
-                f"MCP Git HTTP Server starting on {self.host}:{self.port}"
-            )
+            logger.info(f"MCP Git HTTP Server starting on {self.host}:{self.port}")
             if self.api_key:
                 logger.info("API key authentication enabled")
             else:
@@ -170,13 +168,9 @@ class HTTPGitServer:
                         expected_remote_url=None,  # Skip URL validation for default session
                         session_id=self.DEFAULT_SESSION_ID,
                     )
-                    logger.info(
-                        f"Default session created for: {self.default_repo}"
-                    )
+                    logger.info(f"Default session created for: {self.default_repo}")
                 except Exception as e:
-                    logger.warning(
-                        f"Failed to create default session: {e}"
-                    )
+                    logger.warning(f"Failed to create default session: {e}")
 
             yield
 
@@ -350,7 +344,9 @@ class HTTPGitServer:
                             session_id=new_session_id,
                         )
                     except Exception as e:
-                        logger.error(f"Session creation failed for {self.default_repo}: {e}")
+                        logger.error(
+                            f"Session creation failed for {self.default_repo}: {e}"
+                        )
                         return JSONResponse(
                             status_code=500,
                             content={
@@ -363,81 +359,97 @@ class HTTPGitServer:
                             },
                         )
 
-                response = JSONResponse(content={
-                    "jsonrpc": "2.0",
-                    "id": req_id,
-                    "result": {
-                        "protocolVersion": "2024-11-05",
-                        "capabilities": {
-                            "tools": {"listChanged": True},
+                response = JSONResponse(
+                    content={
+                        "jsonrpc": "2.0",
+                        "id": req_id,
+                        "result": {
+                            "protocolVersion": "2024-11-05",
+                            "capabilities": {
+                                "tools": {"listChanged": True},
+                            },
+                            "serverInfo": {"name": "mcp-git", "version": "1.0.0"},
                         },
-                        "serverInfo": {"name": "mcp-git", "version": "1.0.0"},
-                    },
-                })
+                    }
+                )
                 response.headers["MCP-Session-Id"] = new_session_id
                 response.headers["MCP-Protocol-Version"] = "2024-11-05"
                 return response
 
             # Handle notifications/initialized - just acknowledge
             if method == "notifications/initialized":
-                return JSONResponse(content={
-                    "jsonrpc": "2.0",
-                    "id": req_id,
-                    "result": {},
-                })
+                return JSONResponse(
+                    content={
+                        "jsonrpc": "2.0",
+                        "id": req_id,
+                        "result": {},
+                    }
+                )
 
             # Handle tools/list - return the 3 meta-tools
             if method == "tools/list":
-                return JSONResponse(content={
-                    "jsonrpc": "2.0",
-                    "id": req_id,
-                    "result": {
-                        "tools": [
-                            {
-                                "name": "discover_tools",
-                                "description": "Discover available Git, GitHub, and Azure DevOps tools. USE WHEN: finding tools by pattern",
-                                "inputSchema": {
-                                    "type": "object",
-                                    "properties": {"pattern": {"type": "string", "default": ""}},
-                                },
-                            },
-                            {
-                                "name": "get_tool_spec",
-                                "description": "Get full specification for specific tool including schema and examples.",
-                                "inputSchema": {
-                                    "type": "object",
-                                    "properties": {"tool_name": {"type": "string"}},
-                                    "required": ["tool_name"],
-                                },
-                            },
-                            {
-                                "name": "execute_tool",
-                                "description": "Execute Git, GitHub, or Azure DevOps operation.",
-                                "inputSchema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "tool_name": {"type": "string"},
-                                        "parameters": {"type": "object"},
+                return JSONResponse(
+                    content={
+                        "jsonrpc": "2.0",
+                        "id": req_id,
+                        "result": {
+                            "tools": [
+                                {
+                                    "name": "discover_tools",
+                                    "description": "Discover available Git, GitHub, and Azure DevOps tools. USE WHEN: finding tools by pattern",
+                                    "inputSchema": {
+                                        "type": "object",
+                                        "properties": {
+                                            "pattern": {"type": "string", "default": ""}
+                                        },
                                     },
-                                    "required": ["tool_name", "parameters"],
                                 },
-                            },
-                        ]
-                    },
-                })
+                                {
+                                    "name": "get_tool_spec",
+                                    "description": "Get full specification for specific tool including schema and examples.",
+                                    "inputSchema": {
+                                        "type": "object",
+                                        "properties": {"tool_name": {"type": "string"}},
+                                        "required": ["tool_name"],
+                                    },
+                                },
+                                {
+                                    "name": "execute_tool",
+                                    "description": "Execute Git, GitHub, or Azure DevOps operation.",
+                                    "inputSchema": {
+                                        "type": "object",
+                                        "properties": {
+                                            "tool_name": {"type": "string"},
+                                            "parameters": {"type": "object"},
+                                        },
+                                        "required": ["tool_name", "parameters"],
+                                    },
+                                },
+                            ]
+                        },
+                    }
+                )
 
             # For tools/call, we need a session
             if method == "tools/call":
                 # Use default session if none provided
                 if not mcp_session_id:
-                    if self.default_repo and self.DEFAULT_SESSION_ID in self.session_manager._sessions:
+                    if (
+                        self.default_repo
+                        and self.DEFAULT_SESSION_ID in self.session_manager._sessions
+                    ):
                         mcp_session_id = self.DEFAULT_SESSION_ID
                     else:
-                        return JSONResponse(content={
-                            "jsonrpc": "2.0",
-                            "id": req_id,
-                            "error": {"code": -32000, "message": "MCP-Session-Id header required"},
-                        })
+                        return JSONResponse(
+                            content={
+                                "jsonrpc": "2.0",
+                                "id": req_id,
+                                "error": {
+                                    "code": -32000,
+                                    "message": "MCP-Session-Id header required",
+                                },
+                            }
+                        )
 
                 # Extract tool name and arguments
                 try:
@@ -446,11 +458,16 @@ class HTTPGitServer:
                     arguments = call_params.get("arguments", {})
 
                     if not tool_name:
-                        return JSONResponse(content={
-                            "jsonrpc": "2.0",
-                            "id": req_id,
-                            "error": {"code": -32602, "message": "Invalid params - 'name' required"},
-                        })
+                        return JSONResponse(
+                            content={
+                                "jsonrpc": "2.0",
+                                "id": req_id,
+                                "error": {
+                                    "code": -32602,
+                                    "message": "Invalid params - 'name' required",
+                                },
+                            }
+                        )
 
                     # Handle 3-meta-tool pattern
                     if tool_name == "discover_tools":
@@ -462,11 +479,16 @@ class HTTPGitServer:
                     elif tool_name == "get_tool_spec":
                         target_tool = arguments.get("tool_name")
                         if not target_tool:
-                            return JSONResponse(content={
-                                "jsonrpc": "2.0",
-                                "id": req_id,
-                                "error": {"code": -32602, "message": "tool_name required"},
-                            })
+                            return JSONResponse(
+                                content={
+                                    "jsonrpc": "2.0",
+                                    "id": req_id,
+                                    "error": {
+                                        "code": -32602,
+                                        "message": "tool_name required",
+                                    },
+                                }
+                            )
                         result = await self.session_manager.get_tool_spec(
                             session_id=mcp_session_id,
                             tool_name=target_tool,
@@ -475,11 +497,16 @@ class HTTPGitServer:
                         target_tool = arguments.get("tool_name")
                         tool_params = arguments.get("parameters", {})
                         if not target_tool:
-                            return JSONResponse(content={
-                                "jsonrpc": "2.0",
-                                "id": req_id,
-                                "error": {"code": -32602, "message": "tool_name required"},
-                            })
+                            return JSONResponse(
+                                content={
+                                    "jsonrpc": "2.0",
+                                    "id": req_id,
+                                    "error": {
+                                        "code": -32602,
+                                        "message": "tool_name required",
+                                    },
+                                }
+                            )
                         result = await self.session_manager.execute_tool(
                             session_id=mcp_session_id,
                             tool_name=target_tool,
@@ -493,36 +520,51 @@ class HTTPGitServer:
                             args=arguments,
                         )
 
-                    logger.debug(f"Tool executed: {tool_name} for session {mcp_session_id}")
+                    logger.debug(
+                        f"Tool executed: {tool_name} for session {mcp_session_id}"
+                    )
 
-                    return JSONResponse(content={
-                        "jsonrpc": "2.0",
-                        "id": req_id,
-                        "result": {"content": [{"type": "text", "text": str(result)}]},
-                    })
+                    return JSONResponse(
+                        content={
+                            "jsonrpc": "2.0",
+                            "id": req_id,
+                            "result": {
+                                "content": [{"type": "text", "text": str(result)}]
+                            },
+                        }
+                    )
 
                 except ValueError as e:
                     logger.error(f"Tool execution error: {e}")
-                    return JSONResponse(content={
-                        "jsonrpc": "2.0",
-                        "id": req_id,
-                        "error": {"code": -32000, "message": str(e)},
-                    })
+                    return JSONResponse(
+                        content={
+                            "jsonrpc": "2.0",
+                            "id": req_id,
+                            "error": {"code": -32000, "message": str(e)},
+                        }
+                    )
 
                 except Exception as e:
                     logger.error(f"Tool execution failed: {e}", exc_info=True)
-                    return JSONResponse(content={
-                        "jsonrpc": "2.0",
-                        "id": req_id,
-                        "error": {"code": -32603, "message": f"Internal error: {str(e)}"},
-                    })
+                    return JSONResponse(
+                        content={
+                            "jsonrpc": "2.0",
+                            "id": req_id,
+                            "error": {
+                                "code": -32603,
+                                "message": f"Internal error: {str(e)}",
+                            },
+                        }
+                    )
 
             # Unknown method
-            return JSONResponse(content={
-                "jsonrpc": "2.0",
-                "id": req_id,
-                "error": {"code": -32601, "message": f"Method not found: {method}"},
-            })
+            return JSONResponse(
+                content={
+                    "jsonrpc": "2.0",
+                    "id": req_id,
+                    "error": {"code": -32601, "message": f"Method not found: {method}"},
+                }
+            )
 
         @self.app.get("/mcp")
         async def handle_mcp_sse(
@@ -538,6 +580,7 @@ class HTTPGitServer:
             Returns:
                 StreamingResponse with text/event-stream content type
             """
+
             async def event_generator() -> AsyncGenerator[str, None]:
                 """Generate SSE events."""
                 try:

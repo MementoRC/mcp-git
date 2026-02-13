@@ -79,6 +79,7 @@ class TestSessionContext:
 
         # Initialize git repo
         import subprocess
+
         subprocess.run(["git", "init"], cwd=repo_path, check=True, capture_output=True)
         subprocess.run(
             ["git", "config", "user.name", "Test User"],
@@ -119,7 +120,10 @@ class TestSessionContext:
 
         assert context.repository_binding is binding
         assert context.repository_binding.repository_path == repo_path
-        assert context.repository_binding.expected_remote_url == "https://github.com/test/repo.git"
+        assert (
+            context.repository_binding.expected_remote_url
+            == "https://github.com/test/repo.git"
+        )
 
 
 class TestHTTPSessionManager:
@@ -133,6 +137,7 @@ class TestHTTPSessionManager:
         repo_path.mkdir()
 
         import subprocess
+
         subprocess.run(["git", "init"], cwd=repo_path, check=True, capture_output=True)
         subprocess.run(
             ["git", "config", "user.name", "Test User"],
@@ -163,7 +168,10 @@ class TestHTTPSessionManager:
         assert session.session_id.startswith("mcp-")
         assert session.repository_binding is not None
         assert session.repository_binding.repository_path == repo_path.resolve()
-        assert session.repository_binding.expected_remote_url == "https://github.com/test/repo.git"
+        assert (
+            session.repository_binding.expected_remote_url
+            == "https://github.com/test/repo.git"
+        )
         assert session.git_service is not None
         assert session.github_service is not None
         assert session.lean_interface is not None
@@ -202,6 +210,7 @@ class TestHTTPSessionManager:
         repo_path.mkdir()
 
         import subprocess
+
         subprocess.run(["git", "init"], cwd=repo_path, check=True, capture_output=True)
         subprocess.run(
             ["git", "config", "user.name", "Test User"],
@@ -235,6 +244,7 @@ class TestHTTPSessionManager:
         repo_path.mkdir()
 
         import subprocess
+
         subprocess.run(["git", "init"], cwd=repo_path, check=True, capture_output=True)
         subprocess.run(
             ["git", "config", "user.name", "Test User"],
@@ -289,6 +299,7 @@ class TestHTTPSessionManager:
         repo_path.mkdir()
 
         import subprocess
+
         subprocess.run(["git", "init"], cwd=repo_path, check=True, capture_output=True)
         subprocess.run(
             ["git", "config", "user.name", "Test User"],
@@ -402,8 +413,14 @@ class TestHTTPSessionManager:
         # Verify bindings are different
         assert session1.repository_binding.repository_path == repo1_path.resolve()
         assert session2.repository_binding.repository_path == repo2_path.resolve()
-        assert session1.repository_binding.expected_remote_url == "https://github.com/test/repo1.git"
-        assert session2.repository_binding.expected_remote_url == "https://github.com/test/repo2.git"
+        assert (
+            session1.repository_binding.expected_remote_url
+            == "https://github.com/test/repo1.git"
+        )
+        assert (
+            session2.repository_binding.expected_remote_url
+            == "https://github.com/test/repo2.git"
+        )
 
     @pytest.mark.asyncio
     async def test_cleanup_expired_sessions(self, temp_dir):
@@ -413,6 +430,7 @@ class TestHTTPSessionManager:
         repo_path.mkdir()
 
         import subprocess
+
         subprocess.run(["git", "init"], cwd=repo_path, check=True, capture_output=True)
         subprocess.run(
             ["git", "config", "user.name", "Test User"],
@@ -460,6 +478,7 @@ class TestHTTPSessionManager:
         repo_path.mkdir()
 
         import subprocess
+
         subprocess.run(["git", "init"], cwd=repo_path, check=True, capture_output=True)
         subprocess.run(
             ["git", "config", "user.name", "Test User"],
@@ -504,6 +523,7 @@ class TestHTTPSessionManager:
         repo_path.mkdir()
 
         import subprocess
+
         subprocess.run(["git", "init"], cwd=repo_path, check=True, capture_output=True)
         subprocess.run(
             ["git", "config", "user.name", "Test User"],
@@ -528,7 +548,9 @@ class TestHTTPSessionManager:
         )
 
         # Mock the lean interface's execute_tool_direct to avoid actual execution
-        session.lean_interface.execute_tool_direct = AsyncMock(return_value={"result": "success"})
+        session.lean_interface.execute_tool_direct = AsyncMock(
+            return_value={"result": "success"}
+        )
 
         # Execute tool
         result = await manager.execute_tool(
@@ -564,6 +586,7 @@ class TestHTTPSessionManager:
         repo_path.mkdir()
 
         import subprocess
+
         subprocess.run(["git", "init"], cwd=repo_path, check=True, capture_output=True)
         subprocess.run(
             ["git", "config", "user.name", "Test User"],
@@ -588,7 +611,7 @@ class TestHTTPSessionManager:
         )
 
         # Mock verify_integrity at the class level to simulate corruption
-        with patch.object(RepositoryBinding, 'verify_integrity', return_value=False):
+        with patch.object(RepositoryBinding, "verify_integrity", return_value=False):
             with pytest.raises(ValueError, match="binding corrupted"):
                 await manager.execute_tool(
                     session_id=session.session_id,
@@ -604,6 +627,7 @@ class TestHTTPSessionManager:
         repo_path.mkdir()
 
         import subprocess
+
         subprocess.run(["git", "init"], cwd=repo_path, check=True, capture_output=True)
         subprocess.run(
             ["git", "config", "user.name", "Test User"],
@@ -629,13 +653,21 @@ class TestHTTPSessionManager:
 
         # Change the remote URL to simulate contamination
         subprocess.run(
-            ["git", "remote", "set-url", "origin", "https://github.com/contaminated/repo.git"],
+            [
+                "git",
+                "remote",
+                "set-url",
+                "origin",
+                "https://github.com/contaminated/repo.git",
+            ],
             cwd=repo_path,
             check=True,
         )
 
         # Try to execute tool
-        with pytest.raises(RemoteContaminationError, match="Remote contamination detected"):
+        with pytest.raises(
+            RemoteContaminationError, match="Remote contamination detected"
+        ):
             await manager.execute_tool(
                 session_id=session.session_id,
                 tool_name="git_status",
@@ -650,6 +682,7 @@ class TestHTTPSessionManager:
         repo_path.mkdir()
 
         import subprocess
+
         subprocess.run(["git", "init"], cwd=repo_path, check=True, capture_output=True)
         subprocess.run(
             ["git", "config", "user.name", "Test User"],
@@ -693,6 +726,7 @@ class TestHTTPSessionManager:
         repo_path.mkdir()
 
         import subprocess
+
         subprocess.run(["git", "init"], cwd=repo_path, check=True, capture_output=True)
         subprocess.run(
             ["git", "config", "user.name", "Test User"],

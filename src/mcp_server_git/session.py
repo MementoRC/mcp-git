@@ -566,6 +566,15 @@ class SessionManager:
         except Exception as e:
             logger.error(f"Failed to restore sessions: {e}")
 
+    async def __aenter__(self) -> "SessionManager":
+        """Support async context manager protocol."""
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb) -> bool:
+        """Ensure cleanup on context exit."""
+        await self.shutdown()
+        return False
+
     async def shutdown(self):
         """
         Gracefully close all sessions and stop heartbeat manager.
