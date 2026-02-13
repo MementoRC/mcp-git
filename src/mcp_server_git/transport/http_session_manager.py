@@ -355,6 +355,27 @@ class HTTPSessionManager:
 
             return session_infos
 
+    async def close_all_sessions(self) -> int:
+        """
+        Close all active sessions.
+
+        Returns:
+            Number of sessions closed
+        """
+        async with self._lock:
+            session_ids = list(self._sessions.keys())
+            count = 0
+
+            for session_id in session_ids:
+                session = self._sessions.get(session_id)
+                if session:
+                    await session.binding_manager.unbind_repository(force=True)
+                    del self._sessions[session_id]
+                    count += 1
+                    logger.info(f"Session closed during shutdown: {session_id}")
+
+            return count
+
     async def discover_tools(
         self,
         session_id: str,

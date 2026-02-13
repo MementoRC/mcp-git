@@ -182,11 +182,9 @@ class HTTPGitServer:
 
             # Shutdown
             logger.info("MCP Git HTTP Server shutting down")
-            # Cleanup all sessions
-            session_ids = list(self.session_manager._sessions.keys())
-            for session_id in session_ids:
-                await self.session_manager.close_session(session_id)
-            logger.info(f"Cleaned up {len(session_ids)} sessions on shutdown")
+            # Cleanup all sessions via encapsulated method
+            count = await self.session_manager.close_all_sessions()
+            logger.info(f"Cleaned up {count} sessions on shutdown")
 
         self.app = FastAPI(
             title="MCP Git HTTP Server",
@@ -342,9 +340,9 @@ class HTTPGitServer:
 
             # Handle initialize - creates new MCP session
             if method == "initialize":
-                # Create a new session with default repo if configured
+                new_session_id = f"mcp-{secrets.token_urlsafe(8)}"
+                # Create session with default repo if configured
                 if self.default_repo:
-                    new_session_id = f"mcp-{secrets.token_urlsafe(8)}"
                     try:
                         await self.session_manager.create_session(
                             repo_path=self.default_repo,
@@ -352,10 +350,18 @@ class HTTPGitServer:
                             session_id=new_session_id,
                         )
                     except Exception as e:
-                        logger.warning(f"Session creation failed, using default: {e}")
-                        new_session_id = self.DEFAULT_SESSION_ID
-                else:
-                    new_session_id = f"mcp-{secrets.token_urlsafe(8)}"
+                        logger.error(f"Session creation failed for {self.default_repo}: {e}")
+                        return JSONResponse(
+                            status_code=500,
+                            content={
+                                "jsonrpc": "2.0",
+                                "id": req_id,
+                                "error": {
+                                    "code": -32603,
+                                    "message": f"Failed to initialize session: {e}",
+                                },
+                            },
+                        )
 
                 response = JSONResponse(content={
                     "jsonrpc": "2.0",
