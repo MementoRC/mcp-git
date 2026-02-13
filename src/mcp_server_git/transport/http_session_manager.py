@@ -366,6 +366,18 @@ class HTTPSessionManager:
         """
         return len(self._sessions)
 
+    def has_session(self, session_id: str) -> bool:
+        """
+        Check if a session exists.
+
+        Args:
+            session_id: Session identifier to check
+
+        Returns:
+            True if session exists, False otherwise
+        """
+        return session_id in self._sessions
+
     async def close_all_sessions(self) -> int:
         """
         Close all active sessions.

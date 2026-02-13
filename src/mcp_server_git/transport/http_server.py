@@ -492,9 +492,8 @@ class HTTPGitServer:
             if method == "tools/call":
                 # Use default session if none provided
                 if not mcp_session_id:
-                    if (
-                        self.default_repo
-                        and self.DEFAULT_SESSION_ID in self.session_manager._sessions
+                    if self.default_repo and self.session_manager.has_session(
+                        self.DEFAULT_SESSION_ID
                     ):
                         mcp_session_id = self.DEFAULT_SESSION_ID
                     else:
