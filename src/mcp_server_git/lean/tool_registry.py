@@ -337,6 +337,61 @@ def _register_git_tools(interface: Any, git_service: Any):
             domain="git",
             complexity="core",
         ),
+        # Stash operations
+        ToolDefinition(
+            name="git_stash_list",
+            implementation=wrap_repo_op(git_ops.git_stash_list),
+            description="List all stashes in the repository",
+            schema={"type": "object", "properties": {"repo_path": {"type": "string"}}, "required": ["repo_path"]},
+            domain="git",
+            complexity="core",
+        ),
+        ToolDefinition(
+            name="git_stash_push",
+            implementation=wrap_repo_op(git_ops.git_stash_push),
+            description="Create a new stash with optional message",
+            schema={
+                "type": "object",
+                "properties": {
+                    "repo_path": {"type": "string"},
+                    "message": {"type": "string", "description": "Optional stash message"},
+                    "include_untracked": {"type": "boolean", "default": False, "description": "Include untracked files"},
+                },
+                "required": ["repo_path"],
+            },
+            domain="git",
+            complexity="core",
+        ),
+        ToolDefinition(
+            name="git_stash_pop",
+            implementation=wrap_repo_op(git_ops.git_stash_pop),
+            description="Apply and remove a stash (defaults to latest)",
+            schema={
+                "type": "object",
+                "properties": {
+                    "repo_path": {"type": "string"},
+                    "stash_id": {"type": "string", "description": "Stash ID (e.g., stash@{0}), defaults to latest"},
+                },
+                "required": ["repo_path"],
+            },
+            domain="git",
+            complexity="core",
+        ),
+        ToolDefinition(
+            name="git_stash_drop",
+            implementation=wrap_repo_op(git_ops.git_stash_drop),
+            description="Remove a stash without applying it",
+            schema={
+                "type": "object",
+                "properties": {
+                    "repo_path": {"type": "string"},
+                    "stash_id": {"type": "string", "description": "Stash ID (e.g., stash@{0}), defaults to latest"},
+                },
+                "required": ["repo_path"],
+            },
+            domain="git",
+            complexity="core",
+        ),
     ]
 
     for tool in git_tools:
