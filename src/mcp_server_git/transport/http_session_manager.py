@@ -139,11 +139,17 @@ class HTTPSessionManager:
         Raises:
             RepositoryBindingError: If repository binding fails
             RemoteContaminationError: If remote URL doesn't match
+            ValueError: If session_id already exists
         """
         async with self._lock:
             # Use provided session ID or generate a unique one
             if session_id is None:
                 session_id = f"mcp-{secrets.token_urlsafe(16)}"
+            elif session_id in self._sessions:
+                raise ValueError(
+                    f"Session already exists: {session_id}. "
+                    "Use a different session_id or close the existing session first."
+                )
 
             # Create isolated service instances
             git_service = GitService()
@@ -385,7 +391,7 @@ class HTTPSessionManager:
         """
         return len(self._sessions)
 
-    def has_session(self, session_id: str) -> bool:
+    def has_session(self, session_id: str | None) -> bool:
         """
         Check if a session exists.
 
@@ -393,8 +399,11 @@ class HTTPSessionManager:
             session_id: Session identifier to check
 
         Returns:
-            True if session exists, False otherwise
+            True if session exists, False otherwise.
+            Returns False for None or empty string.
         """
+        if not session_id:
+            return False
         return session_id in self._sessions
 
     async def close_all_sessions(self) -> int:
