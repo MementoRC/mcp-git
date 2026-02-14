@@ -3769,3 +3769,134 @@ async def github_get_job_logs(
     except Exception as e:
         logger.error(f"Unexpected error getting job logs: {e}", exc_info=True)
         return f"❌ Error getting job logs: {str(e)}"
+
+
+# ============================================================================
+# GitHub Repository Creation (Issue #127)
+# ============================================================================
+
+
+async def github_create_repo(
+    name: str,
+    org: str | None = None,
+    description: str | None = None,
+    private: bool = False,
+    auto_init: bool = False,
+    gitignore_template: str | None = None,
+    license_template: str | None = None,
+    has_issues: bool = True,
+    has_projects: bool = True,
+    has_wiki: bool = True,
+) -> str:
+    """Create a new GitHub repository.
+
+    Creates a repository for the authenticated user or an organization.
+    Returns the repository URL and clone URLs on success.
+
+    Args:
+        name: Repository name (required)
+        org: Organization name (None = personal repo)
+        description: Repository description
+        private: True for private, False for public
+        auto_init: Initialize with README
+        gitignore_template: e.g., "Python", "Node"
+        license_template: e.g., "mit", "apache-2.0"
+        has_issues: Enable issues
+        has_projects: Enable projects
+        has_wiki: Enable wiki
+
+    Returns:
+        Success message with repository URLs or error message
+    """
+    target = f"{org}/{name}" if org else name
+    logger.debug(f"🚀 Creating repository: {target} (private={private})")
+
+    try:
+        async with github_client_context() as client:
+            # Build payload with only non-None values
+            payload: dict[str, Any] = {
+                "name": name,
+                "private": private,
+                "auto_init": auto_init,
+                "has_issues": has_issues,
+                "has_projects": has_projects,
+                "has_wiki": has_wiki,
+            }
+
+            if description is not None:
+                payload["description"] = description
+            if gitignore_template is not None:
+                payload["gitignore_template"] = gitignore_template
+            if license_template is not None:
+                payload["license_template"] = license_template
+
+            # Use different endpoint for org vs personal repos
+            if org:
+                endpoint = f"/orgs/{org}/repos"
+            else:
+                endpoint = "/user/repos"
+
+            response = await client.post(endpoint, json=payload)
+
+            if response.status == 201:
+                result = await response.json()
+                logger.info(
+                    f"✅ Successfully created repository: {result['full_name']}"
+                )
+
+                output = [
+                    f"✅ Successfully created repository: {result['full_name']}",
+                    "",
+                    f"📍 URL: {result['html_url']}",
+                    f"🔗 Clone (HTTPS): {result['clone_url']}",
+                    f"🔗 Clone (SSH): {result['ssh_url']}",
+                ]
+
+                if result.get("private"):
+                    output.append("🔒 Visibility: Private")
+                else:
+                    output.append("🌐 Visibility: Public")
+
+                if auto_init:
+                    output.append("📄 Initialized with README")
+
+                return "\n".join(output)
+
+            elif response.status == 422:
+                # Validation error - usually repo already exists
+                error_data = await response.json()
+                errors = error_data.get("errors", [])
+                if errors and any(
+                    e.get("message", "").startswith("name already exists")
+                    for e in errors
+                ):
+                    return f"❌ Repository '{target}' already exists"
+                return (
+                    f"❌ Validation error: {error_data.get('message', 'Unknown error')}"
+                )
+
+            elif response.status == 403:
+                return "❌ Permission denied. Check your token has 'repo' scope."
+
+            elif response.status == 404:
+                if org:
+                    return (
+                        f"❌ Organization '{org}' not found or you don't have access."
+                    )
+                return f"❌ Not found error: {await response.text()}"
+
+            else:
+                error_text = await response.text()
+                return (
+                    f"❌ Failed to create repository: {response.status} - {error_text}"
+                )
+
+    except ValueError as auth_error:
+        logger.error(f"Authentication error creating repo: {auth_error}")
+        return f"❌ {str(auth_error)}"
+    except ConnectionError as conn_error:
+        logger.error(f"Connection error creating repo: {conn_error}")
+        return f"❌ Network connection failed: {str(conn_error)}"
+    except Exception as e:
+        logger.error(f"Unexpected error creating repo: {e}", exc_info=True)
+        return f"❌ Error creating repository: {str(e)}"

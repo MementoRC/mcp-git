@@ -853,3 +853,45 @@ class GitHubGetJobLogs(BaseModel):
     job_id: int  # Job ID from GitHub Actions (from check runs or workflow jobs)
     tail_lines: int | None = None  # Return only last N lines; None uses default (500)
     full_log: bool = False  # If True, skip line limit (still has 100KB char limit)
+
+
+# ============================================================================
+# GitHub Repository Creation Model (Issue #127)
+# ============================================================================
+
+
+class GitHubCreateRepo(BaseModel):
+    """Model for creating a new GitHub repository.
+
+    Creates a new repository for the authenticated user or an organization.
+    If org is provided, creates an organization repository (requires org admin rights).
+
+    Example usage:
+        # Create personal public repo
+        github_create_repo(name="my-project", private=False)
+
+        # Create org private repo with settings
+        github_create_repo(
+            name="internal-tool",
+            org="my-org",
+            private=True,
+            description="Internal tooling",
+            auto_init=True,
+            gitignore_template="Python",
+            license_template="mit"
+        )
+
+    Common gitignore_template values: Python, Node, Go, Java, Rust, C++, etc.
+    Common license_template values: mit, apache-2.0, gpl-3.0, bsd-3-clause, etc.
+    """
+
+    name: str  # Repository name (required)
+    org: str | None = None  # Organization name (None = personal repo)
+    description: str | None = None  # Repository description
+    private: bool = False  # True for private, False for public
+    auto_init: bool = False  # Initialize with README
+    gitignore_template: str | None = None  # e.g., "Python", "Node"
+    license_template: str | None = None  # e.g., "mit", "apache-2.0"
+    has_issues: bool = True  # Enable issues
+    has_projects: bool = True  # Enable projects
+    has_wiki: bool = True  # Enable wiki

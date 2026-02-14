@@ -6,6 +6,7 @@ from .api import (
     # GitHub Issues API
     github_create_issue,
     github_create_pr,
+    github_create_repo,
     github_get_failing_jobs,
     github_get_job_logs,
     github_get_pr_checks,
@@ -25,6 +26,7 @@ from .client import GitHubClient, get_github_client
 from .models import (
     # GitHub Issues Models
     GitHubCreateIssue,
+    GitHubCreateRepo,
     GitHubGetFailingJobs,
     GitHubGetJobLogs,
     GitHubGetPRChecks,
@@ -55,6 +57,7 @@ __all__ = [
     # Write operations
     "github_update_pr",
     "github_create_pr",
+    "github_create_repo",
     "github_merge_pr",
     "github_add_pr_comment",
     "github_close_pr",
@@ -62,6 +65,8 @@ __all__ = [
     "github_create_issue",
     "github_update_issue",
     # Models
+    "GitHubCreateIssue",
+    "GitHubCreateRepo",
     "GitHubGetFailingJobs",
     "GitHubGetJobLogs",
     "GitHubGetPRChecks",
@@ -71,7 +76,6 @@ __all__ = [
     "GitHubGetWorkflowRun",
     "GitHubListPullRequests",
     "GitHubListWorkflowRuns",
-    "GitHubCreateIssue",
     "GitHubListIssues",
     "GitHubUpdateIssue",
 ]
