@@ -21,7 +21,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 from mcp.types import Tool
-from pydantic import BaseModel, Field, field_validator
+from pydantic import AliasChoices, BaseModel, Field, field_validator
 
 # Azure DevOps models for tool registration
 from ..azure.models import (
@@ -204,14 +204,24 @@ class GitFetch(BaseModel):
 
 
 class GitRemoteAdd(BaseModel):
+    """Add a remote to a git repository.
+
+    Accepts both 'name' and 'remote_name' for the remote identifier.
+    """
+
     repo_path: str
-    name: str
+    name: str = Field(validation_alias=AliasChoices("name", "remote_name"))
     url: str
 
 
 class GitRemoteRemove(BaseModel):
+    """Remove a remote from a git repository.
+
+    Accepts both 'name' and 'remote_name' for the remote identifier.
+    """
+
     repo_path: str
-    name: str
+    name: str = Field(validation_alias=AliasChoices("name", "remote_name"))
 
 
 class GitRemoteList(BaseModel):
@@ -219,8 +229,13 @@ class GitRemoteList(BaseModel):
 
 
 class GitRemoteGetUrl(BaseModel):
+    """Get the URL of a remote.
+
+    Accepts both 'name' and 'remote_name' for the remote identifier.
+    """
+
     repo_path: str
-    name: str
+    name: str = Field(validation_alias=AliasChoices("name", "remote_name"))
 
 
 class GitHubTools(str, Enum):

@@ -240,6 +240,12 @@ class HTTPGitServer:
                     ),
                 )
 
+            except ValueError as e:
+                # Duplicate session_id
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=str(e),
+                )
             except Exception as e:
                 logger.error(f"Failed to create session: {e}", exc_info=True)
                 raise HTTPException(
@@ -397,6 +403,20 @@ class HTTPGitServer:
                                     "code": -32602,
                                     "message": f"Repository binding failed: {e}",
                                     "data": {"error_type": "binding_error"},
+                                },
+                            },
+                        )
+                    except ValueError as e:
+                        # Duplicate session_id (rare race condition)
+                        logger.warning(f"Session conflict: {e}")
+                        return JSONResponse(
+                            content={
+                                "jsonrpc": "2.0",
+                                "id": req_id,
+                                "error": {
+                                    "code": -32602,
+                                    "message": str(e),
+                                    "data": {"error_type": "session_conflict"},
                                 },
                             },
                         )

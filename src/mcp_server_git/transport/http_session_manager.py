@@ -80,19 +80,37 @@ class HTTPSessionManager:
     - Repository binding with remote validation
     - Tool execution with contamination detection
     - Session cleanup and timeout handling
+
+    Multi-Repository Mode:
+    - When enforce_single_repo=False (default for HTTP), sessions can work with
+      any repository path. This is ideal for HTTP clients that need to operate
+      across multiple repositories.
+    - When enforce_single_repo=True, strict path validation is enforced to prevent
+      cross-repository contamination (original stdio behavior).
     """
 
-    def __init__(self, session_timeout: float = 3600.0):
+    def __init__(
+        self,
+        session_timeout: float = 3600.0,
+        enforce_single_repo: bool = False,
+    ):
         """
         Initialize HTTP session manager.
 
         Args:
             session_timeout: Session timeout in seconds (default: 1 hour)
+            enforce_single_repo: If True, enforce strict repository binding validation.
+                               If False (default), allow operations on any repository.
+                               HTTP transport typically needs False for multi-repo support.
         """
         self.session_timeout = session_timeout
+        self.enforce_single_repo = enforce_single_repo
         self._sessions: dict[str, SessionContext] = {}
         self._lock = asyncio.Lock()
-        logger.info(f"HTTPSessionManager initialized with {session_timeout}s timeout")
+        mode = "single-repo" if enforce_single_repo else "multi-repo"
+        logger.info(
+            f"HTTPSessionManager initialized with {session_timeout}s timeout ({mode} mode)"
+        )
 
     async def create_session(
         self,
@@ -121,11 +139,17 @@ class HTTPSessionManager:
         Raises:
             RepositoryBindingError: If repository binding fails
             RemoteContaminationError: If remote URL doesn't match
+            ValueError: If session_id already exists
         """
         async with self._lock:
             # Use provided session ID or generate a unique one
             if session_id is None:
                 session_id = f"mcp-{secrets.token_urlsafe(16)}"
+            elif session_id in self._sessions:
+                raise ValueError(
+                    f"Session already exists: {session_id}. "
+                    "Use a different session_id or close the existing session first."
+                )
 
             # Create isolated service instances
             git_service = GitService()
@@ -256,13 +280,14 @@ class HTTPSessionManager:
                     "Repository binding corrupted - potential tampering detected"
                 )
 
-        # Check for remote contamination
-        await session.binding_manager.validate_remote_integrity()
+        # Check for remote contamination (only if we have a binding with expected URL)
+        if self.enforce_single_repo:
+            await session.binding_manager.validate_remote_integrity()
 
-        # Validate operation path if provided in args
-        if "repo_path" in args:
-            operation_path = Path(args["repo_path"])
-            session.binding_manager.validate_operation_path(operation_path)
+            # Validate operation path if provided in args (single-repo mode only)
+            if "repo_path" in args:
+                operation_path = Path(args["repo_path"])
+                session.binding_manager.validate_operation_path(operation_path)
 
         # Execute tool via session's lean interface
         logger.debug(
@@ -366,7 +391,7 @@ class HTTPSessionManager:
         """
         return len(self._sessions)
 
-    def has_session(self, session_id: str) -> bool:
+    def has_session(self, session_id: str | None) -> bool:
         """
         Check if a session exists.
 
@@ -374,8 +399,11 @@ class HTTPSessionManager:
             session_id: Session identifier to check
 
         Returns:
-            True if session exists, False otherwise
+            True if session exists, False otherwise.
+            Returns False for None or empty string.
         """
+        if not session_id:
+            return False
         return session_id in self._sessions
 
     async def close_all_sessions(self) -> int:

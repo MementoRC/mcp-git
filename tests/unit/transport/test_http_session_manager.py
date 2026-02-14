@@ -621,7 +621,7 @@ class TestHTTPSessionManager:
 
     @pytest.mark.asyncio
     async def test_execute_tool_detects_remote_contamination(self, temp_dir):
-        """Test tool execution detects remote contamination."""
+        """Test tool execution detects remote contamination in single-repo mode."""
         # Create git repo
         repo_path = temp_dir / "test_repo"
         repo_path.mkdir()
@@ -645,7 +645,8 @@ class TestHTTPSessionManager:
             check=True,
         )
 
-        manager = HTTPSessionManager()
+        # Use single-repo mode for strict validation
+        manager = HTTPSessionManager(enforce_single_repo=True)
         session = await manager.create_session(
             repo_path=repo_path,
             expected_remote_url="https://github.com/test/repo.git",
@@ -676,7 +677,7 @@ class TestHTTPSessionManager:
 
     @pytest.mark.asyncio
     async def test_execute_tool_validates_operation_path(self, temp_dir):
-        """Test tool execution validates operation path against binding."""
+        """Test tool execution validates operation path against binding in single-repo mode."""
         # Create git repo
         repo_path = temp_dir / "test_repo"
         repo_path.mkdir()
@@ -704,7 +705,8 @@ class TestHTTPSessionManager:
         other_path = temp_dir / "other_repo"
         other_path.mkdir()
 
-        manager = HTTPSessionManager()
+        # Use single-repo mode for strict path validation
+        manager = HTTPSessionManager(enforce_single_repo=True)
         session = await manager.create_session(
             repo_path=repo_path,
             expected_remote_url="https://github.com/test/repo.git",
@@ -847,3 +849,89 @@ class TestHTTPSessionManager:
             assert "age" in info
             assert "idle_time" in info
             assert "binding_info" in info
+
+    @pytest.mark.asyncio
+    async def test_multi_repo_mode_allows_different_paths(self, temp_dir):
+        """Test multi-repo mode (default) allows operations on different repositories."""
+        # Create two git repos
+        repo1_path = temp_dir / "repo1"
+        repo2_path = temp_dir / "repo2"
+        repo1_path.mkdir()
+        repo2_path.mkdir()
+
+        import subprocess
+
+        # Initialize repo1
+        subprocess.run(["git", "init"], cwd=repo1_path, check=True, capture_output=True)
+        subprocess.run(
+            ["git", "config", "user.name", "Test User"],
+            cwd=repo1_path,
+            check=True,
+        )
+        subprocess.run(
+            ["git", "config", "user.email", "test@example.com"],
+            cwd=repo1_path,
+            check=True,
+        )
+        subprocess.run(
+            ["git", "remote", "add", "origin", "https://github.com/test/repo1.git"],
+            cwd=repo1_path,
+            check=True,
+        )
+
+        # Initialize repo2 (different repo, different path)
+        subprocess.run(["git", "init"], cwd=repo2_path, check=True, capture_output=True)
+        subprocess.run(
+            ["git", "config", "user.name", "Test User"],
+            cwd=repo2_path,
+            check=True,
+        )
+        subprocess.run(
+            ["git", "config", "user.email", "test@example.com"],
+            cwd=repo2_path,
+            check=True,
+        )
+        subprocess.run(
+            ["git", "remote", "add", "origin", "https://github.com/test/repo2.git"],
+            cwd=repo2_path,
+            check=True,
+        )
+
+        # Create session bound to repo1 in multi-repo mode (default)
+        manager = HTTPSessionManager()  # enforce_single_repo=False by default
+        session = await manager.create_session(
+            repo_path=repo1_path,
+            expected_remote_url="https://github.com/test/repo1.git",
+        )
+
+        # Mock the lean interface's execute_tool_direct
+        session.lean_interface.execute_tool_direct = AsyncMock(
+            return_value={"result": "success"}
+        )
+
+        # Should be able to execute tool with repo2 path (different from bound repo1)
+        # In multi-repo mode, this should NOT raise an error
+        result = await manager.execute_tool(
+            session_id=session.session_id,
+            tool_name="git_status",
+            args={"repo_path": str(repo2_path)},
+        )
+
+        # Verify tool was executed successfully
+        assert result == {"result": "success"}
+        session.lean_interface.execute_tool_direct.assert_called_once_with(
+            "git_status",
+            {"repo_path": str(repo2_path)},
+        )
+
+    @pytest.mark.asyncio
+    async def test_multi_repo_mode_default_behavior(self):
+        """Test that multi-repo mode is the default for HTTPSessionManager."""
+        manager = HTTPSessionManager()
+        assert manager.enforce_single_repo is False
+
+    @pytest.mark.asyncio
+    async def test_single_repo_mode_explicit(self):
+        """Test that single-repo mode can be explicitly enabled."""
+        manager = HTTPSessionManager(enforce_single_repo=True)
+        assert manager.enforce_single_repo is True
