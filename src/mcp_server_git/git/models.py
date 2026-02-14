@@ -115,7 +115,9 @@ class GitDiffBranches(BaseModel):
 
     repo_path: str
     base_branch: str = Field(validation_alias=AliasChoices("base_branch", "branch1"))
-    compare_branch: str = Field(validation_alias=AliasChoices("compare_branch", "branch2"))
+    compare_branch: str = Field(
+        validation_alias=AliasChoices("compare_branch", "branch2")
+    )
     stat_only: bool | None = False
     max_lines: int | None = None
 
