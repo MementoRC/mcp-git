@@ -1,6 +1,6 @@
 """Pydantic models for Git operations"""
 
-from pydantic import BaseModel, Field
+from pydantic import AliasChoices, BaseModel, Field
 
 
 class GitStatus(BaseModel):
@@ -108,9 +108,14 @@ class GitPull(BaseModel):
 
 
 class GitDiffBranches(BaseModel):
+    """Compare two branches.
+
+    Accepts both 'base_branch'/'compare_branch' and 'branch1'/'branch2' naming.
+    """
+
     repo_path: str
-    base_branch: str = Field(validation_alias="branch1")
-    compare_branch: str = Field(validation_alias="branch2")
+    base_branch: str = Field(validation_alias=AliasChoices("base_branch", "branch1"))
+    compare_branch: str = Field(validation_alias=AliasChoices("compare_branch", "branch2"))
     stat_only: bool | None = False
     max_lines: int | None = None
 
