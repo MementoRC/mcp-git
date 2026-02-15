@@ -853,3 +853,79 @@ class GitHubGetJobLogs(BaseModel):
     job_id: int  # Job ID from GitHub Actions (from check runs or workflow jobs)
     tail_lines: int | None = None  # Return only last N lines; None uses default (500)
     full_log: bool = False  # If True, skip line limit (still has 100KB char limit)
+
+
+# ============================================================================
+# GitHub Repository Creation Model (Issue #127)
+# ============================================================================
+
+
+class GitHubCreateRepo(BaseModel):
+    """Model for creating a new GitHub repository.
+
+    Creates a new repository for the authenticated user or an organization.
+    If org is provided, creates an organization repository (requires org admin rights).
+
+    Example usage:
+        # Create personal public repo
+        github_create_repo(name="my-project", private=False)
+
+        # Create org private repo with settings
+        github_create_repo(
+            name="internal-tool",
+            org="my-org",
+            private=True,
+            description="Internal tooling",
+            auto_init=True,
+            gitignore_template="Python",
+            license_template="mit"
+        )
+
+    Common gitignore_template values: Python, Node, Go, Java, Rust, C++, etc.
+    Common license_template values: mit, apache-2.0, gpl-3.0, bsd-3-clause, etc.
+    """
+
+    name: str  # Repository name (required)
+    org: str | None = None  # Organization name (None = personal repo)
+    description: str | None = None  # Repository description
+    private: bool = False  # True for private, False for public
+    auto_init: bool = False  # Initialize with README
+    gitignore_template: str | None = None  # e.g., "Python", "Node"
+    license_template: str | None = None  # e.g., "mit", "apache-2.0"
+    has_issues: bool = True  # Enable issues
+    has_projects: bool = True  # Enable projects
+    has_wiki: bool = True  # Enable wiki
+
+    @field_validator("name")
+    @classmethod
+    def validate_repo_name(cls, v: str) -> str:
+        """Validate repository name follows GitHub naming rules."""
+        if not v:
+            raise ValueError("Repository name cannot be empty")
+        if len(v) > 100:
+            raise ValueError("Repository name too long (max 100 characters)")
+        if v.startswith("."):
+            raise ValueError("Repository name cannot start with a period")
+        if not re.match(r"^[a-zA-Z0-9._-]+$", v):
+            raise ValueError(
+                "Repository name can only contain alphanumeric characters, "
+                "periods, hyphens, and underscores"
+            )
+        return v
+
+    @field_validator("org")
+    @classmethod
+    def validate_org_name(cls, v: str | None) -> str | None:
+        """Validate organization name if provided."""
+        if v is None:
+            return v
+        if not v:
+            raise ValueError("Organization name cannot be empty string")
+        if len(v) > 39:
+            raise ValueError("Organization name too long (max 39 characters)")
+        if not re.match(r"^[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?$", v):
+            raise ValueError(
+                "Organization name must start/end with alphanumeric and "
+                "can only contain alphanumeric characters and hyphens"
+            )
+        return v

@@ -425,6 +425,7 @@ def _register_github_tools(interface: Any, github_service: Any):
         GitHubCreateIssue,
         GitHubCreateIssueFromTemplate,
         GitHubCreateRelease,
+        GitHubCreateRepo,
         GitHubDeleteBranchProtection,
         GitHubDeleteRelease,
         GitHubDeleteReleaseAsset,
@@ -905,6 +906,15 @@ def _register_github_tools(interface: Any, github_service: Any):
             implementation=github_ops.github_delete_release_asset,
             description="Delete an asset from a release",
             schema=GitHubDeleteReleaseAsset.model_json_schema(),
+            domain="github",
+            complexity="focused",
+        ),
+        # Repository Creation (Issue #127)
+        ToolDefinition(
+            name="github_create_repo",
+            implementation=github_ops.github_create_repo,
+            description="Create a new GitHub repository (personal or organization)",
+            schema=GitHubCreateRepo.model_json_schema(),
             domain="github",
             complexity="focused",
         ),
