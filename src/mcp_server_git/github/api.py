@@ -3809,7 +3809,7 @@ async def github_create_repo(
         Success message with repository URLs or error message
     """
     target = f"{org}/{name}" if org else name
-    logger.debug(f"🚀 Creating repository: {target} (private={private})")
+    logger.debug(f"Creating repository: {target} (private={private})")
 
     try:
         async with github_client_context() as client:
@@ -3840,25 +3840,23 @@ async def github_create_repo(
 
             if response.status == 201:
                 result = await response.json()
-                logger.info(
-                    f"✅ Successfully created repository: {result['full_name']}"
-                )
+                logger.info(f"Successfully created repository: {result['full_name']}")
 
                 output = [
-                    f"✅ Successfully created repository: {result['full_name']}",
+                    f"Successfully created repository: {result['full_name']}",
                     "",
-                    f"📍 URL: {result['html_url']}",
-                    f"🔗 Clone (HTTPS): {result['clone_url']}",
-                    f"🔗 Clone (SSH): {result['ssh_url']}",
+                    f"URL: {result['html_url']}",
+                    f"Clone (HTTPS): {result['clone_url']}",
+                    f"Clone (SSH): {result['ssh_url']}",
                 ]
 
                 if result.get("private"):
-                    output.append("🔒 Visibility: Private")
+                    output.append("Visibility: Private")
                 else:
-                    output.append("🌐 Visibility: Public")
+                    output.append("Visibility: Public")
 
                 if auto_init:
-                    output.append("📄 Initialized with README")
+                    output.append("Initialized with README")
 
                 return "\n".join(output)
 
@@ -3870,33 +3868,33 @@ async def github_create_repo(
                     e.get("message", "").startswith("name already exists")
                     for e in errors
                 ):
-                    return f"❌ Repository '{target}' already exists"
+                    return f"Error: Repository '{target}' already exists"
                 return (
-                    f"❌ Validation error: {error_data.get('message', 'Unknown error')}"
+                    f"Validation error: {error_data.get('message', 'Unknown error')}"
                 )
 
             elif response.status == 403:
-                return "❌ Permission denied. Check your token has 'repo' scope."
+                return "Error: Permission denied. Check your token has 'repo' scope."
 
             elif response.status == 404:
                 if org:
                     return (
-                        f"❌ Organization '{org}' not found or you don't have access."
+                        f"Error: Organization '{org}' not found or you don't have access."
                     )
-                return f"❌ Not found error: {await response.text()}"
+                return f"Error: Not found - {await response.text()}"
 
             else:
                 error_text = await response.text()
                 return (
-                    f"❌ Failed to create repository: {response.status} - {error_text}"
+                    f"Error: Failed to create repository: {response.status} - {error_text}"
                 )
 
     except ValueError as auth_error:
         logger.error(f"Authentication error creating repo: {auth_error}")
-        return f"❌ {str(auth_error)}"
+        return f"Error: {str(auth_error)}"
     except ConnectionError as conn_error:
         logger.error(f"Connection error creating repo: {conn_error}")
-        return f"❌ Network connection failed: {str(conn_error)}"
+        return f"Error: Network connection failed: {str(conn_error)}"
     except Exception as e:
         logger.error(f"Unexpected error creating repo: {e}", exc_info=True)
-        return f"❌ Error creating repository: {str(e)}"
+        return f"Error: Failed to create repository: {str(e)}"
