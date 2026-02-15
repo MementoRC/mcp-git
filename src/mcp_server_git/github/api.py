@@ -3869,25 +3869,19 @@ async def github_create_repo(
                     for e in errors
                 ):
                     return f"Error: Repository '{target}' already exists"
-                return (
-                    f"Validation error: {error_data.get('message', 'Unknown error')}"
-                )
+                return f"Validation error: {error_data.get('message', 'Unknown error')}"
 
             elif response.status == 403:
                 return "Error: Permission denied. Check your token has 'repo' scope."
 
             elif response.status == 404:
                 if org:
-                    return (
-                        f"Error: Organization '{org}' not found or you don't have access."
-                    )
+                    return f"Error: Organization '{org}' not found or you don't have access."
                 return f"Error: Not found - {await response.text()}"
 
             else:
                 error_text = await response.text()
-                return (
-                    f"Error: Failed to create repository: {response.status} - {error_text}"
-                )
+                return f"Error: Failed to create repository: {response.status} - {error_text}"
 
     except ValueError as auth_error:
         logger.error(f"Authentication error creating repo: {auth_error}")
