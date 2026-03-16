@@ -39,7 +39,7 @@ class GitDiff(BaseModel):
 class GitCommit(BaseModel):
     repo_path: str
     message: str
-    amend: bool = False
+    amend: bool = Field(default=False, description="Amend the most recent commit instead of creating a new one")
     gpg_sign: bool = False
     gpg_key_id: str | None = None
 

@@ -419,7 +419,7 @@ def git_diff(
 def git_commit(
     repo: Repo,
     message: str,
-    amend: bool = False,
+    amend: bool = False,  # If True, amend the most recent commit instead of creating new one
     gpg_sign: bool = False,
     gpg_key_id: str | None = None,
 ) -> str:
