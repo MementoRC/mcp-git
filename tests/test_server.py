@@ -363,8 +363,13 @@ def test_git_commit_amend(test_repository):
     mock_commit_result = MagicMock(returncode=0, stderr="", stdout="")
     mock_hash_result = MagicMock(returncode=0, stdout="abc12345\n", stderr="")
 
-    with patch("mcp_server_git.git.operations.subprocess.run", side_effect=[mock_commit_result, mock_hash_result]) as mock_run, \
-         patch.dict("os.environ", {"GPG_SIGNING_KEY": "TESTKEY123"}):
+    with (
+        patch(
+            "mcp_server_git.git.operations.subprocess.run",
+            side_effect=[mock_commit_result, mock_hash_result],
+        ) as mock_run,
+        patch.dict("os.environ", {"GPG_SIGNING_KEY": "TESTKEY123"}),
+    ):
         result = git_commit(test_repository, "amended message", amend=True)
 
     # Verify --amend was in the git commit command
@@ -387,8 +392,13 @@ def test_git_commit_no_amend(test_repository):
     mock_commit_result = MagicMock(returncode=0, stderr="", stdout="")
     mock_hash_result = MagicMock(returncode=0, stdout="def67890\n", stderr="")
 
-    with patch("mcp_server_git.git.operations.subprocess.run", side_effect=[mock_commit_result, mock_hash_result]) as mock_run, \
-         patch.dict("os.environ", {"GPG_SIGNING_KEY": "TESTKEY123"}):
+    with (
+        patch(
+            "mcp_server_git.git.operations.subprocess.run",
+            side_effect=[mock_commit_result, mock_hash_result],
+        ) as mock_run,
+        patch.dict("os.environ", {"GPG_SIGNING_KEY": "TESTKEY123"}),
+    ):
         result = git_commit(test_repository, "new commit")
 
     # Verify --amend was NOT in the command
