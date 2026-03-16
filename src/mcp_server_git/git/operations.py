@@ -419,10 +419,11 @@ def git_diff(
 def git_commit(
     repo: Repo,
     message: str,
+    amend: bool = False,
     gpg_sign: bool = False,
     gpg_key_id: str | None = None,
 ) -> str:
-    """Commit staged changes with optional GPG signing and automatic security enforcement"""
+    """Commit staged changes with optional amend, GPG signing and automatic security enforcement"""
     try:
         # Import security functions locally to avoid circular imports
         from .security import enforce_secure_git_config
@@ -455,6 +456,8 @@ def git_commit(
         if force_gpg:
             # Use git command directly for GPG signing
             cmd = ["git", "commit"]
+            if amend:
+                cmd.append("--amend")
             cmd.append(f"--gpg-sign={force_key_id}")
             cmd.extend(["-m", message])
 
@@ -475,8 +478,9 @@ def git_commit(
                     else "unknown"
                 )
 
+                action = "amended" if amend else "created"
                 success_msg = (
-                    f"✅ Commit {commit_hash} created with VERIFIED GPG signature"
+                    f"✅ Commit {commit_hash} {action} with VERIFIED GPG signature"
                 )
                 if security_messages:
                     success_msg += f"\n{chr(10).join(security_messages)}"
