@@ -1741,6 +1741,7 @@ class ServerApplication(DebuggableComponent):
                 result = git_commit(
                     repo,
                     arguments["message"],
+                    amend=arguments.get("amend", False),
                     gpg_sign=arguments.get("gpg_sign", False),
                     gpg_key_id=arguments.get("gpg_key_id"),
                 )
