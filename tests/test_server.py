@@ -339,3 +339,55 @@ def test_advanced_git_tools_enum():
     assert GitTools.CHERRY_PICK == "git_cherry_pick"
     assert GitTools.ABORT == "git_abort"
     assert GitTools.CONTINUE == "git_continue"
+
+
+def test_git_commit_amend(test_repository):
+    """Test git commit with --amend flag builds the correct command"""
+    from unittest.mock import patch, MagicMock
+    from mcp_server_git.git.operations import git_commit
+
+    # Make a change and commit it
+    (Path(test_repository.working_dir) / "amend_test.txt").write_text("original")
+    test_repository.index.add(["amend_test.txt"])
+    test_repository.index.commit("original message")
+
+    # Stage a new change
+    (Path(test_repository.working_dir) / "amend_test.txt").write_text("amended")
+    test_repository.index.add(["amend_test.txt"])
+
+    # Mock subprocess.run to capture the command and verify --amend is passed
+    mock_commit_result = MagicMock(returncode=0, stderr="", stdout="")
+    mock_hash_result = MagicMock(returncode=0, stdout="abc12345\n", stderr="")
+
+    with patch("mcp_server_git.git.operations.subprocess.run", side_effect=[mock_commit_result, mock_hash_result]) as mock_run, \
+         patch.dict("os.environ", {"GPG_SIGNING_KEY": "TESTKEY123"}):
+        result = git_commit(test_repository, "amended message", amend=True)
+
+    # Verify --amend was in the git commit command
+    commit_cmd = mock_run.call_args_list[0][0][0]
+    assert "--amend" in commit_cmd
+    assert "-m" in commit_cmd
+    assert "amended message" in commit_cmd
+    assert "amended" in result
+
+
+def test_git_commit_no_amend(test_repository):
+    """Test git commit without --amend does not include the flag"""
+    from unittest.mock import patch, MagicMock
+    from mcp_server_git.git.operations import git_commit
+
+    # Stage a change
+    (Path(test_repository.working_dir) / "no_amend.txt").write_text("content")
+    test_repository.index.add(["no_amend.txt"])
+
+    mock_commit_result = MagicMock(returncode=0, stderr="", stdout="")
+    mock_hash_result = MagicMock(returncode=0, stdout="def67890\n", stderr="")
+
+    with patch("mcp_server_git.git.operations.subprocess.run", side_effect=[mock_commit_result, mock_hash_result]) as mock_run, \
+         patch.dict("os.environ", {"GPG_SIGNING_KEY": "TESTKEY123"}):
+        result = git_commit(test_repository, "new commit")
+
+    # Verify --amend was NOT in the command
+    commit_cmd = mock_run.call_args_list[0][0][0]
+    assert "--amend" not in commit_cmd
+    assert "created" in result

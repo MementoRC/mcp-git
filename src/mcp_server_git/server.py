@@ -987,9 +987,9 @@ def git_diff(repo: Repo, target: str) -> str:
 
 
 def git_commit(
-    repo: Repo, message: str, gpg_sign: bool = False, gpg_key_id: str | None = None
+    repo: Repo, message: str, amend: bool = False, gpg_sign: bool = False, gpg_key_id: str | None = None
 ) -> str:
-    """Commit staged changes with optional GPG signing and automatic security enforcement"""
+    """Commit staged changes with optional amend, GPG signing and automatic security enforcement"""
     import subprocess
     import logging
 
@@ -1028,6 +1028,8 @@ def git_commit(
         if force_gpg:  # This will always be true due to the security requirement
             # Use git command directly for GPG signing with comprehensive error handling
             cmd = ["git", "commit"]
+            if amend:
+                cmd.append("--amend")
             # Ensure the key ID is passed correctly
             if force_key_id:
                 cmd.append(f"--gpg-sign={force_key_id}")
@@ -1061,8 +1063,9 @@ def git_commit(
                         else "unknown"
                     )
 
+                    action = "amended" if amend else "created"
                     success_msg = (
-                        f"✅ Commit {commit_hash} created with VERIFIED GPG signature"
+                        f"✅ Commit {commit_hash} {action} with VERIFIED GPG signature"
                     )
                     if security_messages:
                         success_msg += f"\n{chr(10).join(security_messages)}"

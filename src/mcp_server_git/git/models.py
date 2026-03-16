@@ -25,6 +25,7 @@ class GitDiff(BaseModel):
 class GitCommit(BaseModel):
     repo_path: str
     message: str
+    amend: bool = False
     gpg_sign: bool = False
     gpg_key_id: Optional[str] = None
 

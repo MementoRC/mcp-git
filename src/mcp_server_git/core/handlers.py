@@ -100,7 +100,7 @@ class CallToolHandler:
             "git_commit": self._create_git_handler(
                 git_commit,
                 requires_repo=True,
-                extra_args=["message", "gpg_sign", "gpg_key_id"],
+                extra_args=["message", "amend", "gpg_sign", "gpg_key_id"],
             ),
             "git_add": self._create_git_handler(
                 git_add, requires_repo=True, extra_args=["files"]
