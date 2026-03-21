@@ -12,6 +12,7 @@ Architecture:
 """
 
 import inspect
+import json
 import logging
 from collections.abc import Callable
 from functools import wraps
@@ -455,6 +456,17 @@ class GitLeanInterface:
 
             tool_def = self.tool_registry[tool_name]
 
+            # Coerce string parameters to dict (clients may send JSON string)
+            if isinstance(parameters, str):
+                try:
+                    parameters = json.loads(parameters)
+                except json.JSONDecodeError:
+                    return {
+                        "tool": tool_name,
+                        "status": "error",
+                        "error": f"Parameters must be a JSON object, got unparseable string: {parameters[:100]}",
+                    }
+
             try:
                 # Get cached schema for validation
                 schema = self._schema_cache.get(tool_name, tool_def.schema)
@@ -546,6 +558,17 @@ class GitLeanInterface:
             }
 
         tool_def = self.tool_registry[tool_name]
+
+        # Coerce string parameters to dict (clients may send JSON string)
+        if isinstance(parameters, str):
+            try:
+                parameters = json.loads(parameters)
+            except json.JSONDecodeError:
+                return {
+                    "tool": tool_name,
+                    "status": "error",
+                    "error": f"Parameters must be a JSON object, got unparseable string: {parameters[:100]}",
+                }
 
         try:
             # Validate path parameters
