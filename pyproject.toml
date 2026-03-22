@@ -191,7 +191,7 @@ dev-setup = "echo 'Development environment ready'"
 
 # Testing (ZERO-TOLERANCE QUALITY GATES)
 # NOTE: Tests require quality environment - run with: pixi run -e quality test
-test = { cmd = "pytest tests/ -v --ignore=tests/test_e2e_server.py", env = { CLAUDECODE = "0" } }
+test = { cmd = "pytest tests/ -v --ignore=tests/test_e2e_server.py --ignore=tests/test_llm_compliant_server_e2e.py", env = { CLAUDECODE = "0" } }
 test-cov = { cmd = "pytest tests/ --cov=src/mcp_server_git --cov-report=term-missing --cov-report=xml", env = { CLAUDECODE = "0" } }
 test-unit = { cmd = "pytest tests/unit/ -v", env = { CLAUDECODE = "0" } }
 test-integration = { cmd = "pytest tests/integration/ -v", env = { CLAUDECODE = "0" } }

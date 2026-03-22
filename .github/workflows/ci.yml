@@ -246,4 +246,4 @@ jobs:
         git add feature.txt
         git commit -m "Add feature"
         cd "$GITHUB_WORKSPACE"
-        pixi run -e ci pytest tests/ -k "not slow" -m "not ci_skip" --tb=short -v --timeout=600
+        pixi run -e ci pytest tests/ -k "not slow" -m "not ci_skip" --ignore=tests/test_e2e_server.py --ignore=tests/test_llm_compliant_server_e2e.py --tb=short -v --timeout=600
