@@ -22,7 +22,6 @@ jobs:
       python-versions: '["3.12"]'
       os-matrix: '["ubuntu-latest"]'
       enable-performance: false
-      enable-release: false
       enable-hygiene-check: true
       editable-install: true
       package-path: "."
