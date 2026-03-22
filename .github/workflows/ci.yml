@@ -1,181 +1,71 @@
-name: CI - MCP Git Server Validation
+name: CI
 
 on:
   push:
-    branches: [ main, development, feature/*, feat/* ]
+    branches: [main, master, development]
   pull_request:
-    branches: [ main, development ]
+    branches: [main, master, development]
   workflow_dispatch:
 
-env:
-  # Ensure consistent Python version across jobs
-  PYTHON_VERSION: "3.12"
-  # Force color output for better readability
-  FORCE_COLOR: "1"
-  PYTHONUNBUFFERED: "1"
-  # CI environment settings
-  # Note: No CLAUDECODE flag needed - CI doesn't have git redirector
-
 jobs:
-  # Job 1: Code Quality and Static Analysis
-  quality:
-    name: Code Quality & Static Analysis
+  # Core CI via ci-framework reusable workflow
+  ci:
+    uses: Claire-s-Monster/ci-framework/.github/workflows/reusable-ci.yml@v2.5.1
+    permissions:
+      contents: write
+      id-token: write
+      pull-requests: write
+      actions: read
+      checks: write
+    with:
+      pixi-environment: "ci"
+      python-versions: '["3.12"]'
+      os-matrix: '["ubuntu-latest"]'
+      enable-performance: false
+      enable-release: false
+      enable-hygiene-check: true
+      editable-install: true
+      package-path: "."
+      allowed-licenses: "MIT, Apache-2.0, BSD-3-Clause, BSD-2-Clause, PSF-2.0, LGPL-3.0"
+    secrets: inherit
+
+  # Enforce main/master only accepts PRs from development
+  branch-policy:
+    name: "Branch Policy"
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-
+    if: github.event_name == 'pull_request' && (github.base_ref == 'main' || github.base_ref == 'master')
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-      with:
-        # Fetch full history for proper git operations testing
-        fetch-depth: 0
-
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ env.PYTHON_VERSION }}
-
-    - name: Setup pixi
-      uses: prefix-dev/setup-pixi@v0.9.0
-      with:
-        pixi-version: v0.49.0
-        cache: false
-        manifest-path: pyproject.toml
-
-    - name: Install dependencies
-      run: |
-        echo "🔧 Setting up quality environment with pixi..."
-        pixi install -e quality
-        echo "✅ Quality environment ready"
-
-    - name: Run ruff linting (critical violations)
-      run: |
-        echo "🔍 Running critical linting checks..."
-        echo "📋 Pixi environment info:"
-        pixi info
-        echo "📋 Ruff version:"
-        pixi run -e quality ruff --version
-        echo "📋 Current directory:"
-        pwd
-        echo "📋 Python files in src:"
-        find src -name "*.py" | head -5
-        echo "📋 Running lint command:"
-        pixi run -e quality lint
-
-    - name: Run ruff format check
-      run: |
-        echo "🔍 Running format checks..."
-        pixi run -e quality format-check
-
-    - name: Run type checking with pyright
-      run: |
-        echo "🔍 Running type checking..."
-        pixi run -e quality typecheck
-
-  # Job 2: Unit and Integration Tests
-  test:
-    name: Unit & Integration Tests
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    strategy:
-      matrix:
-        python-version: ["3.12"]
-      fail-fast: false
-
-    steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
-
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ matrix.python-version }}
-
-    - name: Setup pixi
-      uses: prefix-dev/setup-pixi@v0.9.0
-      with:
-        pixi-version: v0.49.0
-        cache: false
-        manifest-path: pyproject.toml
-        
-    - name: Free up disk space
-      run: |
-        echo "🧹 Freeing up disk space for test execution..."
-        # Remove unnecessary packages to free up space
-        sudo apt-get clean
-        sudo rm -rf /usr/share/dotnet
-        sudo rm -rf /opt/ghc
-        sudo rm -rf /usr/local/share/boost
-        echo "💾 Available disk space after cleanup:"
-        df -h
-
-    - name: Install dependencies
-      run: |
-        echo "🔧 Setting up CI environment with pixi..."
-        # Add retry logic for network resilience
-        for attempt in 1 2 3; do
-          if pixi install -e ci; then
-            echo "✅ CI environment ready on attempt $attempt"
-            break
-          else
-            echo "⚠️ Installation failed on attempt $attempt, retrying..."
-            sleep 5
+      - name: Check source branch
+        run: |
+          if [ "${{ github.head_ref }}" != "development" ]; then
+            echo "PRs to main/master must come from development branch"
+            echo "   Source: ${{ github.head_ref }}"
+            echo "   Expected: development"
+            exit 1
           fi
-        done
+          echo "PR from development to main/master - allowed"
 
-    - name: Configure Git for testing
-      run: |
-        git config --global user.name "CI Test"
-        git config --global user.email "ci-test@example.com"
-        git config --global init.defaultBranch main
+  # Gate job for branch protection
+  ci-success:
+    name: "CI Success"
+    runs-on: ubuntu-latest
+    needs: [ci]
+    if: always()
+    steps:
+      - name: Check CI status
+        run: |
+          if [ "${{ needs.ci.result }}" != "success" ]; then
+            echo "CI failed"
+            exit 1
+          fi
+          echo "CI passed"
 
-    - name: Run pytest with coverage
-      run: |
-        echo "🧪 Running tests with coverage..."
-        # Add resource monitoring and resilience
-        echo "💾 Available disk space:"
-        df -h
-        echo "💾 Available memory:"
-        free -h
-        echo "🔧 Starting test execution with enhanced timeout..."
-        # Run with explicit timeout and retry logic
-        timeout 1800s pixi run -e ci ci-test || {
-          echo "⚠️ Test execution failed or timed out, checking system state..."
-          echo "💾 Disk space after test:"
-          df -h
-          echo "💾 Memory after test:"
-          free -h
-          echo "📊 Recent system logs:"
-          dmesg | tail -20 || true
-          exit 1
-        }
-
-    - name: Upload test results
-      uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: test-results-${{ matrix.python-version }}
-        path: |
-          pytest-results.xml
-          coverage.xml
-
-    - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v4
-      if: matrix.python-version == '3.11'
-      with:
-        file: ./coverage.xml
-        flags: unittests
-        name: codecov-umbrella
-        fail_ci_if_error: false
-
-  # Job 3: MCP Server Behavior Validation (Non-blocking)
+  # Custom: MCP Server Behavior Validation (not in ci-framework)
   mcp-validation:
     name: MCP Server Behavior Validation
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    needs: [quality, test]
+    needs: [ci]
     continue-on-error: true
 
     steps:
@@ -187,7 +77,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
-        python-version: ${{ env.PYTHON_VERSION }}
+        python-version: "3.12"
 
     - name: Setup pixi
       uses: prefix-dev/setup-pixi@v0.9.0
@@ -197,10 +87,7 @@ jobs:
         manifest-path: pyproject.toml
 
     - name: Install dependencies
-      run: |
-        echo "🔧 Setting up CI environment with pixi..."
-        pixi install -e ci
-        echo "✅ CI environment ready"
+      run: pixi install -e ci
 
     - name: Configure Git for MCP testing
       run: |
@@ -222,160 +109,68 @@ jobs:
 
     - name: Test MCP server startup and basic functionality
       run: |
-        echo "🚀 Testing MCP server startup..."
-
-        # Use pixi environment for MCP server test
-        echo "Using pixi environment"
-        
-        # Test server startup directly - let it complete naturally
-        echo "Testing server can start and handle test mode..."
         if timeout 10s pixi run -e ci pixi-git-server --test-mode; then
-          echo "✅ MCP server startup test completed successfully"
-          echo "Server started, ran in test mode, and exited cleanly"
+          echo "MCP server startup test completed successfully"
         else
           SERVER_EXIT_CODE=$?
-          echo "❌ MCP server test failed with exit code: $SERVER_EXIT_CODE"
-          echo "This indicates the server failed to start or encountered an error"
+          echo "MCP server test failed with exit code: $SERVER_EXIT_CODE"
           exit 1
         fi
 
     - name: Validate MCP protocol compliance
       run: |
-        # Install MCP inspector if available
-        pip install mcp-inspector 2>/dev/null || echo "MCP inspector not available, using custom validation"
-
-        # Custom MCP validation script
+        pip install mcp-inspector 2>/dev/null || true
         cat > mcp_validate.py << 'EOF'
-        import json
         import subprocess
         import sys
-        import tempfile
-        import time
-        from pathlib import Path
 
         def validate_mcp_server():
-            """Validate MCP server behavior and protocol compliance."""
-            print("🔍 Starting MCP server behavior validation...")
-
-            # Test 1: Server can handle basic requests
+            print("Starting MCP server behavior validation...")
             try:
-                # This would ideally use MCP inspector, but we'll do basic validation
                 result = subprocess.run([
                     "pixi", "run", "-e", "ci", "mcp-server-git", "--help"
                 ], capture_output=True, text=True, timeout=10)
-
                 if result.returncode == 0:
-                    print("✅ Server help command works")
+                    print("Server help command works")
                 else:
-                    print(f"❌ Server help failed: {result.stderr}")
+                    print(f"Server help failed: {result.stderr}")
                     return False
             except subprocess.TimeoutExpired:
-                print("❌ Server help command timed out")
+                print("Server help command timed out")
                 return False
             except Exception as e:
-                print(f"❌ Server help command failed: {e}")
+                print(f"Server help command failed: {e}")
                 return False
 
-            # Test 2: Validate notification models exist and are importable
             try:
                 from mcp_server_git.models.notifications import ClientNotification
-                print("✅ Notification models are importable")
+                print("Notification models are importable")
             except ImportError as e:
-                print(f"❌ Cannot import notification models: {e}")
+                print(f"Cannot import notification models: {e}")
                 return False
 
-            # Test 3: Validate server module structure
             try:
                 import mcp_server_git.applications.server_application
-                print("✅ Server module structure is valid")
+                print("Server module structure is valid")
             except ImportError as e:
-                print(f"❌ Server module import failed: {e}")
+                print(f"Server module import failed: {e}")
                 return False
 
-            print("🎉 All MCP server behavior validations passed!")
+            print("All MCP server behavior validations passed!")
             return True
 
         if __name__ == "__main__":
             success = validate_mcp_server()
             sys.exit(0 if success else 1)
         EOF
-
-        echo "🔍 Running MCP validation..."
-
-        # Use pixi environment for MCP validation
-        echo "Using pixi environment"
         cd "$GITHUB_WORKSPACE" && PYTHONPATH="$GITHUB_WORKSPACE/src:$PYTHONPATH" pixi run -e ci python mcp_validate.py
 
-    - name: Test notification handling
-      run: |
-        # Test that the server can handle various notification types
-        cat > test_notifications.py << 'EOF'
-        import json
-        import sys
-
-        def test_notification_models():
-            """Test notification model validation."""
-            print("🔍 Testing notification model handling...")
-
-            try:
-                from mcp_server_git.models.notifications import parse_client_notification
-
-                # Test valid notification
-                test_notification = {
-                    "type": "notifications/cancelled",
-                    "params": {"requestId": "test-123"}
-                }
-
-                # This should not crash
-                result = parse_client_notification(test_notification)
-                print("✅ Notification parsing works")
-                return True
-
-            except Exception as e:
-                print(f"❌ Notification parsing failed: {e}")
-                return False
-
-        def test_unknown_notification():
-            """Test handling of unknown notification types."""
-            print("🔍 Testing unknown notification handling...")
-
-            try:
-                from mcp_server_git.models.notifications import parse_client_notification
-
-                # Test unknown notification type
-                unknown_notification = {
-                    "type": "notifications/unknown",
-                    "params": {"data": "test"}
-                }
-
-                # This should handle gracefully without crashing
-                result = parse_client_notification(unknown_notification)
-                print("✅ Unknown notification handling works")
-                return True
-
-            except Exception as e:
-                # Should log but not crash
-                print(f"⚠️  Unknown notification handling: {e}")
-                return True  # This is expected behavior
-
-        if __name__ == "__main__":
-            success1 = test_notification_models()
-            success2 = test_unknown_notification()
-            print("🎉 Notification tests completed!")
-            sys.exit(0 if (success1 and success2) else 1)
-        EOF
-
-        echo "🔔 Running notification tests..."
-        # Use pixi environment
-        echo "Using pixi environment"
-        cd "$GITHUB_WORKSPACE" && PYTHONPATH="$GITHUB_WORKSPACE/src:$PYTHONPATH" pixi run -e ci python test_notifications.py
-
-  # Job 4: Docker Build Validation
+  # Custom: Docker Build Validation (not in ci-framework)
   docker:
     name: Docker Build Validation
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    needs: [quality, test]
+    needs: [ci]
 
     steps:
     - name: Checkout repository
@@ -387,121 +182,27 @@ jobs:
         driver-opts: |
           network=host
 
-    - name: Build Docker image with CI optimizations
+    - name: Build Docker image
       run: |
-        # CI-optimized Docker build without resource limits for reliability
         docker build \
           --progress=plain \
           --no-cache=false \
           -t mcp-server-git:test .
 
     - name: Test Docker image
-      run: |
-        # Test that the Docker image can run
-        docker run --rm mcp-server-git:test --help
+      run: docker run --rm mcp-server-git:test --help
 
     - name: Validate Docker image structure
       run: |
-        # Test image contains expected files by overriding the entrypoint
-        docker run --rm --entrypoint python mcp-server-git:test -c "import mcp_server_git; print('✅ Package installed correctly')"
+        docker run --rm --entrypoint python mcp-server-git:test -c "import mcp_server_git; print('Package installed correctly')"
 
-  # Job 5: Security and Dependency Scanning (Non-blocking)
-  security:
-    name: Security & Dependency Scanning
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    continue-on-error: true
-
-    steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ env.PYTHON_VERSION }}
-
-    - name: Setup pixi
-      uses: prefix-dev/setup-pixi@v0.9.0
-      with:
-        pixi-version: v0.49.0
-        cache: false
-        manifest-path: pyproject.toml
-
-    - name: Install dependencies
-      run: |
-        echo "🔧 Setting up CI environment with pixi..."
-        pixi install -e ci
-        echo "✅ CI environment ready"
-
-    - name: Run safety check for known vulnerabilities
-      run: |
-        echo "🔒 Running safety check..."
-        pixi add safety --no-lockfile-update
-        pixi install -e ci
-
-        # Run safety check
-        echo "Using pixi list for safety check"
-        pixi list -e ci --json | pixi run -e ci python -c "
-        import json, sys
-        data = json.load(sys.stdin)
-        packages = [f'{pkg}=={info[\"version\"]}' for pkg, info in data.get('packages', {}).items()]
-        print('\n'.join(packages))
-        " | pixi run -e ci safety check --stdin || echo "Safety check completed with warnings"
-      continue-on-error: true
-
-    - name: Audit dependencies
-      run: |
-        echo "🔍 Running dependency audit..."
-        pixi add pip-audit --no-lockfile-update || echo "Failed to install pip-audit, continuing"
-        pixi install -e ci
-
-        # Always create audit results file first
-        AUDIT_FILE="$PWD/audit-results.json"
-        echo "📄 Creating audit results file at: $AUDIT_FILE"
-
-        echo '{"vulnerabilities": [], "dependencies": [], "metadata": {"timestamp": "'$(date -Iseconds)'", "status": "completed_successfully"}}' > "$AUDIT_FILE"
-
-        # Try pip-audit if available
-        if pixi run -e ci which pip-audit >/dev/null 2>&1; then
-          echo "🔍 Running pip-audit..."
-          pixi list -e ci --json | pixi run -e ci python -c "
-          import json, sys
-          data = json.load(sys.stdin)
-          packages = [f'{pkg}=={info[\"version\"]}' for pkg, info in data.get('packages', {}).items()]
-          with open('requirements-temp.txt', 'w') as f:
-              f.write('\n'.join(packages))
-          " && \
-          pixi run -e ci pip-audit --requirement requirements-temp.txt --format=json --output="$AUDIT_FILE" 2>/dev/null || echo "⚠️ pip-audit had issues, keeping fallback file"
-          rm -f requirements-temp.txt
-        fi
-
-        echo "✅ Audit results file ready"
-      continue-on-error: true
-
-    - name: Dead code detection with vulture
-      run: |
-        echo "🔍 Running dead code detection with vulture..."
-        
-        # Run vulture with warnings only (not blocking)
-        echo "📊 Checking for dead code..."
-        pixi run -e ci vulture src/ --min-confidence 80 --sort-by-size || echo "⚠️ Vulture found potential dead code (warning only)"
-      continue-on-error: true
-
-    - name: Upload security scan results
-      uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: security-scan-results
-        path: audit-results.json
-
-  # Job 6: Performance and Load Testing
+  # Custom: Performance & Load Testing (not in ci-framework)
   performance:
     name: Performance & Load Testing
     runs-on: ubuntu-latest
     timeout-minutes: 15
     needs: [mcp-validation]
-    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
 
     steps:
     - name: Checkout repository
@@ -512,7 +213,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
-        python-version: ${{ env.PYTHON_VERSION }}
+        python-version: "3.12"
 
     - name: Setup pixi
       uses: prefix-dev/setup-pixi@v0.9.0
@@ -522,10 +223,7 @@ jobs:
         manifest-path: pyproject.toml
 
     - name: Install dependencies
-      run: |
-        echo "🔧 Setting up CI environment with pixi..."
-        pixi install -e ci
-        echo "✅ CI environment ready"
+      run: pixi install -e ci
 
     - name: Configure Git for performance testing
       run: |
@@ -536,52 +234,17 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        # Create a larger test repository for performance testing
         mkdir -p /tmp/perf-test-repo
         cd /tmp/perf-test-repo
         git init
-
-        # Create multiple commits and branches for testing
         for i in {1..50}; do
           echo "Content $i" > "file_$i.txt"
           git add "file_$i.txt"
           git commit -m "Add file $i"
         done
-
-        # Create some branches for performance testing
         git checkout -b feature/test-1
         echo "Feature content" > feature.txt
         git add feature.txt
         git commit -m "Add feature"
-
-        # Run performance-focused tests
         cd "$GITHUB_WORKSPACE"
-        echo "🏃 Running performance tests..."
-        # Use pixi environment for consistent test execution
-        echo "Using pixi CI environment for performance tests"
         pixi run -e ci pytest tests/ -k "not slow" -m "not ci_skip" --tb=short -v --timeout=600
-
-  # Summary job to check overall CI status
-  status_check:
-    name: CI Status Check
-    runs-on: ubuntu-latest
-    needs: [quality, test, mcp-validation, docker, security]
-    if: always()
-
-    steps:
-    - name: Check CI results
-      run: |
-        echo "=== CI Results Summary ==="
-        echo "Quality: ${{ needs.quality.result }}"
-        echo "Tests: ${{ needs.test.result }}"
-        echo "MCP Validation: ${{ needs.mcp-validation.result }}"
-        echo "Docker: ${{ needs.docker.result }}"
-        echo "Security: ${{ needs.security.result }}"
-
-        # Fail if any critical jobs failed
-        if [[ "${{ needs.quality.result }}" == "failure" || "${{ needs.test.result }}" == "failure" || "${{ needs.mcp-validation.result }}" == "failure" ]]; then
-          echo "❌ Critical CI jobs failed"
-          exit 1
-        else
-          echo "✅ All critical CI jobs passed"
-        fi
