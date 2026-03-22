@@ -347,7 +347,8 @@ def test_advanced_git_tools_enum():
 
 def test_git_commit_amend(test_repository):
     """Test git commit with --amend flag builds the correct command"""
-    from unittest.mock import patch, MagicMock
+    from unittest.mock import MagicMock, patch
+
     from mcp_server_git.git.operations import git_commit
 
     # Make a change and commit it
@@ -382,7 +383,8 @@ def test_git_commit_amend(test_repository):
 
 def test_git_commit_no_amend(test_repository):
     """Test git commit without --amend does not include the flag"""
-    from unittest.mock import patch, MagicMock
+    from unittest.mock import MagicMock, patch
+
     from mcp_server_git.git.operations import git_commit
 
     # Stage a change
