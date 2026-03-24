@@ -34,6 +34,10 @@ def test_repository(tmp_path: Path):
                 "Git repository creation returned mock object - git operations unavailable"
             )
 
+        # Configure git identity for operations that create commits (rebase, cherry-pick)
+        test_repo.config_writer().set_value("user", "name", "Test User").release()
+        test_repo.config_writer().set_value("user", "email", "test@example.com").release()
+
         Path(repo_path / "test.txt").write_text("test")
         test_repo.index.add(["test.txt"])
         test_repo.index.commit("initial commit")
