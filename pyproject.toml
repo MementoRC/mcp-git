@@ -182,6 +182,7 @@ dev = {features = ["quality", "quality-extended", "quality-ci", "dev-specialized
 
 # CI environment (quality + CI reporting)
 ci = {features = ["quality", "quality-ci"], solve-group = "default"}
+quality-ci = {features = ["quality", "quality-ci"], solve-group = "default"}
 
 [tool.pixi.tasks]
 # ===== TIER 1: CORE DEVELOPMENT TASKS (ESSENTIAL) =====
