@@ -152,7 +152,7 @@ coverage = ">=7.0.0"
 pytest-json-report = ">=1.5.0"
 pytest-html = ">=4.0.0"
 
-# Build Tools (conda-forge versions)
+# Build & Publish Tools (conda-forge versions)
 python-build = ">=1.0.0"
 twine = ">=4.0.0"
 
