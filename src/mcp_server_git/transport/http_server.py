@@ -24,7 +24,7 @@ import secrets
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import uvicorn
 from fastapi import FastAPI, Header, HTTPException, Request, status
@@ -89,19 +89,17 @@ class JSONRPCRequest(BaseModel):
 
     jsonrpc: str = Field(default="2.0", description="JSON-RPC version")
     method: str = Field(..., description="Method name (e.g., 'tools/call')")
-    params: Optional[dict[str, Any]] = Field(
-        default=None, description="Method parameters"
-    )
-    id: Optional[int | str] = Field(None, description="Request ID")
+    params: dict[str, Any] | None = Field(default=None, description="Method parameters")
+    id: int | str | None = Field(None, description="Request ID")
 
 
 class JSONRPCResponse(BaseModel):
     """JSON-RPC 2.0 response model."""
 
     jsonrpc: str = Field(default="2.0", description="JSON-RPC version")
-    result: Optional[dict[str, Any]] = Field(None, description="Result data")
-    error: Optional[dict[str, Any]] = Field(None, description="Error data")
-    id: Optional[int | str] = Field(None, description="Request ID")
+    result: dict[str, Any] | None = Field(None, description="Result data")
+    error: dict[str, Any] | None = Field(None, description="Error data")
+    id: int | str | None = Field(None, description="Request ID")
 
 
 class HTTPGitServer:
@@ -131,9 +129,9 @@ class HTTPGitServer:
         self,
         host: str = "127.0.0.1",
         port: int = 8765,
-        api_key: Optional[str] = None,
+        api_key: str | None = None,
         session_timeout: float = 3600.0,
-        default_repo: Optional[Path] = None,
+        default_repo: Path | None = None,
     ):
         """
         Initialize HTTP Git server.
@@ -313,7 +311,7 @@ class HTTPGitServer:
         @self.app.post("/mcp")
         async def handle_mcp_request(
             request: Request,
-            mcp_session_id: Optional[str] = Header(None, alias="MCP-Session-Id"),
+            mcp_session_id: str | None = Header(None, alias="MCP-Session-Id"),
         ):
             """
             Handle MCP JSON-RPC 2.0 requests.
@@ -647,7 +645,7 @@ class HTTPGitServer:
 
         @self.app.get("/mcp")
         async def handle_mcp_sse(
-            mcp_session_id: Optional[str] = Header(None, alias="MCP-Session-Id"),
+            mcp_session_id: str | None = Header(None, alias="MCP-Session-Id"),
         ) -> StreamingResponse:
             """
             Server-Sent Events endpoint for MCP notifications.

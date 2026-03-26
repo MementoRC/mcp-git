@@ -34,6 +34,10 @@ def test_repository(tmp_path: Path):
                 "Git repository creation returned mock object - git operations unavailable"
             )
 
+        # Configure git identity for operations that create commits (rebase, cherry-pick)
+        test_repo.config_writer().set_value("user", "name", "Test User").release()
+        test_repo.config_writer().set_value("user", "email", "test@example.com").release()
+
         Path(repo_path / "test.txt").write_text("test")
         test_repo.index.add(["test.txt"])
         test_repo.index.commit("initial commit")
@@ -347,7 +351,8 @@ def test_advanced_git_tools_enum():
 
 def test_git_commit_amend(test_repository):
     """Test git commit with --amend flag builds the correct command"""
-    from unittest.mock import patch, MagicMock
+    from unittest.mock import MagicMock, patch
+
     from mcp_server_git.git.operations import git_commit
 
     # Make a change and commit it
@@ -382,7 +387,8 @@ def test_git_commit_amend(test_repository):
 
 def test_git_commit_no_amend(test_repository):
     """Test git commit without --amend does not include the flag"""
-    from unittest.mock import patch, MagicMock
+    from unittest.mock import MagicMock, patch
+
     from mcp_server_git.git.operations import git_commit
 
     # Stage a change

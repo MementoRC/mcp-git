@@ -6,7 +6,6 @@ This module provides security layers for the HTTP transport:
 """
 
 import logging
-from typing import Optional
 
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
@@ -66,7 +65,7 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
         api_key: The expected API key, or None to skip validation
     """
 
-    def __init__(self, app, api_key: Optional[str] = None):
+    def __init__(self, app, api_key: str | None = None):
         """Initialize the API key middleware.
 
         Args:

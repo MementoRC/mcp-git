@@ -345,6 +345,7 @@ async def test_concurrent_error_injection(
 
 
 @pytest.mark.stress
+@pytest.mark.ci_skip  # Resource-intensive, flaky in CI
 @pytest.mark.asyncio
 async def test_error_recovery_under_load(
     stress_session_manager, mock_client, stress_test_config

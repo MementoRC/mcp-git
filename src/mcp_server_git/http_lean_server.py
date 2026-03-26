@@ -20,11 +20,11 @@ from pathlib import Path
 import click
 from dotenv import load_dotenv
 
+from .lean.interface import create_git_lean_interface
+from .lean.null_azure_service import NullAzureService
 from .services.git_service import GitService
 from .services.github_service import GitHubService
 from .transport.http_server import HTTPGitServer
-from .lean.null_azure_service import NullAzureService
-from .lean.interface import create_git_lean_interface
 
 logger = logging.getLogger(__name__)
 

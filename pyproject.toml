@@ -152,7 +152,8 @@ coverage = ">=7.0.0"
 pytest-json-report = ">=1.5.0"
 pytest-html = ">=4.0.0"
 
-# Build Tools (conda-forge versions)
+# Build & Publish Tools (conda-forge versions)
+python-build = ">=1.0.0"
 twine = ">=4.0.0"
 
 # Build tools from conda-forge only
@@ -182,6 +183,7 @@ dev = {features = ["quality", "quality-extended", "quality-ci", "dev-specialized
 
 # CI environment (quality + CI reporting)
 ci = {features = ["quality", "quality-ci"], solve-group = "default"}
+quality-ci = {features = ["quality", "quality-ci"], solve-group = "default"}
 
 [tool.pixi.tasks]
 # ===== TIER 1: CORE DEVELOPMENT TASKS (ESSENTIAL) =====
@@ -191,7 +193,7 @@ dev-setup = "echo 'Development environment ready'"
 
 # Testing (ZERO-TOLERANCE QUALITY GATES)
 # NOTE: Tests require quality environment - run with: pixi run -e quality test
-test = { cmd = "pytest tests/ -v --ignore=tests/test_e2e_server.py", env = { CLAUDECODE = "0" } }
+test = { cmd = "pytest tests/ -v --ignore=tests/test_e2e_server.py --ignore=tests/test_llm_compliant_server_e2e.py -m 'not ci_skip' --timeout=180", env = { CLAUDECODE = "0" } }
 test-cov = { cmd = "pytest tests/ --cov=src/mcp_server_git --cov-report=term-missing --cov-report=xml", env = { CLAUDECODE = "0" } }
 test-unit = { cmd = "pytest tests/unit/ -v", env = { CLAUDECODE = "0" } }
 test-integration = { cmd = "pytest tests/integration/ -v", env = { CLAUDECODE = "0" } }

@@ -90,6 +90,7 @@ class TestLocalhostOnlyMiddleware:
         """Test that localhost IPv6 (::1) requests are allowed."""
         # Use mocking approach to simulate IPv6 client
         from unittest.mock import AsyncMock, MagicMock
+
         from starlette.requests import Request
 
         middleware = LocalhostOnlyMiddleware(localhost_app)
@@ -115,6 +116,7 @@ class TestLocalhostOnlyMiddleware:
         # We need to create a test scenario where request.client.host
         # is set to an external IP. We'll use a custom test setup.
         from unittest.mock import AsyncMock, MagicMock
+
         from starlette.requests import Request
         from starlette.responses import Response
 
@@ -144,9 +146,10 @@ class TestLocalhostOnlyMiddleware:
     @pytest.mark.asyncio
     async def test_blocked_response_is_json(self, localhost_app):
         """Test that blocked requests receive a valid JSON response."""
-        from unittest.mock import AsyncMock, MagicMock
-        from starlette.requests import Request
         import json
+        from unittest.mock import AsyncMock, MagicMock
+
+        from starlette.requests import Request
 
         middleware = LocalhostOnlyMiddleware(localhost_app)
 
@@ -283,6 +286,7 @@ class TestMiddlewareCombination:
         """Test that middleware logs warnings for blocked requests."""
         import logging
         from unittest.mock import AsyncMock, MagicMock
+
         from starlette.requests import Request
 
         app = FastAPI()

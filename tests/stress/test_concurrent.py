@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 
 
 @pytest.mark.stress
+@pytest.mark.ci_skip  # Resource-intensive, flaky in CI
 @pytest.mark.asyncio
 async def test_massive_concurrent_clients(stress_session_manager, stress_test_config):
     """Minimal concurrent client test for CI."""

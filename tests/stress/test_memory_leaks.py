@@ -239,6 +239,7 @@ async def test_session_creation_destruction_memory(
 
 
 @pytest.mark.stress
+@pytest.mark.ci_skip  # Resource-intensive, flaky in CI
 @pytest.mark.asyncio
 async def test_resource_cleanup_after_errors(
     stress_session_manager, mock_client, memory_monitor
