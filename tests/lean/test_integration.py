@@ -160,8 +160,16 @@ class TestLeanMCPIntegration:
         # The wrapper adds token limiting
         result = tool.implementation()
 
-        # Result should either be truncated or have token limit info
-        assert "status" in result or "_token_limit_info" in result
+        # Response should be either offloaded to file or truncated
+        assert (
+            result.get("offloaded") is True  # New: offloaded to /tmp file
+            or "status" in result  # Old: truncated but status preserved
+            or "_token_limit_info" in result  # Old: truncation metadata added
+        ), f"Large response should be offloaded or truncated, got keys: {list(result.keys())}"
+
+        if result.get("offloaded"):
+            assert "full_output_path" in result
+            assert "summary" in result
 
     def test_schema_caching_performance(self):
         """Test that schemas are cached for performance."""
