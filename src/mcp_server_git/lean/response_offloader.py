@@ -24,9 +24,14 @@ def _summarize_diff(result: Any) -> str:
     """Summarize unified diff: files changed, insertions, deletions."""
     if not isinstance(result, str):
         return _summarize_generic(result)
-    files = len(re.findall(r"^diff --git", result, re.MULTILINE))
-    insertions = len(re.findall(r"^\+[^+]", result, re.MULTILINE))
-    deletions = len(re.findall(r"^-[^-]", result, re.MULTILINE))
+    files = insertions = deletions = 0
+    for line in result.split("\n"):
+        if line.startswith("diff --git"):
+            files += 1
+        elif line.startswith("+") and not line.startswith("+++"):
+            insertions += 1
+        elif line.startswith("-") and not line.startswith("---"):
+            deletions += 1
     return f"{files} files changed, {insertions}(+), {deletions}(-)"
 
 
@@ -119,8 +124,13 @@ class ResponseOffloader:
         uid = uuid.uuid4().hex[:6]
         filename = f"mcp-git-{tool_name}-{timestamp}-{uid}.txt"
         path = os.path.join(self.offload_dir, filename)
-        with open(path, "w", encoding="utf-8") as f:
-            f.write(content)
+        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                f.write(content)
+        except Exception:
+            os.close(fd)
+            raise
         logger.info(f"Offloaded {tool_name} response ({len(content)} bytes) to {path}")
         return path
 
@@ -142,7 +152,7 @@ class ResponseOffloader:
         if summarizer:
             try:
                 return summarizer(result)
-            except Exception:
+            except (ValueError, TypeError, AttributeError, KeyError):
                 logger.warning(
                     f"Summary generator failed for {tool_name}, using generic"
                 )
