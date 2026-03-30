@@ -574,6 +574,21 @@ class MCPTokenLimiter:
                 "operation": operation,
             }
 
+    def would_truncate(self, response: dict[str, Any], operation: str = "unknown") -> bool:
+        """Check if a response would be truncated without modifying it.
+
+        Args:
+            response: Response dictionary to check
+            operation: Operation name for limit lookup
+
+        Returns:
+            True if the response exceeds the applicable token limit
+        """
+        token_limit = self.operation_limits.get(operation, self.default_limit)
+        response_json = json.dumps(response, indent=2, default=_safe_json_serializer)
+        estimate = self.token_estimator.estimate_tokens(response_json, ContentType.JSON)
+        return estimate.estimated_tokens > token_limit
+
     def update_limits(self, **operation_limits):
         """Update operation-specific limits."""
         self.operation_limits.update(operation_limits)

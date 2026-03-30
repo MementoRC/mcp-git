@@ -289,3 +289,30 @@ class TestTokenLimiterEdgeCases:
         # Should still return something, even with tiny limit
         assert isinstance(result, dict)
         assert "_token_limit_info" in result
+
+
+class TestMCPTokenLimiterWouldTruncate:
+    """Test would_truncate() size check without modification."""
+
+    def test_small_response_returns_false(self):
+        limiter = MCPTokenLimiter(default_limit=2000)
+        small = {"status": "ok", "result": "short"}
+        assert limiter.would_truncate(small, "git_status") is False
+
+    def test_large_response_returns_true(self):
+        limiter = MCPTokenLimiter(default_limit=100)
+        large = {"result": "x" * 2000}
+        assert limiter.would_truncate(large, "git_diff") is True
+
+    def test_respects_operation_specific_limits(self):
+        limiter = MCPTokenLimiter(default_limit=2000, operation_limits={"git_log": 50})
+        medium = {"result": "x" * 500}
+        assert limiter.would_truncate(medium, "git_log") is True
+        assert limiter.would_truncate(medium, "git_status") is False
+
+    def test_does_not_modify_input(self):
+        limiter = MCPTokenLimiter(default_limit=100)
+        data = {"result": "x" * 2000}
+        original = json.dumps(data)
+        limiter.would_truncate(data, "test")
+        assert json.dumps(data) == original
