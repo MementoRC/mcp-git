@@ -164,8 +164,9 @@ class GitLeanInterface:
             async def async_wrapper(*args, **kwargs):
                 try:
                     result = await tool_func(*args, **kwargs)
-                    if self.response_offloader and self.response_offloader.should_offload(
-                        result, tool_name
+                    if (
+                        self.response_offloader
+                        and self.response_offloader.should_offload(result, tool_name)
                     ):
                         try:
                             return self.response_offloader.offload(result, tool_name)
@@ -185,8 +186,9 @@ class GitLeanInterface:
             def sync_wrapper(*args, **kwargs):
                 try:
                     result = tool_func(*args, **kwargs)
-                    if self.response_offloader and self.response_offloader.should_offload(
-                        result, tool_name
+                    if (
+                        self.response_offloader
+                        and self.response_offloader.should_offload(result, tool_name)
                     ):
                         try:
                             return self.response_offloader.offload(result, tool_name)

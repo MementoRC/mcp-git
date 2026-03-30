@@ -38,7 +38,9 @@ def offloader(limiter, tmp_offload_dir):
 class TestShouldOffload:
     def test_small_response_no_offload(self, tmp_offload_dir):
         limiter = MCPTokenLimiter(default_limit=2000)
-        offloader = ResponseOffloader(token_limiter=limiter, offload_dir=tmp_offload_dir)
+        offloader = ResponseOffloader(
+            token_limiter=limiter, offload_dir=tmp_offload_dir
+        )
         assert offloader.should_offload({"result": "short"}, "git_status") is False
 
     def test_large_response_triggers_offload(self, offloader):
@@ -194,7 +196,9 @@ class TestEndToEndOffloading:
     def test_wrap_tool_offloads_large_sync_result(self, tmp_offload_dir):
         """A sync tool returning large data gets offloaded via _wrap_tool."""
         limiter = MCPTokenLimiter(default_limit=100)
-        offloader = ResponseOffloader(token_limiter=limiter, offload_dir=tmp_offload_dir)
+        offloader = ResponseOffloader(
+            token_limiter=limiter, offload_dir=tmp_offload_dir
+        )
 
         # Create a minimal GitLeanInterface and inject our offloader
         interface = GitLeanInterface.__new__(GitLeanInterface)
@@ -215,9 +219,7 @@ class TestEndToEndOffloading:
     def test_wrap_tool_fallback_on_write_failure(self):
         """When offload raises, _wrap_tool falls back to truncation."""
         limiter = MCPTokenLimiter(default_limit=100)
-        offloader = ResponseOffloader(
-            token_limiter=limiter, offload_dir="/nonexistent"
-        )
+        offloader = ResponseOffloader(token_limiter=limiter, offload_dir="/nonexistent")
 
         interface = GitLeanInterface.__new__(GitLeanInterface)
         interface.token_limiter = limiter
@@ -236,7 +238,9 @@ class TestEndToEndOffloading:
     def test_wrap_tool_small_result_inline(self, tmp_offload_dir):
         """A small tool result passes through without offloading."""
         limiter = MCPTokenLimiter(default_limit=2000)
-        offloader = ResponseOffloader(token_limiter=limiter, offload_dir=tmp_offload_dir)
+        offloader = ResponseOffloader(
+            token_limiter=limiter, offload_dir=tmp_offload_dir
+        )
 
         interface = GitLeanInterface.__new__(GitLeanInterface)
         interface.token_limiter = limiter

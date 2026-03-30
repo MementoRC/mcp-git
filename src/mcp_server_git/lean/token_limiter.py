@@ -574,7 +574,9 @@ class MCPTokenLimiter:
                 "operation": operation,
             }
 
-    def would_truncate(self, response: dict[str, Any], operation: str = "unknown") -> bool:
+    def would_truncate(
+        self, response: dict[str, Any], operation: str = "unknown"
+    ) -> bool:
         """Check if a response would be truncated without modifying it.
 
         Args:

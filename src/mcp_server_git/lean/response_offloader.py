@@ -91,14 +91,14 @@ class ResponseOffloader:
 
     def should_offload(self, result: Any, tool_name: str) -> bool:
         """Check if a result should be offloaded to file."""
-        if not isinstance(result, (dict, str, list)):
+        if not isinstance(result, dict | str | list):
             return False
         data = result if isinstance(result, dict) else {"result": result}
         return self.token_limiter.would_truncate(data, tool_name)
 
     def offload(self, result: Any, tool_name: str) -> dict[str, Any]:
         """Write result to file and return summary dict."""
-        if isinstance(result, (dict, list)):
+        if isinstance(result, dict | list):
             content = json.dumps(result, indent=2, default=str)
         else:
             content = str(result)
@@ -143,7 +143,9 @@ class ResponseOffloader:
             try:
                 return summarizer(result)
             except Exception:
-                logger.warning(f"Summary generator failed for {tool_name}, using generic")
+                logger.warning(
+                    f"Summary generator failed for {tool_name}, using generic"
+                )
         return _summarize_generic(result)
 
 
