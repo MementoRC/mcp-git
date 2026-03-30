@@ -21,6 +21,7 @@ from typing import Any
 from fastmcp import FastMCP
 from jsonschema import ValidationError, validate
 
+from .response_offloader import ResponseOffloader
 from .token_limiter import MCPTokenLimiter, apply_token_limits
 
 logger = logging.getLogger(__name__)
@@ -86,6 +87,7 @@ class GitLeanInterface:
         self.app_name = app_name
         self.app = FastMCP(app_name, version=version)
         self.token_limiter = token_limiter or MCPTokenLimiter()
+        self.response_offloader = ResponseOffloader(token_limiter=self.token_limiter)
 
         # Tool registry
         self.tool_registry: dict[str, ToolDefinition] = {}
@@ -153,10 +155,7 @@ class GitLeanInterface:
                     )
 
     def _wrap_tool(self, tool_func: Callable, tool_name: str) -> Callable:
-        """Wrap tool function with token limiting and error handling.
-
-        Handles both sync and async tool implementations correctly.
-        """
+        """Wrap tool function with response offloading, token limiting, and error handling."""
         is_async = inspect.iscoroutinefunction(tool_func)
 
         if is_async:
@@ -165,6 +164,15 @@ class GitLeanInterface:
             async def async_wrapper(*args, **kwargs):
                 try:
                     result = await tool_func(*args, **kwargs)
+                    if self.response_offloader and self.response_offloader.should_offload(
+                        result, tool_name
+                    ):
+                        try:
+                            return self.response_offloader.offload(result, tool_name)
+                        except Exception:
+                            logger.warning(
+                                f"Offload failed for {tool_name}, falling back to truncation"
+                            )
                     return self.token_limiter.limit_response(result, tool_name)
                 except Exception as e:
                     logger.error(f"Error in {tool_name}: {e}")
@@ -177,6 +185,15 @@ class GitLeanInterface:
             def sync_wrapper(*args, **kwargs):
                 try:
                     result = tool_func(*args, **kwargs)
+                    if self.response_offloader and self.response_offloader.should_offload(
+                        result, tool_name
+                    ):
+                        try:
+                            return self.response_offloader.offload(result, tool_name)
+                        except Exception:
+                            logger.warning(
+                                f"Offload failed for {tool_name}, falling back to truncation"
+                            )
                     return self.token_limiter.limit_response(result, tool_name)
                 except Exception as e:
                     logger.error(f"Error in {tool_name}: {e}")
