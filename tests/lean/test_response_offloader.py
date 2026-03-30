@@ -6,6 +6,7 @@ import time
 
 import pytest
 
+from mcp_server_git.lean.interface import GitLeanInterface
 from mcp_server_git.lean.response_offloader import (
     ResponseOffloader,
     _summarize_diff,
@@ -180,3 +181,71 @@ class TestSummaryGeneratorFallback:
         summary_dict = offloader.offload(result, "unknown_tool")
         assert "offloaded" in summary_dict
         assert "bytes" in summary_dict["summary"]
+
+
+class TestEndToEndOffloading:
+    """Test offloading through the actual _wrap_tool path.
+
+    Covers spec requirement #10: both execute_tool() and execute_tool_direct().
+    Since registered tools have their implementation replaced by _wrap_tool at
+    registration time, testing _wrap_tool directly covers both paths.
+    """
+
+    def test_wrap_tool_offloads_large_sync_result(self, tmp_offload_dir):
+        """A sync tool returning large data gets offloaded via _wrap_tool."""
+        limiter = MCPTokenLimiter(default_limit=100)
+        offloader = ResponseOffloader(token_limiter=limiter, offload_dir=tmp_offload_dir)
+
+        # Create a minimal GitLeanInterface and inject our offloader
+        interface = GitLeanInterface.__new__(GitLeanInterface)
+        interface.token_limiter = limiter
+        interface.response_offloader = offloader
+
+        def big_tool():
+            return "x" * 5000
+
+        wrapped = interface._wrap_tool(big_tool, "git_diff")
+        result = wrapped()
+
+        assert result["offloaded"] is True
+        assert os.path.isfile(result["full_output_path"])
+        with open(result["full_output_path"]) as f:
+            assert f.read() == "x" * 5000
+
+    def test_wrap_tool_fallback_on_write_failure(self):
+        """When offload raises, _wrap_tool falls back to truncation."""
+        limiter = MCPTokenLimiter(default_limit=100)
+        offloader = ResponseOffloader(
+            token_limiter=limiter, offload_dir="/nonexistent"
+        )
+
+        interface = GitLeanInterface.__new__(GitLeanInterface)
+        interface.token_limiter = limiter
+        interface.response_offloader = offloader
+
+        def big_tool():
+            return {"result": "x" * 5000}
+
+        wrapped = interface._wrap_tool(big_tool, "git_diff")
+        result = wrapped()
+
+        # Should get truncated result, not offloaded
+        assert "offloaded" not in result or result.get("offloaded") is not True
+        assert isinstance(result, dict)
+
+    def test_wrap_tool_small_result_inline(self, tmp_offload_dir):
+        """A small tool result passes through without offloading."""
+        limiter = MCPTokenLimiter(default_limit=2000)
+        offloader = ResponseOffloader(token_limiter=limiter, offload_dir=tmp_offload_dir)
+
+        interface = GitLeanInterface.__new__(GitLeanInterface)
+        interface.token_limiter = limiter
+        interface.response_offloader = offloader
+
+        def small_tool():
+            return "short result"
+
+        wrapped = interface._wrap_tool(small_tool, "git_status")
+        result = wrapped()
+
+        assert result == "short result"
