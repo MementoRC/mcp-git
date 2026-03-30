@@ -6,7 +6,14 @@ import time
 
 import pytest
 
-from mcp_server_git.lean.response_offloader import ResponseOffloader
+from mcp_server_git.lean.response_offloader import (
+    ResponseOffloader,
+    _summarize_diff,
+    _summarize_generic,
+    _summarize_job_logs,
+    _summarize_list,
+    _summarize_log,
+)
 from mcp_server_git.lean.token_limiter import MCPTokenLimiter
 
 
@@ -88,3 +95,88 @@ class TestCleanupOldFiles:
         os.utime(ghost_file, (old_time, old_time))
         os.remove(ghost_file)
         offloader._cleanup_old_files(max_age_seconds=3600)
+
+
+class TestSummarizeDiff:
+    def test_counts_files_and_changes(self):
+        diff = (
+            "diff --git a/foo.py b/foo.py\n"
+            "+added line\n+another\n"
+            "-removed line\n"
+            "diff --git a/bar.py b/bar.py\n"
+            "+one more\n"
+        )
+        summary = _summarize_diff(diff)
+        assert "2 files" in summary
+        assert "3(+)" in summary
+        assert "1(-)" in summary
+
+    def test_empty_diff(self):
+        assert "0 files" in _summarize_diff("")
+
+    def test_non_string_falls_back(self):
+        result = _summarize_diff({"not": "a diff"})
+        assert "bytes" in result
+
+
+class TestSummarizeLog:
+    def test_counts_commits_and_authors(self):
+        log = (
+            "commit abc123\nAuthor: Alice <a@b.com>\nDate: Mon Mar 1\n\n    first\n\n"
+            "commit def456\nAuthor: Bob <b@b.com>\nDate: Tue Mar 2\n\n    second\n"
+        )
+        summary = _summarize_log(log)
+        assert "2 commits" in summary
+        assert "2 authors" in summary
+
+    def test_date_range(self):
+        log = (
+            "commit abc123\nAuthor: Alice\nDate: Tue Mar 2\n\n    recent\n\n"
+            "commit def456\nAuthor: Alice\nDate: Mon Mar 1\n\n    older\n"
+        )
+        summary = _summarize_log(log)
+        assert "Mon Mar 1" in summary
+        assert "Tue Mar 2" in summary
+
+    def test_empty_log(self):
+        assert "0 commits" in _summarize_log("")
+
+
+class TestSummarizeJobLogs:
+    def test_counts_errors_and_warnings(self):
+        logs = "INFO step 1\nERROR failed\nWARNING slow\nERROR crash\nINFO done"
+        summary = _summarize_job_logs(logs)
+        assert "2 errors" in summary.lower() or "2 error" in summary.lower()
+        assert "1 warning" in summary.lower()
+
+
+class TestSummarizeList:
+    def test_item_count(self):
+        listing = "Item 1: foo\nItem 2: bar\nItem 3: baz"
+        summary = _summarize_list(listing)
+        assert "3 items" in summary
+
+
+class TestSummarizeGeneric:
+    def test_string_response(self):
+        summary = _summarize_generic("hello world")
+        assert "11" in summary
+        assert "text" in summary
+
+    def test_dict_response(self):
+        summary = _summarize_generic({"key": "value"})
+        assert "json" in summary
+
+    def test_list_response(self):
+        summary = _summarize_generic([1, 2, 3])
+        assert "3 items" in summary
+
+
+class TestSummaryGeneratorFallback:
+    """Broken summarizer should fall back to generic."""
+
+    def test_fallback_on_exception(self, offloader):
+        result = "x" * 2000
+        summary_dict = offloader.offload(result, "unknown_tool")
+        assert "offloaded" in summary_dict
+        assert "bytes" in summary_dict["summary"]

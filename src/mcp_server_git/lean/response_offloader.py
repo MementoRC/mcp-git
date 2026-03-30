@@ -6,6 +6,7 @@ import glob
 import json
 import logging
 import os
+import re
 import time
 import uuid
 from datetime import datetime
@@ -17,6 +18,64 @@ logger = logging.getLogger(__name__)
 
 _DEFAULT_OFFLOAD_DIR = os.environ.get("MCP_GIT_OFFLOAD_DIR", "/tmp")
 _DEFAULT_MAX_AGE = 3600  # 1 hour
+
+
+def _summarize_diff(result: Any) -> str:
+    """Summarize unified diff: files changed, insertions, deletions."""
+    if not isinstance(result, str):
+        return _summarize_generic(result)
+    files = len(re.findall(r"^diff --git", result, re.MULTILINE))
+    insertions = len(re.findall(r"^\+[^+]", result, re.MULTILINE))
+    deletions = len(re.findall(r"^-[^-]", result, re.MULTILINE))
+    return f"{files} files changed, {insertions}(+), {deletions}(-)"
+
+
+def _summarize_log(result: Any) -> str:
+    """Summarize git log: commit count, authors, date range."""
+    if not isinstance(result, str):
+        return _summarize_generic(result)
+    commits = len(re.findall(r"^commit [0-9a-f]+", result, re.MULTILINE))
+    authors = set(re.findall(r"^Author:\s*(.+?)(?:\s*<.*>)?\s*$", result, re.MULTILINE))
+    dates = re.findall(r"^Date:\s+(.+)$", result, re.MULTILINE)
+    parts = [f"{commits} commits"]
+    if authors:
+        parts.append(f"{len(authors)} authors")
+    if len(dates) >= 2:
+        parts.append(f"{dates[-1].strip()} .. {dates[0].strip()}")
+    return ", ".join(parts)
+
+
+def _summarize_job_logs(result: Any) -> str:
+    """Summarize CI job logs: line count, error/warning counts."""
+    if not isinstance(result, str):
+        return _summarize_generic(result)
+    errors = len(re.findall(r"^.*\bERROR\b", result, re.MULTILINE | re.IGNORECASE))
+    warnings = len(re.findall(r"^.*\bWARNING\b", result, re.MULTILINE | re.IGNORECASE))
+    lines = result.count("\n") + 1
+    return f"{lines} lines, {errors} errors, {warnings} warnings"
+
+
+def _summarize_list(result: Any) -> str:
+    """Summarize list output: line/item count."""
+    if not isinstance(result, str):
+        return _summarize_generic(result)
+    items = [line for line in result.strip().splitlines() if line.strip()]
+    return f"{len(items)} items"
+
+
+_SUMMARY_GENERATORS: dict[str, Any] = {
+    "git_diff": _summarize_diff,
+    "git_diff_unstaged": _summarize_diff,
+    "git_diff_staged": _summarize_diff,
+    "git_diff_branches": _summarize_diff,
+    "git_log": _summarize_log,
+    "github_get_job_logs": _summarize_job_logs,
+    "github_list_issues": _summarize_list,
+    "github_list_pull_requests": _summarize_list,
+    "github_list_workflow_runs": _summarize_list,
+    "github_list_releases": _summarize_list,
+    "github_list_release_assets": _summarize_list,
+}
 
 
 class ResponseOffloader:
@@ -79,6 +138,12 @@ class ResponseOffloader:
 
     def _generate_summary(self, result: Any, tool_name: str) -> str:
         """Generate a smart summary for the offloaded result."""
+        summarizer = _SUMMARY_GENERATORS.get(tool_name)
+        if summarizer:
+            try:
+                return summarizer(result)
+            except Exception:
+                logger.warning(f"Summary generator failed for {tool_name}, using generic")
         return _summarize_generic(result)
 
 
