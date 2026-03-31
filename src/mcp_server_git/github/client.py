@@ -3,6 +3,7 @@
 import logging
 import os
 import re
+from contextlib import asynccontextmanager
 from dataclasses import dataclass
 
 import aiohttp
@@ -122,3 +123,22 @@ def get_github_client() -> GitHubClient | None:
     # Create aiohttp session (caller is responsible for closing)
     session = aiohttp.ClientSession()
     return GitHubClient(token=token, session=session)
+
+
+@asynccontextmanager
+async def github_client_context():
+    """Async context manager for GitHub client with guaranteed resource cleanup."""
+    client = None
+    try:
+        client = get_github_client()
+        if not client:
+            raise ValueError(
+                "GitHub token not configured. Set GITHUB_TOKEN environment variable."
+            )
+        yield client
+    finally:
+        if client and client.session:
+            try:
+                await client.session.close()
+            except Exception as cleanup_error:
+                logger.warning(f"Error during client cleanup: {cleanup_error}")
