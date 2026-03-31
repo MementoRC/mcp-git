@@ -871,6 +871,153 @@ async def github_add_pr_comment(
         return f"❌ Error adding comment: {str(e)}"
 
 
+async def github_get_pr_comments(
+    repo_owner: str, repo_name: str, pr_number: int
+) -> str:
+    """Get top-level conversation comments on a PR."""
+    logger.debug(
+        f"🚀 Fetching comments for PR #{pr_number} in {repo_owner}/{repo_name}"
+    )
+
+    try:
+        async with github_client_context() as client:
+            response = await client.get(
+                f"/repos/{repo_owner}/{repo_name}/issues/{pr_number}/comments",
+                params={"per_page": 100},
+            )
+
+            if response.status != 200:
+                error_text = await response.text()
+                return f"❌ Failed to fetch comments: {response.status} - {error_text}"
+
+            comments = await response.json()
+
+        if not comments:
+            return f"No comments on PR #{pr_number}"
+
+        lines = [f"Comments on PR #{pr_number} ({len(comments)} total):\n"]
+        for c in comments:
+            author = c.get("user", {}).get("login", "unknown")
+            created = c.get("created_at", "")
+            body = (c.get("body") or "").strip()
+            comment_id = c.get("id", "")
+            lines.append(f"  #{comment_id} by {author} ({created}):")
+            lines.append(f"    {body}\n")
+
+        return "\n".join(lines)
+
+    except ValueError as auth_error:
+        logger.error(f"Authentication error fetching PR comments: {auth_error}")
+        return f"❌ {str(auth_error)}"
+    except ConnectionError as conn_error:
+        logger.error(f"Connection error fetching PR comments: {conn_error}")
+        return f"❌ Network connection failed: {str(conn_error)}"
+    except Exception as e:
+        logger.error(
+            f"Unexpected error fetching comments for PR #{pr_number}: {e}",
+            exc_info=True,
+        )
+        return f"❌ Error fetching PR comments: {str(e)}"
+
+
+async def github_get_pr_reviews(repo_owner: str, repo_name: str, pr_number: int) -> str:
+    """Get inline code review comments on a PR."""
+    logger.debug(
+        f"🚀 Fetching review comments for PR #{pr_number} in {repo_owner}/{repo_name}"
+    )
+
+    try:
+        async with github_client_context() as client:
+            response = await client.get(
+                f"/repos/{repo_owner}/{repo_name}/pulls/{pr_number}/comments",
+                params={"per_page": 100},
+            )
+
+            if response.status != 200:
+                error_text = await response.text()
+                return f"❌ Failed to fetch review comments: {response.status} - {error_text}"
+
+            comments = await response.json()
+
+        if not comments:
+            return f"No review comments on PR #{pr_number}"
+
+        lines = [f"Review comments on PR #{pr_number} ({len(comments)} total):\n"]
+        for c in comments:
+            author = c.get("user", {}).get("login", "unknown")
+            created = c.get("created_at", "")
+            body = (c.get("body") or "").strip()
+            path = c.get("path", "")
+            line = c.get("line") or c.get("original_line", "")
+            comment_id = c.get("id", "")
+            in_reply_to = c.get("in_reply_to_id", "")
+            reply_info = f" (reply to #{in_reply_to})" if in_reply_to else ""
+
+            lines.append(f"  #{comment_id} by {author} ({created}){reply_info}:")
+            lines.append(f"    File: {path}:{line}")
+            lines.append(f"    {body}\n")
+
+        return "\n".join(lines)
+
+    except ValueError as auth_error:
+        logger.error(f"Authentication error fetching PR review comments: {auth_error}")
+        return f"❌ {str(auth_error)}"
+    except ConnectionError as conn_error:
+        logger.error(f"Connection error fetching PR review comments: {conn_error}")
+        return f"❌ Network connection failed: {str(conn_error)}"
+    except Exception as e:
+        logger.error(
+            f"Unexpected error fetching review comments for PR #{pr_number}: {e}",
+            exc_info=True,
+        )
+        return f"❌ Error fetching PR review comments: {str(e)}"
+
+
+async def github_reply_to_pr_comment(
+    repo_owner: str, repo_name: str, pr_number: int, comment_id: int, body: str
+) -> str:
+    """Reply to a specific review comment thread."""
+    if not body or not body.strip():
+        return "❌ Error: reply body cannot be empty"
+    if len(body) > 65536:
+        return "❌ Error: reply body exceeds GitHub's 65536 character limit"
+
+    logger.debug(
+        f"🚀 Replying to comment #{comment_id} on PR #{pr_number} in {repo_owner}/{repo_name}"
+    )
+
+    try:
+        async with github_client_context() as client:
+            response = await client.post(
+                f"/repos/{repo_owner}/{repo_name}/pulls/{pr_number}/comments/{comment_id}/replies",
+                json={"body": body},
+            )
+
+            if response.status != 201:
+                error_text = await response.text()
+                return f"❌ Failed to post reply: {response.status} - {error_text}"
+
+            result = await response.json()
+            reply_id = result.get("id", "unknown")
+            logger.info(
+                f"✅ Successfully replied to comment #{comment_id} on PR #{pr_number}"
+            )
+            return f"✅ Reply #{reply_id} posted to comment #{comment_id} on PR #{pr_number}"
+
+    except ValueError as auth_error:
+        logger.error(f"Authentication error replying to PR comment: {auth_error}")
+        return f"❌ {str(auth_error)}"
+    except ConnectionError as conn_error:
+        logger.error(f"Connection error replying to PR comment: {conn_error}")
+        return f"❌ Network connection failed: {str(conn_error)}"
+    except Exception as e:
+        logger.error(
+            f"Unexpected error replying to comment #{comment_id} on PR #{pr_number}: {e}",
+            exc_info=True,
+        )
+        return f"❌ Error replying to comment: {str(e)}"
+
+
 async def github_close_pr(repo_owner: str, repo_name: str, pr_number: int) -> str:
     """Close a pull request."""
     logger.debug(f"🚀 Closing PR #{pr_number} in {repo_owner}/{repo_name}")

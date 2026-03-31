@@ -342,6 +342,32 @@ class GitHubAddPRComment(BaseModel):
     body: str
 
 
+class GitHubGetPRComments(BaseModel):
+    """Retrieve top-level conversation comments on a PR."""
+
+    repo_owner: str
+    repo_name: str
+    pr_number: int
+
+
+class GitHubGetPRReviews(BaseModel):
+    """Retrieve inline code review comments on a PR."""
+
+    repo_owner: str
+    repo_name: str
+    pr_number: int
+
+
+class GitHubReplyToPRComment(BaseModel):
+    """Reply to a specific review comment thread."""
+
+    repo_owner: str
+    repo_name: str
+    pr_number: int
+    comment_id: int
+    body: str
+
+
 class GitHubClosePR(BaseModel):
     repo_owner: str
     repo_name: str

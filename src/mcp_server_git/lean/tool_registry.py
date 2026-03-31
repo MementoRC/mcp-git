@@ -653,6 +653,53 @@ def _register_github_tools(interface: Any, github_service: Any):
             complexity="focused",
         ),
         ToolDefinition(
+            name="github_get_pr_comments",
+            implementation=github_ops.github_get_pr_comments,
+            description="Get top-level conversation comments on a pull request",
+            schema={
+                "type": "object",
+                "properties": {
+                    "repo_owner": {"type": "string"},
+                    "repo_name": {"type": "string"},
+                    "pr_number": {"type": "integer"},
+                },
+            },
+            domain="github",
+            complexity="focused",
+        ),
+        ToolDefinition(
+            name="github_get_pr_reviews",
+            implementation=github_ops.github_get_pr_reviews,
+            description="Get inline code review comments on a pull request",
+            schema={
+                "type": "object",
+                "properties": {
+                    "repo_owner": {"type": "string"},
+                    "repo_name": {"type": "string"},
+                    "pr_number": {"type": "integer"},
+                },
+            },
+            domain="github",
+            complexity="focused",
+        ),
+        ToolDefinition(
+            name="github_reply_to_pr_comment",
+            implementation=github_ops.github_reply_to_pr_comment,
+            description="Reply to a specific review comment thread on a pull request",
+            schema={
+                "type": "object",
+                "properties": {
+                    "repo_owner": {"type": "string"},
+                    "repo_name": {"type": "string"},
+                    "pr_number": {"type": "integer"},
+                    "comment_id": {"type": "integer"},
+                    "body": {"type": "string"},
+                },
+            },
+            domain="github",
+            complexity="focused",
+        ),
+        ToolDefinition(
             name="github_close_pr",
             implementation=github_ops.github_close_pr,
             description="Close a pull request",
