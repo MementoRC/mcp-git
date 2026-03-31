@@ -882,7 +882,8 @@ async def github_get_pr_comments(
     try:
         async with github_client_context() as client:
             response = await client.get(
-                f"/repos/{repo_owner}/{repo_name}/issues/{pr_number}/comments"
+                f"/repos/{repo_owner}/{repo_name}/issues/{pr_number}/comments",
+                params={"per_page": 100},
             )
 
             if response.status != 200:
@@ -898,7 +899,7 @@ async def github_get_pr_comments(
         for c in comments:
             author = c.get("user", {}).get("login", "unknown")
             created = c.get("created_at", "")
-            body = c.get("body", "").strip()
+            body = (c.get("body") or "").strip()
             comment_id = c.get("id", "")
             lines.append(f"  #{comment_id} by {author} ({created}):")
             lines.append(f"    {body}\n")
@@ -928,7 +929,8 @@ async def github_get_pr_reviews(repo_owner: str, repo_name: str, pr_number: int)
     try:
         async with github_client_context() as client:
             response = await client.get(
-                f"/repos/{repo_owner}/{repo_name}/pulls/{pr_number}/comments"
+                f"/repos/{repo_owner}/{repo_name}/pulls/{pr_number}/comments",
+                params={"per_page": 100},
             )
 
             if response.status != 200:
@@ -944,7 +946,7 @@ async def github_get_pr_reviews(repo_owner: str, repo_name: str, pr_number: int)
         for c in comments:
             author = c.get("user", {}).get("login", "unknown")
             created = c.get("created_at", "")
-            body = c.get("body", "").strip()
+            body = (c.get("body") or "").strip()
             path = c.get("path", "")
             line = c.get("line") or c.get("original_line", "")
             comment_id = c.get("id", "")
@@ -975,6 +977,11 @@ async def github_reply_to_pr_comment(
     repo_owner: str, repo_name: str, pr_number: int, comment_id: int, body: str
 ) -> str:
     """Reply to a specific review comment thread."""
+    if not body or not body.strip():
+        return "❌ Error: reply body cannot be empty"
+    if len(body) > 65536:
+        return "❌ Error: reply body exceeds GitHub's 65536 character limit"
+
     logger.debug(
         f"🚀 Replying to comment #{comment_id} on PR #{pr_number} in {repo_owner}/{repo_name}"
     )
