@@ -62,7 +62,7 @@ class TestGitHubGetRepoSettings:
         mock_client.get = AsyncMock(return_value=mock_response)
 
         with patch(
-            "src.mcp_server_git.github.api.github_client_context"
+            "src.mcp_server_git.github.repos.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -119,7 +119,7 @@ class TestGitHubGetRepoSettings:
         mock_client.get = AsyncMock(return_value=mock_response)
 
         with patch(
-            "src.mcp_server_git.github.api.github_client_context"
+            "src.mcp_server_git.github.repos.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -143,7 +143,7 @@ class TestGitHubGetRepoSettings:
         mock_client.get = AsyncMock(return_value=mock_response)
 
         with patch(
-            "src.mcp_server_git.github.api.github_client_context"
+            "src.mcp_server_git.github.repos.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -158,7 +158,7 @@ class TestGitHubGetRepoSettings:
     async def test_authentication_error(self):
         """Test that authentication errors are handled properly."""
         with patch(
-            "src.mcp_server_git.github.api.github_client_context"
+            "src.mcp_server_git.github.repos.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.side_effect = ValueError(
                 "GitHub token not configured"
@@ -175,7 +175,7 @@ class TestGitHubGetRepoSettings:
     async def test_connection_error(self):
         """Test that connection errors are handled gracefully."""
         with patch(
-            "src.mcp_server_git.github.api.github_client_context"
+            "src.mcp_server_git.github.repos.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.side_effect = ConnectionError(
                 "Network timeout"
@@ -200,7 +200,7 @@ class TestGitHubGetRepoSettings:
         mock_client.get = AsyncMock(return_value=mock_response)
 
         with patch(
-            "src.mcp_server_git.github.api.github_client_context"
+            "src.mcp_server_git.github.repos.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -217,7 +217,7 @@ class TestGitHubGetRepoSettings:
     async def test_unexpected_error_handling(self):
         """Test that unexpected errors are caught and reported."""
         with patch(
-            "src.mcp_server_git.github.api.github_client_context"
+            "src.mcp_server_git.github.repos.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.side_effect = RuntimeError(
                 "Unexpected error occurred"
@@ -252,7 +252,7 @@ class TestGitHubUpdateRepoSettings:
         mock_client.patch = AsyncMock(return_value=mock_response)
 
         with patch(
-            "src.mcp_server_git.github.api.github_client_context"
+            "src.mcp_server_git.github.repos.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -284,7 +284,7 @@ class TestGitHubUpdateRepoSettings:
         mock_client.patch = AsyncMock(return_value=mock_response)
 
         with patch(
-            "src.mcp_server_git.github.api.github_client_context"
+            "src.mcp_server_git.github.repos.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -316,7 +316,7 @@ class TestGitHubUpdateRepoSettings:
         mock_client.patch = AsyncMock(return_value=mock_response)
 
         with patch(
-            "src.mcp_server_git.github.api.github_client_context"
+            "src.mcp_server_git.github.repos.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -355,7 +355,7 @@ class TestGitHubUpdateRepoSettings:
         mock_client.patch = AsyncMock(return_value=mock_response)
 
         with patch(
-            "src.mcp_server_git.github.api.github_client_context"
+            "src.mcp_server_git.github.repos.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -391,7 +391,7 @@ class TestGitHubUpdateRepoSettings:
         mock_client.patch = AsyncMock(return_value=mock_response)
 
         with patch(
-            "src.mcp_server_git.github.api.github_client_context"
+            "src.mcp_server_git.github.repos.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -423,7 +423,7 @@ class TestGitHubUpdateRepoSettings:
         mock_client.patch = AsyncMock(return_value=mock_response)
 
         with patch(
-            "src.mcp_server_git.github.api.github_client_context"
+            "src.mcp_server_git.github.repos.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -445,7 +445,7 @@ class TestGitHubUpdateRepoSettings:
         mock_client.patch = AsyncMock()
 
         with patch(
-            "src.mcp_server_git.github.api.github_client_context"
+            "src.mcp_server_git.github.repos.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -462,7 +462,7 @@ class TestGitHubUpdateRepoSettings:
     async def test_authentication_error_on_update(self):
         """Test that authentication errors are handled properly during update."""
         with patch(
-            "src.mcp_server_git.github.api.github_client_context"
+            "src.mcp_server_git.github.repos.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.side_effect = ValueError(
                 "GitHub token not configured"
@@ -480,7 +480,7 @@ class TestGitHubUpdateRepoSettings:
     async def test_connection_error_on_update(self):
         """Test that connection errors are handled gracefully during update."""
         with patch(
-            "src.mcp_server_git.github.api.github_client_context"
+            "src.mcp_server_git.github.repos.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.side_effect = ConnectionError(
                 "Network timeout"
@@ -508,7 +508,7 @@ class TestGitHubUpdateRepoSettings:
         mock_client.patch = AsyncMock(return_value=mock_response)
 
         with patch(
-            "src.mcp_server_git.github.api.github_client_context"
+            "src.mcp_server_git.github.repos.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -526,7 +526,7 @@ class TestGitHubUpdateRepoSettings:
     async def test_unexpected_error_on_update(self):
         """Test that unexpected errors are caught and reported during update."""
         with patch(
-            "src.mcp_server_git.github.api.github_client_context"
+            "src.mcp_server_git.github.repos.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.side_effect = RuntimeError(
                 "Unexpected error occurred"
