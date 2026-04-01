@@ -6,6 +6,7 @@ from .client import github_client_context  # noqa: F401
 from .issues import *  # noqa: F401,F403
 from .patches import PatchMemoryManager  # noqa: F401  # re-export
 from .pr import *  # noqa: F401,F403
+from .pr_actions import *  # noqa: F401,F403
 from .releases import *  # noqa: F401,F403
 from .repos import *  # noqa: F401,F403
 from .security import *  # noqa: F401,F403
