@@ -37,7 +37,7 @@ class TestGitHubGetVulnerabilityAlerts:
         mock_client.get = AsyncMock(return_value=mock_response)
 
         with patch(
-            "src.mcp_server_git.github.api.github_client_context"
+            "src.mcp_server_git.github.security.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -64,7 +64,7 @@ class TestGitHubGetVulnerabilityAlerts:
         mock_client.get = AsyncMock(return_value=mock_response)
 
         with patch(
-            "src.mcp_server_git.github.api.github_client_context"
+            "src.mcp_server_git.github.security.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -88,7 +88,7 @@ class TestGitHubGetVulnerabilityAlerts:
         mock_client.get = AsyncMock(return_value=mock_response)
 
         with patch(
-            "src.mcp_server_git.github.api.github_client_context"
+            "src.mcp_server_git.github.security.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -106,7 +106,7 @@ class TestGitHubGetVulnerabilityAlerts:
     async def test_vulnerability_alerts_auth_error(self):
         """Test that authentication errors are handled properly."""
         with patch(
-            "src.mcp_server_git.github.api.github_client_context"
+            "src.mcp_server_git.github.security.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.side_effect = ValueError(
                 "GitHub token not configured"
@@ -124,7 +124,7 @@ class TestGitHubGetVulnerabilityAlerts:
     async def test_vulnerability_alerts_connection_error(self):
         """Test that connection errors are handled gracefully."""
         with patch(
-            "src.mcp_server_git.github.api.github_client_context"
+            "src.mcp_server_git.github.security.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.side_effect = ConnectionError(
                 "Network timeout"
@@ -143,7 +143,7 @@ class TestGitHubGetVulnerabilityAlerts:
     async def test_vulnerability_alerts_unexpected_error(self):
         """Test that unexpected errors are caught and reported."""
         with patch(
-            "src.mcp_server_git.github.api.github_client_context"
+            "src.mcp_server_git.github.security.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.side_effect = RuntimeError(
                 "Unexpected error"
@@ -172,7 +172,7 @@ class TestGitHubEnableVulnerabilityAlerts:
         mock_client.put = AsyncMock(return_value=mock_response)
 
         with patch(
-            "src.mcp_server_git.github.api.github_client_context"
+            "src.mcp_server_git.github.security.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -199,7 +199,7 @@ class TestGitHubEnableVulnerabilityAlerts:
         mock_client.put = AsyncMock(return_value=mock_response)
 
         with patch(
-            "src.mcp_server_git.github.api.github_client_context"
+            "src.mcp_server_git.github.security.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -217,7 +217,7 @@ class TestGitHubEnableVulnerabilityAlerts:
     async def test_enable_vulnerability_alerts_auth_error(self):
         """Test authentication error handling."""
         with patch(
-            "src.mcp_server_git.github.api.github_client_context"
+            "src.mcp_server_git.github.security.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.side_effect = ValueError(
                 "GitHub token not configured"
@@ -235,7 +235,7 @@ class TestGitHubEnableVulnerabilityAlerts:
     async def test_enable_vulnerability_alerts_connection_error(self):
         """Test connection error handling."""
         with patch(
-            "src.mcp_server_git.github.api.github_client_context"
+            "src.mcp_server_git.github.security.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.side_effect = ConnectionError(
                 "Network timeout"
@@ -263,7 +263,7 @@ class TestGitHubDisableVulnerabilityAlerts:
         mock_client.delete = AsyncMock(return_value=mock_response)
 
         with patch(
-            "src.mcp_server_git.github.api.github_client_context"
+            "src.mcp_server_git.github.security.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -290,7 +290,7 @@ class TestGitHubDisableVulnerabilityAlerts:
         mock_client.delete = AsyncMock(return_value=mock_response)
 
         with patch(
-            "src.mcp_server_git.github.api.github_client_context"
+            "src.mcp_server_git.github.security.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -323,7 +323,7 @@ class TestGitHubGetAutomatedSecurityFixes:
         mock_client.get = AsyncMock(return_value=mock_response)
 
         with patch(
-            "src.mcp_server_git.github.api.github_client_context"
+            "src.mcp_server_git.github.security.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -354,7 +354,7 @@ class TestGitHubGetAutomatedSecurityFixes:
         mock_client.get = AsyncMock(return_value=mock_response)
 
         with patch(
-            "src.mcp_server_git.github.api.github_client_context"
+            "src.mcp_server_git.github.security.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -383,7 +383,7 @@ class TestGitHubGetAutomatedSecurityFixes:
         mock_client.get = AsyncMock(return_value=mock_response)
 
         with patch(
-            "src.mcp_server_git.github.api.github_client_context"
+            "src.mcp_server_git.github.security.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -407,7 +407,7 @@ class TestGitHubGetAutomatedSecurityFixes:
         mock_client.get = AsyncMock(return_value=mock_response)
 
         with patch(
-            "src.mcp_server_git.github.api.github_client_context"
+            "src.mcp_server_git.github.security.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -430,7 +430,7 @@ class TestGitHubGetAutomatedSecurityFixes:
         mock_client.get = AsyncMock(return_value=mock_response)
 
         with patch(
-            "src.mcp_server_git.github.api.github_client_context"
+            "src.mcp_server_git.github.security.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -457,7 +457,7 @@ class TestGitHubEnableAutomatedSecurityFixes:
         mock_client.put = AsyncMock(return_value=mock_response)
 
         with patch(
-            "src.mcp_server_git.github.api.github_client_context"
+            "src.mcp_server_git.github.security.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -484,7 +484,7 @@ class TestGitHubEnableAutomatedSecurityFixes:
         mock_client.put = AsyncMock(return_value=mock_response)
 
         with patch(
-            "src.mcp_server_git.github.api.github_client_context"
+            "src.mcp_server_git.github.security.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -511,7 +511,7 @@ class TestGitHubDisableAutomatedSecurityFixes:
         mock_client.delete = AsyncMock(return_value=mock_response)
 
         with patch(
-            "src.mcp_server_git.github.api.github_client_context"
+            "src.mcp_server_git.github.security.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -538,7 +538,7 @@ class TestGitHubDisableAutomatedSecurityFixes:
         mock_client.delete = AsyncMock(return_value=mock_response)
 
         with patch(
-            "src.mcp_server_git.github.api.github_client_context"
+            "src.mcp_server_git.github.security.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -602,7 +602,7 @@ class TestGitHubGetSecurityAnalysis:
         mock_client.get = AsyncMock(side_effect=mock_get)
 
         with patch(
-            "src.mcp_server_git.github.api.github_client_context"
+            "src.mcp_server_git.github.security.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -679,7 +679,7 @@ class TestGitHubGetSecurityAnalysis:
         mock_client.get = AsyncMock(side_effect=mock_get)
 
         with patch(
-            "src.mcp_server_git.github.api.github_client_context"
+            "src.mcp_server_git.github.security.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -731,7 +731,7 @@ class TestGitHubGetSecurityAnalysis:
         mock_client.get = AsyncMock(side_effect=mock_get)
 
         with patch(
-            "src.mcp_server_git.github.api.github_client_context"
+            "src.mcp_server_git.github.security.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -782,7 +782,7 @@ class TestGitHubGetSecurityAnalysis:
         mock_client.get = AsyncMock(side_effect=mock_get)
 
         with patch(
-            "src.mcp_server_git.github.api.github_client_context"
+            "src.mcp_server_git.github.security.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -829,7 +829,7 @@ class TestGitHubGetSecurityAnalysis:
         mock_client.get = AsyncMock(side_effect=mock_get)
 
         with patch(
-            "src.mcp_server_git.github.api.github_client_context"
+            "src.mcp_server_git.github.security.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -857,7 +857,7 @@ class TestGitHubGetSecurityAnalysis:
         mock_client.get = AsyncMock(side_effect=RuntimeError("API unavailable"))
 
         with patch(
-            "src.mcp_server_git.github.api.github_client_context"
+            "src.mcp_server_git.github.security.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -882,7 +882,7 @@ class TestGitHubGetSecurityAnalysis:
     async def test_security_analysis_auth_error(self):
         """Test that authentication errors are handled at the top level."""
         with patch(
-            "src.mcp_server_git.github.api.github_client_context"
+            "src.mcp_server_git.github.security.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.side_effect = ValueError(
                 "GitHub token not configured"
@@ -900,7 +900,7 @@ class TestGitHubGetSecurityAnalysis:
     async def test_security_analysis_connection_error(self):
         """Test that connection errors are handled at the top level."""
         with patch(
-            "src.mcp_server_git.github.api.github_client_context"
+            "src.mcp_server_git.github.security.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.side_effect = ConnectionError(
                 "Network timeout"
@@ -919,7 +919,7 @@ class TestGitHubGetSecurityAnalysis:
     async def test_security_analysis_unexpected_error(self):
         """Test that unexpected errors are caught and reported."""
         with patch(
-            "src.mcp_server_git.github.api.github_client_context"
+            "src.mcp_server_git.github.security.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.side_effect = RuntimeError(
                 "Unexpected error"
@@ -981,7 +981,7 @@ class TestGitHubGetSecurityAnalysis:
         mock_client.get = AsyncMock(side_effect=mock_get)
 
         with patch(
-            "src.mcp_server_git.github.api.github_client_context"
+            "src.mcp_server_git.github.security.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -1042,7 +1042,7 @@ class TestGitHubGetSecurityAnalysis:
         mock_client.get = AsyncMock(side_effect=mock_get)
 
         with patch(
-            "src.mcp_server_git.github.api.github_client_context"
+            "src.mcp_server_git.github.security.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -1097,7 +1097,7 @@ class TestGitHubGetSecurityAnalysis:
         mock_client.get = AsyncMock(side_effect=mock_get)
 
         with patch(
-            "src.mcp_server_git.github.api.github_client_context"
+            "src.mcp_server_git.github.security.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
