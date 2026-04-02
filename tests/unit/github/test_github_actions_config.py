@@ -39,7 +39,7 @@ class TestGitHubGetActionsPermissions:
         mock_client.get = AsyncMock(return_value=mock_response)
 
         with patch(
-            "src.mcp_server_git.github.repos.github_client_context"
+            "src.mcp_server_git.github.permissions.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -68,7 +68,7 @@ class TestGitHubGetActionsPermissions:
         mock_client.get = AsyncMock(return_value=mock_response)
 
         with patch(
-            "src.mcp_server_git.github.repos.github_client_context"
+            "src.mcp_server_git.github.permissions.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -97,7 +97,7 @@ class TestGitHubGetActionsPermissions:
         mock_client.get = AsyncMock(return_value=mock_response)
 
         with patch(
-            "src.mcp_server_git.github.repos.github_client_context"
+            "src.mcp_server_git.github.permissions.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -127,7 +127,7 @@ class TestGitHubGetActionsPermissions:
         mock_client.get = AsyncMock(return_value=mock_response)
 
         with patch(
-            "src.mcp_server_git.github.repos.github_client_context"
+            "src.mcp_server_git.github.permissions.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -149,7 +149,7 @@ class TestGitHubGetActionsPermissions:
         mock_client.get = AsyncMock(return_value=mock_response)
 
         with patch(
-            "src.mcp_server_git.github.repos.github_client_context"
+            "src.mcp_server_git.github.permissions.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -166,7 +166,7 @@ class TestGitHubGetActionsPermissions:
     async def test_authentication_error(self):
         """Test that authentication errors are handled properly."""
         with patch(
-            "src.mcp_server_git.github.repos.github_client_context"
+            "src.mcp_server_git.github.permissions.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.side_effect = ValueError(
                 "GitHub token not configured"
@@ -184,7 +184,7 @@ class TestGitHubGetActionsPermissions:
     async def test_connection_error(self):
         """Test that connection errors are handled gracefully."""
         with patch(
-            "src.mcp_server_git.github.repos.github_client_context"
+            "src.mcp_server_git.github.permissions.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.side_effect = ConnectionError(
                 "Network timeout"
@@ -210,7 +210,7 @@ class TestGitHubGetActionsPermissions:
         mock_client.get = AsyncMock(return_value=mock_response)
 
         with patch(
-            "src.mcp_server_git.github.repos.github_client_context"
+            "src.mcp_server_git.github.permissions.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -228,7 +228,7 @@ class TestGitHubGetActionsPermissions:
     async def test_unexpected_error_handling(self):
         """Test that unexpected errors are caught and reported."""
         with patch(
-            "src.mcp_server_git.github.repos.github_client_context"
+            "src.mcp_server_git.github.permissions.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.side_effect = RuntimeError(
                 "Unexpected error"
@@ -257,7 +257,7 @@ class TestGitHubUpdateActionsPermissions:
         mock_client.put = AsyncMock(return_value=mock_response)
 
         with patch(
-            "src.mcp_server_git.github.repos.github_client_context"
+            "src.mcp_server_git.github.permissions.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -281,7 +281,7 @@ class TestGitHubUpdateActionsPermissions:
         mock_client.put = AsyncMock(return_value=mock_response)
 
         with patch(
-            "src.mcp_server_git.github.repos.github_client_context"
+            "src.mcp_server_git.github.permissions.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -304,7 +304,7 @@ class TestGitHubUpdateActionsPermissions:
         mock_client.put = AsyncMock(return_value=mock_response)
 
         with patch(
-            "src.mcp_server_git.github.repos.github_client_context"
+            "src.mcp_server_git.github.permissions.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -327,7 +327,7 @@ class TestGitHubUpdateActionsPermissions:
         mock_client.put = AsyncMock(return_value=mock_response)
 
         with patch(
-            "src.mcp_server_git.github.repos.github_client_context"
+            "src.mcp_server_git.github.permissions.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -349,7 +349,7 @@ class TestGitHubUpdateActionsPermissions:
         mock_client.put = AsyncMock(return_value=mock_response)
 
         with patch(
-            "src.mcp_server_git.github.repos.github_client_context"
+            "src.mcp_server_git.github.permissions.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -371,7 +371,7 @@ class TestGitHubUpdateActionsPermissions:
         mock_client.put = AsyncMock(return_value=mock_response)
 
         with patch(
-            "src.mcp_server_git.github.repos.github_client_context"
+            "src.mcp_server_git.github.permissions.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -392,7 +392,7 @@ class TestGitHubUpdateActionsPermissions:
         mock_client = MagicMock()
 
         with patch(
-            "src.mcp_server_git.github.repos.github_client_context"
+            "src.mcp_server_git.github.permissions.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -414,7 +414,7 @@ class TestGitHubUpdateActionsPermissions:
         mock_client = MagicMock()
 
         with patch(
-            "src.mcp_server_git.github.repos.github_client_context"
+            "src.mcp_server_git.github.permissions.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -437,7 +437,7 @@ class TestGitHubUpdateActionsPermissions:
         mock_client.put = AsyncMock(return_value=mock_response)
 
         with patch(
-            "src.mcp_server_git.github.repos.github_client_context"
+            "src.mcp_server_git.github.permissions.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -456,7 +456,7 @@ class TestGitHubUpdateActionsPermissions:
     async def test_authentication_error(self):
         """Test that authentication errors are handled properly."""
         with patch(
-            "src.mcp_server_git.github.repos.github_client_context"
+            "src.mcp_server_git.github.permissions.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.side_effect = ValueError(
                 "GitHub token not configured"
@@ -475,7 +475,7 @@ class TestGitHubUpdateActionsPermissions:
     async def test_connection_error(self):
         """Test that connection errors are handled gracefully."""
         with patch(
-            "src.mcp_server_git.github.repos.github_client_context"
+            "src.mcp_server_git.github.permissions.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.side_effect = ConnectionError(
                 "Network timeout"
@@ -495,7 +495,7 @@ class TestGitHubUpdateActionsPermissions:
     async def test_unexpected_error_handling(self):
         """Test that unexpected errors are caught and reported."""
         with patch(
-            "src.mcp_server_git.github.repos.github_client_context"
+            "src.mcp_server_git.github.permissions.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.side_effect = RuntimeError(
                 "Unexpected error"
@@ -531,7 +531,7 @@ class TestGitHubGetWorkflowPermissions:
         mock_client.get = AsyncMock(return_value=mock_response)
 
         with patch(
-            "src.mcp_server_git.github.repos.github_client_context"
+            "src.mcp_server_git.github.permissions.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -560,7 +560,7 @@ class TestGitHubGetWorkflowPermissions:
         mock_client.get = AsyncMock(return_value=mock_response)
 
         with patch(
-            "src.mcp_server_git.github.repos.github_client_context"
+            "src.mcp_server_git.github.permissions.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -582,7 +582,7 @@ class TestGitHubGetWorkflowPermissions:
         mock_client.get = AsyncMock(return_value=mock_response)
 
         with patch(
-            "src.mcp_server_git.github.repos.github_client_context"
+            "src.mcp_server_git.github.permissions.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -598,7 +598,7 @@ class TestGitHubGetWorkflowPermissions:
     async def test_authentication_error(self):
         """Test that authentication errors are handled properly."""
         with patch(
-            "src.mcp_server_git.github.repos.github_client_context"
+            "src.mcp_server_git.github.permissions.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.side_effect = ValueError(
                 "GitHub token not configured"
@@ -616,7 +616,7 @@ class TestGitHubGetWorkflowPermissions:
     async def test_connection_error(self):
         """Test that connection errors are handled gracefully."""
         with patch(
-            "src.mcp_server_git.github.repos.github_client_context"
+            "src.mcp_server_git.github.permissions.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.side_effect = ConnectionError(
                 "Network timeout"
@@ -642,7 +642,7 @@ class TestGitHubGetWorkflowPermissions:
         mock_client.get = AsyncMock(return_value=mock_response)
 
         with patch(
-            "src.mcp_server_git.github.repos.github_client_context"
+            "src.mcp_server_git.github.permissions.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -660,7 +660,7 @@ class TestGitHubGetWorkflowPermissions:
     async def test_unexpected_error_handling(self):
         """Test that unexpected errors are caught and reported."""
         with patch(
-            "src.mcp_server_git.github.repos.github_client_context"
+            "src.mcp_server_git.github.permissions.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.side_effect = RuntimeError(
                 "Unexpected error"
@@ -689,7 +689,7 @@ class TestGitHubUpdateWorkflowPermissions:
         mock_client.put = AsyncMock(return_value=mock_response)
 
         with patch(
-            "src.mcp_server_git.github.repos.github_client_context"
+            "src.mcp_server_git.github.permissions.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -713,7 +713,7 @@ class TestGitHubUpdateWorkflowPermissions:
         mock_client.put = AsyncMock(return_value=mock_response)
 
         with patch(
-            "src.mcp_server_git.github.repos.github_client_context"
+            "src.mcp_server_git.github.permissions.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -736,7 +736,7 @@ class TestGitHubUpdateWorkflowPermissions:
         mock_client.put = AsyncMock(return_value=mock_response)
 
         with patch(
-            "src.mcp_server_git.github.repos.github_client_context"
+            "src.mcp_server_git.github.permissions.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -758,7 +758,7 @@ class TestGitHubUpdateWorkflowPermissions:
         mock_client.put = AsyncMock(return_value=mock_response)
 
         with patch(
-            "src.mcp_server_git.github.repos.github_client_context"
+            "src.mcp_server_git.github.permissions.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -780,7 +780,7 @@ class TestGitHubUpdateWorkflowPermissions:
         mock_client.put = AsyncMock(return_value=mock_response)
 
         with patch(
-            "src.mcp_server_git.github.repos.github_client_context"
+            "src.mcp_server_git.github.permissions.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -801,7 +801,7 @@ class TestGitHubUpdateWorkflowPermissions:
         mock_client = MagicMock()
 
         with patch(
-            "src.mcp_server_git.github.repos.github_client_context"
+            "src.mcp_server_git.github.permissions.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -821,7 +821,7 @@ class TestGitHubUpdateWorkflowPermissions:
         mock_client = MagicMock()
 
         with patch(
-            "src.mcp_server_git.github.repos.github_client_context"
+            "src.mcp_server_git.github.permissions.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -844,7 +844,7 @@ class TestGitHubUpdateWorkflowPermissions:
         mock_client.put = AsyncMock(return_value=mock_response)
 
         with patch(
-            "src.mcp_server_git.github.repos.github_client_context"
+            "src.mcp_server_git.github.permissions.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -863,7 +863,7 @@ class TestGitHubUpdateWorkflowPermissions:
     async def test_authentication_error(self):
         """Test that authentication errors are handled properly."""
         with patch(
-            "src.mcp_server_git.github.repos.github_client_context"
+            "src.mcp_server_git.github.permissions.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.side_effect = ValueError(
                 "GitHub token not configured"
@@ -882,7 +882,7 @@ class TestGitHubUpdateWorkflowPermissions:
     async def test_connection_error(self):
         """Test that connection errors are handled gracefully."""
         with patch(
-            "src.mcp_server_git.github.repos.github_client_context"
+            "src.mcp_server_git.github.permissions.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.side_effect = ConnectionError(
                 "Network timeout"
@@ -902,7 +902,7 @@ class TestGitHubUpdateWorkflowPermissions:
     async def test_unexpected_error_handling(self):
         """Test that unexpected errors are caught and reported."""
         with patch(
-            "src.mcp_server_git.github.repos.github_client_context"
+            "src.mcp_server_git.github.permissions.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.side_effect = RuntimeError(
                 "Unexpected error"
