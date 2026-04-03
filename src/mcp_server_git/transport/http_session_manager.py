@@ -93,6 +93,7 @@ class HTTPSessionManager:
         self,
         session_timeout: float = 3600.0,
         enforce_single_repo: bool = False,
+        default_repo: Path | None = None,
     ):
         """
         Initialize HTTP session manager.
@@ -102,9 +103,13 @@ class HTTPSessionManager:
             enforce_single_repo: If True, enforce strict repository binding validation.
                                If False (default), allow operations on any repository.
                                HTTP transport typically needs False for multi-repo support.
+            default_repo: Optional default repository path for session resurrection.
+                         When set, expired/missing sessions are transparently recreated
+                         bound to this repository instead of returning 'Session not found'.
         """
         self.session_timeout = session_timeout
         self.enforce_single_repo = enforce_single_repo
+        self.default_repo = default_repo
         self._sessions: dict[str, SessionContext] = {}
         self._lock = asyncio.Lock()
         mode = "single-repo" if enforce_single_repo else "multi-repo"
@@ -215,6 +220,35 @@ class HTTPSessionManager:
                 logger.warning(f"Session not found: {session_id}")
             return session
 
+    async def get_or_create_session(self, session_id: str) -> "SessionContext | None":
+        """Get session, auto-recreating if expired and default_repo is configured.
+
+        This makes the server resilient to restarts — sessions are transparently
+        resurrected when a client reconnects with a stale session ID.
+
+        Args:
+            session_id: Session identifier
+
+        Returns:
+            SessionContext if found or resurrected, None if session not found
+            and no default_repo is configured.
+        """
+        session = await self.get_session(session_id)
+        if session is not None:
+            return session
+
+        # Session not found — try to resurrect if we have a default repo
+        if self.default_repo:
+            logger.warning(
+                f"Session {session_id} not found, resurrecting with default repo: {self.default_repo}"
+            )
+            return await self.create_session(
+                repo_path=self.default_repo,
+                session_id=session_id,
+            )
+
+        return None
+
     async def close_session(self, session_id: str) -> bool:
         """
         Close session and unbind repository.
@@ -267,8 +301,8 @@ class HTTPSessionManager:
             RemoteContaminationError: If remote contamination detected
             RepositoryBindingError: If binding validation fails
         """
-        # Get session (updates last_activity)
-        session = await self.get_session(session_id)
+        # Get session (updates last_activity), auto-resurrect if default_repo configured
+        session = await self.get_or_create_session(session_id)
         if not session:
             raise ValueError(f"Session not found: {session_id}")
 
@@ -442,7 +476,7 @@ class HTTPSessionManager:
         Returns:
             Tool discovery result
         """
-        session = await self.get_session(session_id)
+        session = await self.get_or_create_session(session_id)
         if not session:
             raise ValueError(f"Session not found: {session_id}")
 
@@ -463,7 +497,7 @@ class HTTPSessionManager:
         Returns:
             Tool specification
         """
-        session = await self.get_session(session_id)
+        session = await self.get_or_create_session(session_id)
         if not session:
             raise ValueError(f"Session not found: {session_id}")
 
