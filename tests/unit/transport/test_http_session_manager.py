@@ -1085,7 +1085,7 @@ class TestHTTPSessionManager:
             log_call = mock_logger.warning.call_args[0][0]
 
             # Verify log message contains required components
-            assert "Session not found" in log_call
+            assert f"Session {stale_session_id} not found" in log_call
             assert "server uptime:" in log_call
             assert stale_session_id in log_call
             assert "resurrecting with default repo:" in log_call
