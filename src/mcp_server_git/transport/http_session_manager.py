@@ -110,6 +110,7 @@ class HTTPSessionManager:
         self.session_timeout = session_timeout
         self.enforce_single_repo = enforce_single_repo
         self.default_repo = default_repo
+        self._start_time = time.time()
         self._sessions: dict[str, SessionContext] = {}
         self._lock = asyncio.Lock()
         mode = "single-repo" if enforce_single_repo else "multi-repo"
@@ -237,17 +238,29 @@ class HTTPSessionManager:
         if session is not None:
             return session
 
-        # Session not found — try to resurrect if we have a default repo
-        if self.default_repo:
-            logger.warning(
-                f"Session {session_id} not found, resurrecting with default repo: {self.default_repo}"
-            )
-            return await self.create_session(
-                repo_path=self.default_repo,
-                session_id=session_id,
-            )
+        return await self._resurrect_session(session_id)
 
-        return None
+    async def _resurrect_session(self, session_id: str) -> "SessionContext | None":
+        """Attempt to resurrect an expired session using default_repo binding.
+
+        Args:
+            session_id: The stale session identifier to resurrect.
+
+        Returns:
+            Resurrected SessionContext, or None if no default_repo is configured.
+        """
+        if not self.default_repo:
+            return None
+
+        uptime_seconds = time.time() - self._start_time
+        logger.warning(
+            f"Session {session_id} not found (server uptime: {uptime_seconds:.0f}s), "
+            f"resurrecting with default repo: {self.default_repo}"
+        )
+        return await self.create_session(
+            repo_path=self.default_repo,
+            session_id=session_id,
+        )
 
     async def close_session(self, session_id: str) -> bool:
         """

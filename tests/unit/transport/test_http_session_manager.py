@@ -1048,3 +1048,45 @@ class TestHTTPSessionManager:
 
         assert result == {"status": "ok"}
         assert manager.has_session(stale_session_id)
+
+    @pytest.mark.asyncio
+    async def test_resurrect_session_logs_uptime(self, temp_dir):
+        """Test _resurrect_session logs warning with server uptime info."""
+        repo_path = temp_dir / "test_repo"
+        repo_path.mkdir()
+
+        import subprocess
+
+        subprocess.run(["git", "init"], cwd=repo_path, check=True, capture_output=True)
+        subprocess.run(
+            ["git", "config", "user.name", "Test User"], cwd=repo_path, check=True
+        )
+        subprocess.run(
+            ["git", "config", "user.email", "test@example.com"],
+            cwd=repo_path,
+            check=True,
+        )
+
+        manager = HTTPSessionManager(default_repo=repo_path)
+        stale_session_id = "mcp-uptime-test"
+
+        # Patch logger to capture warning call
+        with patch(
+            "mcp_server_git.transport.http_session_manager.logger"
+        ) as mock_logger:
+            session = await manager._resurrect_session(stale_session_id)
+
+            # Verify session was resurrected
+            assert session is not None
+            assert session.session_id == stale_session_id
+
+            # Verify warning log was called
+            mock_logger.warning.assert_called_once()
+            log_call = mock_logger.warning.call_args[0][0]
+
+            # Verify log message contains required components
+            assert "Session not found" in log_call
+            assert "server uptime:" in log_call
+            assert stale_session_id in log_call
+            assert "resurrecting with default repo:" in log_call
+            assert str(repo_path) in log_call
