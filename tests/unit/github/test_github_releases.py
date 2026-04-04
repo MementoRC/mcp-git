@@ -842,7 +842,7 @@ class TestGitHubUploadReleaseAsset:
 
         with (
             patch(
-                "src.mcp_server_git.github.releases.github_client_context"
+                "src.mcp_server_git.github.release_assets.github_client_context"
             ) as mock_context,
             patch("builtins.open", mock_open(read_data=b"file content")),
             patch("pathlib.Path.exists", return_value=True),
@@ -887,7 +887,7 @@ class TestGitHubUploadReleaseAsset:
 
         with (
             patch(
-                "src.mcp_server_git.github.releases.github_client_context"
+                "src.mcp_server_git.github.release_assets.github_client_context"
             ) as mock_context,
             patch("builtins.open", mock_open(read_data=b"file content")),
             patch("pathlib.Path.exists", return_value=True),
@@ -909,7 +909,7 @@ class TestGitHubUploadReleaseAsset:
         """Test that authentication errors are handled properly."""
         with (
             patch(
-                "src.mcp_server_git.github.releases.github_client_context"
+                "src.mcp_server_git.github.release_assets.github_client_context"
             ) as mock_context,
             patch("builtins.open", mock_open(read_data=b"file content")),
             patch("pathlib.Path.exists", return_value=True),
@@ -963,7 +963,7 @@ class TestGitHubListReleaseAssets:
         mock_client.get = AsyncMock(return_value=mock_response)
 
         with patch(
-            "src.mcp_server_git.github.releases.github_client_context"
+            "src.mcp_server_git.github.release_assets.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -992,7 +992,7 @@ class TestGitHubListReleaseAssets:
         mock_client.get = AsyncMock(return_value=mock_response)
 
         with patch(
-            "src.mcp_server_git.github.releases.github_client_context"
+            "src.mcp_server_git.github.release_assets.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -1014,7 +1014,7 @@ class TestGitHubListReleaseAssets:
         mock_client.get = AsyncMock(return_value=mock_response)
 
         with patch(
-            "src.mcp_server_git.github.releases.github_client_context"
+            "src.mcp_server_git.github.release_assets.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -1040,7 +1040,7 @@ class TestGitHubDeleteReleaseAsset:
         mock_client.delete = AsyncMock(return_value=mock_response)
 
         with patch(
-            "src.mcp_server_git.github.releases.github_client_context"
+            "src.mcp_server_git.github.release_assets.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -1066,7 +1066,7 @@ class TestGitHubDeleteReleaseAsset:
         mock_client.delete = AsyncMock(return_value=mock_response)
 
         with patch(
-            "src.mcp_server_git.github.releases.github_client_context"
+            "src.mcp_server_git.github.release_assets.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -1082,7 +1082,7 @@ class TestGitHubDeleteReleaseAsset:
     async def test_delete_asset_auth_error(self):
         """Test that authentication errors are handled properly."""
         with patch(
-            "src.mcp_server_git.github.releases.github_client_context"
+            "src.mcp_server_git.github.release_assets.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.side_effect = ValueError(
                 "GitHub token not configured"
@@ -1100,7 +1100,7 @@ class TestGitHubDeleteReleaseAsset:
     async def test_delete_asset_connection_error(self):
         """Test that connection errors are handled gracefully."""
         with patch(
-            "src.mcp_server_git.github.releases.github_client_context"
+            "src.mcp_server_git.github.release_assets.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.side_effect = ConnectionError(
                 "Network timeout"
