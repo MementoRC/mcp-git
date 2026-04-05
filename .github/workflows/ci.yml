@@ -108,7 +108,7 @@ jobs:
 
     - name: Test MCP server startup and basic functionality
       run: |
-        if timeout 10s pixi run -e ci pixi-git-server --test-mode; then
+        if timeout 10s pixi run -e ci pixi-git-server-lean; then
           echo "MCP server startup test completed successfully"
         else
           SERVER_EXIT_CODE=$?
@@ -142,17 +142,17 @@ jobs:
                 return False
 
             try:
-                from mcp_server_git.models.notifications import ClientNotification
-                print("Notification models are importable")
+                from mcp_server_git.lean.interface import GitLeanInterface
+                print("Lean interface is importable")
             except ImportError as e:
-                print(f"Cannot import notification models: {e}")
+                print(f"Cannot import lean interface: {e}")
                 return False
 
             try:
-                import mcp_server_git.applications.server_application
-                print("Server module structure is valid")
+                from mcp_server_git.transport.http_server import HTTPGitServer
+                print("HTTP transport is importable")
             except ImportError as e:
-                print(f"Server module import failed: {e}")
+                print(f"HTTP transport import failed: {e}")
                 return False
 
             print("All MCP server behavior validations passed!")

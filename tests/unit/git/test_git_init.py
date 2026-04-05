@@ -90,37 +90,3 @@ class TestGitInit:
             assert isinstance(result2, str)
         finally:
             shutil.rmtree(test_dir)
-
-    def test_git_init_with_server_application_flow(self):
-        """Test the fix: git_init should work through server application without requiring existing repo"""
-        from src.mcp_server_git.applications.server_application import GitTools
-
-        # This simulates the fixed code path in _execute_tool_operation
-        test_dir = Path(tempfile.mkdtemp())
-
-        try:
-            # Verify no .git directory exists
-            assert not (test_dir / ".git").exists()
-
-            # Simulate the fixed logic
-            repo_path = str(test_dir)
-            name = GitTools.INIT
-
-            # Before the fix, Repo(repo_path) was called here, which would fail
-            # After the fix, git_init is called directly with repo_path
-            if name == GitTools.INIT:
-                from src.mcp_server_git.git.operations import git_init
-
-                result = git_init(repo_path)
-            else:
-                # Other tools would create Repo object here
-                from src.mcp_server_git.utils.git_import import Repo
-
-                repo = Repo(repo_path)  # This would fail for non-git directories
-
-            # Verify success
-            assert "✅" in result
-            assert "Error" not in result
-            assert (test_dir / ".git").exists()
-        finally:
-            shutil.rmtree(test_dir)

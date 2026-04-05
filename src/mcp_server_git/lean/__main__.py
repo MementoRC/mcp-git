@@ -11,9 +11,6 @@ from pathlib import Path
 import click
 from dotenv import load_dotenv
 
-# Import services from the main server
-from ..services.git_service import GitService
-from ..services.github_service import GitHubService
 from .interface import create_git_lean_interface
 
 logger = logging.getLogger(__name__)
@@ -55,9 +52,9 @@ def main(repository: Path | None, verbose: int) -> None:
 
     logger.info("Initializing mcp-git-lean server...")
 
-    # Initialize services
-    git_service = GitService()
-    github_service = GitHubService()
+    # Services are None — lean interface calls git/operations.py directly
+    git_service = None
+    github_service = None
 
     # Always use NullAzureService for lean interface
     # Azure support requires token, organization, and session configuration

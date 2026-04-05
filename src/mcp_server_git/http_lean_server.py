@@ -22,8 +22,6 @@ from dotenv import load_dotenv
 
 from .lean.interface import create_git_lean_interface
 from .lean.null_azure_service import NullAzureService
-from .services.git_service import GitService
-from .services.github_service import GitHubService
 from .transport.http_server import HTTPGitServer
 
 logger = logging.getLogger(__name__)
@@ -99,8 +97,8 @@ def main(
     logger.info("Initializing HTTP Lean Server...")
 
     # Initialize services
-    git_service = GitService()
-    github_service = GitHubService()
+    git_service = None  # Lean interface calls git/operations.py directly
+    github_service = None  # Lean interface calls github/ modules directly
     azure_service = NullAzureService()
 
     # Create lean interface (this prepares the interface but we use it

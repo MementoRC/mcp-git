@@ -39,12 +39,9 @@ class TestSessionContext:
         # Create a mock binding manager
         binding_manager = RepositoryBindingManager(server_name="test-session")
 
-        # Create mock services
-        from mcp_server_git.services.git_service import GitService
-        from mcp_server_git.services.github_service import GitHubService
-
-        git_service = GitService()
-        github_service = GitHubService()
+        # Services are None — lean interface calls git/operations.py directly
+        git_service = None
+        github_service = None
 
         # Create session context
         current_time = time.time()
@@ -64,8 +61,8 @@ class TestSessionContext:
         assert context.repository_binding is None
         assert context.created_at == current_time
         assert context.last_activity == current_time
-        assert context.git_service is git_service
-        assert context.github_service is github_service
+        assert context.git_service is None
+        assert context.github_service is None
 
         # Verify lean interface was initialized
         assert context.lean_interface is not None
@@ -103,10 +100,6 @@ class TestSessionContext:
             expected_remote_url="https://github.com/test/repo.git",
         )
 
-        # Create services
-        from mcp_server_git.services.git_service import GitService
-        from mcp_server_git.services.github_service import GitHubService
-
         binding_manager = RepositoryBindingManager(server_name="test-session")
         context = SessionContext(
             session_id="mcp-test456",
@@ -114,8 +107,8 @@ class TestSessionContext:
             repository_binding=binding,
             created_at=time.time(),
             last_activity=time.time(),
-            git_service=GitService(),
-            github_service=GitHubService(),
+            git_service=None,
+            github_service=None,
         )
 
         assert context.repository_binding is binding
@@ -172,8 +165,8 @@ class TestHTTPSessionManager:
             session.repository_binding.expected_remote_url
             == "https://github.com/test/repo.git"
         )
-        assert session.git_service is not None
-        assert session.github_service is not None
+        assert session.git_service is None
+        assert session.github_service is None
         assert session.lean_interface is not None
 
     @pytest.mark.asyncio
@@ -404,9 +397,11 @@ class TestHTTPSessionManager:
         # Verify sessions are different
         assert session1.session_id != session2.session_id
 
-        # Verify service instances are different
-        assert session1.git_service is not session2.git_service
-        assert session1.github_service is not session2.github_service
+        # Services are None — lean interface calls git/operations.py directly
+        assert session1.git_service is None
+        assert session2.git_service is None
+        assert session1.github_service is None
+        assert session2.github_service is None
         assert session1.binding_manager is not session2.binding_manager
         assert session1.lean_interface is not session2.lean_interface
 
