@@ -7,14 +7,13 @@ dedicated service instances and repository binding.
 
 Key features:
 - Isolated session contexts with unique session IDs
-- Per-session GitService and GitHubService instances
 - Repository binding with remote URL validation
 - Session timeout and automatic cleanup
 - Thread-safe session management with asyncio locks
 - Remote contamination detection during tool execution
 
 Architecture:
-    HTTP Request → SessionManager → SessionContext → Services → Git/GitHub Operations
+    HTTP Request → SessionManager → SessionContext → GitLeanInterface → Git/GitHub Operations
                                    └─> RepositoryBinding (validation)
 """
 
@@ -24,14 +23,13 @@ import secrets
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 from ..lean.interface import GitLeanInterface
 from ..repository_binding import (
     RepositoryBinding,
     RepositoryBindingManager,
 )
-from ..services.git_service import GitService
-from ..services.github_service import GitHubService
 
 logger = logging.getLogger(__name__)
 
@@ -55,8 +53,8 @@ class SessionContext:
     repository_binding: RepositoryBinding | None
     created_at: float
     last_activity: float
-    git_service: GitService
-    github_service: GitHubService
+    git_service: Any  # Lean interface calls git/operations.py directly
+    github_service: Any  # Lean interface calls github/ modules directly
     lean_interface: GitLeanInterface = field(init=False)
 
     def __post_init__(self):
@@ -123,8 +121,6 @@ class HTTPSessionManager:
 
         Each session gets:
         - Unique session ID with "mcp-" prefix (or custom ID if provided)
-        - New GitService instance
-        - New GitHubService instance
         - New RepositoryBindingManager
         - Repository binding with optional remote validation
 
@@ -151,9 +147,9 @@ class HTTPSessionManager:
                     "Use a different session_id or close the existing session first."
                 )
 
-            # Create isolated service instances
-            git_service = GitService()
-            github_service = GitHubService()
+            # Services are None — lean interface calls git/operations.py directly
+            git_service = None
+            github_service = None
 
             # Create binding manager for this session
             binding_manager = RepositoryBindingManager(
