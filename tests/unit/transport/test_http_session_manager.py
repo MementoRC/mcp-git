@@ -165,8 +165,8 @@ class TestHTTPSessionManager:
             session.repository_binding.expected_remote_url
             == "https://github.com/test/repo.git"
         )
-        assert session.git_service is not None
-        assert session.github_service is not None
+        assert session.git_service is None
+        assert session.github_service is None
         assert session.lean_interface is not None
 
     @pytest.mark.asyncio
@@ -397,9 +397,11 @@ class TestHTTPSessionManager:
         # Verify sessions are different
         assert session1.session_id != session2.session_id
 
-        # Verify service instances are different
-        assert session1.git_service is not session2.git_service
-        assert session1.github_service is not session2.github_service
+        # Services are None — lean interface calls git/operations.py directly
+        assert session1.git_service is None
+        assert session2.git_service is None
+        assert session1.github_service is None
+        assert session2.github_service is None
         assert session1.binding_manager is not session2.binding_manager
         assert session1.lean_interface is not session2.lean_interface
 
