@@ -108,7 +108,7 @@ jobs:
 
     - name: Test MCP server startup and basic functionality
       run: |
-        if timeout 10s pixi run -e ci pixi-git-server --test-mode; then
+        if timeout 10s pixi run -e ci pixi-git-server-lean; then
           echo "MCP server startup test completed successfully"
         else
           SERVER_EXIT_CODE=$?
