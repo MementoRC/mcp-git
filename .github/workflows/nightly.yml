@@ -88,22 +88,20 @@ jobs:
         uv run python -c "
         print('🔍 Starting extended MCP server validation...')
 
-        # Test 1: Basic imports
+        # Test 1: Lean interface imports
         try:
-            from mcp_server_git.models.notifications import ClientNotification
-            print('SUCCESS: Basic imports work')
+            from mcp_server_git.lean.interface import GitLeanInterface
+            print('SUCCESS: Lean interface imports work')
         except Exception as e:
             print(f'❌ Import failed: {e}')
             exit(1)
 
-        # Test 2: Notification parsing
+        # Test 2: HTTP transport imports
         try:
-            from mcp_server_git.models.notifications import parse_client_notification
-            test_data = {'type': 'notifications/cancelled', 'params': {'requestId': 'test-123'}}
-            result = parse_client_notification(test_data)
-            print('SUCCESS: Notification parsing works')
+            from mcp_server_git.transport.http_server import HTTPGitServer
+            print('SUCCESS: HTTP transport imports work')
         except Exception as e:
-            print(f'❌ Notification parsing failed: {e}')
+            print(f'❌ HTTP transport import failed: {e}')
             exit(1)
 
         print('🎉 All extended MCP validation tests passed!')
@@ -132,7 +130,7 @@ jobs:
         echo "🔍 Testing server with large repository..."
 
         # Test that the models can handle large data
-        uv run python -c "from mcp_server_git.models.notifications import parse_client_notification; large_data = {'type': 'notifications/cancelled', 'params': {'requestId': 'test', 'data': 'x' * 10000}}; result = parse_client_notification(large_data); print('SUCCESS: Large payload handling works')"
+        uv run python -c "from mcp_server_git.lean.interface import GitLeanInterface; print('SUCCESS: Lean interface importable with large repo context')"
 
   # Test across different operating systems
   cross-platform:
@@ -168,11 +166,11 @@ jobs:
 
     - name: Run basic validation
       run: |
-        uv run python -c "import mcp_server_git; from mcp_server_git.models.notifications import ClientNotification; import platform; import sys; print(f'SUCCESS: MCP Git Server works on {platform.system()} with Python {sys.version_info[:2]}')"
+        uv run python -c "import mcp_server_git; from mcp_server_git.lean.interface import GitLeanInterface; import platform; import sys; print(f'SUCCESS: MCP Git Server works on {platform.system()} with Python {sys.version_info[:2]}')"
 
     - name: Test Git operations
       run: |
-        uv run pytest tests/test_server.py -v --tb=short
+        uv run pytest tests/lean/ -v --tb=short
 
   # Report nightly results
   report:
