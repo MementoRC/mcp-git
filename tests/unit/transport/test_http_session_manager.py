@@ -935,3 +935,158 @@ class TestHTTPSessionManager:
         """Test that single-repo mode can be explicitly enabled."""
         manager = HTTPSessionManager(enforce_single_repo=True)
         assert manager.enforce_single_repo is True
+
+    @pytest.mark.asyncio
+    async def test_get_or_create_session_returns_existing(self, temp_dir):
+        """Test get_or_create_session returns existing session without recreating."""
+        repo_path = temp_dir / "test_repo"
+        repo_path.mkdir()
+
+        import subprocess
+
+        subprocess.run(["git", "init"], cwd=repo_path, check=True, capture_output=True)
+        subprocess.run(
+            ["git", "config", "user.name", "Test User"], cwd=repo_path, check=True
+        )
+        subprocess.run(
+            ["git", "config", "user.email", "test@example.com"],
+            cwd=repo_path,
+            check=True,
+        )
+        subprocess.run(
+            ["git", "remote", "add", "origin", "https://github.com/test/repo.git"],
+            cwd=repo_path,
+            check=True,
+        )
+
+        manager = HTTPSessionManager(default_repo=repo_path)
+        session = await manager.create_session(repo_path=repo_path)
+
+        retrieved = await manager.get_or_create_session(session.session_id)
+
+        assert retrieved is not None
+        assert retrieved.session_id == session.session_id
+        # Should be the same object (same session)
+        assert retrieved is session
+
+    @pytest.mark.asyncio
+    async def test_get_or_create_session_resurrects_with_default_repo(self, temp_dir):
+        """Test get_or_create_session resurrects expired session when default_repo set."""
+        repo_path = temp_dir / "test_repo"
+        repo_path.mkdir()
+
+        import subprocess
+
+        subprocess.run(["git", "init"], cwd=repo_path, check=True, capture_output=True)
+        subprocess.run(
+            ["git", "config", "user.name", "Test User"], cwd=repo_path, check=True
+        )
+        subprocess.run(
+            ["git", "config", "user.email", "test@example.com"],
+            cwd=repo_path,
+            check=True,
+        )
+
+        manager = HTTPSessionManager(default_repo=repo_path)
+
+        # Session doesn't exist yet — should be auto-created
+        stale_session_id = "mcp-stale-session-id"
+        session = await manager.get_or_create_session(stale_session_id)
+
+        assert session is not None
+        assert session.session_id == stale_session_id
+        assert manager.has_session(stale_session_id)
+
+    @pytest.mark.asyncio
+    async def test_get_or_create_session_returns_none_without_default_repo(self):
+        """Test get_or_create_session returns None when no default_repo and session missing."""
+        manager = HTTPSessionManager()  # no default_repo
+
+        session = await manager.get_or_create_session("mcp-nonexistent")
+
+        assert session is None
+
+    @pytest.mark.asyncio
+    async def test_execute_tool_resurrects_session_with_default_repo(self, temp_dir):
+        """Test execute_tool auto-resurrects session when default_repo is configured."""
+        repo_path = temp_dir / "test_repo"
+        repo_path.mkdir()
+
+        import subprocess
+
+        subprocess.run(["git", "init"], cwd=repo_path, check=True, capture_output=True)
+        subprocess.run(
+            ["git", "config", "user.name", "Test User"], cwd=repo_path, check=True
+        )
+        subprocess.run(
+            ["git", "config", "user.email", "test@example.com"],
+            cwd=repo_path,
+            check=True,
+        )
+
+        manager = HTTPSessionManager(default_repo=repo_path)
+
+        stale_session_id = "mcp-resurrected"
+
+        # Patch lean interface execute_tool_direct after resurrection
+        original_create = manager.create_session
+
+        async def create_with_mock(*args, **kwargs):
+            ctx = await original_create(*args, **kwargs)
+            ctx.lean_interface.execute_tool_direct = AsyncMock(
+                return_value={"status": "ok"}
+            )
+            return ctx
+
+        manager.create_session = create_with_mock
+
+        result = await manager.execute_tool(
+            session_id=stale_session_id,
+            tool_name="git_status",
+            args={"repo_path": str(repo_path)},
+        )
+
+        assert result == {"status": "ok"}
+        assert manager.has_session(stale_session_id)
+
+    @pytest.mark.asyncio
+    async def test_resurrect_session_logs_uptime(self, temp_dir):
+        """Test _resurrect_session logs warning with server uptime info."""
+        repo_path = temp_dir / "test_repo"
+        repo_path.mkdir()
+
+        import subprocess
+
+        subprocess.run(["git", "init"], cwd=repo_path, check=True, capture_output=True)
+        subprocess.run(
+            ["git", "config", "user.name", "Test User"], cwd=repo_path, check=True
+        )
+        subprocess.run(
+            ["git", "config", "user.email", "test@example.com"],
+            cwd=repo_path,
+            check=True,
+        )
+
+        manager = HTTPSessionManager(default_repo=repo_path)
+        stale_session_id = "mcp-uptime-test"
+
+        # Patch logger to capture warning call
+        with patch(
+            "mcp_server_git.transport.http_session_manager.logger"
+        ) as mock_logger:
+            session = await manager._resurrect_session(stale_session_id)
+
+            # Verify session was resurrected
+            assert session is not None
+            assert session.session_id == stale_session_id
+
+            # Verify warning log was called
+            mock_logger.warning.assert_called_once()
+            log_call = mock_logger.warning.call_args[0][0]
+
+            # Verify log message contains required components
+            assert f"Session {stale_session_id} not found" in log_call
+            assert "server uptime:" in log_call
+            assert stale_session_id in log_call
+            assert "resurrecting with default repo:" in log_call
+            assert str(repo_path) in log_call

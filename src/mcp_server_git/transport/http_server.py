@@ -147,7 +147,10 @@ class HTTPGitServer:
         self.port = port
         self.api_key = api_key
         self.default_repo = default_repo
-        self.session_manager = HTTPSessionManager(session_timeout=session_timeout)
+        self.session_manager = HTTPSessionManager(
+            session_timeout=session_timeout,
+            default_repo=default_repo,
+        )
 
         # Create FastAPI app with lifespan context manager
         @asynccontextmanager
@@ -510,9 +513,9 @@ class HTTPGitServer:
             if method == "tools/call":
                 # Use default session if none provided
                 if not mcp_session_id:
-                    if self.default_repo and self.session_manager.has_session(
-                        self.DEFAULT_SESSION_ID
-                    ):
+                    if self.default_repo:
+                        # Use default session ID — get_or_create_session will resurrect
+                        # it if it has expired or been lost due to a server restart
                         mcp_session_id = self.DEFAULT_SESSION_ID
                     else:
                         return JSONResponse(

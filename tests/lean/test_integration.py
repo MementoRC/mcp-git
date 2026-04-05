@@ -165,7 +165,9 @@ class TestLeanMCPIntegration:
             result.get("offloaded") is True  # New: offloaded to /tmp file
             or "status" in result  # Old: truncated but status preserved
             or "_token_limit_info" in result  # Old: truncation metadata added
-        ), f"Large response should be offloaded or truncated, got keys: {list(result.keys())}"
+        ), (
+            f"Large response should be offloaded or truncated, got keys: {list(result.keys())}"
+        )
 
         if result.get("offloaded"):
             assert "full_output_path" in result
