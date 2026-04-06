@@ -465,7 +465,7 @@ class HTTPGitServer:
                     }
                 )
 
-            # Handle tools/list - return the 3 meta-tools
+            # Handle tools/list - return the 3 meta-tools + server_info
             if method == "tools/list":
                 return JSONResponse(
                     content={
@@ -502,6 +502,14 @@ class HTTPGitServer:
                                             "parameters": {"type": "object"},
                                         },
                                         "required": ["tool_name", "parameters"],
+                                    },
+                                },
+                                {
+                                    "name": "server_info",
+                                    "description": "Returns server metadata, version, and support URLs. USE WHEN: identifying this server, finding where to file bugs or feature requests.",
+                                    "inputSchema": {
+                                        "type": "object",
+                                        "properties": {},
                                     },
                                 },
                             ]
@@ -590,6 +598,32 @@ class HTTPGitServer:
                             tool_name=target_tool,
                             args=tool_params,
                         )
+                    elif tool_name == "server_info":
+                        try:
+                            from importlib.metadata import version as pkg_version
+
+                            ver = pkg_version("mcp-server-git")
+                        except Exception:
+                            ver = "unknown"
+                        result = {
+                            "name": "mcp-git",
+                            "version": ver,
+                            "description": "MCP server for Git, GitHub, and Azure DevOps operations",
+                            "repository": "https://github.com/MementoRC/mcp-git",
+                            "issues": "https://github.com/MementoRC/mcp-git/issues",
+                            "documentation": "https://github.com/MementoRC/mcp-git#readme",
+                            "support": {
+                                "bug_reports": "https://github.com/MementoRC/mcp-git/issues/new?template=bug_report.md",
+                                "feature_requests": "https://github.com/MementoRC/mcp-git/issues/new?template=feature_request.md",
+                            },
+                            "domains": {
+                                "git": "Local git operations (30 tools)",
+                                "github": "GitHub API (52 tools)",
+                                "azure": "Azure DevOps (4 tools)",
+                            },
+                            "transport": "HTTP (SSE)",
+                            "protocol_version": "2024-11-05",
+                        }
                     else:
                         # Direct tool execution (legacy/fallback)
                         result = await self.session_manager.execute_tool(
