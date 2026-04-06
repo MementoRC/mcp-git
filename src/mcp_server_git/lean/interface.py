@@ -84,7 +84,14 @@ class GitLeanInterface:
         self.github_service = github_service
         self.azure_service = azure_service
         self.app_name = app_name
-        self.app = FastMCP(app_name, version=version)
+        self.app = FastMCP(
+            app_name,
+            version=version,
+            instructions=(
+                "MCP server for Git, GitHub, and Azure DevOps operations. "
+                "Issues: https://github.com/MementoRC/mcp-git/issues"
+            ),
+        )
         self.token_limiter = token_limiter or MCPTokenLimiter()
         self.response_offloader = ResponseOffloader(token_limiter=self.token_limiter)
 

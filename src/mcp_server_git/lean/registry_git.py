@@ -10,6 +10,9 @@ from ..git.models import (
     GitCheckout,
     GitCherryPick,
     GitCommit,
+    GitConfigGet,
+    GitConfigList,
+    GitConfigSet,
     GitContinue,
     GitCreateBranch,
     GitDiff,
@@ -26,6 +29,10 @@ from ..git.models import (
     GitReset,
     GitShow,
     GitStatus,
+    GitSubmoduleAdd,
+    GitSubmoduleStatus,
+    GitSubmoduleSync,
+    GitSubmoduleUpdate,
 )
 from ..utils.git_import import Repo
 from .interface import ToolDefinition
@@ -353,6 +360,64 @@ def _register_git_tools(interface: Any, git_service: Any):
             },
             domain="git",
             complexity="core",
+        ),
+        # Submodule operations
+        ToolDefinition(
+            name="git_submodule_status",
+            implementation=wrap_repo_op(git_ops.git_submodule_status),
+            description="List submodules and their current status (paths, SHAs, branches)",
+            schema=GitSubmoduleStatus.model_json_schema(),
+            domain="git",
+            complexity="focused",
+        ),
+        ToolDefinition(
+            name="git_submodule_add",
+            implementation=wrap_repo_op(git_ops.git_submodule_add),
+            description="Add a new submodule to the repository",
+            schema=GitSubmoduleAdd.model_json_schema(),
+            domain="git",
+            complexity="focused",
+        ),
+        ToolDefinition(
+            name="git_submodule_update",
+            implementation=wrap_repo_op(git_ops.git_submodule_update),
+            description="Update submodules (init, recursive, or from remote)",
+            schema=GitSubmoduleUpdate.model_json_schema(),
+            domain="git",
+            complexity="focused",
+        ),
+        ToolDefinition(
+            name="git_submodule_sync",
+            implementation=wrap_repo_op(git_ops.git_submodule_sync),
+            description="Sync submodule URLs from .gitmodules to .git/config",
+            schema=GitSubmoduleSync.model_json_schema(),
+            domain="git",
+            complexity="focused",
+        ),
+        # Config operations
+        ToolDefinition(
+            name="git_config_get",
+            implementation=wrap_repo_op(git_ops.git_config_get),
+            description="Read a git config value by key",
+            schema=GitConfigGet.model_json_schema(),
+            domain="git",
+            complexity="focused",
+        ),
+        ToolDefinition(
+            name="git_config_set",
+            implementation=wrap_repo_op(git_ops.git_config_set),
+            description="Set a git config value (key/value, optional scope or file)",
+            schema=GitConfigSet.model_json_schema(),
+            domain="git",
+            complexity="focused",
+        ),
+        ToolDefinition(
+            name="git_config_list",
+            implementation=wrap_repo_op(git_ops.git_config_list),
+            description="List all git config entries (optionally scoped or from a specific file)",
+            schema=GitConfigList.model_json_schema(),
+            domain="git",
+            complexity="focused",
         ),
     ]
 

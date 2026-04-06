@@ -174,3 +174,48 @@ class GitMergeBase(BaseModel):
     repo_path: str
     ref1: str
     ref2: str
+
+
+class GitSubmoduleStatus(BaseModel):
+    repo_path: str
+
+
+class GitSubmoduleAdd(BaseModel):
+    repo_path: str
+    url: str
+    path: str
+    branch: str | None = None
+
+
+class GitSubmoduleUpdate(BaseModel):
+    repo_path: str
+    init: bool = True
+    recursive: bool = False
+    remote: bool = False
+    paths: list[str] | None = None
+
+
+class GitSubmoduleSync(BaseModel):
+    repo_path: str
+    recursive: bool = False
+
+
+class GitConfigGet(BaseModel):
+    repo_path: str
+    key: str
+    file: str | None = None
+    scope: str | None = None
+
+
+class GitConfigSet(BaseModel):
+    repo_path: str
+    key: str
+    value: str
+    file: str | None = None
+    scope: str | None = None
+
+
+class GitConfigList(BaseModel):
+    repo_path: str
+    file: str | None = None
+    scope: str | None = None
