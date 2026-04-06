@@ -122,6 +122,7 @@ def setup_meta_tools(interface) -> None:
                 ),
             },
             "context_saving": f"~{len(interface.tool_registry) * 0.5}K tokens saved vs traditional MCP",
+            "issues": "https://github.com/MementoRC/mcp-git/issues",
         }
 
         return apply_token_limits(result, "discover_tools", 1000)
@@ -370,3 +371,55 @@ def setup_meta_tools(interface) -> None:
                 "error": str(e),
                 "execution_mode": "lean_mcp_dynamic",
             }
+
+    @app.tool()
+    def server_info() -> dict[str, Any]:
+        """
+        Returns server metadata for LLM harnesses and clients.
+
+        USE WHEN:
+        - You need to identify this server's version or capabilities
+        - You want to know where to file bugs or feature requests
+        - You need documentation or support URLs
+
+        Returns:
+            Dictionary containing:
+            - name: Server identifier
+            - version: Server version string
+            - description: Human-readable description
+            - repository: Source code repository URL
+            - issues: URL to file bug reports or feature requests
+            - documentation: README / docs URL
+            - support: Specific URLs for bug reports and feature requests
+            - domains: Supported operation domains with descriptions
+            - transport: MCP transport type
+            - protocol_version: MCP protocol version
+
+        Examples:
+            server_info()  # Get server metadata and support URLs
+        """
+        try:
+            from importlib.metadata import version
+
+            pkg_version = version("mcp-server-git")
+        except Exception:
+            pkg_version = "unknown"
+        return {
+            "name": "mcp-git",
+            "version": pkg_version,
+            "description": "MCP server for Git, GitHub, and Azure DevOps operations",
+            "repository": "https://github.com/MementoRC/mcp-git",
+            "issues": "https://github.com/MementoRC/mcp-git/issues",
+            "documentation": "https://github.com/MementoRC/mcp-git#readme",
+            "support": {
+                "bug_reports": "https://github.com/MementoRC/mcp-git/issues/new?template=bug_report.md",
+                "feature_requests": "https://github.com/MementoRC/mcp-git/issues/new?template=feature_request.md",
+            },
+            "domains": {
+                "git": "Local git operations",
+                "github": "GitHub API",
+                "azure": "Azure DevOps",
+            },
+            "transport": "HTTP (SSE)",
+            "protocol_version": "2024-11-05",
+        }
