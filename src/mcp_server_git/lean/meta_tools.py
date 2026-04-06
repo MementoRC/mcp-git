@@ -398,9 +398,15 @@ def setup_meta_tools(interface) -> None:
         Examples:
             server_info()  # Get server metadata and support URLs
         """
+        try:
+            from importlib.metadata import version
+
+            pkg_version = version("mcp-server-git")
+        except Exception:
+            pkg_version = "unknown"
         return {
             "name": "mcp-git",
-            "version": "1.0.0",
+            "version": pkg_version,
             "description": "MCP server for Git, GitHub, and Azure DevOps operations",
             "repository": "https://github.com/MementoRC/mcp-git",
             "issues": "https://github.com/MementoRC/mcp-git/issues",

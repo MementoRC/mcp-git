@@ -1977,7 +1977,33 @@ def git_submodule_status(repo: Repo) -> str:
         output = repo.git.submodule("status")
         if not output.strip():
             return "No submodules found in this repository"
-        return f"Submodule status:\n{output}"
+        lines = output.strip().split("\n")
+        result_lines = ["Submodules:"]
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+            # Parse status indicator
+            status = "up-to-date"
+            if line.startswith("+"):
+                status = "modified"
+                line = line[1:]
+            elif line.startswith("-"):
+                status = "not initialized"
+                line = line[1:]
+            elif line.startswith("U"):
+                status = "merge conflict"
+                line = line[1:]
+
+            parts = line.strip().split()
+            sha = parts[0] if parts else "unknown"
+            path = parts[1] if len(parts) > 1 else "unknown"
+            branch = parts[2].strip("()") if len(parts) > 2 else ""
+
+            branch_info = f" ({branch})" if branch else ""
+            result_lines.append(f"  {path}: {sha[:8]}{branch_info} [{status}]")
+
+        return "\n".join(result_lines)
     except GitCommandError as e:
         return f"❌ Submodule status failed: {str(e)}"
     except Exception as e:
@@ -2001,6 +2027,16 @@ def git_submodule_add(
     Returns:
         Success or error message
     """
+    # Validate URL scheme
+    allowed_schemes = ("https://", "http://", "git://", "ssh://", "git@")
+    if not any(url.startswith(scheme) for scheme in allowed_schemes):
+        return f"❌ Invalid URL scheme. Allowed: {', '.join(allowed_schemes)}"
+    # Validate no shell injection in path or url
+    dangerous_chars = [";", "|", "&", "`", "$", "(", ")"]
+    if any(char in path for char in dangerous_chars):
+        return f"❌ Invalid characters in submodule path: {path}"
+    if any(char in url for char in dangerous_chars):
+        return f"❌ Invalid characters in URL: {url}"
     try:
         args = ["add"]
         if branch:
@@ -2091,7 +2127,7 @@ def git_submodule_sync(
 # Git config operations
 # ---------------------------------------------------------------------------
 
-_CONFIG_KEY_RE = re.compile(r"^[a-zA-Z0-9]([a-zA-Z0-9._-]*[a-zA-Z0-9])?$")
+_CONFIG_KEY_RE = re.compile(r"^[a-zA-Z0-9]([a-zA-Z0-9._/\\-]*[a-zA-Z0-9])?$")
 _CONFIG_SCOPE_MAP = {
     "local": {},
     "global": {"_global": True},
@@ -2135,6 +2171,11 @@ def _validate_config_file(repo: Repo, file: str) -> None:
             raise ValueError(
                 f"Invalid file path '{file}': absolute path must be within the repository"
             )
+    # Resolve to catch symlink escapes (belt-and-suspenders)
+    repo_root = Path(repo.working_dir).resolve()
+    resolved = (repo_root / file_path).resolve()
+    if not str(resolved).startswith(str(repo_root)):
+        raise ValueError(f"Config file path escapes repository: {file}")
 
 
 def git_config_get(
