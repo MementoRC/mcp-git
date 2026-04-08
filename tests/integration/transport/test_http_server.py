@@ -614,3 +614,85 @@ class TestConcurrentSessions:
 
         # Clean up
         await async_client.delete(f"/mcp/session/{session_ids[1]}")
+
+
+class TestToolsListAndServerInfo:
+    """Test tools/list endpoint and server_info tool."""
+
+    @pytest.mark.asyncio
+    async def test_tools_list_includes_server_info(self, async_client):
+        """Test tools/list returns 4 meta-tools including server_info."""
+        response = await async_client.post(
+            "/mcp",
+            json={
+                "jsonrpc": "2.0",
+                "method": "tools/list",
+                "id": 1,
+            },
+        )
+        assert response.status_code == 200
+        data = response.json()
+        tools = data["result"]["tools"]
+        assert len(tools) == 4
+        tool_names = [t["name"] for t in tools]
+        assert "discover_tools" in tool_names
+        assert "get_tool_spec" in tool_names
+        assert "execute_tool" in tool_names
+        assert "server_info" in tool_names
+
+    @pytest.mark.asyncio
+    async def test_server_info_returns_metadata(self, async_client, temp_git_repo):
+        """Test server_info tool returns complete server metadata."""
+        import json
+
+        # Create session
+        create_response = await async_client.post(
+            "/mcp/session/create",
+            json={
+                "repository_path": str(temp_git_repo),
+                "expected_remote_url": "https://github.com/test/repo.git",
+            },
+        )
+        assert create_response.status_code == 201
+        session_id = create_response.json()["session_id"]
+
+        # Call server_info
+        response = await async_client.post(
+            "/mcp",
+            json={
+                "jsonrpc": "2.0",
+                "method": "tools/call",
+                "params": {"name": "server_info", "arguments": {}},
+                "id": 2,
+            },
+            headers={"MCP-Session-Id": session_id},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert "result" in data
+        result_text = data["result"]["content"][0]["text"]
+        server_info = json.loads(result_text)
+
+        assert server_info["name"] == "mcp-git"
+        assert "version" in server_info
+        assert server_info["issues"] == "https://github.com/MementoRC/mcp-git/issues"
+        assert "bug_reports" in server_info["support"]
+        assert "feature_requests" in server_info["support"]
+        assert "git" in server_info["domains"]
+        assert "github" in server_info["domains"]
+        assert "azure" in server_info["domains"]
+
+    @pytest.mark.asyncio
+    async def test_server_info_without_session(self, async_client):
+        """Test server_info works without a session when default_repo is set."""
+        response = await async_client.post(
+            "/mcp",
+            json={
+                "jsonrpc": "2.0",
+                "method": "tools/call",
+                "params": {"name": "server_info", "arguments": {}},
+                "id": 3,
+            },
+        )
+        # Should work - server_info doesn't need repo access
+        assert response.status_code == 200
