@@ -7,6 +7,7 @@ from ..git import operations as git_ops
 from ..git.models import (
     GitAbort,
     GitAdd,
+    GitBranchUpdate,
     GitCheckout,
     GitCherryPick,
     GitCommit,
@@ -35,7 +36,7 @@ from ..git.models import (
     GitSubmoduleSync,
     GitSubmoduleUpdate,
 )
-from ..git.operations_extended import git_restore
+from ..git.operations_extended import git_branch_update, git_restore
 from ..utils.git_import import Repo
 from .interface import ToolDefinition
 
@@ -428,6 +429,14 @@ def _register_git_tools(interface: Any, git_service: Any):
             schema=GitRestore.model_json_schema(),
             domain="git",
             complexity="core",
+        ),
+        ToolDefinition(
+            name="git_branch_update",
+            implementation=wrap_repo_op(git_branch_update),
+            description="Force-update a branch ref or delete a branch",
+            schema=GitBranchUpdate.model_json_schema(),
+            domain="git",
+            complexity="focused",
         ),
     ]
 

@@ -226,3 +226,11 @@ class GitRestore(BaseModel):
     files: list[str] = Field(description="Files to restore")
     staged: bool = Field(default=False, description="Unstage files (git restore --staged)")
     source: str | None = Field(default=None, description="Restore from specific commit/ref (git restore --source)")
+
+
+class GitBranchUpdate(BaseModel):
+    repo_path: str
+    branch_name: str = Field(description="Branch to update or delete")
+    target: str | None = Field(default=None, description="Target ref for force-update (git branch -f <name> <target>)")
+    delete: bool = Field(default=False, description="Delete the branch")
+    force: bool = Field(default=False, description="Force delete even if not merged (git branch -D)")

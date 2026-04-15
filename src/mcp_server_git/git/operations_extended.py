@@ -14,6 +14,7 @@ DANGEROUS_CHARS = re.compile(r"[;&|`$()]")
 
 __all__ = [
     "git_restore",
+    "git_branch_update",
 ]
 
 
@@ -58,3 +59,41 @@ def git_restore(
         return f"❌ Restore failed: {e.stderr.decode() if isinstance(e.stderr, bytes) else e.stderr}"
     except Exception as e:
         return f"❌ Error during restore: {str(e)}"
+
+
+def git_branch_update(
+    repo: Repo,
+    branch_name: str,
+    target: str | None = None,
+    delete: bool = False,
+    force: bool = False,
+) -> str:
+    """Force-update a branch ref or delete a branch."""
+    error = _validate_ref(branch_name, "branch_name")
+    if error:
+        return error
+
+    if target and delete:
+        return "❌ Cannot specify both target and delete"
+    if not target and not delete:
+        return "❌ Must specify either target (force-update) or delete"
+
+    if target:
+        error = _validate_ref(target, "target")
+        if error:
+            return error
+
+    try:
+        if delete:
+            flag = "-D" if force else "-d"
+            repo.git.branch(flag, branch_name)
+            return f"✅ Deleted branch '{branch_name}'"
+        else:
+            repo.git.branch("-f", branch_name, target)
+            return f"✅ Updated branch '{branch_name}' → {target}"
+
+    except GitCommandError as e:
+        stderr = e.stderr.decode() if isinstance(e.stderr, bytes) else e.stderr
+        return f"❌ Branch update failed: {stderr}"
+    except Exception as e:
+        return f"❌ Error updating branch: {str(e)}"
