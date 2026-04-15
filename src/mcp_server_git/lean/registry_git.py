@@ -27,6 +27,7 @@ from ..git.models import (
     GitPush,
     GitRebase,
     GitReset,
+    GitRestore,
     GitShow,
     GitStatus,
     GitSubmoduleAdd,
@@ -34,6 +35,7 @@ from ..git.models import (
     GitSubmoduleSync,
     GitSubmoduleUpdate,
 )
+from ..git.operations_extended import git_restore
 from ..utils.git_import import Repo
 from .interface import ToolDefinition
 
@@ -418,6 +420,14 @@ def _register_git_tools(interface: Any, git_service: Any):
             schema=GitConfigList.model_json_schema(),
             domain="git",
             complexity="focused",
+        ),
+        ToolDefinition(
+            name="git_restore",
+            implementation=wrap_repo_op(git_restore),
+            description="Restore working tree files or unstage files (git restore / git restore --staged)",
+            schema=GitRestore.model_json_schema(),
+            domain="git",
+            complexity="core",
         ),
     ]
 

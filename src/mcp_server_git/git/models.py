@@ -219,3 +219,10 @@ class GitConfigList(BaseModel):
     repo_path: str
     file: str | None = None
     scope: str | None = None
+
+
+class GitRestore(BaseModel):
+    repo_path: str
+    files: list[str] = Field(description="Files to restore")
+    staged: bool = Field(default=False, description="Unstage files (git restore --staged)")
+    source: str | None = Field(default=None, description="Restore from specific commit/ref (git restore --source)")
