@@ -244,3 +244,9 @@ class GitWorktreeRemove(BaseModel):
     repo_path: str
     worktree_path: str = Field(description="Path of worktree to remove")
     force: bool = Field(default=False, description="Force removal even with modifications")
+
+
+class GitMergeTree(BaseModel):
+    repo_path: str
+    branch1: str = Field(description="First branch (typically current)")
+    branch2: str = Field(description="Second branch (typically incoming)")

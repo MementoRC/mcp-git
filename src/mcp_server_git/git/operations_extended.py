@@ -17,6 +17,7 @@ __all__ = [
     "git_branch_update",
     "git_worktree_list",
     "git_worktree_remove",
+    "git_merge_tree",
 ]
 
 
@@ -166,3 +167,41 @@ def git_worktree_remove(
         return f"❌ Failed to remove worktree: {stderr}"
     except Exception as e:
         return f"❌ Error removing worktree: {str(e)}"
+
+
+def git_merge_tree(
+    repo: Repo,
+    branch1: str,
+    branch2: str,
+) -> str:
+    """Simulate a merge without modifying working tree (dry-run conflict detection).
+
+    Uses `git merge-tree --write-tree` (Git 2.38+) for three-way merge simulation.
+    """
+    error = _validate_ref(branch1, "branch1")
+    if error:
+        return error
+    error = _validate_ref(branch2, "branch2")
+    if error:
+        return error
+
+    try:
+        output = repo.git.merge_tree("--write-tree", branch1, branch2)
+        return f"✅ Clean merge: {branch1} + {branch2} → no conflicts\n{output}"
+
+    except GitCommandError as e:
+        stdout = e.stdout.decode() if isinstance(e.stdout, bytes) else (e.stdout or "")
+        stderr = e.stderr.decode() if isinstance(e.stderr, bytes) else (e.stderr or "")
+
+        # Exit code 1 = conflicts detected (expected behavior, not an error)
+        if e.status == 1:
+            conflicts = [line for line in stdout.split("\n") if "CONFLICT" in line]
+            if conflicts:
+                conflict_list = "\n".join(f"  - {c}" for c in conflicts)
+                return f"⚠️ Conflicts detected merging {branch1} + {branch2}:\n{conflict_list}"
+            return f"⚠️ Conflicts detected merging {branch1} + {branch2}\n{stdout}"
+
+        return f"❌ Merge-tree failed: {stderr or stdout}"
+
+    except Exception as e:
+        return f"❌ Error during merge-tree: {str(e)}"

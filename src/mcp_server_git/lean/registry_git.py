@@ -24,6 +24,7 @@ from ..git.models import (
     GitLog,
     GitMerge,
     GitMergeBase,
+    GitMergeTree,
     GitPull,
     GitPush,
     GitRebase,
@@ -40,6 +41,7 @@ from ..git.models import (
 )
 from ..git.operations_extended import (
     git_branch_update,
+    git_merge_tree,
     git_restore,
     git_worktree_list,
     git_worktree_remove,
@@ -458,6 +460,14 @@ def _register_git_tools(interface: Any, git_service: Any):
             implementation=wrap_repo_op(git_worktree_remove),
             description="Remove a worktree (with optional force for modified worktrees)",
             schema=GitWorktreeRemove.model_json_schema(),
+            domain="git",
+            complexity="focused",
+        ),
+        ToolDefinition(
+            name="git_merge_tree",
+            implementation=wrap_repo_op(git_merge_tree),
+            description="Dry-run merge conflict detection without modifying working tree",
+            schema=GitMergeTree.model_json_schema(),
             domain="git",
             complexity="focused",
         ),
