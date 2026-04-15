@@ -114,6 +114,14 @@ class TestSanitizeJsonString:
         assert parsed["count"] == 42
         assert parsed["flag"] is True
 
+    def test_null_and_other_c0_controls_escaped(self):
+        """Should escape all C0 control characters forbidden by JSON spec."""
+        raw = '{"body": "text\x00with\x08null\x0band\x0ccontrols"}'
+        result = _sanitize_json_string(raw)
+        parsed = json.loads(result)
+        assert "text" in parsed["body"]
+        assert "\x00" not in result  # literal null must not appear in JSON text
+
 
 # ---------------------------------------------------------------------------
 # Tests for the coercion path (string→dict) in execute_tool
