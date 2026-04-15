@@ -234,3 +234,13 @@ class GitBranchUpdate(BaseModel):
     target: str | None = Field(default=None, description="Target ref for force-update (git branch -f <name> <target>)")
     delete: bool = Field(default=False, description="Delete the branch")
     force: bool = Field(default=False, description="Force delete even if not merged (git branch -D)")
+
+
+class GitWorktreeList(BaseModel):
+    repo_path: str
+
+
+class GitWorktreeRemove(BaseModel):
+    repo_path: str
+    worktree_path: str = Field(description="Path of worktree to remove")
+    force: bool = Field(default=False, description="Force removal even with modifications")

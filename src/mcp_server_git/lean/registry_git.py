@@ -35,8 +35,15 @@ from ..git.models import (
     GitSubmoduleStatus,
     GitSubmoduleSync,
     GitSubmoduleUpdate,
+    GitWorktreeList,
+    GitWorktreeRemove,
 )
-from ..git.operations_extended import git_branch_update, git_restore
+from ..git.operations_extended import (
+    git_branch_update,
+    git_restore,
+    git_worktree_list,
+    git_worktree_remove,
+)
 from ..utils.git_import import Repo
 from .interface import ToolDefinition
 
@@ -435,6 +442,22 @@ def _register_git_tools(interface: Any, git_service: Any):
             implementation=wrap_repo_op(git_branch_update),
             description="Force-update a branch ref or delete a branch",
             schema=GitBranchUpdate.model_json_schema(),
+            domain="git",
+            complexity="focused",
+        ),
+        ToolDefinition(
+            name="git_worktree_list",
+            implementation=wrap_repo_op(git_worktree_list),
+            description="List all worktrees in the repository",
+            schema=GitWorktreeList.model_json_schema(),
+            domain="git",
+            complexity="core",
+        ),
+        ToolDefinition(
+            name="git_worktree_remove",
+            implementation=wrap_repo_op(git_worktree_remove),
+            description="Remove a worktree (with optional force for modified worktrees)",
+            schema=GitWorktreeRemove.model_json_schema(),
             domain="git",
             complexity="focused",
         ),

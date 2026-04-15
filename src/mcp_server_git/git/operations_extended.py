@@ -15,6 +15,8 @@ DANGEROUS_CHARS = re.compile(r"[;&|`$()]")
 __all__ = [
     "git_restore",
     "git_branch_update",
+    "git_worktree_list",
+    "git_worktree_remove",
 ]
 
 
@@ -97,3 +99,70 @@ def git_branch_update(
         return f"❌ Branch update failed: {stderr}"
     except Exception as e:
         return f"❌ Error updating branch: {str(e)}"
+
+
+def git_worktree_list(repo: Repo) -> str:
+    """List all worktrees in the repository."""
+    try:
+        output = repo.git.worktree("list", "--porcelain")
+
+        if not output.strip():
+            return "No worktrees found"
+
+        worktrees = []
+        current = {}
+        for line in output.split("\n"):
+            if line.startswith("worktree "):
+                if current:
+                    worktrees.append(current)
+                current = {"path": line[9:]}
+            elif line.startswith("HEAD "):
+                current["head"] = line[5:13]  # Short SHA (8 chars)
+            elif line.startswith("branch "):
+                current["branch"] = line[7:].replace("refs/heads/", "")
+            elif line == "bare":
+                current["bare"] = True
+            elif line == "detached":
+                current["detached"] = True
+
+        if current:
+            worktrees.append(current)
+
+        lines = [f"Worktrees ({len(worktrees)}):"]
+        for wt in worktrees:
+            branch = wt.get("branch", "detached" if wt.get("detached") else "bare")
+            head = wt.get("head", "???")
+            lines.append(f"  {wt['path']} [{branch}] ({head})")
+
+        return "\n".join(lines)
+
+    except GitCommandError as e:
+        stderr = e.stderr.decode() if isinstance(e.stderr, bytes) else e.stderr
+        return f"❌ Failed to list worktrees: {stderr}"
+    except Exception as e:
+        return f"❌ Error listing worktrees: {str(e)}"
+
+
+def git_worktree_remove(
+    repo: Repo,
+    worktree_path: str,
+    force: bool = False,
+) -> str:
+    """Remove a worktree."""
+    if DANGEROUS_CHARS.search(worktree_path):
+        return f"❌ Invalid characters in worktree path: '{worktree_path}'"
+
+    try:
+        args = ["remove"]
+        if force:
+            args.append("--force")
+        args.append(worktree_path)
+
+        repo.git.worktree(*args)
+        return f"✅ Removed worktree: {worktree_path}"
+
+    except GitCommandError as e:
+        stderr = e.stderr.decode() if isinstance(e.stderr, bytes) else e.stderr
+        return f"❌ Failed to remove worktree: {stderr}"
+    except Exception as e:
+        return f"❌ Error removing worktree: {str(e)}"
