@@ -250,3 +250,10 @@ class GitMergeTree(BaseModel):
     repo_path: str
     branch1: str = Field(description="First branch (typically current)")
     branch2: str = Field(description="Second branch (typically incoming)")
+
+
+class GitRm(BaseModel):
+    repo_path: str
+    file: str = Field(description="Single file path to remove (no wildcards, no directories)")
+    cached: bool = Field(default=False, description="Remove from index only, keep working tree file (--cached)")
+    dry_run: bool = Field(default=False, description="Show what would be removed without doing it (--dry-run)")
