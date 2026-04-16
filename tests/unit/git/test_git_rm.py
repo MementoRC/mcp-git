@@ -175,6 +175,24 @@ class TestGitRmInputValidation:
     @pytest.mark.parametrize(
         "path",
         [
+            "/etc/passwd",
+            "/home/user/file.py",
+            "/tmp/test.txt",
+        ],
+    )
+    def test_git_rm_rejects_absolute_paths(self, path):
+        """Should reject absolute paths to prevent system file removal."""
+        mock_repo = Mock()
+
+        result = git_rm(mock_repo, file=path)
+
+        assert "❌" in result
+        assert "Absolute paths not allowed" in result
+        mock_repo.git.rm.assert_not_called()
+
+    @pytest.mark.parametrize(
+        "path",
+        [
             "dir/..",     # normpath collapses to .
             "a/b/../..",  # normpath collapses to .
         ],

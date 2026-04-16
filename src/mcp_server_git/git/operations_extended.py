@@ -239,6 +239,10 @@ def git_rm(
     if file in (".", ".."):
         return "❌ Refusing to remove '.' or '..'. Specify an explicit file path."
 
+    # Block absolute paths to prevent accidental system file removal
+    if os.path.isabs(file):
+        return "❌ Absolute paths not allowed. Use a path relative to the repository root."
+
     if _UNSAFE_PATH.search(file):
         return "❌ Wildcards/globs not allowed. Specify an explicit file path."
 
