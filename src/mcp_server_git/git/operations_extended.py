@@ -4,6 +4,7 @@ New tools added to avoid bloating operations.py (2284 lines, tracked in #139/#14
 """
 
 import logging
+import os
 import re
 
 from ..utils.git_import import GitCommandError, Repo
@@ -227,12 +228,16 @@ def git_rm(
 
     file = file.strip()
 
-    # Block directory-style paths and current/parent dir
-    if file in (".", ".."):
-        return "❌ Refusing to remove '.' or '..'. Specify an explicit file path."
-
+    # Check trailing slash before normpath strips it
     if file.endswith("/"):
         return "❌ Directory removal not supported. Specify an explicit file path."
+
+    # Normalize path to collapse ./, ../, and redundant separators
+    file = os.path.normpath(file)
+
+    # Block current/parent dir (also catches paths that normalize to . or ..)
+    if file in (".", ".."):
+        return "❌ Refusing to remove '.' or '..'. Specify an explicit file path."
 
     if _UNSAFE_PATH.search(file):
         return "❌ Wildcards/globs not allowed. Specify an explicit file path."

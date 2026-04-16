@@ -82,6 +82,25 @@ class TestGitRmSuccess:
         assert "✅" in result
         mock_repo.git.rm.assert_called_once_with("--", "file.py")
 
+    @pytest.mark.parametrize(
+        "filename",
+        [
+            "docs/résumé.txt",
+            "data/日本語.csv",
+            "notes/über-file.md",
+            "src/café.py",
+        ],
+    )
+    def test_git_rm_accepts_unicode_filenames(self, filename):
+        """Should accept non-ASCII filenames without error."""
+        mock_repo = Mock()
+        mock_repo.git.rm.return_value = f"rm '{filename}'"
+
+        result = git_rm(mock_repo, file=filename)
+
+        assert "✅" in result
+        mock_repo.git.rm.assert_called_once_with("--", filename)
+
 
 class TestGitRmInputValidation:
     """Test safety guards for git_rm."""
@@ -135,6 +154,60 @@ class TestGitRmInputValidation:
         assert "❌" in result
         assert "Directory removal not supported" in result
         mock_repo.git.rm.assert_not_called()
+
+    @pytest.mark.parametrize(
+        "path",
+        [
+            "./",       # trailing slash caught first
+            "dir/../",  # trailing slash caught first
+        ],
+    )
+    def test_git_rm_rejects_trailing_slash_variants(self, path):
+        """Should reject paths ending in '/' before normalization."""
+        mock_repo = Mock()
+
+        result = git_rm(mock_repo, file=path)
+
+        assert "❌" in result
+        assert "Directory removal not supported" in result
+        mock_repo.git.rm.assert_not_called()
+
+    @pytest.mark.parametrize(
+        "path",
+        [
+            "dir/..",     # normpath collapses to .
+            "a/b/../..",  # normpath collapses to .
+        ],
+    )
+    def test_git_rm_rejects_normalized_dot_paths(self, path):
+        """Should reject paths that normalize to '.' or '..'."""
+        mock_repo = Mock()
+
+        result = git_rm(mock_repo, file=path)
+
+        assert "❌" in result
+        assert "Refusing" in result
+        mock_repo.git.rm.assert_not_called()
+
+    def test_git_rm_normalizes_redundant_separators(self):
+        """Should normalize path before passing to git."""
+        mock_repo = Mock()
+        mock_repo.git.rm.return_value = "rm 'src/file.py'"
+
+        result = git_rm(mock_repo, file="src//file.py")
+
+        assert "✅" in result
+        mock_repo.git.rm.assert_called_once_with("--", "src/file.py")
+
+    def test_git_rm_normalizes_dot_segments(self):
+        """Should normalize ./src/../src/file.py to src/file.py."""
+        mock_repo = Mock()
+        mock_repo.git.rm.return_value = "rm 'src/file.py'"
+
+        result = git_rm(mock_repo, file="./src/../src/file.py")
+
+        assert "✅" in result
+        mock_repo.git.rm.assert_called_once_with("--", "src/file.py")
 
     @pytest.mark.parametrize("wildcard", ["*", "?", "[", "]", "{", "}"])
     def test_git_rm_rejects_wildcards(self, wildcard):
