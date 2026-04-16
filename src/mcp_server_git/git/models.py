@@ -219,3 +219,34 @@ class GitConfigList(BaseModel):
     repo_path: str
     file: str | None = None
     scope: str | None = None
+
+
+class GitRestore(BaseModel):
+    repo_path: str
+    files: list[str] = Field(description="Files to restore")
+    staged: bool = Field(default=False, description="Unstage files (git restore --staged)")
+    source: str | None = Field(default=None, description="Restore from specific commit/ref (git restore --source)")
+
+
+class GitBranchUpdate(BaseModel):
+    repo_path: str
+    branch_name: str = Field(description="Branch to update or delete")
+    target: str | None = Field(default=None, description="Target ref for force-update (git branch -f <name> <target>)")
+    delete: bool = Field(default=False, description="Delete the branch")
+    force: bool = Field(default=False, description="Force delete even if not merged (git branch -D)")
+
+
+class GitWorktreeList(BaseModel):
+    repo_path: str
+
+
+class GitWorktreeRemove(BaseModel):
+    repo_path: str
+    worktree_path: str = Field(description="Path of worktree to remove")
+    force: bool = Field(default=False, description="Force removal even with modifications")
+
+
+class GitMergeTree(BaseModel):
+    repo_path: str
+    branch1: str = Field(description="First branch (typically current)")
+    branch2: str = Field(description="Second branch (typically incoming)")
