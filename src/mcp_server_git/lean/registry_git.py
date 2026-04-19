@@ -36,6 +36,7 @@ from ..git.models import (
     GitSubmoduleStatus,
     GitSubmoduleSync,
     GitSubmoduleUpdate,
+    GitRm,
     GitWorktreeList,
     GitWorktreeRemove,
 )
@@ -43,6 +44,7 @@ from ..git.operations_extended import (
     git_branch_update,
     git_merge_tree,
     git_restore,
+    git_rm,
     git_worktree_list,
     git_worktree_remove,
 )
@@ -468,6 +470,14 @@ def _register_git_tools(interface: Any, git_service: Any):
             implementation=wrap_repo_op(git_merge_tree),
             description="Dry-run merge conflict detection without modifying working tree",
             schema=GitMergeTree.model_json_schema(),
+            domain="git",
+            complexity="focused",
+        ),
+        ToolDefinition(
+            name="git_rm",
+            implementation=wrap_repo_op(git_rm),
+            description="Remove a single file from working tree and/or index (safe: no wildcards, no directories)",
+            schema=GitRm.model_json_schema(),
             domain="git",
             complexity="focused",
         ),

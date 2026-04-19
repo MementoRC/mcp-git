@@ -4,6 +4,7 @@ New tools added to avoid bloating operations.py (2284 lines, tracked in #139/#14
 """
 
 import logging
+import os
 import re
 
 from ..utils.git_import import GitCommandError, Repo
@@ -18,6 +19,7 @@ __all__ = [
     "git_worktree_list",
     "git_worktree_remove",
     "git_merge_tree",
+    "git_rm",
 ]
 
 
@@ -205,3 +207,67 @@ def git_merge_tree(
 
     except Exception as e:
         return f"❌ Error during merge-tree: {str(e)}"
+
+
+# Dangerous-path blocklist for git_rm: reject wildcards, directories, bare '.'
+_UNSAFE_PATH = re.compile(r"[*?\[\]{}]")
+
+
+def git_rm(
+    repo: Repo,
+    file: str,
+    cached: bool = False,
+    dry_run: bool = False,
+) -> str:
+    """Remove a single, explicitly-named file from the working tree and index.
+
+    Safety: rejects wildcards, '.', '..', and directory separators ending in '/'.
+    """
+    if not file or not file.strip():
+        return "❌ No file specified"
+
+    file = file.strip()
+
+    # Check trailing slash before normpath strips it
+    if file.endswith("/"):
+        return "❌ Directory removal not supported. Specify an explicit file path."
+
+    # Normalize path to collapse ./, ../, and redundant separators
+    file = os.path.normpath(file)
+
+    # Block current/parent dir (also catches paths that normalize to . or ..)
+    if file in (".", ".."):
+        return "❌ Refusing to remove '.' or '..'. Specify an explicit file path."
+
+    # Block absolute paths to prevent accidental system file removal
+    if os.path.isabs(file):
+        return "❌ Absolute paths not allowed. Use a path relative to the repository root."
+
+    if _UNSAFE_PATH.search(file):
+        return "❌ Wildcards/globs not allowed. Specify an explicit file path."
+
+    if DANGEROUS_CHARS.search(file):
+        return f"❌ Invalid characters detected in file path: '{file}'"
+
+    try:
+        args = []
+        if cached:
+            args.append("--cached")
+        if dry_run:
+            args.append("--dry-run")
+        args.append("--")
+        args.append(file)
+
+        output = repo.git.rm(*args)
+
+        if dry_run:
+            return f"🔍 Dry-run: would remove '{file}'\n{output}"
+
+        mode = "from index (kept on disk)" if cached else "from working tree and index"
+        return f"✅ Removed '{file}' {mode}"
+
+    except GitCommandError as e:
+        stderr = e.stderr.decode() if isinstance(e.stderr, bytes) else e.stderr
+        return f"❌ git rm failed: {stderr}"
+    except Exception as e:
+        return f"❌ Error during git rm: {str(e)}"
