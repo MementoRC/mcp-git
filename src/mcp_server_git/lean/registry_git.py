@@ -192,7 +192,7 @@ def _register_git_tools(interface: Any, git_service: Any):
         ToolDefinition(
             name="git_rebase",
             implementation=wrap_repo_op(git_ops.git_rebase),
-            description="Rebase current branch onto another branch",
+            description="Rebase branch onto another. Supports --onto <new_base> <fork_point> [<branch>] for moving branches between bases",
             schema=GitRebase.model_json_schema(),
             domain="git",
             complexity="advanced",
