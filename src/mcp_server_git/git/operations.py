@@ -1461,6 +1461,16 @@ def git_rebase(
                    onto="new-base", fork_point="old-base")
     """
     try:
+        # Validate ref parameters for shell injection
+        dangerous_chars = [";", "|", "&", "`", "$", "(", ")"]
+        for param_name, param_value in [
+            ("onto", onto),
+            ("fork_point", fork_point),
+            ("branch", branch),
+        ]:
+            if param_value and any(char in param_value for char in dangerous_chars):
+                return f"❌ Invalid characters detected in {param_name}: '{param_value}'"
+
         # Validate onto/fork_point pairing
         if onto and not fork_point:
             return "❌ --onto requires fork_point (the old base to rebase from)"

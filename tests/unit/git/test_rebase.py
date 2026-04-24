@@ -146,3 +146,35 @@ class TestGitRebaseOnto:
         repo.git.rebase.side_effect = GitCommandError("rebase", 128, stderr="fatal")
         result = git_rebase(repo, "main", onto="new-base", fork_point="old-base")
         assert "❌" in result
+
+
+class TestGitRebaseRefValidation:
+    """Tests for ref parameter validation in git_rebase."""
+
+    @pytest.mark.parametrize(
+        "param_name,kwargs",
+        [
+            ("onto", {"onto": "base;rm -rf", "fork_point": "old"}),
+            ("fork_point", {"onto": "base", "fork_point": "old|bad"}),
+            ("branch", {"branch": "feat&bad"}),
+            ("onto", {"onto": "$(cmd)", "fork_point": "old"}),
+            ("fork_point", {"onto": "base", "fork_point": "old`inject`"}),
+        ],
+    )
+    def test_rebase_rejects_dangerous_chars_in_ref(self, param_name, kwargs):
+        repo = _make_repo()
+        result = git_rebase(repo, "main", **kwargs)
+        assert "❌" in result
+        assert "Invalid characters" in result
+        assert param_name in result
+
+    def test_rebase_allows_valid_ref_chars(self):
+        """Refs with slashes, dots, hyphens are valid."""
+        repo = _make_repo()
+        repo.git.rebase.return_value = ""
+        result = git_rebase(
+            repo, "main",
+            onto="origin/feature-branch.v2",
+            fork_point="refs/heads/old-base",
+        )
+        assert "✅" in result
