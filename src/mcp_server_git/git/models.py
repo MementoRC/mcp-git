@@ -129,6 +129,9 @@ class GitDiffBranches(BaseModel):
 class GitRebase(BaseModel):
     repo_path: str
     target_branch: str
+    onto: str | None = Field(default=None, description="Rebase --onto target (new base)")
+    fork_point: str | None = Field(default=None, description="Fork point / old base for --onto")
+    branch: str | None = Field(default=None, description="Branch to rebase (default: current HEAD)")
 
 
 class GitMerge(BaseModel):
