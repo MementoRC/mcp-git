@@ -46,3 +46,103 @@ class TestGitRebaseModel:
         assert m.onto == "new-base"
         assert m.fork_point == "old-base"
         assert m.branch == "feature"
+
+
+from unittest.mock import MagicMock, PropertyMock, patch
+
+from git import GitCommandError
+
+from mcp_server_git.git.operations import git_rebase
+
+
+def _make_repo(
+    branch_name: str = "feature",
+    branches: list[str] | None = None,
+    remotes: bool = False,
+):
+    """Create a mock Repo with configurable branches."""
+    repo = MagicMock()
+    type(repo.active_branch).name = PropertyMock(return_value=branch_name)
+
+    if branches is None:
+        branches = ["main", "feature", "development"]
+    mock_branches = []
+    for b in branches:
+        mb = MagicMock()
+        mb.name = b
+        mock_branches.append(mb)
+    repo.branches = mock_branches
+
+    if not remotes:
+        repo.remotes = []
+
+    return repo
+
+
+class TestGitRebaseOnto:
+    """Tests for git_rebase with --onto parameter."""
+
+    def test_rebase_simple_returns_success(self):
+        """Existing behavior preserved: simple rebase onto target."""
+        repo = _make_repo()
+        repo.git.rebase.return_value = ""
+        result = git_rebase(repo, "main")
+        assert "✅" in result
+        assert "feature" in result
+        repo.git.rebase.assert_called_once_with("main")
+
+    def test_rebase_onto_calls_git_with_onto_flag(self):
+        """--onto new-base old-base should pass correct args."""
+        repo = _make_repo()
+        repo.git.rebase.return_value = ""
+        result = git_rebase(repo, "main", onto="new-base", fork_point="old-base")
+        assert "✅" in result
+        repo.git.rebase.assert_called_once_with("--onto", "new-base", "old-base")
+
+    def test_rebase_onto_with_branch_passes_branch_arg(self):
+        """--onto new-base old-base feature should include branch."""
+        repo = _make_repo()
+        repo.git.rebase.return_value = ""
+        result = git_rebase(
+            repo, "main", onto="new-base", fork_point="old-base", branch="feature"
+        )
+        assert "✅" in result
+        repo.git.rebase.assert_called_once_with(
+            "--onto", "new-base", "old-base", "feature"
+        )
+
+    def test_rebase_branch_without_onto_passes_target_and_branch(self):
+        """branch param without --onto: git rebase target branch."""
+        repo = _make_repo()
+        repo.git.rebase.return_value = ""
+        result = git_rebase(repo, "main", branch="feature")
+        assert "✅" in result
+        repo.git.rebase.assert_called_once_with("main", "feature")
+
+    def test_rebase_onto_without_fork_point_returns_error(self):
+        """--onto without fork_point is invalid."""
+        repo = _make_repo()
+        result = git_rebase(repo, "main", onto="new-base")
+        assert "❌" in result
+        assert "fork_point" in result.lower()
+
+    def test_rebase_fork_point_without_onto_returns_error(self):
+        """fork_point without --onto is invalid."""
+        repo = _make_repo()
+        result = git_rebase(repo, "main", fork_point="old-base")
+        assert "❌" in result
+        assert "onto" in result.lower()
+
+    def test_rebase_onto_conflict_returns_conflict_msg(self):
+        """Conflict during --onto rebase returns conflict message."""
+        repo = _make_repo()
+        repo.git.rebase.side_effect = GitCommandError("rebase", 128, stderr="conflict")
+        result = git_rebase(repo, "main", onto="new-base", fork_point="old-base")
+        assert "conflict" in result.lower()
+
+    def test_rebase_onto_git_error_returns_error_msg(self):
+        """Non-conflict git error returns error message."""
+        repo = _make_repo()
+        repo.git.rebase.side_effect = GitCommandError("rebase", 128, stderr="fatal")
+        result = git_rebase(repo, "main", onto="new-base", fork_point="old-base")
+        assert "❌" in result
