@@ -45,6 +45,10 @@ class GitCommit(BaseModel):
     )
     gpg_sign: bool = False
     gpg_key_id: str | None = None
+    allow_empty: bool = Field(
+        default=False,
+        description="Allow creating a commit with no staged changes (--allow-empty)",
+    )
 
 
 class GitAdd(BaseModel):

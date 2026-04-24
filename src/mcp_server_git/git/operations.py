@@ -429,6 +429,7 @@ def git_commit(
     amend: bool = False,  # If True, amend the most recent commit instead of creating new one
     gpg_sign: bool = False,
     gpg_key_id: str | None = None,
+    allow_empty: bool = False,
 ) -> str:
     """Commit staged changes with optional amend, GPG signing and automatic security enforcement"""
     try:
@@ -465,6 +466,8 @@ def git_commit(
             cmd = ["git", "commit"]
             if amend:
                 cmd.append("--amend")
+            if allow_empty:
+                cmd.append("--allow-empty")
             cmd.append(f"--gpg-sign={force_key_id}")
             cmd.extend(["-m", message])
 
