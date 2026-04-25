@@ -256,17 +256,42 @@ class TestGitRmInputValidation:
 class TestGitRmErrorHandling:
     """Test error handling for git_rm."""
 
-    def test_git_rm_handles_git_command_error_bytes_stderr(self):
-        """Should handle GitCommandError with bytes stderr."""
+    def test_git_rm_returns_file_not_found_when_pathspec_unmatched(self):
+        """Should return specific 'not tracked' message for missing files."""
         mock_repo = Mock()
         mock_repo.git.rm.side_effect = GitCommandError(
-            "git rm", 128, b"", b"fatal: pathspec 'missing.py' did not match"
+            "git rm", 128, b"fatal: pathspec 'missing.py' did not match any files"
         )
 
         result = git_rm(mock_repo, file="missing.py")
 
         assert "❌" in result
-        assert "git rm failed" in result
+        assert "File not found" in result
+        assert "not tracked" in result
+
+    def test_git_rm_returns_uncommitted_changes_when_locally_modified(self):
+        """Should return specific message when file has local modifications."""
+        mock_repo = Mock()
+        mock_repo.git.rm.side_effect = GitCommandError(
+            "git rm", 1, b"error: the following file has local modifications:\n  file.py"
+        )
+
+        result = git_rm(mock_repo, file="file.py")
+
+        assert "❌" in result
+        assert "uncommitted changes" in result
+
+    def test_git_rm_returns_uncommitted_changes_when_staged(self):
+        """Should return specific message when file has staged changes."""
+        mock_repo = Mock()
+        mock_repo.git.rm.side_effect = GitCommandError(
+            "git rm", 1, b"error: the following file has changes staged in the index:\n  file.py"
+        )
+
+        result = git_rm(mock_repo, file="file.py")
+
+        assert "❌" in result
+        assert "uncommitted changes" in result
 
     def test_git_rm_handles_git_command_error_string_stderr(self):
         """Should handle GitCommandError with string stderr."""

@@ -429,6 +429,7 @@ def git_commit(
     amend: bool = False,  # If True, amend the most recent commit instead of creating new one
     gpg_sign: bool = False,
     gpg_key_id: str | None = None,
+    allow_empty: bool = False,
 ) -> str:
     """Commit staged changes with optional amend, GPG signing and automatic security enforcement"""
     try:
@@ -465,6 +466,8 @@ def git_commit(
             cmd = ["git", "commit"]
             if amend:
                 cmd.append("--amend")
+            if allow_empty:
+                cmd.append("--allow-empty")
             cmd.append(f"--gpg-sign={force_key_id}")
             cmd.extend(["-m", message])
 
@@ -1439,37 +1442,75 @@ def git_diff_branches(
         return f"❌ Diff error: {str(e)}"
 
 
-def git_rebase(repo: Repo, target_branch: str) -> str:
-    """Rebase current branch onto target branch"""
+def git_rebase(
+    repo: Repo,
+    target_branch: str,
+    onto: str | None = None,
+    fork_point: str | None = None,
+    branch: str | None = None,
+) -> str:
+    """Rebase current branch onto target branch.
+
+    Supports --onto for rebasing between bases:
+        git rebase --onto <new_base> <old_fork_point> [<branch>]
+
+    Examples:
+        git_rebase(repo, "main")                          # simple rebase
+        git_rebase(repo, "main", branch="feature")        # rebase feature onto main
+        git_rebase(repo, "main",                          # --onto rebase
+                   onto="new-base", fork_point="old-base")
+    """
     try:
-        # Get current branch
+        # Validate ref parameters for shell injection
+        dangerous_chars = [";", "|", "&", "`", "$", "(", ")"]
+        for param_name, param_value in [
+            ("onto", onto),
+            ("fork_point", fork_point),
+            ("branch", branch),
+        ]:
+            if param_value and any(char in param_value for char in dangerous_chars):
+                return f"❌ Invalid characters detected in {param_name}: '{param_value}'"
+
+        # Validate onto/fork_point pairing
+        if onto and not fork_point:
+            return "❌ --onto requires fork_point (the old base to rebase from)"
+        if fork_point and not onto:
+            return "❌ fork_point requires --onto (the new base to rebase onto)"
+
+        # Get current branch for success message
         current_branch = repo.active_branch.name
 
-        # Check if target branch exists - support both short names and full remote refs
-        all_branches = [branch.name for branch in repo.branches]
+        # Check if target branch exists (only when not using --onto)
+        if not onto:
+            all_branches = [b.name for b in repo.branches]
+            try:
+                if repo.remotes:
+                    for remote in repo.remotes:
+                        all_branches.extend([ref.name for ref in remote.refs])
+                        all_branches.extend(
+                            [ref.name.split("/")[-1] for ref in remote.refs]
+                        )
+            except Exception:
+                pass
+            if target_branch not in all_branches:
+                return f"❌ Target branch '{target_branch}' not found"
 
-        # Add remote branches if remotes exist
-        try:
-            if repo.remotes:
-                for remote in repo.remotes:
-                    # Include both full remote ref names (e.g., 'origin/development')
-                    # and short names (e.g., 'development') for compatibility
-                    all_branches.extend([ref.name for ref in remote.refs])
-                    all_branches.extend(
-                        [ref.name.split("/")[-1] for ref in remote.refs]
-                    )
-        except Exception:
-            # Ignore remote access errors (e.g., no remotes configured)
-            pass
-        if target_branch not in all_branches:
-            return f"❌ Target branch '{target_branch}' not found"
+        # Build rebase command args
+        if onto:
+            args = ["--onto", onto, fork_point]
+            if branch:
+                args.append(branch)
+        elif branch:
+            args = [target_branch, branch]
+        else:
+            args = [target_branch]
 
-        # Perform rebase (non-interactive only)
-        result = repo.git.rebase(target_branch)
+        result = repo.git.rebase(*args)
 
-        return (
-            f"✅ Successfully rebased {current_branch} onto {target_branch}\n{result}"
-        )
+        rebase_branch = branch or current_branch
+        if onto:
+            return f"✅ Successfully rebased {rebase_branch} --onto {onto} (from {fork_point})\n{result}"
+        return f"✅ Successfully rebased {rebase_branch} onto {target_branch}\n{result}"
 
     except GitCommandError as e:
         if "conflict" in str(e).lower():

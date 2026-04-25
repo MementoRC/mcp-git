@@ -221,7 +221,13 @@ def git_rm(
 ) -> str:
     """Remove a single, explicitly-named file from the working tree and index.
 
-    Safety: rejects wildcards, '.', '..', and directory separators ending in '/'.
+    Safety: rejects wildcards, '.', '..', absolute paths, and trailing '/'.
+
+    Examples::
+
+        git_rm(repo, "old_module.py")           # remove from tree + index
+        git_rm(repo, "old_module.py", cached=True)  # untrack, keep on disk
+        git_rm(repo, "old_module.py", dry_run=True)  # preview only
     """
     if not file or not file.strip():
         return "❌ No file specified"
@@ -268,6 +274,10 @@ def git_rm(
 
     except GitCommandError as e:
         stderr = e.stderr.decode() if isinstance(e.stderr, bytes) else e.stderr
+        if "did not match any files" in stderr:
+            return f"❌ File not found: '{file}' is not tracked by git"
+        if "has local modifications" in stderr or "has changes staged" in stderr:
+            return f"❌ File '{file}' has uncommitted changes. Stage or stash first, or use force."
         return f"❌ git rm failed: {stderr}"
     except Exception as e:
         return f"❌ Error during git rm: {str(e)}"
