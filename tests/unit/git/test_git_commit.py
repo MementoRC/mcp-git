@@ -57,7 +57,7 @@ class TestGitCommitAllowEmpty:
 
         return commit_result, rev_parse_result
 
-    @patch("mcp_server_git.git.operations.subprocess.run")
+    @patch("mcp_server_git.git._commit_ops.subprocess.run")
     @patch("mcp_server_git.git.security.enforce_secure_git_config")
     def test_allow_empty_true_adds_flag_to_command(
         self, mock_security, mock_run
@@ -74,7 +74,7 @@ class TestGitCommitAllowEmpty:
         cmd = commit_call_args[0][0]
         assert "--allow-empty" in cmd
 
-    @patch("mcp_server_git.git.operations.subprocess.run")
+    @patch("mcp_server_git.git._commit_ops.subprocess.run")
     @patch("mcp_server_git.git.security.enforce_secure_git_config")
     def test_allow_empty_false_does_not_add_flag(
         self, mock_security, mock_run
@@ -91,7 +91,7 @@ class TestGitCommitAllowEmpty:
         cmd = commit_call_args[0][0]
         assert "--allow-empty" not in cmd
 
-    @patch("mcp_server_git.git.operations.subprocess.run")
+    @patch("mcp_server_git.git._commit_ops.subprocess.run")
     @patch("mcp_server_git.git.security.enforce_secure_git_config")
     def test_allow_empty_default_does_not_add_flag(
         self, mock_security, mock_run
@@ -108,7 +108,7 @@ class TestGitCommitAllowEmpty:
         cmd = commit_call_args[0][0]
         assert "--allow-empty" not in cmd
 
-    @patch("mcp_server_git.git.operations.subprocess.run")
+    @patch("mcp_server_git.git._commit_ops.subprocess.run")
     @patch("mcp_server_git.git.security.enforce_secure_git_config")
     def test_allow_empty_flag_position_before_gpg_sign(
         self, mock_security, mock_run
@@ -126,7 +126,7 @@ class TestGitCommitAllowEmpty:
         gpg_idx = next(i for i, arg in enumerate(cmd) if arg.startswith("--gpg-sign="))
         assert allow_empty_idx < gpg_idx
 
-    @patch("mcp_server_git.git.operations.subprocess.run")
+    @patch("mcp_server_git.git._commit_ops.subprocess.run")
     @patch("mcp_server_git.git.security.enforce_secure_git_config")
     def test_allow_empty_combined_with_amend(
         self, mock_security, mock_run

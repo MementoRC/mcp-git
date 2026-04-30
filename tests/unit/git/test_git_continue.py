@@ -21,7 +21,7 @@ from mcp_server_git.git.operations import git_continue
 class TestGitContinueSubprocessFix:
     """Test git_continue uses subprocess for reliable execution."""
 
-    @patch("mcp_server_git.git.operations.subprocess.run")
+    @patch("mcp_server_git.git._rebase_ops.subprocess.run")
     def test_git_continue_uses_subprocess_for_rebase(self, mock_subprocess):
         """Should use subprocess.run instead of GitPython for rebase continue."""
         # Arrange
@@ -47,7 +47,7 @@ class TestGitContinueSubprocessFix:
             timeout=60,
         )
 
-    @patch("mcp_server_git.git.operations.subprocess.run")
+    @patch("mcp_server_git.git._rebase_ops.subprocess.run")
     def test_git_continue_uses_subprocess_for_merge(self, mock_subprocess):
         """Should use subprocess.run for merge continue."""
         # Arrange
@@ -73,7 +73,7 @@ class TestGitContinueSubprocessFix:
             timeout=60,
         )
 
-    @patch("mcp_server_git.git.operations.subprocess.run")
+    @patch("mcp_server_git.git._rebase_ops.subprocess.run")
     def test_git_continue_uses_subprocess_for_cherry_pick(self, mock_subprocess):
         """Should use subprocess.run for cherry-pick continue."""
         # Arrange
@@ -99,7 +99,7 @@ class TestGitContinueSubprocessFix:
             timeout=60,
         )
 
-    @patch("mcp_server_git.git.operations.subprocess.run")
+    @patch("mcp_server_git.git._rebase_ops.subprocess.run")
     def test_git_continue_handles_no_operation_in_progress(self, mock_subprocess):
         """Should provide helpful message when no operation is in progress."""
         # Arrange
@@ -118,7 +118,7 @@ class TestGitContinueSubprocessFix:
         # Assert
         assert "❌ No rebase in progress to continue" in result
 
-    @patch("mcp_server_git.git.operations.subprocess.run")
+    @patch("mcp_server_git.git._rebase_ops.subprocess.run")
     def test_git_continue_handles_unresolved_conflicts(self, mock_subprocess):
         """Should detect and report unresolved conflicts."""
         # Arrange
@@ -138,7 +138,7 @@ class TestGitContinueSubprocessFix:
         assert "❌ Unresolved conflicts remain" in result
         assert "Resolve conflicts before continuing" in result
 
-    @patch("mcp_server_git.git.operations.subprocess.run")
+    @patch("mcp_server_git.git._rebase_ops.subprocess.run")
     def test_git_continue_handles_nothing_to_commit(self, mock_subprocess):
         """Should detect when there are no changes to commit."""
         # Arrange
@@ -157,7 +157,7 @@ class TestGitContinueSubprocessFix:
         # Assert
         assert "❌ No changes to commit" in result
 
-    @patch("mcp_server_git.git.operations.subprocess.run")
+    @patch("mcp_server_git.git._rebase_ops.subprocess.run")
     def test_git_continue_handles_timeout(self, mock_subprocess):
         """Should handle subprocess timeout gracefully."""
         # Arrange
@@ -186,7 +186,7 @@ class TestGitContinueSubprocessFix:
         assert "❌ Invalid operation" in result
         assert "Valid operations: rebase, merge, cherry-pick" in result
 
-    @patch("mcp_server_git.git.operations.subprocess.run")
+    @patch("mcp_server_git.git._rebase_ops.subprocess.run")
     def test_git_continue_includes_output_in_success_message(self, mock_subprocess):
         """Should include git command output in success message."""
         # Arrange
@@ -207,7 +207,7 @@ class TestGitContinueSubprocessFix:
         assert "Applying: commit message" in result
         assert "3 files changed" in result
 
-    @patch("mcp_server_git.git.operations.subprocess.run")
+    @patch("mcp_server_git.git._rebase_ops.subprocess.run")
     def test_git_continue_handles_stderr_in_success(self, mock_subprocess):
         """Should include stderr in output even on success."""
         # Arrange
@@ -227,7 +227,7 @@ class TestGitContinueSubprocessFix:
         assert "✅ Successfully continued merge" in result
         assert "Already on 'main'" in result
 
-    @patch("mcp_server_git.git.operations.subprocess.run")
+    @patch("mcp_server_git.git._rebase_ops.subprocess.run")
     def test_git_continue_prefers_stderr_on_failure(self, mock_subprocess):
         """Should report stderr on failure, falling back to stdout."""
         # Arrange
@@ -248,7 +248,7 @@ class TestGitContinueSubprocessFix:
         assert "fatal: error message" in result
         assert "Some stdout" not in result
 
-    @patch("mcp_server_git.git.operations.subprocess.run")
+    @patch("mcp_server_git.git._rebase_ops.subprocess.run")
     def test_git_continue_falls_back_to_stdout_on_empty_stderr(self, mock_subprocess):
         """Should use stdout if stderr is empty on failure."""
         # Arrange

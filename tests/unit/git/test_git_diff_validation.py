@@ -304,7 +304,7 @@ class TestApplyDiffSizeLimiting:
 class TestGitDiffValidationIntegration:
     """Test integration of validation with git diff functions."""
 
-    @patch("mcp_server_git.git.operations._validate_diff_parameters")
+    @patch("mcp_server_git.git._diff_ops._validate_diff_parameters")
     def test_git_diff_calls_parameter_validation(self, mock_validate):
         """Should call parameter validation in git_diff function."""
         mock_repo = Mock()
@@ -320,7 +320,7 @@ class TestGitDiffValidationIntegration:
         assert call_args[1]["target"] == "main"
         assert call_args[1]["commit_range"] == "HEAD~1..HEAD"
 
-    @patch("mcp_server_git.git.operations._validate_diff_parameters")
+    @patch("mcp_server_git.git._diff_ops._validate_diff_parameters")
     def test_git_diff_handles_validation_failure(self, mock_validate):
         """Should return error message when parameter validation fails."""
         mock_repo = Mock()
@@ -332,7 +332,7 @@ class TestGitDiffValidationIntegration:
             "❌ Parameter validation failed: Conflicting parameters detected" in result
         )
 
-    @patch("mcp_server_git.git.operations._validate_diff_parameters")
+    @patch("mcp_server_git.git._diff_ops._validate_diff_parameters")
     def test_git_diff_shows_validation_warnings(self, mock_validate):
         """Should include warnings from parameter validation."""
         mock_repo = Mock()
