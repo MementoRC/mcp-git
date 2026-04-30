@@ -24,7 +24,7 @@ from mcp_server_git.utils.git_import import GitCommandError, Repo
 class TestGitAdd:
     """Test git_add operations with comprehensive validation."""
 
-    @patch("mcp_server_git.git.operations.Path")
+    @patch("mcp_server_git.git._staging_ops.Path")
     def test_git_add_stages_existing_files_successfully(self, mock_path_class):
         """Should successfully stage existing files that exist on filesystem."""
         # Arrange
@@ -50,7 +50,7 @@ class TestGitAdd:
         mock_repo.git.add.assert_called_once_with(*files)
         mock_repo.git.diff.assert_called_once_with("--cached", "--name-only")
 
-    @patch("mcp_server_git.git.operations.Path")
+    @patch("mcp_server_git.git._staging_ops.Path")
     def test_git_add_stages_deleted_files_successfully(self, mock_path_class):
         """Should successfully stage deleted files that appear in git status."""
         # Arrange
@@ -78,7 +78,7 @@ class TestGitAdd:
         # Should call git status to check for deleted files
         mock_repo.git.status.assert_called_once_with("--porcelain")
 
-    @patch("mcp_server_git.git.operations.Path")
+    @patch("mcp_server_git.git._staging_ops.Path")
     def test_git_add_rejects_truly_missing_files(self, mock_path_class):
         """Should fail for files that don't exist and aren't in git status."""
         # Arrange
@@ -103,7 +103,7 @@ class TestGitAdd:
         # Should not call git add since file validation failed
         mock_repo.git.add.assert_not_called()
 
-    @patch("mcp_server_git.git.operations.Path")
+    @patch("mcp_server_git.git._staging_ops.Path")
     def test_git_add_handles_mixed_scenarios(self, mock_path_class):
         """Should handle both existing and deleted files in one call."""
         # Arrange
@@ -172,7 +172,7 @@ class TestGitAdd:
         # Assert
         assert "❌ Git add failed: Unexpected error" in result
 
-    @patch("mcp_server_git.git.operations.Path")
+    @patch("mcp_server_git.git._staging_ops.Path")
     def test_git_add_parses_porcelain_format_correctly(self, mock_path_class):
         """Should correctly parse git status --porcelain format."""
         # Arrange
@@ -204,7 +204,7 @@ class TestGitAdd:
         assert "✅ Added 1 file(s) to staging area: deleted_file.py" in result
         # Verify that status parsing correctly identified the file
 
-    @patch("mcp_server_git.git.operations.Path")
+    @patch("mcp_server_git.git._staging_ops.Path")
     def test_git_add_avoids_false_positives_in_status_parsing(self, mock_path_class):
         """Should avoid false positives when parsing status lines."""
         # Arrange
@@ -228,7 +228,7 @@ class TestGitAdd:
         assert "❌ Files not found: file.py" in result
         mock_repo.git.add.assert_not_called()
 
-    @patch("mcp_server_git.git.operations.Path")
+    @patch("mcp_server_git.git._staging_ops.Path")
     def test_git_add_handles_symlinks_correctly(self, mock_path_class):
         """Should handle symlinks the same as regular files."""
         # Arrange
@@ -253,7 +253,7 @@ class TestGitAdd:
         assert "✅ Added 1 file(s) to staging area: symlink_file.py" in result
         mock_repo.git.add.assert_called_once_with(*files)
 
-    @patch("mcp_server_git.git.operations.Path")
+    @patch("mcp_server_git.git._staging_ops.Path")
     def test_git_add_handles_verification_fallback(self, mock_path_class):
         """Should handle verification fallback when git diff fails."""
         # Arrange
@@ -284,7 +284,7 @@ class TestGitAdd:
         assert "✅ Added 1 file(s) to staging area: test_file.py" in result
         mock_repo.git.add.assert_called_once_with(*files)
 
-    @patch("mcp_server_git.git.operations.Path")
+    @patch("mcp_server_git.git._staging_ops.Path")
     def test_git_add_handles_verification_double_fallback(self, mock_path_class):
         """Should handle when both verification methods fail."""
         # Arrange
@@ -528,7 +528,7 @@ class TestGitAddBatchOperations:
         files = ["file1.py"]
 
         # Act
-        with patch("mcp_server_git.git.operations.Path", return_value=mock_path):
+        with patch("mcp_server_git.git._staging_ops.Path", return_value=mock_path):
             result = git_add(mock_repo, files=files)
 
         # Assert

@@ -83,6 +83,8 @@ class GitCreateBranch(BaseModel):
     repo_path: str
     branch_name: str
     base_branch: str | None = None
+    start_point: str | None = None
+    checkout: bool = True  # Switch HEAD to the new branch (issue #162)
 
 
 class GitCheckout(BaseModel):
@@ -107,6 +109,10 @@ class GitPush(BaseModel):
     branch: str | None = None
     set_upstream: bool = False
     force: bool = False
+    # Issue #161: safer force-push variants
+    force_with_lease: bool = False
+    force_with_lease_expect: str | None = None  # "<refname>:<sha>" or "<sha>"
+    force_if_includes: bool = False  # git 2.30+, composes with force_with_lease
 
 
 class GitPull(BaseModel):
@@ -133,9 +139,15 @@ class GitDiffBranches(BaseModel):
 class GitRebase(BaseModel):
     repo_path: str
     target_branch: str
-    onto: str | None = Field(default=None, description="Rebase --onto target (new base)")
-    fork_point: str | None = Field(default=None, description="Fork point / old base for --onto")
-    branch: str | None = Field(default=None, description="Branch to rebase (default: current HEAD)")
+    onto: str | None = Field(
+        default=None, description="Rebase --onto target (new base)"
+    )
+    fork_point: str | None = Field(
+        default=None, description="Fork point / old base for --onto"
+    )
+    branch: str | None = Field(
+        default=None, description="Branch to rebase (default: current HEAD)"
+    )
 
 
 class GitMerge(BaseModel):
@@ -231,16 +243,26 @@ class GitConfigList(BaseModel):
 class GitRestore(BaseModel):
     repo_path: str
     files: list[str] = Field(description="Files to restore")
-    staged: bool = Field(default=False, description="Unstage files (git restore --staged)")
-    source: str | None = Field(default=None, description="Restore from specific commit/ref (git restore --source)")
+    staged: bool = Field(
+        default=False, description="Unstage files (git restore --staged)"
+    )
+    source: str | None = Field(
+        default=None,
+        description="Restore from specific commit/ref (git restore --source)",
+    )
 
 
 class GitBranchUpdate(BaseModel):
     repo_path: str
     branch_name: str = Field(description="Branch to update or delete")
-    target: str | None = Field(default=None, description="Target ref for force-update (git branch -f <name> <target>)")
+    target: str | None = Field(
+        default=None,
+        description="Target ref for force-update (git branch -f <name> <target>)",
+    )
     delete: bool = Field(default=False, description="Delete the branch")
-    force: bool = Field(default=False, description="Force delete even if not merged (git branch -D)")
+    force: bool = Field(
+        default=False, description="Force delete even if not merged (git branch -D)"
+    )
 
 
 class GitWorktreeList(BaseModel):
@@ -250,7 +272,9 @@ class GitWorktreeList(BaseModel):
 class GitWorktreeRemove(BaseModel):
     repo_path: str
     worktree_path: str = Field(description="Path of worktree to remove")
-    force: bool = Field(default=False, description="Force removal even with modifications")
+    force: bool = Field(
+        default=False, description="Force removal even with modifications"
+    )
 
 
 class GitMergeTree(BaseModel):
@@ -261,6 +285,14 @@ class GitMergeTree(BaseModel):
 
 class GitRm(BaseModel):
     repo_path: str
-    file: str = Field(description="Single file path to remove (no wildcards, no directories)")
-    cached: bool = Field(default=False, description="Remove from index only, keep working tree file (--cached)")
-    dry_run: bool = Field(default=False, description="Show what would be removed without doing it (--dry-run)")
+    file: str = Field(
+        description="Single file path to remove (no wildcards, no directories)"
+    )
+    cached: bool = Field(
+        default=False,
+        description="Remove from index only, keep working tree file (--cached)",
+    )
+    dry_run: bool = Field(
+        default=False,
+        description="Show what would be removed without doing it (--dry-run)",
+    )

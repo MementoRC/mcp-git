@@ -84,6 +84,13 @@ repos:
         language: python
         files: '^tests/.*\.py$'
 
+      - id: atomic-file-size
+        name: Atomic Design File Size (max 500 lines)
+        entry: python scripts/check_file_size.py --max=500
+        language: system
+        types: [python]
+        exclude: '^(\.pixi/|\.venv/|build/|dist/)'
+
   # Git commit message formatting
   - repo: https://github.com/compilerla/conventional-pre-commit
     rev: v3.4.0
