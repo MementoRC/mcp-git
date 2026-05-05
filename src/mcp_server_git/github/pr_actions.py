@@ -8,6 +8,25 @@ from mcp_server_git.github.client import github_client_context
 
 logger = logging.getLogger(__name__)
 
+_BOT_TEMPLATE_MARKER = "${{"
+
+
+def _select_rendered_body(comment: dict[str, Any]) -> str:
+    """Pick the most useful body field from a GitHub comment object.
+
+    GitHub renders bot template placeholders (e.g. ``${{ metadata.patch }}``)
+    server-side only when the response includes ``body_html`` / ``body_text``
+    (requested via ``application/vnd.github.full+json``). When the markdown
+    ``body`` contains template syntax we fall back to the rendered ``body_text``;
+    otherwise we keep the markdown ``body`` to preserve links and formatting.
+    """
+    body = (comment.get("body") or "").strip()
+    if _BOT_TEMPLATE_MARKER in body:
+        body_text = (comment.get("body_text") or "").strip()
+        if body_text:
+            return body_text
+    return body
+
 
 async def github_update_pr(
     repo_owner: str,
@@ -216,6 +235,7 @@ async def github_get_pr_comments(
         async with github_client_context() as client:
             response = await client.get(
                 f"/repos/{repo_owner}/{repo_name}/issues/{pr_number}/comments",
+                accept="application/vnd.github.full+json",
                 params={"per_page": 100},
             )
 
@@ -232,7 +252,7 @@ async def github_get_pr_comments(
         for c in comments:
             author = c.get("user", {}).get("login", "unknown")
             created = c.get("created_at", "")
-            body = (c.get("body") or "").strip()
+            body = _select_rendered_body(c)
             comment_id = c.get("id", "")
             lines.append(f"  #{comment_id} by {author} ({created}):")
             lines.append(f"    {body}\n")
@@ -263,6 +283,7 @@ async def github_get_pr_reviews(repo_owner: str, repo_name: str, pr_number: int)
         async with github_client_context() as client:
             response = await client.get(
                 f"/repos/{repo_owner}/{repo_name}/pulls/{pr_number}/comments",
+                accept="application/vnd.github.full+json",
                 params={"per_page": 100},
             )
 
@@ -279,16 +300,23 @@ async def github_get_pr_reviews(repo_owner: str, repo_name: str, pr_number: int)
         for c in comments:
             author = c.get("user", {}).get("login", "unknown")
             created = c.get("created_at", "")
-            body = (c.get("body") or "").strip()
+            body = _select_rendered_body(c)
             path = c.get("path", "")
             line = c.get("line") or c.get("original_line", "")
             comment_id = c.get("id", "")
             in_reply_to = c.get("in_reply_to_id", "")
             reply_info = f" (reply to #{in_reply_to})" if in_reply_to else ""
+            diff_hunk = (c.get("diff_hunk") or "").strip()
 
             lines.append(f"  #{comment_id} by {author} ({created}){reply_info}:")
             lines.append(f"    File: {path}:{line}")
-            lines.append(f"    {body}\n")
+            lines.append(f"    {body}")
+            if diff_hunk:
+                lines.append("    Diff hunk:")
+                lines.append("    ```diff")
+                lines.append(diff_hunk)
+                lines.append("    ```")
+            lines.append("")
 
         return "\n".join(lines)
 

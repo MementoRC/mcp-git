@@ -40,12 +40,18 @@ class GitHubClient:
 
         return any(re.match(pattern, token.strip()) for pattern in patterns)
 
-    async def get(self, endpoint: str, **kwargs) -> aiohttp.ClientResponse:
+    async def get(
+        self,
+        endpoint: str,
+        *,
+        accept: str = "application/vnd.github.v3+json",
+        **kwargs,
+    ) -> aiohttp.ClientResponse:
         """Make GET request to GitHub API"""
         url = f"{self.base_url}/{endpoint.lstrip('/')}"
         headers = {
             "Authorization": f"Bearer {self.token}",
-            "Accept": "application/vnd.github.v3+json",
+            "Accept": accept,
             "User-Agent": "MCP-Git-Server/1.1.0",
         }
 
