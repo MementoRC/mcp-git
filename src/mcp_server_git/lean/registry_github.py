@@ -246,7 +246,7 @@ def _register_github_tools(interface: Any, github_service: Any):
         ToolDefinition(
             name="github_get_pr_comments",
             implementation=github_ops.github_get_pr_comments,
-            description="Get top-level conversation comments on a pull request",
+            description="Get top-level conversation comments on a pull request. Bot template placeholders (e.g. ${{ metadata.patch }}) are auto-expanded via the rendered body.",
             schema={
                 "type": "object",
                 "properties": {
@@ -261,7 +261,7 @@ def _register_github_tools(interface: Any, github_service: Any):
         ToolDefinition(
             name="github_get_pr_reviews",
             implementation=github_ops.github_get_pr_reviews,
-            description="Get inline code review comments on a pull request",
+            description="Get inline code review comments on a pull request. Bot template placeholders (e.g. ${{ metadata.patch }}) are auto-expanded via the rendered body. Diff hunks are included for each comment.",
             schema={
                 "type": "object",
                 "properties": {
