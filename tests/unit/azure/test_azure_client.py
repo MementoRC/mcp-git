@@ -74,24 +74,37 @@ class TestAzureClient:
         assert len(client.token) == 52
 
     @patch.dict(os.environ, {}, clear=True)
-    def test_get_azure_client_no_token(self):
-        """Test getting Azure client without token."""
+    @patch("src.mcp_server_git.azure.client.aiohttp.ClientSession")
+    def test_get_azure_client_no_token(self, mock_session):
+        """Without a token, return an anonymous client defaulting to conda-forge."""
         client = get_azure_client()
-        assert client is None
+
+        assert client is not None
+        assert client.token is None
+        # No AZURE_DEVOPS_ORG → falls back to the conda-forge default
+        assert client.organization == "conda-forge"
 
     @patch.dict(os.environ, {"AZURE_DEVOPS_TOKEN": "a" * 52}, clear=True)
-    def test_get_azure_client_no_org(self):
-        """Test getting Azure client without organization."""
+    @patch("src.mcp_server_git.azure.client.aiohttp.ClientSession")
+    def test_get_azure_client_no_org(self, mock_session):
+        """Without AZURE_DEVOPS_ORG, the client falls back to conda-forge."""
         client = get_azure_client()
-        assert client is None
+
+        assert client is not None
+        assert client.organization == "conda-forge"
+        assert len(client.token) == 52
 
     @patch.dict(
         os.environ, {"AZURE_DEVOPS_TOKEN": "invalid", "AZURE_DEVOPS_ORG": "testorg"}
     )
-    def test_get_azure_client_invalid_token(self):
-        """Test getting Azure client with invalid token format."""
+    @patch("src.mcp_server_git.azure.client.aiohttp.ClientSession")
+    def test_get_azure_client_invalid_token(self, mock_session):
+        """An invalid token format still yields a client; the API call surfaces the error."""
         client = get_azure_client()
-        assert client is None
+
+        assert client is not None
+        assert client.token == "invalid"
+        assert client.organization == "testorg"
 
 
 class TestAzureClientMethods:
