@@ -133,18 +133,6 @@ The server provides Azure DevOps integration for monitoring and analyzing Azure 
      - `include_logs` (boolean, optional): Whether to include log excerpts (default: true)
    - Returns: Detailed failure information including error messages and log excerpts
 
-4. `azure_list_builds`
-   - List builds for an Azure DevOps project with filtering
-   - Inputs:
-     - `project` (string): The project name or ID
-     - `repository_id` (string, optional): Filter by repository ID
-     - `branch_name` (string, optional): Filter by branch name (e.g., 'refs/heads/main')
-     - `status` (string, optional): Filter by status (notStarted, inProgress, completed, etc.)
-     - `result` (string, optional): Filter by result (succeeded, failed, canceled, etc.)
-     - `top` (integer, optional): Maximum number of builds to return (default: 30)
-     - `continuation_token` (string, optional): Token for pagination
-   - Returns: List of builds with status, result, and metadata
-
 **Configuration**: Azure DevOps integration requires setting `AZURE_DEVOPS_TOKEN` and `AZURE_DEVOPS_ORG` environment variables. See the Environment Variables section for details.
 
 ### Lean MCP Interface (Context-Optimized)
@@ -157,7 +145,7 @@ The server provides an alternative **lean interface** that reduces context consu
 | `get_tool_spec(tool_name)` | Get full schema for a specific tool on-demand |
 | `execute_tool(tool_name, params)` | Execute any tool dynamically |
 
-**Tool Coverage**: All 51 tools remain accessible (25 git, 22 GitHub, 4 Azure DevOps).
+**Tool Coverage**: All 50 tools remain accessible (25 git, 22 GitHub, 3 Azure DevOps).
 
 **Usage Example**:
 ```python

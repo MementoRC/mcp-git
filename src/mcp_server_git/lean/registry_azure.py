@@ -8,7 +8,6 @@ from ..azure.models import (
     AzureGetBuildLogs,
     AzureGetBuildStatus,
     AzureGetFailingJobs,
-    AzureListBuilds,
 )
 from .interface import ToolDefinition
 
@@ -40,14 +39,6 @@ def _register_azure_tools(interface: Any, azure_service: Any):
             implementation=azure_ops.azure_get_failing_jobs,
             description="Get detailed information about failing jobs in an Azure DevOps build",
             schema=AzureGetFailingJobs.model_json_schema(),
-            domain="azure",
-            complexity="focused",
-        ),
-        ToolDefinition(
-            name="azure_list_builds",
-            implementation=azure_ops.azure_list_builds,
-            description="List Azure DevOps builds with filtering options",
-            schema=AzureListBuilds.model_json_schema(),
             domain="azure",
             complexity="focused",
         ),

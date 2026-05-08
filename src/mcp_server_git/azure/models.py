@@ -26,17 +26,3 @@ class AzureGetFailingJobs(BaseModel):
     build_id: int
     include_logs: bool = True
     log_tail_lines: int = 500  # Number of lines to include from each log (default: 500)
-
-
-class AzureListBuilds(BaseModel):
-    """List builds for an Azure DevOps project"""
-
-    project: str
-    repository_id: str | None = None
-    branch_name: str | None = None
-    # notStarted, inProgress, completed, cancelling, postponed, all
-    status: str | None = None
-    # succeeded, partiallySucceeded, failed, canceled
-    result: str | None = None
-    top: int = 30  # Maximum number of builds to return
-    continuation_token: str | None = None  # For pagination
