@@ -1,6 +1,5 @@
 """Unit tests for Azure DevOps API operations."""
 
-import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -9,8 +8,8 @@ from src.mcp_server_git.azure.api import (
     azure_get_build_logs,
     azure_get_build_status,
     azure_get_failing_jobs,
-    azure_list_builds,
 )
+from src.mcp_server_git.azure.client import AzureClient
 
 
 class TestAzureGetBuildStatus:
@@ -274,82 +273,98 @@ class TestAzureGetFailingJobs:
             assert "Error log line" in result
 
 
-class TestAzureListBuilds:
-    """Test azure_list_builds function."""
+class TestAzureClientAnonymousMode:
+    """Test that the Azure client works without a token (anonymous / public projects)."""
+
+    def test_auth_returns_none_when_no_token(self):
+        """_auth() must return None so no Authorization header is sent."""
+        mock_session = MagicMock()
+        client = AzureClient(token=None, organization="conda-forge", session=mock_session)
+        assert client._auth() is None
+
+    def test_auth_returns_basicauth_when_token_present(self):
+        """_auth() must return BasicAuth when a token is configured."""
+        import aiohttp
+
+        mock_session = MagicMock()
+        # Use a syntactically valid-looking PAT (40 base64 chars)
+        fake_token = "a" * 40
+        client = AzureClient(token=fake_token, organization="conda-forge", session=mock_session)
+        auth = client._auth()
+        assert isinstance(auth, aiohttp.BasicAuth)
 
     @pytest.mark.asyncio
-    async def test_list_builds(self):
-        """Test listing builds for a project."""
-        mock_client = MagicMock()
-
+    async def test_get_request_sends_no_auth_header_when_token_is_none(self):
+        """GET without a token must call session.get() without an auth= kwarg."""
         mock_response = AsyncMock()
         mock_response.status = 200
-        mock_response.headers = {}
-        mock_response.json = AsyncMock(
-            return_value={
-                "value": [
-                    {
-                        "id": 123,
-                        "buildNumber": "20240101.1",
-                        "status": "completed",
-                        "result": "succeeded",
-                        "definition": {"name": "CI Pipeline"},
-                        "sourceBranch": "refs/heads/main",
-                        "queueTime": "2024-01-01T10:00:00Z",
-                        "_links": {"web": {"href": "https://..."}},
-                    },
-                    {
-                        "id": 124,
-                        "buildNumber": "20240101.2",
-                        "status": "inProgress",
-                        "definition": {"name": "CD Pipeline"},
-                        "sourceBranch": "refs/heads/develop",
-                        "queueTime": "2024-01-01T11:00:00Z",
-                        "_links": {"web": {"href": "https://..."}},
-                    },
-                ]
-            }
+
+        mock_session = AsyncMock()
+        mock_session.get = AsyncMock(return_value=mock_response)
+
+        client = AzureClient(token=None, organization="conda-forge", session=mock_session)
+        await client.get("someproject/_apis/build/builds/1?api-version=7.1")
+
+        # Verify session.get was called exactly once
+        mock_session.get.assert_called_once()
+        _, kwargs = mock_session.get.call_args
+        # auth must NOT be present in kwargs — omitting it prevents the
+        # Authorization header from being sent, enabling anonymous access.
+        assert "auth" not in kwargs, (
+            "Expected no 'auth' kwarg when token is None, "
+            f"but got: {kwargs.get('auth')}"
         )
-        mock_client.get = AsyncMock(return_value=mock_response)
-
-        with patch("src.mcp_server_git.azure.api.azure_client_context") as mock_context:
-            mock_context.return_value.__aenter__.return_value = mock_client
-
-            result = await azure_list_builds(project="myproject")
-
-            assert "Build #123" in result
-            assert "Build #124" in result
-            assert "20240101.1" in result
-            assert "20240101.2" in result
-            assert "succeeded" in result
-            assert "inProgress" in result
 
     @pytest.mark.asyncio
-    async def test_list_builds_with_filters(self):
-        """Test listing builds with filters."""
-        mock_client = MagicMock()
+    async def test_post_raises_without_token(self):
+        """POST must raise ValueError when no token is configured."""
+        mock_session = AsyncMock()
+        client = AzureClient(token=None, organization="conda-forge", session=mock_session)
 
-        mock_response = AsyncMock()
-        mock_response.status = 200
-        mock_response.headers = {}
-        mock_response.json = AsyncMock(return_value={"value": []})
-        mock_client.get = AsyncMock(return_value=mock_response)
+        with pytest.raises(ValueError, match="AZURE_DEVOPS_TOKEN required for write operations"):
+            await client.post("someproject/_apis/something")
 
-        with patch("src.mcp_server_git.azure.api.azure_client_context") as mock_context:
-            mock_context.return_value.__aenter__.return_value = mock_client
+    @pytest.mark.asyncio
+    async def test_patch_raises_without_token(self):
+        """PATCH must raise ValueError when no token is configured."""
+        mock_session = AsyncMock()
+        client = AzureClient(token=None, organization="conda-forge", session=mock_session)
 
-            result = await azure_list_builds(
-                project="myproject",
-                branch_name="refs/heads/main",
-                status="completed",
-                result="succeeded",
-            )
+        with pytest.raises(ValueError, match="AZURE_DEVOPS_TOKEN required for write operations"):
+            await client.patch("someproject/_apis/something")
 
-            # Verify the filters were passed to the API call
-            mock_client.get.assert_called_once()
-            call_args = mock_client.get.call_args
-            assert "params" in call_args[1]
-            params = call_args[1]["params"]
-            assert params["branchName"] == "refs/heads/main"
-            assert params["statusFilter"] == "completed"
-            assert params["resultFilter"] == "succeeded"
+    def test_get_azure_client_defaults_to_conda_forge_org(self):
+        """get_azure_client() must default org to conda-forge when env var is unset."""
+        from src.mcp_server_git.azure.client import get_azure_client
+
+        with (
+            patch("src.mcp_server_git.azure.client.os.getenv") as mock_getenv,
+            patch("src.mcp_server_git.azure.client.aiohttp.ClientSession"),
+        ):
+            # Simulate both env vars being absent
+            mock_getenv.side_effect = lambda key, *args: None
+
+            client = get_azure_client()
+
+            assert client is not None
+            assert client.organization == "conda-forge"
+            assert client.token is None
+
+    def test_get_azure_client_anonymous_when_token_empty_string(self):
+        """An empty AZURE_DEVOPS_TOKEN must be treated as absent (anonymous mode)."""
+        from src.mcp_server_git.azure.client import get_azure_client
+
+        with (
+            patch("src.mcp_server_git.azure.client.os.getenv") as mock_getenv,
+            patch("src.mcp_server_git.azure.client.aiohttp.ClientSession"),
+        ):
+            def _env(key, *args):
+                return "" if key == "AZURE_DEVOPS_TOKEN" else "my-org"
+
+            mock_getenv.side_effect = _env
+
+            client = get_azure_client()
+
+            assert client is not None
+            assert client.token is None
+            assert client.organization == "my-org"

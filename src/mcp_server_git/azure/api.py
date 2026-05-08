@@ -11,15 +11,21 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def azure_client_context():
     """Async context manager for Azure DevOps client with guaranteed
-    resource cleanup."""
+    resource cleanup.
+
+    The client works in anonymous mode when AZURE_DEVOPS_TOKEN is unset,
+    allowing read-only access to public projects (e.g. conda-forge).
+    get_azure_client() returns None only if the org cannot be determined,
+    which is now extremely unlikely given the conda-forge default.
+    """
     client = None
     try:
         client = get_azure_client()
-        if not client:
+        if client is None:
+            # This should only happen if _DEFAULT_ORG is somehow falsy.
             raise ValueError(
-                "Azure DevOps not configured. "
-                "Set AZURE_DEVOPS_TOKEN and AZURE_DEVOPS_ORG "
-                "environment variables."
+                "Azure DevOps client could not be created. "
+                "Set AZURE_DEVOPS_ORG environment variable."
             )
         yield client
     finally:
@@ -343,108 +349,3 @@ async def azure_get_failing_jobs(
             f"Error getting failing jobs for build #{build_id}: {e}", exc_info=True
         )
         return f"❌ Error getting failing jobs: {str(e)}"
-
-
-async def azure_list_builds(
-    project: str,
-    repository_id: str | None = None,
-    branch_name: str | None = None,
-    status: str | None = None,
-    result: str | None = None,
-    top: int = 30,
-    continuation_token: str | None = None,
-) -> str:
-    """List builds for an Azure DevOps project
-
-    Args:
-        project: The project name or ID
-        repository_id: Optional repository ID to filter builds
-        branch_name: Optional branch name to filter builds (e.g., 'refs/heads/main')
-        status: Optional status filter (notStarted, inProgress, completed, etc.)
-        result: Optional result filter (succeeded, failed, canceled, etc.)
-        top: Maximum number of builds to return (default 30)
-        continuation_token: Token for pagination
-
-    Returns:
-        Formatted string with list of builds
-    """
-    try:
-        async with azure_client_context() as client:
-            # Build query parameters
-            params = {
-                "api-version": "7.1",
-                "$top": top,
-            }
-
-            if repository_id:
-                params["repositoryId"] = repository_id
-            if branch_name:
-                params["branchName"] = branch_name
-            if status:
-                params["statusFilter"] = status
-            if result:
-                params["resultFilter"] = result
-            if continuation_token:
-                params["continuationToken"] = continuation_token
-
-            # API: GET https://dev.azure.com/{organization}/{project}/_apis/build/builds?api-version=7.1
-            response = await client.get(f"{project}/_apis/build/builds", params=params)
-
-            if response.status != 200:
-                error_text = await response.text()
-                return f"❌ Failed to list builds: {response.status} - {error_text}"
-
-            builds_data = await response.json()
-            builds = builds_data.get("value", [])
-
-            if not builds:
-                return f"No builds found for project '{project}'"
-
-            output = [f"Builds for project '{project}':\n"]
-
-            for build in builds:
-                status_emoji = {
-                    "completed": "✅" if build.get("result") == "succeeded" else "❌",
-                    "inProgress": "🔄",
-                    "notStarted": "⏳",
-                }.get(build.get("status", ""), "❓")
-
-                build_number = build.get("buildNumber", "N/A")
-                definition = build.get("definition", {}).get("name", "N/A")
-                result = build.get("result", "N/A")
-                source_branch = build.get("sourceBranch", "N/A")
-                build_id_display = build.get("id", "N/A")
-                output.append(
-                    f"{status_emoji} Build #{build_id_display}: {build_number}"
-                )
-                output.append(f"   Definition: {definition}")
-                output.append(f"   Status: {build.get('status', 'N/A')}")
-                output.append(f"   Result: {result}")
-                output.append(f"   Branch: {source_branch}")
-
-                if build.get("queueTime"):
-                    output.append(f"   Queued: {build['queueTime']}")
-
-                if build.get("_links", {}).get("web", {}).get("href"):
-                    output.append(f"   URL: {build['_links']['web']['href']}")
-
-                output.append("")  # Empty line between builds
-
-            # Check if there are more results
-            if "x-ms-continuationtoken" in response.headers:
-                continuation_token = response.headers["x-ms-continuationtoken"]
-                output.append(
-                    f"\nMore results available. "
-                    f"Use continuation token: {continuation_token}"
-                )
-
-            return "\n".join(output)
-
-    except ValueError as auth_error:
-        logger.error(f"Authentication error listing builds: {auth_error}")
-        return f"❌ {str(auth_error)}"
-    except Exception as e:
-        logger.error(
-            f"Error listing builds for project '{project}': {e}", exc_info=True
-        )
-        return f"❌ Error listing builds: {str(e)}"

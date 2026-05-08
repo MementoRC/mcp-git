@@ -4,24 +4,34 @@ import logging
 import os
 import re
 from dataclasses import dataclass
+from typing import Optional
 
 import aiohttp
 
 logger = logging.getLogger(__name__)
 
+# Default organization for conda-forge feedstock CI lookups.
+# Override with AZURE_DEVOPS_ORG environment variable.
+_DEFAULT_ORG = "conda-forge"
+
 
 @dataclass
 class AzureClient:
-    """Azure DevOps API client with authentication."""
+    """Azure DevOps API client with optional authentication.
 
-    token: str
+    When token is None or empty the client operates in anonymous mode,
+    which works for public projects (e.g. conda-forge) on read-only endpoints.
+    Write endpoints (POST/PATCH) always require a token.
+    """
+
+    token: Optional[str]
     organization: str
     session: aiohttp.ClientSession
     base_url: str = "https://dev.azure.com"
 
     def __post_init__(self):
-        """Validate Azure token format"""
-        if not self._is_valid_azure_token(self.token):
+        """Warn when a token is present but appears malformed."""
+        if self.token and not self._is_valid_azure_token(self.token):
             logger.warning("⚠️ Azure DevOps token format appears invalid")
 
     @staticmethod
@@ -36,24 +46,43 @@ class AzureClient:
         pattern = r"^[a-zA-Z0-9+/=]{20,}$"
         return bool(re.match(pattern, token.strip()))
 
+    def _auth(self) -> Optional[aiohttp.BasicAuth]:
+        """Return BasicAuth only when a token is present.
+
+        Omitting auth entirely avoids sending an Authorization header,
+        which is required for anonymous access to public Azure DevOps projects.
+        """
+        if self.token:
+            return aiohttp.BasicAuth("", self.token)
+        return None
+
     async def get(self, endpoint: str, **kwargs) -> aiohttp.ClientResponse:
         """Make GET request to Azure DevOps API"""
         # Azure DevOps API expects the organization in the URL
         # Format: https://dev.azure.com/{organization}/{project}/_apis/...
         url = f"{self.base_url}/{self.organization}/{endpoint.lstrip('/')}"
 
-        # Azure DevOps uses Basic authentication with PAT
-        auth = aiohttp.BasicAuth("", self.token)
-
         headers = {
             "Accept": "application/json",
             "User-Agent": "MCP-Git-Server/1.1.0",
         }
 
-        return await self.session.get(url, auth=auth, headers=headers, **kwargs)
+        auth = self._auth()
+        # Only pass auth kwarg when we have credentials; passing auth=None
+        # still causes aiohttp to omit the header, but being explicit is safer.
+        if auth is not None:
+            return await self.session.get(url, auth=auth, headers=headers, **kwargs)
+        return await self.session.get(url, headers=headers, **kwargs)
 
     async def post(self, endpoint: str, **kwargs) -> aiohttp.ClientResponse:
-        """Make POST request to Azure DevOps API"""
+        """Make POST request to Azure DevOps API.
+
+        Raises ValueError if no token is configured — write operations on
+        Azure DevOps always require authentication.
+        """
+        if not self.token:
+            raise ValueError("AZURE_DEVOPS_TOKEN required for write operations")
+
         url = f"{self.base_url}/{self.organization}/{endpoint.lstrip('/')}"
         auth = aiohttp.BasicAuth("", self.token)
 
@@ -66,7 +95,14 @@ class AzureClient:
         return await self.session.post(url, auth=auth, headers=headers, **kwargs)
 
     async def patch(self, endpoint: str, **kwargs) -> aiohttp.ClientResponse:
-        """Make PATCH request to Azure DevOps API"""
+        """Make PATCH request to Azure DevOps API.
+
+        Raises ValueError if no token is configured — write operations on
+        Azure DevOps always require authentication.
+        """
+        if not self.token:
+            raise ValueError("AZURE_DEVOPS_TOKEN required for write operations")
+
         url = f"{self.base_url}/{self.organization}/{endpoint.lstrip('/')}"
         auth = aiohttp.BasicAuth("", self.token)
 
@@ -80,39 +116,31 @@ class AzureClient:
 
 
 def get_azure_client() -> AzureClient | None:
-    """Get Azure DevOps client with token and organization from environment.
+    """Get Azure DevOps client from environment variables.
 
-    Assumes environment variables have already been loaded by the server.
-    Requires:
-    - AZURE_DEVOPS_TOKEN: Personal Access Token
-    - AZURE_DEVOPS_ORG: Organization name
+    AZURE_DEVOPS_TOKEN is optional — omitting it enables anonymous (read-only)
+    access to public projects such as conda-forge.
+
+    AZURE_DEVOPS_ORG defaults to "conda-forge" when unset, covering the primary
+    use case of inspecting conda-forge feedstock pipelines.
+
+    Returns None only when the organization cannot be determined.
     """
-    token = os.getenv("AZURE_DEVOPS_TOKEN")
-    organization = os.getenv("AZURE_DEVOPS_ORG")
+    token = os.getenv("AZURE_DEVOPS_TOKEN") or None  # coerce "" → None
+    organization = os.getenv("AZURE_DEVOPS_ORG") or _DEFAULT_ORG
 
-    logger.debug(f"🔑 AZURE_DEVOPS_TOKEN check: {'Found' if token else 'Not found'}")
-    org_status = "Found" if organization else "Not found"
-    logger.debug(f"🏢 AZURE_DEVOPS_ORG check: {org_status}")
+    token_status = "Found" if token else "Not set (anonymous mode)"
+    logger.debug(f"🔑 AZURE_DEVOPS_TOKEN check: {token_status}")
+    logger.debug(f"🏢 AZURE_DEVOPS_ORG: {organization}")
 
-    if not token:
-        logger.error(
-            "🔍 No Azure DevOps token found in environment (AZURE_DEVOPS_TOKEN). "
-            "Ensure environment variables are loaded before calling this function."
-        )
-        return None
-
-    if not organization:
-        logger.error(
-            "🔍 No Azure DevOps organization found in environment (AZURE_DEVOPS_ORG). "
-            "Ensure environment variables are loaded before calling this function."
-        )
-        return None
-
-    if not AzureClient._is_valid_azure_token(token):
+    if token and not AzureClient._is_valid_azure_token(token):
         logger.warning("⚠️ AZURE_DEVOPS_TOKEN appears to be invalid format")
-        return None
+        # Still build the client; the API call will fail with a useful error.
 
-    logger.debug("✅ Azure DevOps token and organization found and validated")
+    logger.debug(
+        "✅ Azure DevOps client ready"
+        + (" (authenticated)" if token else " (anonymous)")
+    )
 
     # Create aiohttp session (caller is responsible for closing)
     session = aiohttp.ClientSession()
