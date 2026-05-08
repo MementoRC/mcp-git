@@ -151,3 +151,87 @@ class TestAzureClientMethods:
             call_args[0][0]
             == "https://dev.azure.com/myorg/myproject/_apis/build/builds"
         )
+
+
+class TestAzureClient401Fallback:
+    """Test GET 401 anonymous fallback behaviour."""
+
+    @pytest.mark.asyncio
+    async def test_get_retries_without_auth_on_401_when_token_present(self):
+        """GET with auth that returns 401 is retried anonymously; second response returned."""
+        session = MagicMock()
+
+        mock_401 = MagicMock()
+        mock_401.status = 401
+        mock_401.release = AsyncMock()
+
+        mock_200 = MagicMock()
+        mock_200.status = 200
+
+        session.get = AsyncMock(side_effect=[mock_401, mock_200])
+
+        client = AzureClient(token="a" * 52, organization="myorg", session=session)
+
+        result = await client.get("myproject/_apis/build/builds/1")
+
+        assert session.get.call_count == 2
+        mock_401.release.assert_awaited_once()
+
+        # Second call must NOT carry an auth kwarg
+        second_call_kwargs = session.get.call_args_list[1][1]
+        assert "auth" not in second_call_kwargs
+
+        assert result is mock_200
+
+    @pytest.mark.asyncio
+    async def test_get_does_not_retry_on_401_when_anonymous(self):
+        """GET without a token returns the 401 directly — already anonymous, no retry."""
+        session = MagicMock()
+
+        mock_401 = MagicMock()
+        mock_401.status = 401
+
+        session.get = AsyncMock(return_value=mock_401)
+
+        client = AzureClient(token=None, organization="myorg", session=session)
+
+        result = await client.get("myproject/_apis/build/builds/1")
+
+        assert session.get.call_count == 1
+        assert result is mock_401
+
+    @pytest.mark.asyncio
+    async def test_get_returns_first_response_on_200(self):
+        """GET with auth that returns 200 is returned directly without a retry."""
+        session = MagicMock()
+
+        mock_200 = MagicMock()
+        mock_200.status = 200
+
+        session.get = AsyncMock(return_value=mock_200)
+
+        client = AzureClient(token="a" * 52, organization="myorg", session=session)
+
+        result = await client.get("myproject/_apis/build/builds/1")
+
+        assert session.get.call_count == 1
+        assert result is mock_200
+
+    @pytest.mark.asyncio
+    async def test_post_does_not_retry_on_401(self):
+        """POST 401 is propagated unchanged — writes require valid auth."""
+        session = MagicMock()
+
+        mock_401 = MagicMock()
+        mock_401.status = 401
+
+        session.post = AsyncMock(return_value=mock_401)
+
+        client = AzureClient(token="a" * 52, organization="myorg", session=session)
+
+        result = await client.post("myproject/_apis/build/builds")
+
+        session.post.assert_called_once()
+        # Confirm GET was never called
+        session.get.assert_not_called()
+        assert result is mock_401
