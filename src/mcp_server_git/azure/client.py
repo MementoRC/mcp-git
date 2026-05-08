@@ -71,7 +71,16 @@ class AzureClient:
         # Only pass auth kwarg when we have credentials; passing auth=None
         # still causes aiohttp to omit the header, but being explicit is safer.
         if auth is not None:
-            return await self.session.get(url, auth=auth, headers=headers, **kwargs)
+            response = await self.session.get(url, auth=auth, headers=headers, **kwargs)
+            if response.status == 401:
+                # Stale or expired PAT — retry without auth so public projects
+                # can still be reached anonymously.
+                await response.release()
+                logger.warning(
+                    "Azure 401 with auth — retrying anonymously for public project access"
+                )
+                response = await self.session.get(url, headers=headers, **kwargs)
+            return response
         return await self.session.get(url, headers=headers, **kwargs)
 
     async def post(self, endpoint: str, **kwargs) -> aiohttp.ClientResponse:
