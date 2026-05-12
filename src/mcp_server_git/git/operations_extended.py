@@ -18,6 +18,7 @@ __all__ = [
     "git_branch_update",
     "git_worktree_list",
     "git_worktree_remove",
+    "git_worktree_add",
     "git_merge_tree",
     "git_rm",
 ]
@@ -169,6 +170,57 @@ def git_worktree_remove(
         return f"❌ Failed to remove worktree: {stderr}"
     except Exception as e:
         return f"❌ Error removing worktree: {str(e)}"
+
+
+def git_worktree_add(
+    repo: Repo,
+    worktree_path: str,
+    branch: str | None = None,
+    new_branch: str | None = None,
+    force: bool = False,
+) -> str:
+    """Create a new linked worktree at `worktree_path`.
+
+    Wraps `git worktree add`. Supports four modes (see issue #167):
+    - No branch + no new_branch: detached HEAD at current HEAD
+    - branch only: check out the existing branch
+    - new_branch only: create new_branch from HEAD (uses -b, or -B with force)
+    - new_branch + branch: create new_branch from the given start-point
+    """
+    if DANGEROUS_CHARS.search(worktree_path):
+        return f"❌ Invalid characters in worktree path: '{worktree_path}'"
+    if branch and DANGEROUS_CHARS.search(branch):
+        return f"❌ Invalid characters in branch: '{branch}'"
+    if new_branch and DANGEROUS_CHARS.search(new_branch):
+        return f"❌ Invalid characters in new_branch: '{new_branch}'"
+
+    try:
+        args = ["add"]
+        if force:
+            args.append("--force")
+        if new_branch:
+            args.append("-B" if force else "-b")
+            args.append(new_branch)
+        args.append(worktree_path)
+        if branch:
+            args.append(branch)
+
+        repo.git.worktree(*args)
+
+        suffix = (
+            f" (new branch {new_branch})"
+            if new_branch
+            else f" (branch {branch})"
+            if branch
+            else " (detached HEAD)"
+        )
+        return f"✅ Worktree added at {worktree_path}{suffix}"
+
+    except GitCommandError as e:
+        stderr = e.stderr.decode() if isinstance(e.stderr, bytes) else e.stderr
+        return f"❌ Failed to add worktree: {stderr}"
+    except Exception as e:
+        return f"❌ Error adding worktree: {str(e)}"
 
 
 def git_merge_tree(

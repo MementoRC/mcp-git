@@ -40,6 +40,23 @@ class ToolDefinition:
         examples: list[dict[str, Any]] | None = None,
         relative_path_params: set[str] | None = None,
     ):
+        """Initialize a ToolDefinition.
+
+        Args:
+            name: Tool name (used as registry key).
+            implementation: Callable that executes the tool.
+            description: Human-readable description.
+            schema: JSON Schema for parameters.
+            domain: "git", "github", "azure", or "general".
+            complexity: "core", "focused", "advanced", or "comprehensive".
+            examples: Optional usage examples.
+            relative_path_params: Set of parameter names whose path-shaped
+                values are intentionally allowed to be relative. Used by
+                _validate_path_parameters to exempt parameters that are
+                semantically repo-relative by git convention (e.g. the
+                "path" parameter on git_submodule_add per gitmodules(5);
+                issue #168). Defaults to None (no exemptions).
+        """
         self.name = name
         self.implementation = implementation
         self.description = description
@@ -180,6 +197,15 @@ class GitLeanInterface:
                         f"MCP servers resolve paths relative to their process CWD, not "
                         f"Claude Code's working directory. Use absolute path instead."
                     )
+                continue
+
+            # Non-exempt path params must be absolute.
+            if param_value in (".", "..") or not param_value.startswith("/"):
+                raise ValueError(
+                    f"Relative path '{param_value}' not supported. MCP servers "
+                    f"resolve paths relative to their process CWD, not Claude Code's "
+                    f"working directory. Use absolute path instead."
+                )
 
     def _wrap_tool(self, tool_func: Callable, tool_name: str) -> Callable:
         """Wrap tool function with response offloading, token limiting, and error handling."""

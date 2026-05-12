@@ -379,8 +379,12 @@ def setup_meta_tools(interface) -> None:
                 }
 
             # Validate path parameters to prevent relative path issues
+            # (honoring per-tool exemptions, e.g. submodule "path" which is
+            # intentionally repo-relative per gitmodules(5); issue #168).
             try:
-                interface._validate_path_parameters(parameters)
+                interface._validate_path_parameters(
+                    parameters, tool_def.relative_path_params
+                )
             except ValueError as ve:
                 return {
                     "tool": tool_name,
