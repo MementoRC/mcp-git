@@ -38,6 +38,7 @@ class ToolDefinition:
         domain: str = "general",
         complexity: str = "focused",
         examples: list[dict[str, Any]] | None = None,
+        relative_path_params: set[str] | None = None,
     ):
         self.name = name
         self.implementation = implementation
@@ -46,6 +47,9 @@ class ToolDefinition:
         self.domain = domain
         self.complexity = complexity
         self.examples = examples or []
+        # Parameters listed here bypass the "must be absolute" path check.
+        # They still reject ".." and empty strings to prevent traversal.
+        self.relative_path_params: set[str] = relative_path_params or set()
 
 
 class GitLeanInterface:
@@ -136,28 +140,45 @@ class GitLeanInterface:
             f"Registered tool: {tool_def.name} ({tool_def.domain}/{tool_def.complexity})"
         )
 
-    def _validate_path_parameters(self, parameters: dict[str, Any]) -> None:
+    def _validate_path_parameters(
+        self,
+        parameters: dict[str, Any],
+        relative_path_params: set[str] | None = None,
+    ) -> None:
         """
         Reject relative paths to prevent CWD confusion between client and server.
 
         MCP servers resolve paths relative to their process CWD, not Claude Code's
         working directory. This causes cross-repository pollution when using ".".
 
+        Parameters listed in *relative_path_params* are exempted from the
+        "must be absolute" requirement (git submodule paths are repo-relative by
+        git's own convention — see gitmodules(5)).  Traversal via ".." and empty
+        strings are still rejected for all parameters.
+
         Args:
             parameters: Dictionary of tool parameters
+            relative_path_params: Parameter names that are allowed to be relative.
 
         Raises:
-            ValueError: If any path parameter is relative
+            ValueError: If any path parameter fails validation
         """
+        exempt = relative_path_params or set()
         for param_name, param_value in parameters.items():
             # Check all parameters containing "path" in their name
             if "path" in param_name.lower() and isinstance(param_value, str):
-                # Reject ".", "..", or any path not starting with "/"
-                if param_value in (".", "..") or not param_value.startswith("/"):
+                # Always reject empty strings and ".." traversal
+                if not param_value or ".." in param_value.split("/"):
                     raise ValueError(
-                        f"Relative path '{param_value}' not supported. MCP servers "
-                        f"resolve paths relative to their process CWD, not Claude Code's "
-                        f"working directory. Use absolute path instead."
+                        f"Invalid path '{param_value}': empty paths and '..' "
+                        f"traversal components are not allowed."
+                    )
+                # Exempt parameters may be repo-relative; all others must be absolute
+                if param_name not in exempt and not param_value.startswith("/"):
+                    raise ValueError(
+                        f"Relative path '{param_value}' not supported for '{param_name}'. "
+                        f"MCP servers resolve paths relative to their process CWD, not "
+                        f"Claude Code's working directory. Use absolute path instead."
                     )
 
     def _wrap_tool(self, tool_func: Callable, tool_name: str) -> Callable:
@@ -257,8 +278,10 @@ class GitLeanInterface:
                 }
 
         try:
-            # Validate path parameters
-            self._validate_path_parameters(parameters)
+            # Validate path parameters (pass per-tool exemption set)
+            self._validate_path_parameters(
+                parameters, relative_path_params=tool_def.relative_path_params
+            )
 
             # Execute tool
             if inspect.iscoroutinefunction(tool_def.implementation):

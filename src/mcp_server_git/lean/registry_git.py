@@ -391,6 +391,10 @@ def _register_git_tools(interface: Any, git_service: Any):
             schema=GitSubmoduleAdd.model_json_schema(),
             domain="git",
             complexity="focused",
+            # Submodule paths are repo-relative by git convention (gitmodules(5)).
+            # Exempting "path" lets callers pass "sub-packages/remote-iface"
+            # instead of an absolute path that would poison .gitmodules (issue #168).
+            relative_path_params={"path"},
         ),
         ToolDefinition(
             name="git_submodule_update",
