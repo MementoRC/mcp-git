@@ -27,7 +27,22 @@ logger = logging.getLogger(__name__)
 
 
 class ToolDefinition:
-    """Tool definition with metadata for lean MCP registry."""
+    """Tool definition with metadata for lean MCP registry.
+
+    Args:
+        name: Unique tool identifier.
+        implementation: Callable that executes the tool.
+        description: Human-readable description shown in discovery.
+        schema: JSON Schema dict describing the tool's parameters.
+        domain: Tool domain (``"git"``, ``"github"``, ``"azure"``).
+        complexity: Complexity tier (``"core"``, ``"focused"``, ``"advanced"``).
+        examples: Optional list of example invocations.
+        relative_path_params: Names of ``*path*`` parameters that should be
+            treated as repo-relative instead of filesystem-absolute.  Empty
+            paths and ``..`` traversal components are still rejected.
+            Example: ``{"path"}`` for ``git_submodule_add`` — gitmodules(5)
+            requires relative paths in ``.gitmodules``.
+    """
 
     def __init__(
         self,
@@ -172,6 +187,10 @@ class GitLeanInterface:
         "must be absolute" requirement (git submodule paths are repo-relative by
         git's own convention — see gitmodules(5)).  Traversal via ".." and empty
         strings are still rejected for all parameters.
+
+        Note: paths such as ``./lib/submod`` or ``lib//submod`` are NOT
+        normalised here — git canonicalises them downstream; we only enforce
+        no-``..`` components and non-empty values.
 
         Args:
             parameters: Dictionary of tool parameters
