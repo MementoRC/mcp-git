@@ -277,6 +277,27 @@ class GitWorktreeRemove(BaseModel):
     )
 
 
+class GitWorktreeAdd(BaseModel):
+    """Inputs for git_worktree_add — create a new linked worktree."""
+
+    repo_path: str = Field(..., description="Path to the existing git repository.")
+    worktree_path: str = Field(
+        ..., description="Filesystem path where the new worktree should be created."
+    )
+    branch: str | None = Field(
+        default=None,
+        description="Existing branch to check out in the new worktree.",
+    )
+    new_branch: str | None = Field(
+        default=None,
+        description="Name of a NEW branch to create and check out (uses -b, or -B with force).",
+    )
+    force: bool = Field(
+        default=False,
+        description="Pass --force to git worktree add. When combined with new_branch, uses -B (force-create) instead of -b.",
+    )
+
+
 class GitMergeTree(BaseModel):
     repo_path: str
     branch1: str = Field(description="First branch (typically current)")

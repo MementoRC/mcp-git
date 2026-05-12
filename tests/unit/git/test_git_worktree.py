@@ -8,7 +8,11 @@ from unittest.mock import Mock
 
 import pytest
 
-from mcp_server_git.git.operations_extended import git_worktree_list, git_worktree_remove
+from mcp_server_git.git.operations_extended import (
+    git_worktree_add,
+    git_worktree_list,
+    git_worktree_remove,
+)
 from mcp_server_git.utils.git_import import GitCommandError
 
 
@@ -240,3 +244,104 @@ class TestGitWorktreeRemoveErrorHandling:
         assert "❌" in result
         assert "Error removing worktree" in result
         assert "Unexpected failure" in result
+
+
+class TestGitWorktreeAdd:
+    """Test git_worktree_add: all behavior paths from the issue #167 matrix."""
+
+    def test_worktree_add_detached_head(self):
+        """No branch, no new_branch: detached HEAD at current HEAD."""
+        mock_repo = Mock()
+
+        result = git_worktree_add(mock_repo, worktree_path="/tmp/wt-detached")
+
+        assert "✅" in result
+        assert "/tmp/wt-detached" in result
+        assert "detached HEAD" in result
+        mock_repo.git.worktree.assert_called_once_with("add", "/tmp/wt-detached")
+
+    def test_worktree_add_existing_branch(self):
+        """branch='main', no new_branch: checks out existing branch."""
+        mock_repo = Mock()
+
+        result = git_worktree_add(mock_repo, worktree_path="/tmp/wt-main", branch="main")
+
+        assert "✅" in result
+        assert "branch main" in result
+        mock_repo.git.worktree.assert_called_once_with("add", "/tmp/wt-main", "main")
+
+    def test_worktree_add_new_branch(self):
+        """new_branch='feature', no branch: creates branch from HEAD using -b."""
+        mock_repo = Mock()
+
+        result = git_worktree_add(mock_repo, worktree_path="/tmp/wt-feature", new_branch="feature")
+
+        assert "✅" in result
+        assert "new branch feature" in result
+        call_args = mock_repo.git.worktree.call_args[0]
+        assert "-b" in call_args
+        assert "-B" not in call_args
+        assert "feature" in call_args
+        assert "/tmp/wt-feature" in call_args
+
+    def test_worktree_add_force_new_branch_uses_B(self):
+        """new_branch + force=True: uses -B (force-create) and --force."""
+        mock_repo = Mock()
+
+        result = git_worktree_add(
+            mock_repo, worktree_path="/tmp/wt-force", new_branch="feature", force=True
+        )
+
+        assert "✅" in result
+        call_args = mock_repo.git.worktree.call_args[0]
+        assert "--force" in call_args
+        assert "-B" in call_args
+        assert "-b" not in call_args
+
+    def test_worktree_add_new_branch_with_start_point(self):
+        """new_branch + branch: creates new_branch from given start-point."""
+        mock_repo = Mock()
+
+        result = git_worktree_add(
+            mock_repo, worktree_path="/tmp/wt-nb", new_branch="feat/x", branch="main"
+        )
+
+        assert "✅" in result
+        call_args = mock_repo.git.worktree.call_args[0]
+        assert "-b" in call_args
+        assert "feat/x" in call_args
+        assert "/tmp/wt-nb" in call_args
+        assert "main" in call_args
+
+    def test_worktree_add_rejects_dangerous_chars_in_worktree_path(self):
+        """Should reject dangerous characters in worktree_path."""
+        mock_repo = Mock()
+
+        result = git_worktree_add(mock_repo, worktree_path="/tmp/wt;rm -rf /")
+
+        assert "❌" in result
+        assert "Invalid characters in worktree path" in result
+        mock_repo.git.worktree.assert_not_called()
+
+    def test_worktree_add_handles_git_command_error(self):
+        """Should handle GitCommandError gracefully."""
+        mock_repo = Mock()
+        mock_repo.git.worktree.side_effect = GitCommandError(
+            "git worktree", 128, b"", b"fatal: already checked out"
+        )
+
+        result = git_worktree_add(mock_repo, worktree_path="/tmp/wt")
+
+        assert "❌" in result
+        assert "Failed to add worktree" in result
+
+    def test_worktree_add_handles_general_exception(self):
+        """Should handle unexpected exceptions gracefully."""
+        mock_repo = Mock()
+        mock_repo.git.worktree.side_effect = Exception("Disk full")
+
+        result = git_worktree_add(mock_repo, worktree_path="/tmp/wt")
+
+        assert "❌" in result
+        assert "Error adding worktree" in result
+        assert "Disk full" in result

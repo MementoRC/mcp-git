@@ -37,6 +37,7 @@ from ..git.models import (
     GitSubmoduleSync,
     GitSubmoduleUpdate,
     GitRm,
+    GitWorktreeAdd,
     GitWorktreeList,
     GitWorktreeRemove,
 )
@@ -45,6 +46,7 @@ from ..git.operations_extended import (
     git_merge_tree,
     git_restore,
     git_rm,
+    git_worktree_add,
     git_worktree_list,
     git_worktree_remove,
 )
@@ -391,6 +393,10 @@ def _register_git_tools(interface: Any, git_service: Any):
             schema=GitSubmoduleAdd.model_json_schema(),
             domain="git",
             complexity="focused",
+            # Submodule paths are repo-relative by git convention (gitmodules(5)).
+            # Exempting "path" lets callers pass "sub-packages/remote-iface"
+            # instead of an absolute path that would poison .gitmodules (issue #168).
+            relative_path_params={"path"},
         ),
         ToolDefinition(
             name="git_submodule_update",
@@ -462,6 +468,14 @@ def _register_git_tools(interface: Any, git_service: Any):
             implementation=wrap_repo_op(git_worktree_remove),
             description="Remove a worktree (with optional force for modified worktrees)",
             schema=GitWorktreeRemove.model_json_schema(),
+            domain="git",
+            complexity="focused",
+        ),
+        ToolDefinition(
+            name="git_worktree_add",
+            implementation=wrap_repo_op(git_worktree_add),
+            description="Create a new linked worktree (detached, existing branch, or new branch)",
+            schema=GitWorktreeAdd.model_json_schema(),
             domain="git",
             complexity="focused",
         ),
