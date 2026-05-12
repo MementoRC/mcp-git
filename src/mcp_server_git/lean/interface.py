@@ -201,29 +201,27 @@ class GitLeanInterface:
         """
         exempt = relative_path_params or set()
         for param_name, param_value in parameters.items():
-            # Check all parameters containing "path" in their name
-            if "path" in param_name.lower() and isinstance(param_value, str):
-                # Always reject empty strings and ".." traversal
-                if not param_value or ".." in param_value.split("/"):
-                    raise ValueError(
-                        f"Invalid path '{param_value}': empty paths and '..' "
-                        f"traversal components are not allowed."
-                    )
-                # Exempt parameters may be repo-relative; all others must be absolute
-                if param_name not in exempt and not param_value.startswith("/"):
-                    raise ValueError(
-                        f"Relative path '{param_value}' not supported for '{param_name}'. "
-                        f"MCP servers resolve paths relative to their process CWD, not "
-                        f"Claude Code's working directory. Use absolute path instead."
-                    )
+            # Only validate string parameters whose name contains "path".
+            # Non-path params (e.g. branch_name, commit_message, url) and
+            # non-string values (e.g. int IDs, bools) are ignored.
+            if "path" not in param_name.lower() or not isinstance(param_value, str):
                 continue
 
-            # Non-exempt path params must be absolute.
-            if param_value in (".", "..") or not param_value.startswith("/"):
+            # Always reject empty strings and ".." traversal components,
+            # even for exempt parameters.
+            if not param_value or ".." in param_value.split("/"):
+                raise ValueError(
+                    f"Invalid path '{param_value}': empty paths and '..' "
+                    f"traversal components are not allowed."
+                )
+
+            # Exempt parameters may be repo-relative (e.g. submodule paths
+            # per gitmodules(5)); all other path params must be absolute.
+            if param_name not in exempt and not param_value.startswith("/"):
                 raise ValueError(
                     f"Relative path '{param_value}' not supported. MCP servers "
-                    f"resolve paths relative to their process CWD, not Claude Code's "
-                    f"working directory. Use absolute path instead."
+                    f"resolve paths relative to their process CWD, not Claude "
+                    f"Code's working directory. Use absolute path instead."
                 )
 
     def _wrap_tool(self, tool_func: Callable, tool_name: str) -> Callable:
