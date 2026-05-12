@@ -430,11 +430,18 @@ class TestPathValidation:
         )
 
     def test_relative_dotdot_rejected(self):
-        """Test that '..' is rejected."""
+        """Test that '..' is rejected as a traversal component.
+
+        After issue #168's fix, '..' is caught by the traversal-rejection
+        branch (which runs before the absolute-path check) so the error
+        message references traversal rather than relativeness.
+        """
         params = {"repo_path": ".."}
         with pytest.raises(ValueError) as exc_info:
             self.interface._validate_path_parameters(params)
-        assert "Relative path '..' not supported" in str(exc_info.value)
+        msg = str(exc_info.value)
+        assert "'..'" in msg
+        assert "traversal" in msg
 
     def test_relative_path_rejected(self):
         """Test that relative paths without leading slash are rejected."""
