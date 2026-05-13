@@ -27,7 +27,22 @@ logger = logging.getLogger(__name__)
 
 
 class ToolDefinition:
-    """Tool definition with metadata for lean MCP registry."""
+    """Tool definition with metadata for lean MCP registry.
+
+    Args:
+        name: Unique tool identifier.
+        implementation: Callable that executes the tool.
+        description: Human-readable description shown in discovery.
+        schema: JSON Schema dict describing the tool's parameters.
+        domain: Tool domain (``"git"``, ``"github"``, ``"azure"``).
+        complexity: Complexity tier (``"core"``, ``"focused"``, ``"advanced"``).
+        examples: Optional list of example invocations.
+        relative_path_params: Names of ``*path*`` parameters that should be
+            treated as repo-relative instead of filesystem-absolute.  Empty
+            paths and ``..`` traversal components are still rejected.
+            Example: ``{"path"}`` for ``git_submodule_add`` — gitmodules(5)
+            requires relative paths in ``.gitmodules``.
+    """
 
     def __init__(
         self,
@@ -64,7 +79,9 @@ class ToolDefinition:
         self.domain = domain
         self.complexity = complexity
         self.examples = examples or []
-        self.relative_path_params = relative_path_params or set()
+        # Parameters listed here bypass the "must be absolute" path check.
+        # They still reject ".." and empty strings to prevent traversal.
+        self.relative_path_params: set[str] = relative_path_params or set()
 
 
 class GitLeanInterface:
@@ -166,50 +183,45 @@ class GitLeanInterface:
         MCP servers resolve paths relative to their process CWD, not Claude Code's
         working directory. This causes cross-repository pollution when using ".".
 
-        Parameters explicitly marked in ``relative_path_params`` are exempt from
-        the absolute-path requirement (e.g. submodule "path" which is repo-relative
-        by git convention per gitmodules(5); issue #168). Exempted parameters are
-        STILL rejected when they are empty or contain ".." path-traversal segments.
+        Parameters listed in *relative_path_params* are exempted from the
+        "must be absolute" requirement (git submodule paths are repo-relative by
+        git's own convention — see gitmodules(5)).  Traversal via ".." and empty
+        strings are still rejected for all parameters.
+
+        Note: paths such as ``./lib/submod`` or ``lib//submod`` are NOT
+        normalised here — git canonicalises them downstream; we only enforce
+        no-``..`` components and non-empty values.
 
         Args:
-            parameters: Dictionary of tool parameters.
-            relative_path_params: Set of parameter names whose values are
-                semantically repo-relative by git convention and should NOT
-                be rejected for being relative. Defaults to no exemptions.
+            parameters: Dictionary of tool parameters
+            relative_path_params: Parameter names that are allowed to be relative.
 
         Raises:
-            ValueError: If any non-exempt path parameter is relative, or if an
-                exempt parameter is empty or contains a ".." traversal segment.
+            ValueError: If any path parameter fails validation
         """
-        exemptions = relative_path_params or set()
+        exempt = relative_path_params or set()
         for param_name, param_value in parameters.items():
-            # Only inspect string-valued parameters whose name contains "path".
-            if not isinstance(param_value, str):
-                continue
-            if "path" not in param_name.lower():
-                continue
-
-            if param_name in exemptions:
-                # Exempted: relative paths are allowed, but reject empty values
-                # and any ".." segment to prevent path-traversal escapes.
-                if param_value == "":
-                    raise ValueError(
-                        f"Path parameter '{param_name}' must not be empty."
-                    )
-                segments = param_value.replace("\\", "/").split("/")
-                if ".." in segments:
-                    raise ValueError(
-                        f"Path traversal ('..') not allowed in '{param_name}': "
-                        f"'{param_value}'."
-                    )
+            # Only validate string parameters whose name contains "path".
+            # Non-path params (e.g. branch_name, commit_message, url) and
+            # non-string values (e.g. int IDs, bools) are ignored.
+            if "path" not in param_name.lower() or not isinstance(param_value, str):
                 continue
 
-            # Non-exempt path params must be absolute.
-            if param_value in (".", "..") or not param_value.startswith("/"):
+            # Always reject empty strings and ".." traversal components,
+            # even for exempt parameters.
+            if not param_value or ".." in param_value.split("/"):
+                raise ValueError(
+                    f"Invalid path '{param_value}': empty paths and '..' "
+                    f"traversal components are not allowed."
+                )
+
+            # Exempt parameters may be repo-relative (e.g. submodule paths
+            # per gitmodules(5)); all other path params must be absolute.
+            if param_name not in exempt and not param_value.startswith("/"):
                 raise ValueError(
                     f"Relative path '{param_value}' not supported. MCP servers "
-                    f"resolve paths relative to their process CWD, not Claude Code's "
-                    f"working directory. Use absolute path instead."
+                    f"resolve paths relative to their process CWD, not Claude "
+                    f"Code's working directory. Use absolute path instead."
                 )
 
     def _wrap_tool(self, tool_func: Callable, tool_name: str) -> Callable:
@@ -309,10 +321,9 @@ class GitLeanInterface:
                 }
 
         try:
-            # Validate path parameters (honoring per-tool exemptions, e.g.
-            # submodule "path" which is intentionally repo-relative).
+            # Validate path parameters (pass per-tool exemption set)
             self._validate_path_parameters(
-                parameters, tool_def.relative_path_params
+                parameters, relative_path_params=tool_def.relative_path_params
             )
 
             # Execute tool
