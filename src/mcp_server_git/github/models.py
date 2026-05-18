@@ -419,6 +419,7 @@ class GitHubUpdateRepoSettings(BaseModel):
     homepage: str | None = None
     private: bool | None = None
     visibility: str | None = None  # public, private, internal
+    default_branch: str | None = None
     # Feature toggles
     has_issues: bool | None = None
     has_projects: bool | None = None

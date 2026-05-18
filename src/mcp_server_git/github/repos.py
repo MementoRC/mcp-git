@@ -102,6 +102,7 @@ async def github_update_repo_settings(
     homepage: str | None = None,
     private: bool | None = None,
     visibility: str | None = None,
+    default_branch: str | None = None,
     has_issues: bool | None = None,
     has_projects: bool | None = None,
     has_wiki: bool | None = None,
@@ -135,6 +136,8 @@ async def github_update_repo_settings(
                 payload["private"] = private
             if visibility is not None:
                 payload["visibility"] = visibility
+            if default_branch is not None:
+                payload["default_branch"] = default_branch
             if has_issues is not None:
                 payload["has_issues"] = has_issues
             if has_projects is not None:

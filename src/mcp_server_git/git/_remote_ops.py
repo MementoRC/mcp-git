@@ -67,6 +67,8 @@ def git_push(
     force_with_lease: bool = False,
     force_with_lease_expect: str | None = None,
     force_if_includes: bool = False,
+    delete: bool = False,
+    refspec: str | None = None,
 ) -> str:
     """Push with comprehensive authentication including fallback to system git credentials.
 
@@ -81,6 +83,12 @@ def git_push(
         Composes with ``--force-with-lease`` to also detect rebase-on-stale-base.
 
     ``force`` and ``force_with_lease`` are mutually exclusive.
+
+    Delete / refspec controls (issue #173):
+      - ``delete``: maps to ``--delete <branch>`` (delete remote branch).
+        Requires ``branch``; mutually exclusive with force/refspec.
+      - ``refspec``: raw push refspec (e.g. ``src:dst`` or ``:branch``).
+        Mutually exclusive with ``branch``/``delete``.
     """
     try:
         # Validate force-push parameter combinations (issue #161)
@@ -91,6 +99,32 @@ def git_push(
             )
         if force_with_lease_expect is not None and not force_with_lease:
             return "❌ force_with_lease_expect requires force_with_lease=True"
+
+        # Validate delete/refspec combinations (issue #173)
+        if delete:
+            if not branch:
+                return "❌ delete=True requires branch to be set"
+            if force or force_with_lease or force_if_includes:
+                return "❌ delete=True cannot be combined with force/force_with_lease/force_if_includes"
+            if set_upstream:
+                return "❌ delete=True cannot be combined with set_upstream"
+            if refspec is not None:
+                return "❌ delete=True cannot be combined with refspec"
+        if refspec is not None:
+            if branch is not None:
+                return "❌ refspec cannot be combined with branch"
+            if set_upstream:
+                return "❌ refspec cannot be combined with set_upstream"
+
+        # Handle raw refspec push
+        if refspec is not None:
+            repo.git.push(remote, refspec)
+            return f"✅ Successfully pushed refspec '{refspec}' to {remote}"
+
+        # Handle delete remote branch
+        if delete:
+            repo.git.push(remote, "--delete", branch)
+            return f"✅ Successfully deleted remote branch '{branch}' from {remote}"
 
         # Get current branch if not specified
         if not branch:

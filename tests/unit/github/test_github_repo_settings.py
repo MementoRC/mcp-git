@@ -298,6 +298,35 @@ class TestGitHubUpdateRepoSettings:
             assert "visibility" in result
 
     @pytest.mark.asyncio
+    async def test_successful_default_branch_update(self):
+        """Test updating repository default branch."""
+        mock_client = MagicMock()
+
+        mock_response = AsyncMock()
+        mock_response.status = 200
+        mock_response.json = AsyncMock(
+            return_value={
+                "full_name": "testowner/test-repo",
+                "default_branch": "development",
+            }
+        )
+        mock_client.patch = AsyncMock(return_value=mock_response)
+
+        with patch(
+            "src.mcp_server_git.github.repos.github_client_context"
+        ) as mock_context:
+            mock_context.return_value.__aenter__.return_value = mock_client
+
+            result = await github_update_repo_settings(
+                repo_owner="testowner",
+                repo_name="test-repo",
+                default_branch="development",
+            )
+
+            assert "✅ Successfully updated repository settings" in result
+            assert "default_branch" in result
+
+    @pytest.mark.asyncio
     async def test_successful_feature_toggles_update(self):
         """Test updating repository feature toggles (issues, wiki, projects)."""
         mock_client = MagicMock()
