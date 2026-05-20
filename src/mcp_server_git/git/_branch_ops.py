@@ -219,6 +219,50 @@ def _collect_remote_branches(repo: Repo) -> list[dict[str, Any]]:
     return records
 
 
+def _collect_sorted_branches(
+    repo: Repo,
+    effective_type: Literal["local", "remote", "all"],
+    sort: str,
+) -> list[dict[str, Any]]:
+    """Collect branches in sorted order using git for-each-ref."""
+    patterns: list[str]
+    if effective_type == "local":
+        patterns = ["refs/heads"]
+    elif effective_type == "remote":
+        patterns = ["refs/remotes"]
+    else:
+        patterns = ["refs/heads", "refs/remotes"]
+
+    fmt = "%(refname:short)%00%(objectname)%00%(upstream:short)"
+    raw = repo.git.for_each_ref(f"--sort={sort}", f"--format={fmt}", *patterns)
+
+    try:
+        active = repo.active_branch.name
+    except TypeError:
+        active = None  # detached HEAD
+
+    records = []
+    for line in raw.splitlines():
+        if not line:
+            continue
+        parts = line.split("\x00")
+        if len(parts) < 3:  # pragma: no cover
+            continue
+        name, sha, upstream = parts[0], parts[1], parts[2]
+        # Skip remote HEAD symbolic refs
+        if name.endswith("/HEAD"):
+            continue
+        records.append(
+            _build_branch_record(
+                name=name,
+                sha=sha,
+                is_current=(name == active),
+                upstream=upstream if upstream else None,
+            )
+        )
+    return records
+
+
 def _format_branches(records: list[dict[str, Any]]) -> str:
     if not records:
         return "No branches found"
@@ -237,6 +281,7 @@ def git_branch_list(
     pattern: str | None = None,
     contains: str | None = None,
     merged: bool | None = None,
+    sort: str | None = None,
     # Deprecated back-compat aliases — derive branch_type from these if branch_type
     # is at default ("local") and no explicit branch_type was set.
     remote: bool = False,
@@ -250,6 +295,7 @@ def git_branch_list(
         pattern: Optional fnmatch glob to filter branch names, e.g. 'feature/*'
         contains: commit-ish; only branches containing this commit are returned
         merged: True = only merged into HEAD, False = only unmerged, None = no filter
+        sort: Sort key for git for-each-ref, e.g. '-committerdate'. None = legacy path.
         remote: Deprecated. Use branch_type='remote' instead.
         all: Deprecated. Use branch_type='all' instead.
 
@@ -260,7 +306,9 @@ def git_branch_list(
         effective_type = _resolve_branch_type(branch_type, remote, all)
 
         # Collect candidate records
-        if effective_type == "local":
+        if sort is not None:
+            records = _collect_sorted_branches(repo, effective_type, sort)
+        elif effective_type == "local":
             records = _collect_local_branches(repo)
         elif effective_type == "remote":
             records = _collect_remote_branches(repo)

@@ -168,3 +168,73 @@ def test_model_valid_delete() -> None:
 def test_model_valid_refspec() -> None:
     model = GitPush(repo_path="/repo", refspec="src:dst")
     assert model.refspec == "src:dst"
+
+
+# ---------------------------------------------------------------------------
+# dry_run=True — all push modes (issue #176)
+# ---------------------------------------------------------------------------
+
+
+class TestGitPushDryRun:
+    def test_dry_run_false_does_not_append_flag(self, mock_repo: MagicMock) -> None:
+        git_push(mock_repo, branch="feature", dry_run=False)
+
+        mock_repo.git.push.assert_called_with("origin", "feature")
+
+    def test_dry_run_with_normal_push_appends_flag(self, mock_repo: MagicMock) -> None:
+        git_push(mock_repo, branch="feature", dry_run=True)
+
+        mock_repo.git.push.assert_called_with("origin", "feature", "--dry-run")
+
+    def test_dry_run_with_delete_appends_flag(self, mock_repo: MagicMock) -> None:
+        git_push(mock_repo, branch="feature", delete=True, dry_run=True)
+
+        mock_repo.git.push.assert_called_with("origin", "--delete", "feature", "--dry-run")
+
+    def test_dry_run_with_refspec_appends_flag(self, mock_repo: MagicMock) -> None:
+        git_push(mock_repo, refspec=":feature", dry_run=True)
+
+        mock_repo.git.push.assert_called_with("origin", ":feature", "--dry-run")
+
+    def test_dry_run_with_force_appends_flag(self, mock_repo: MagicMock) -> None:
+        git_push(mock_repo, branch="feature", force=True, dry_run=True)
+
+        call_args = mock_repo.git.push.call_args
+        args = call_args.args
+        assert "--force" in args
+        assert "--dry-run" in args
+
+    def test_dry_run_return_message_indicates_no_state_change(
+        self, mock_repo: MagicMock
+    ) -> None:
+        result = git_push(mock_repo, branch="feature", dry_run=True)
+
+        assert "dry-run" in result
+
+    def test_dry_run_delete_return_message_indicates_no_state_change(
+        self, mock_repo: MagicMock
+    ) -> None:
+        result = git_push(mock_repo, branch="feature", delete=True, dry_run=True)
+
+        assert "dry-run" in result
+
+    def test_dry_run_refspec_return_message_indicates_no_state_change(
+        self, mock_repo: MagicMock
+    ) -> None:
+        result = git_push(mock_repo, refspec=":feature", dry_run=True)
+
+        assert "dry-run" in result
+
+    def test_model_dry_run_field_defaults_false(self) -> None:
+        model = GitPush(repo_path="/repo", branch="feature")
+        assert model.dry_run is False
+
+    def test_model_dry_run_compatible_with_delete(self) -> None:
+        model = GitPush(repo_path="/repo", branch="feature", delete=True, dry_run=True)
+        assert model.dry_run is True
+        assert model.delete is True
+
+    def test_model_dry_run_compatible_with_refspec(self) -> None:
+        model = GitPush(repo_path="/repo", refspec=":feature", dry_run=True)
+        assert model.dry_run is True
+        assert model.refspec == ":feature"

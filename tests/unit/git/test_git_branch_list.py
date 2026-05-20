@@ -309,6 +309,142 @@ class TestGitBranchListBackCompat:
         assert "Cannot combine" in result
 
 
+class TestGitBranchListSort:
+    """Tests for the 'sort' parameter (git for-each-ref path)."""
+
+    # NUL-separated format: name\x00sha\x00upstream
+    _FEI_TWO_BRANCHES = (
+        "feature/z\x00aaa" + "a" * 37 + "\x00\n"
+        "feature/a\x00bbb" + "b" * 37 + "\x00\n"
+    )
+
+    def _make_sort_repo(
+        self,
+        for_each_ref_output: str = "",
+        active_name: str | None = "main",
+        for_each_ref_error: Exception | None = None,
+    ) -> MagicMock:
+        repo = MagicMock()
+        if for_each_ref_error is not None:
+            repo.git.for_each_ref.side_effect = for_each_ref_error
+        else:
+            repo.git.for_each_ref.return_value = for_each_ref_output
+        if active_name is not None:
+            active = MagicMock()
+            active.name = active_name
+            type(repo).active_branch = PropertyMock(return_value=active)
+        else:
+            type(repo).active_branch = PropertyMock(
+                side_effect=TypeError("detached HEAD")
+            )
+        return repo
+
+    def test_sort_by_committerdate_descending_preserves_order(self):
+        """for-each-ref output order is preserved in formatter output."""
+        repo = self._make_sort_repo(for_each_ref_output=self._FEI_TWO_BRANCHES)
+
+        result = git_branch_list(repo, sort="-committerdate")
+
+        assert "Branches:" in result
+        # feature/z should appear before feature/a (order from for-each-ref)
+        idx_z = result.index("feature/z")
+        idx_a = result.index("feature/a")
+        assert idx_z < idx_a
+
+    def test_sort_by_committerdate_passes_correct_flag(self):
+        """--sort=-committerdate is forwarded to for_each_ref."""
+        repo = self._make_sort_repo(for_each_ref_output=self._FEI_TWO_BRANCHES)
+
+        git_branch_list(repo, sort="-committerdate")
+
+        call_args = repo.git.for_each_ref.call_args
+        assert "--sort=-committerdate" in call_args.args
+
+    def test_sort_by_refname_passes_correct_flag(self):
+        """--sort=refname is forwarded to for_each_ref."""
+        repo = self._make_sort_repo(for_each_ref_output=self._FEI_TWO_BRANCHES)
+
+        git_branch_list(repo, sort="refname")
+
+        call_args = repo.git.for_each_ref.call_args
+        assert "--sort=refname" in call_args.args
+
+    def test_sort_local_uses_refs_heads_pattern(self):
+        """branch_type='local' (default) scopes for-each-ref to refs/heads."""
+        repo = self._make_sort_repo(for_each_ref_output="")
+
+        git_branch_list(repo, sort="-committerdate")
+
+        call_args = repo.git.for_each_ref.call_args
+        assert "refs/heads" in call_args.args
+        assert "refs/remotes" not in call_args.args
+
+    def test_sort_remote_uses_refs_remotes_pattern(self):
+        """branch_type='remote' scopes for-each-ref to refs/remotes."""
+        repo = self._make_sort_repo(for_each_ref_output="")
+
+        git_branch_list(repo, branch_type="remote", sort="-committerdate")
+
+        call_args = repo.git.for_each_ref.call_args
+        assert "refs/remotes" in call_args.args
+        assert "refs/heads" not in call_args.args
+
+    def test_sort_all_uses_both_patterns(self):
+        """branch_type='all' passes both refs/heads and refs/remotes."""
+        repo = self._make_sort_repo(for_each_ref_output="")
+
+        git_branch_list(repo, branch_type="all", sort="-committerdate")
+
+        call_args = repo.git.for_each_ref.call_args
+        assert "refs/heads" in call_args.args
+        assert "refs/remotes" in call_args.args
+
+    def test_sort_with_pattern_filter_applied_after_sort(self):
+        """Pattern filter is applied to for-each-ref results."""
+        output = (
+            "feature/z\x00aaa" + "a" * 37 + "\x00\n"
+            "main\x00bbb" + "b" * 37 + "\x00\n"
+        )
+        repo = self._make_sort_repo(for_each_ref_output=output)
+
+        result = git_branch_list(repo, sort="-committerdate", pattern="feature/*")
+
+        assert "feature/z" in result
+        assert "main" not in result
+
+    def test_sort_with_merged_filter_applied_after_sort(self):
+        """merged=True filter is applied to for-each-ref results."""
+        output = (
+            "feature/z\x00aaa" + "a" * 37 + "\x00\n"
+            "main\x00bbb" + "b" * 37 + "\x00\n"
+        )
+        repo = self._make_sort_repo(for_each_ref_output=output)
+        repo.git.branch.return_value = "  main"  # only main is merged
+
+        result = git_branch_list(repo, sort="-committerdate", merged=True)
+
+        assert "main" in result
+        assert "feature/z" not in result
+
+    def test_invalid_sort_key_surfaces_error(self):
+        """GitCommandError from invalid sort key bubbles up as ❌ message."""
+        err = GitCommandError("for-each-ref", "fatal: unknown fieldname: bad")
+        repo = self._make_sort_repo(for_each_ref_error=err)
+
+        result = git_branch_list(repo, sort="bad-key")
+
+        assert "❌ Branch list failed:" in result
+
+    def test_sort_none_does_not_call_for_each_ref(self):
+        """When sort=None, the legacy collection path is used (no for-each-ref)."""
+        heads = [_make_head("main", "aaa" * 14, is_active=True)]
+        repo = _make_repo(heads, active_name="main")
+
+        git_branch_list(repo, sort=None)
+
+        repo.git.for_each_ref.assert_not_called()
+
+
 class TestGitBranchListErrors:
     """Tests for error handling."""
 

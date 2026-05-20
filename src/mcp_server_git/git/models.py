@@ -130,6 +130,13 @@ class GitPush(BaseModel):
             "Mutually exclusive with branch/delete."
         ),
     )
+    dry_run: bool = Field(
+        False,
+        description=(
+            "Show what would be pushed without actually pushing (git push --dry-run). "
+            "Compatible with all push modes including delete and refspec."
+        ),
+    )
 
     @model_validator(mode="after")
     def _validate_delete_and_refspec(self) -> "GitPush":
@@ -234,6 +241,11 @@ class GitBranchList(BaseModel):
     )
     merged: bool | None = Field(
         None, description="True=only merged into HEAD, False=only unmerged, None=no filter"
+    )
+    sort: str | None = Field(
+        None,
+        description="Sort key, e.g. '-committerdate' (most-recent first), 'refname', 'authordate'. "
+                    "Mirrors `git for-each-ref --sort=<key>` semantics. None = no ordering guarantee.",
     )
 
 
