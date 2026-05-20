@@ -67,6 +67,9 @@ def git_push(
     force_with_lease: bool = False,
     force_with_lease_expect: str | None = None,
     force_if_includes: bool = False,
+    delete: bool = False,
+    refspec: str | None = None,
+    dry_run: bool = False,
 ) -> str:
     """Push with comprehensive authentication including fallback to system git credentials.
 
@@ -81,6 +84,16 @@ def git_push(
         Composes with ``--force-with-lease`` to also detect rebase-on-stale-base.
 
     ``force`` and ``force_with_lease`` are mutually exclusive.
+
+    Delete / refspec controls (issue #173):
+      - ``delete``: maps to ``--delete <branch>`` (delete remote branch).
+        Requires ``branch``; mutually exclusive with force/refspec.
+      - ``refspec``: raw push refspec (e.g. ``src:dst`` or ``:branch``).
+        Mutually exclusive with ``branch``/``delete``.
+
+    Dry-run control (issue #176):
+      - ``dry_run``: maps to ``--dry-run``. Compatible with all push modes.
+        When True, git reports what would be pushed without modifying remote state.
     """
     try:
         # Validate force-push parameter combinations (issue #161)
@@ -91,6 +104,36 @@ def git_push(
             )
         if force_with_lease_expect is not None and not force_with_lease:
             return "❌ force_with_lease_expect requires force_with_lease=True"
+
+        # Validate delete/refspec combinations (issue #173)
+        if delete:
+            if not branch:
+                return "❌ delete=True requires branch to be set"
+            if force or force_with_lease or force_if_includes:
+                return "❌ delete=True cannot be combined with force/force_with_lease/force_if_includes"
+            if set_upstream:
+                return "❌ delete=True cannot be combined with set_upstream"
+            if refspec is not None:
+                return "❌ delete=True cannot be combined with refspec"
+        if refspec is not None:
+            if branch is not None:
+                return "❌ refspec cannot be combined with branch"
+            if set_upstream:
+                return "❌ refspec cannot be combined with set_upstream"
+
+        # Handle raw refspec push
+        if refspec is not None:
+            extra = ["--dry-run"] if dry_run else []
+            repo.git.push(remote, refspec, *extra)
+            suffix = " (dry-run; no remote state modified)" if dry_run else ""
+            return f"✅ Successfully pushed refspec '{refspec}' to {remote}{suffix}"
+
+        # Handle delete remote branch
+        if delete:
+            extra = ["--dry-run"] if dry_run else []
+            repo.git.push(remote, "--delete", branch, *extra)
+            suffix = " (dry-run; no remote state modified)" if dry_run else ""
+            return f"✅ Successfully deleted remote branch '{branch}' from {remote}{suffix}"
 
         # Get current branch if not specified
         if not branch:
@@ -121,6 +164,8 @@ def git_push(
         if force_if_includes:
             # Compatible with --force-with-lease; harmless without it on git 2.30+.
             push_args.insert(0, "--force-if-includes")
+        if dry_run:
+            push_args.append("--dry-run")
 
         # Get remote URL for GitHub authentication handling (cache for reuse)
         remote_url = ""
@@ -176,6 +221,8 @@ def git_push(
                         success_msg = f"✅ Successfully pushed {branch} to {remote}"
                         if set_upstream:
                             success_msg += " (set upstream tracking)"
+                        if dry_run:
+                            success_msg += " (dry-run; no remote state modified)"
 
                         # Indicate which authentication method was used
                         if os.getenv("GITHUB_TOKEN"):
@@ -217,6 +264,8 @@ def git_push(
                         success_msg = f"✅ Successfully pushed {branch} to {remote}"
                         if set_upstream:
                             success_msg += " (set upstream tracking)"
+                        if dry_run:
+                            success_msg += " (dry-run; no remote state modified)"
                         success_msg += "\n🔐 Used system git authentication"
                         return success_msg
                     else:
@@ -258,6 +307,8 @@ def git_push(
             success_msg = f"✅ Successfully pushed {branch} to {remote}"
             if set_upstream:
                 success_msg += " (set upstream tracking)"
+            if dry_run:
+                success_msg += " (dry-run; no remote state modified)"
             return success_msg
         except GitCommandError as e:
             # If regular push fails and this is GitHub HTTPS, suggest auth options

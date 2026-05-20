@@ -7,6 +7,7 @@ from ..git import operations as git_ops
 from ..git.models import (
     GitAbort,
     GitAdd,
+    GitBranchList,
     GitBranchUpdate,
     GitCheckout,
     GitCherryPick,
@@ -446,6 +447,14 @@ def _register_git_tools(interface: Any, git_service: Any):
             schema=GitRestore.model_json_schema(),
             domain="git",
             complexity="core",
+        ),
+        ToolDefinition(
+            name="git_branch_list",
+            implementation=wrap_repo_op(git_ops.git_branch_list),
+            description="List branches (local, remote, or all) with optional pattern, contains, and merged filters",
+            schema=GitBranchList.model_json_schema(),
+            domain="git",
+            complexity="focused",
         ),
         ToolDefinition(
             name="git_branch_update",

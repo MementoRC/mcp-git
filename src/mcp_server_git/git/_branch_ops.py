@@ -1,6 +1,8 @@
 """Branch operations for MCP Git Server."""
 
+import fnmatch
 import logging
+from typing import Any, Literal
 
 from ..utils.git_import import GitCommandError, Repo
 
@@ -116,43 +118,221 @@ def git_checkout(repo: Repo, branch_name: str) -> str:
         return f"❌ Checkout error: {str(e)}"
 
 
+def _resolve_branch_type(
+    branch_type: Literal["local", "remote", "all"],
+    remote: bool,
+    all: bool,  # noqa: A002
+) -> Literal["local", "remote", "all"]:
+    """Resolve branch_type from new param or legacy bool aliases."""
+    legacy_used = remote or all
+    explicit_type = branch_type != "local"
+
+    if explicit_type and legacy_used:
+        raise ValueError(
+            "Cannot combine 'branch_type' with legacy 'remote'/'all' flags. "
+            "Use 'branch_type' only."
+        )
+
+    if legacy_used:
+        if all:
+            return "all"
+        return "remote"
+
+    return branch_type
+
+
+def _get_contains_set(repo: Repo, contains: str) -> set[str]:
+    """Return set of branch names (stripped) that contain the given commit-ish."""
+    raw = repo.git.branch("--contains", contains)
+    names = set()
+    for line in raw.splitlines():
+        name = line.lstrip("* ").strip()
+        if name:
+            names.add(name)
+    return names
+
+
+def _get_merged_set(repo: Repo, *, merged: bool) -> set[str]:
+    """Return set of branch names filtered by --merged or --no-merged."""
+    flag = "--merged" if merged else "--no-merged"
+    raw = repo.git.branch(flag)
+    names = set()
+    for line in raw.splitlines():
+        name = line.lstrip("* ").strip()
+        if name:
+            names.add(name)
+    return names
+
+
+def _build_branch_record(
+    name: str,
+    sha: str,
+    is_current: bool,
+    upstream: str | None,
+) -> dict[str, Any]:
+    return {"name": name, "sha": sha, "is_current": is_current, "upstream": upstream}
+
+
+def _collect_local_branches(repo: Repo) -> list[dict[str, Any]]:
+    """Collect local branch records."""
+    try:
+        active = repo.active_branch.name
+    except TypeError:
+        active = None  # detached HEAD
+
+    records = []
+    for head in repo.branches:
+        try:
+            upstream = (
+                head.tracking_branch().name
+                if head.tracking_branch() is not None
+                else None
+            )
+        except Exception:
+            upstream = None
+        records.append(
+            _build_branch_record(
+                name=head.name,
+                sha=head.commit.hexsha,
+                is_current=(head.name == active),
+                upstream=upstream,
+            )
+        )
+    return records
+
+
+def _collect_remote_branches(repo: Repo) -> list[dict[str, Any]]:
+    """Collect remote branch records (remotes/origin/... style names)."""
+    records = []
+    for remote in repo.remotes:
+        for ref in remote.refs:
+            if ref.name.endswith("/HEAD"):
+                continue
+            records.append(
+                _build_branch_record(
+                    name=ref.name,
+                    sha=ref.commit.hexsha,
+                    is_current=False,
+                    upstream=None,
+                )
+            )
+    return records
+
+
+def _collect_sorted_branches(
+    repo: Repo,
+    effective_type: Literal["local", "remote", "all"],
+    sort: str,
+) -> list[dict[str, Any]]:
+    """Collect branches in sorted order using git for-each-ref."""
+    patterns: list[str]
+    if effective_type == "local":
+        patterns = ["refs/heads"]
+    elif effective_type == "remote":
+        patterns = ["refs/remotes"]
+    else:
+        patterns = ["refs/heads", "refs/remotes"]
+
+    fmt = "%(refname:short)%00%(objectname)%00%(upstream:short)"
+    raw = repo.git.for_each_ref(f"--sort={sort}", f"--format={fmt}", *patterns)
+
+    try:
+        active = repo.active_branch.name
+    except TypeError:
+        active = None  # detached HEAD
+
+    records = []
+    for line in raw.splitlines():
+        if not line:
+            continue
+        parts = line.split("\x00")
+        if len(parts) < 3:  # pragma: no cover
+            continue
+        name, sha, upstream = parts[0], parts[1], parts[2]
+        # Skip remote HEAD symbolic refs
+        if name.endswith("/HEAD"):
+            continue
+        records.append(
+            _build_branch_record(
+                name=name,
+                sha=sha,
+                is_current=(name == active),
+                upstream=upstream if upstream else None,
+            )
+        )
+    return records
+
+
+def _format_branches(records: list[dict[str, Any]]) -> str:
+    if not records:
+        return "No branches found"
+    lines = []
+    for r in records:
+        marker = "* " if r["is_current"] else "  "
+        sha_short = r["sha"][:8]
+        upstream_info = f" -> {r['upstream']}" if r["upstream"] else ""
+        lines.append(f"{marker}{r['name']} [{sha_short}]{upstream_info}")
+    return "Branches:\n" + "\n".join(lines)
+
+
 def git_branch_list(
     repo: Repo,
-    remote: bool = False,
-    all: bool = False,
+    branch_type: Literal["local", "remote", "all"] = "local",
     pattern: str | None = None,
+    contains: str | None = None,
+    merged: bool | None = None,
+    sort: str | None = None,
+    # Deprecated back-compat aliases — derive branch_type from these if branch_type
+    # is at default ("local") and no explicit branch_type was set.
+    remote: bool = False,
+    all: bool = False,  # noqa: A002
 ) -> str:
-    """List branches in the repository
+    """List branches in the repository.
 
     Args:
         repo: Repository object
-        remote: If True, list remote branches (git branch -r)
-        all: If True, list all branches including remote (git branch -a)
-        pattern: Optional pattern to filter branches (supports glob patterns like 'feature/*')
+        branch_type: Which branches to list — "local" (default), "remote", or "all"
+        pattern: Optional fnmatch glob to filter branch names, e.g. 'feature/*'
+        contains: commit-ish; only branches containing this commit are returned
+        merged: True = only merged into HEAD, False = only unmerged, None = no filter
+        sort: Sort key for git for-each-ref, e.g. '-committerdate'. None = legacy path.
+        remote: Deprecated. Use branch_type='remote' instead.
+        all: Deprecated. Use branch_type='all' instead.
 
     Returns:
-        String containing the list of branches
+        Formatted string listing branches with sha and upstream info.
     """
     try:
-        args = []
+        effective_type = _resolve_branch_type(branch_type, remote, all)
 
-        # Add branch listing flags
-        if all:
-            args.append("-a")
-        elif remote:
-            args.append("-r")
+        # Collect candidate records
+        if sort is not None:
+            records = _collect_sorted_branches(repo, effective_type, sort)
+        elif effective_type == "local":
+            records = _collect_local_branches(repo)
+        elif effective_type == "remote":
+            records = _collect_remote_branches(repo)
+        else:  # "all"
+            records = _collect_local_branches(repo) + _collect_remote_branches(repo)
 
-        # When using pattern, we need to add --list flag
+        # Apply pattern filter
         if pattern and pattern.strip():
-            args.append("--list")
-            args.append(pattern)
+            records = [r for r in records if fnmatch.fnmatch(r["name"], pattern)]
 
-        branch_output = repo.git.branch(*args)
+        # Apply contains filter
+        if contains is not None:
+            allowed = _get_contains_set(repo, contains)
+            records = [r for r in records if r["name"] in allowed]
 
-        if not branch_output.strip():
-            return "No branches found"
+        # Apply merged filter
+        if merged is not None:
+            allowed = _get_merged_set(repo, merged=merged)
+            records = [r for r in records if r["name"] in allowed]
 
-        return f"Branches:\n{branch_output}"
+        return _format_branches(records)
+
+    except ValueError as e:
+        return f"❌ Branch list error: {str(e)}"
     except GitCommandError as e:
         return f"❌ Branch list failed: {str(e)}"
     except Exception as e:

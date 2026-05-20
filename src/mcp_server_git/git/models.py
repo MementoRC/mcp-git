@@ -1,6 +1,8 @@
 """Pydantic models for Git operations"""
 
-from pydantic import AliasChoices, BaseModel, Field
+from typing import Literal
+
+from pydantic import AliasChoices, BaseModel, Field, model_validator
 
 
 class GitStatus(BaseModel):
@@ -113,6 +115,50 @@ class GitPush(BaseModel):
     force_with_lease: bool = False
     force_with_lease_expect: str | None = None  # "<refname>:<sha>" or "<sha>"
     force_if_includes: bool = False  # git 2.30+, composes with force_with_lease
+    # Issue #173: delete remote branch and raw refspec support
+    delete: bool = Field(
+        False,
+        description=(
+            "Delete the remote branch (git push <remote> --delete <branch>). "
+            "Mutually exclusive with force/refspec."
+        ),
+    )
+    refspec: str | None = Field(
+        None,
+        description=(
+            "Raw push refspec (e.g., 'src:dst' or ':branch' to delete). "
+            "Mutually exclusive with branch/delete."
+        ),
+    )
+    dry_run: bool = Field(
+        False,
+        description=(
+            "Show what would be pushed without actually pushing (git push --dry-run). "
+            "Compatible with all push modes including delete and refspec."
+        ),
+    )
+
+    @model_validator(mode="after")
+    def _validate_delete_and_refspec(self) -> "GitPush":
+        if self.delete:
+            if not self.branch:
+                raise ValueError("delete=True requires branch to be set")
+            if self.force or self.force_with_lease or self.force_if_includes:
+                raise ValueError(
+                    "delete=True cannot be combined with force/force_with_lease/force_if_includes"
+                )
+            if self.set_upstream:
+                raise ValueError("delete=True cannot be combined with set_upstream")
+            if self.refspec is not None:
+                raise ValueError("delete=True cannot be combined with refspec")
+        if self.refspec is not None:
+            if self.branch is not None:
+                raise ValueError("refspec cannot be combined with branch")
+            if self.delete:
+                raise ValueError("refspec cannot be combined with delete")
+            if self.set_upstream:
+                raise ValueError("refspec cannot be combined with set_upstream")
+        return self
 
 
 class GitPull(BaseModel):
@@ -184,9 +230,23 @@ class GitSecurityEnforce(BaseModel):
 
 class GitBranchList(BaseModel):
     repo_path: str
-    remote: bool = False
-    all: bool = False
-    pattern: str | None = None
+    branch_type: Literal["local", "remote", "all"] = Field(
+        "local", description="Which branches to list: local, remote, or all"
+    )
+    pattern: str | None = Field(
+        None, description="fnmatch glob filter, e.g. 'feature/*'"
+    )
+    contains: str | None = Field(
+        None, description="commit-ish; only branches containing this commit"
+    )
+    merged: bool | None = Field(
+        None, description="True=only merged into HEAD, False=only unmerged, None=no filter"
+    )
+    sort: str | None = Field(
+        None,
+        description="Sort key, e.g. '-committerdate' (most-recent first), 'refname', 'authordate'. "
+                    "Mirrors `git for-each-ref --sort=<key>` semantics. None = no ordering guarantee.",
+    )
 
 
 class GitMergeBase(BaseModel):
