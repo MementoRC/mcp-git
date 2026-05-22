@@ -29,6 +29,7 @@ from ._branch_ops import (
 )
 from ._init_ops import git_init
 from ._remote_ops import (
+    git_clone,
     git_fetch,
     git_pull,
     git_push,
@@ -68,6 +69,7 @@ from ._config_ops import (
 )
 
 __all__ = [
+    "git_clone",
     "git_status",
     "git_diff_unstaged",
     "git_diff_staged",

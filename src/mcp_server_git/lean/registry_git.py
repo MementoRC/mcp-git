@@ -11,6 +11,7 @@ from ..git.models import (
     GitBranchUpdate,
     GitCheckout,
     GitCherryPick,
+    GitClone,
     GitCommit,
     GitConfigGet,
     GitConfigList,
@@ -165,6 +166,14 @@ def _register_git_tools(interface: Any, git_service: Any):
             implementation=git_ops.git_init,  # git_init takes path directly, not Repo
             description="Initialize a new Git repository",
             schema=GitInit.model_json_schema(),
+            domain="git",
+            complexity="core",
+        ),
+        ToolDefinition(
+            name="git_clone",
+            implementation=git_ops.git_clone,  # git_clone takes no Repo, operates directly
+            description="Clone a remote repository to a local path",
+            schema=GitClone.model_json_schema(),
             domain="git",
             complexity="core",
         ),
