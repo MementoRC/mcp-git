@@ -1,7 +1,9 @@
 """GitHub security operations - vulnerability alerts, security fixes, analysis."""
+
 from __future__ import annotations
 import logging
 from mcp_server_git.github.client import github_client_context
+
 logger = logging.getLogger(__name__)
 
 
@@ -113,6 +115,123 @@ async def github_disable_vulnerability_alerts(
             f"Unexpected error disabling vulnerability alerts: {e}", exc_info=True
         )
         return f"❌ Error disabling vulnerability alerts: {str(e)}"
+
+
+async def github_get_required_signatures(
+    repo_owner: str,
+    repo_name: str,
+    branch: str,
+) -> str:
+    """Check if required signatures are enabled on a protected branch."""
+    logger.debug(
+        f"🔍 Getting required signatures status for {repo_owner}/{repo_name}#{branch}"
+    )
+
+    try:
+        async with github_client_context() as client:
+            response = await client.get(
+                f"/repos/{repo_owner}/{repo_name}/branches/{branch}/protection/required_signatures"
+            )
+
+            if response.status == 200:
+                data = await response.json()
+                enabled = data.get("enabled", False)
+                return f"{'✅' if enabled else '❌'} Required signatures: {'enabled' if enabled else 'disabled'} on {repo_owner}/{repo_name}#{branch}"
+            elif response.status == 404:
+                return f"❌ Branch protection or branch not found: {repo_owner}/{repo_name}#{branch}"
+            else:
+                error_text = await response.text()
+                return f"❌ Failed to check required signatures: {response.status} - {error_text}"
+
+    except ValueError as auth_error:
+        logger.error(f"Authentication error checking required signatures: {auth_error}")
+        return f"❌ {str(auth_error)}"
+    except ConnectionError as conn_error:
+        logger.error(f"Connection error checking required signatures: {conn_error}")
+        return f"❌ Network connection failed: {str(conn_error)}"
+    except Exception as e:
+        logger.error(
+            f"Unexpected error checking required signatures: {e}", exc_info=True
+        )
+        return f"❌ Error checking required signatures: {str(e)}"
+
+
+async def github_enable_required_signatures(
+    repo_owner: str,
+    repo_name: str,
+    branch: str,
+) -> str:
+    """Enable required signatures on a protected branch."""
+    logger.debug(
+        f"🚀 Enabling required signatures for {repo_owner}/{repo_name}#{branch}"
+    )
+
+    try:
+        async with github_client_context() as client:
+            response = await client.put(
+                f"/repos/{repo_owner}/{repo_name}/branches/{branch}/protection/required_signatures"
+            )
+
+            if response.status == 200:
+                logger.info(
+                    f"✅ Enabled required signatures for {repo_owner}/{repo_name}#{branch}"
+                )
+                return f"✅ Enabled required signatures on {repo_owner}/{repo_name}#{branch}"
+            else:
+                error_text = await response.text()
+                return f"❌ Failed to enable required signatures: {response.status} - {error_text}"
+
+    except ValueError as auth_error:
+        logger.error(f"Authentication error enabling required signatures: {auth_error}")
+        return f"❌ {str(auth_error)}"
+    except ConnectionError as conn_error:
+        logger.error(f"Connection error enabling required signatures: {conn_error}")
+        return f"❌ Network connection failed: {str(conn_error)}"
+    except Exception as e:
+        logger.error(
+            f"Unexpected error enabling required signatures: {e}", exc_info=True
+        )
+        return f"❌ Error enabling required signatures: {str(e)}"
+
+
+async def github_disable_required_signatures(
+    repo_owner: str,
+    repo_name: str,
+    branch: str,
+) -> str:
+    """Disable required signatures on a protected branch."""
+    logger.debug(
+        f"🚀 Disabling required signatures for {repo_owner}/{repo_name}#{branch}"
+    )
+
+    try:
+        async with github_client_context() as client:
+            response = await client.delete(
+                f"/repos/{repo_owner}/{repo_name}/branches/{branch}/protection/required_signatures"
+            )
+
+            if response.status == 204:
+                logger.info(
+                    f"✅ Disabled required signatures for {repo_owner}/{repo_name}#{branch}"
+                )
+                return f"✅ Disabled required signatures on {repo_owner}/{repo_name}#{branch}"
+            else:
+                error_text = await response.text()
+                return f"❌ Failed to disable required signatures: {response.status} - {error_text}"
+
+    except ValueError as auth_error:
+        logger.error(
+            f"Authentication error disabling required signatures: {auth_error}"
+        )
+        return f"❌ {str(auth_error)}"
+    except ConnectionError as conn_error:
+        logger.error(f"Connection error disabling required signatures: {conn_error}")
+        return f"❌ Network connection failed: {str(conn_error)}"
+    except Exception as e:
+        logger.error(
+            f"Unexpected error disabling required signatures: {e}", exc_info=True
+        )
+        return f"❌ Error disabling required signatures: {str(e)}"
 
 
 async def github_get_automated_security_fixes(

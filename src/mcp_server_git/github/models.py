@@ -670,6 +670,30 @@ class GitHubDisableVulnerabilityAlerts(BaseModel):
     repo_name: str
 
 
+class GitHubGetRequiredSignatures(BaseModel):
+    """Model for checking if required signatures are enabled on a protected branch."""
+
+    repo_owner: str
+    repo_name: str
+    branch: str
+
+
+class GitHubEnableRequiredSignatures(BaseModel):
+    """Model for enabling required signatures on a protected branch."""
+
+    repo_owner: str
+    repo_name: str
+    branch: str
+
+
+class GitHubDisableRequiredSignatures(BaseModel):
+    """Model for disabling required signatures on a protected branch."""
+
+    repo_owner: str
+    repo_name: str
+    branch: str
+
+
 class GitHubGetAutomatedSecurityFixes(BaseModel):
     """Model for checking if automated security fixes are enabled."""
 
