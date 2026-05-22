@@ -15,6 +15,7 @@ MIN_TOKEN_LENGTH = 10  # minimum length for a valid GitHub token
 
 __all__ = [
     "_get_github_token_from_cli",
+    "git_clone",
     "git_push",
     "git_pull",
     "git_remote_list",
@@ -457,6 +458,45 @@ def git_remote_get_url(repo: Repo, name: str) -> str:
         return f"❌ Remote get-url failed: {str(e)}"
     except Exception as e:
         return f"❌ Remote get-url error: {str(e)}"
+
+
+def git_clone(
+    repo_url: str,
+    target_path: str,
+    branch: str | None = None,
+    depth: int | None = None,
+    single_branch: bool = False,
+    recurse_submodules: bool = False,
+) -> str:
+    """Clone a remote repository to a local path"""
+    try:
+        target = Path(target_path)
+        if not target.parent.exists():
+            raise ValueError(f"Parent directory does not exist: {target.parent}")
+        if target.exists() and any(target.iterdir()):
+            raise ValueError(
+                f"Target path already exists and is not empty: {target_path}"
+            )
+
+        multi_options = []
+        if branch:
+            multi_options.append(f"--branch={branch}")
+        if depth is not None:
+            multi_options.append(f"--depth={depth}")
+        if single_branch:
+            multi_options.append("--single-branch")
+        if recurse_submodules:
+            multi_options.append("--recurse-submodules")
+
+        Repo.clone_from(repo_url, target_path, multi_options=multi_options)
+
+        return f"✅ Cloned {repo_url} to {target_path}"
+    except ValueError:
+        raise
+    except GitCommandError as e:
+        return f"❌ Clone failed: {str(e)}"
+    except Exception as e:
+        return f"❌ Clone error: {str(e)}"
 
 
 def git_fetch(

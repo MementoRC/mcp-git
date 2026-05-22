@@ -105,6 +105,15 @@ class GitInit(BaseModel):
     repo_path: str
 
 
+class GitClone(BaseModel):
+    repo_url: str
+    target_path: str
+    branch: str | None = None
+    depth: int | None = None
+    single_branch: bool = False
+    recurse_submodules: bool = False
+
+
 class GitPush(BaseModel):
     repo_path: str
     remote: str = "origin"
@@ -240,12 +249,13 @@ class GitBranchList(BaseModel):
         None, description="commit-ish; only branches containing this commit"
     )
     merged: bool | None = Field(
-        None, description="True=only merged into HEAD, False=only unmerged, None=no filter"
+        None,
+        description="True=only merged into HEAD, False=only unmerged, None=no filter",
     )
     sort: str | None = Field(
         None,
         description="Sort key, e.g. '-committerdate' (most-recent first), 'refname', 'authordate'. "
-                    "Mirrors `git for-each-ref --sort=<key>` semantics. None = no ordering guarantee.",
+        "Mirrors `git for-each-ref --sort=<key>` semantics. None = no ordering guarantee.",
     )
 
 
