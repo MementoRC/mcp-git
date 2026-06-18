@@ -335,6 +335,14 @@ class GitBranchUpdate(BaseModel):
     )
 
 
+class GitBranchDelete(BaseModel):
+    repo_path: str
+    branch_name: str = Field(description="Branch to delete")
+    force: bool = Field(
+        default=False, description="Force delete unmerged branch (-D)"
+    )
+
+
 class GitWorktreeList(BaseModel):
     repo_path: str
 

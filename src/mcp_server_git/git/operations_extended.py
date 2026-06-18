@@ -16,6 +16,7 @@ DANGEROUS_CHARS = re.compile(r"[;&|`$()]")
 __all__ = [
     "git_restore",
     "git_branch_update",
+    "git_branch_delete",
     "git_worktree_list",
     "git_worktree_remove",
     "git_worktree_add",
@@ -103,6 +104,18 @@ def git_branch_update(
         return f"❌ Branch update failed: {stderr}"
     except Exception as e:
         return f"❌ Error updating branch: {str(e)}"
+
+
+def git_branch_delete(
+    repo: Repo,
+    branch_name: str,
+    force: bool = False,
+) -> str:
+    """Delete a local git branch by delegating to git_branch_update.
+
+    force=True uses -D (delete even if unmerged), else -d (safe delete).
+    """
+    return git_branch_update(repo, branch_name, delete=True, force=force)
 
 
 def git_worktree_list(repo: Repo) -> str:
