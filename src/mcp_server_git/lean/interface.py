@@ -20,6 +20,8 @@ from typing import Any
 
 from fastmcp import FastMCP
 
+from mcp_server_git.config import config_manager
+
 from .response_offloader import ResponseOffloader
 from .token_limiter import MCPTokenLimiter
 
@@ -128,7 +130,13 @@ class GitLeanInterface:
                 "Issues: https://github.com/MementoRC/mcp-git/issues"
             ),
         )
-        self.token_limiter = token_limiter or MCPTokenLimiter()
+        if token_limiter is None:
+            _settings = config_manager.get_current_settings()
+            token_limiter = MCPTokenLimiter(
+                default_limit=_settings.unknown_token_limit,
+                operation_limits=_settings.operation_limits,
+            )
+        self.token_limiter = token_limiter
         self.response_offloader = ResponseOffloader(token_limiter=self.token_limiter)
 
         # Tool registry

@@ -8,6 +8,7 @@ from ..git.models import (
     GitAbort,
     GitAdd,
     GitBranchList,
+    GitBranchDelete,
     GitBranchUpdate,
     GitCheckout,
     GitCherryPick,
@@ -44,6 +45,7 @@ from ..git.models import (
     GitWorktreeRemove,
 )
 from ..git.operations_extended import (
+    git_branch_delete,
     git_branch_update,
     git_merge_tree,
     git_restore,
@@ -470,6 +472,14 @@ def _register_git_tools(interface: Any, git_service: Any):
             implementation=wrap_repo_op(git_branch_update),
             description="Force-update a branch ref or delete a branch",
             schema=GitBranchUpdate.model_json_schema(),
+            domain="git",
+            complexity="focused",
+        ),
+        ToolDefinition(
+            name="git_branch_delete",
+            implementation=wrap_repo_op(git_branch_delete),
+            description="Delete a local git branch (use force=True for unmerged branches)",
+            schema=GitBranchDelete.model_json_schema(),
             domain="git",
             complexity="focused",
         ),
