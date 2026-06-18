@@ -49,8 +49,8 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
           allowed_bots: claude
-          # Optional: Specify model (defaults to Claude Sonnet 4, uncomment for Claude Opus 4)
-          # model: "claude-opus-4-20250514"
+          # Pin an explicit current model; the action's old default (claude-sonnet-4-20250514) was removed from the API
+          model: "claude-sonnet-4-6"
           
           # Direct prompt for automated review (no @claude mention needed)
           direct_prompt: |
