@@ -309,6 +309,11 @@ def git_reflog(
         %gP (reflog parent selector) yields a reflog selector like 'HEAD@{1}',
         not a commit SHA. old_sha is instead taken from entry[i+1].new_sha,
         which is always the commit HEAD pointed to before entry[i]'s operation.
+
+        old_sha is provided only for single-ref reflogs (all=False). Under
+        all=True, entries from different refs are interleaved so the adjacent
+        entry may belong to another ref, making derivation unreliable. old_sha
+        is therefore omitted entirely when all=True.
     """
     try:
         # %H = new (post-move) full SHA, %gD = reflog selector (HEAD@{0}),
@@ -364,8 +369,11 @@ def git_reflog(
             })
 
         # old_sha for entry[i] = entry[i+1].new_sha (reflog is newest-first).
-        for i in range(len(entries) - 1):
-            entries[i]["old_sha"] = entries[i + 1]["new_sha"]
+        # Only valid for single-ref reflogs; under all=True entries from different
+        # refs are interleaved so skip derivation entirely.
+        if not all:  # noqa: A002
+            for i in range(len(entries) - 1):
+                entries[i]["old_sha"] = entries[i + 1]["new_sha"]
 
         # Warn on large output, mirroring git_show's 50KB threshold.
         serialized_size = len(str(entries))

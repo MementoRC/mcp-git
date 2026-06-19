@@ -202,6 +202,29 @@ class TestGitReflogAllFlag:
         args = mock_repo.git.reflog.call_args[0]
         assert "--all" not in args
 
+    def test_git_reflog_all_true_omits_old_sha_from_every_entry(self):
+        """Under all=True, no entry should contain old_sha (interleaved refs make
+        adjacent-entry derivation unreliable); new_sha/label/action must still be present."""
+        mock_repo = Mock()
+        sha0 = "c" * 40  # HEAD@{0} — could be from refs/heads/main
+        sha1 = "b" * 40  # HEAD@{1} — could be from refs/heads/feature (different ref)
+        sha2 = "a" * 40  # HEAD@{2}
+        mock_repo.git.reflog.return_value = _make_raw(
+            (sha0, "refs/heads/main@{0}", "commit: update main"),
+            (sha1, "refs/heads/feature@{0}", "commit: add feature"),
+            (sha2, "refs/heads/main@{1}", "commit: initial"),
+        )
+
+        result = git_reflog(mock_repo, all=True)
+
+        assert isinstance(result, list)
+        assert len(result) == 3
+        for entry in result:
+            assert "old_sha" not in entry, f"old_sha must be absent under all=True, got: {entry}"
+            assert "new_sha" in entry
+            assert "label" in entry
+            assert "action" in entry
+
 
 class TestGitReflogMultipleEntries:
     """Test parsing of multiple reflog entries."""
