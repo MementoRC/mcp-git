@@ -34,6 +34,7 @@ class TokenLimitSettings:
     llm_token_limit: int = 20000
     human_token_limit: int = 0  # 0 = unlimited
     # kept below client MAX_MCP_OUTPUT_TOKENS so the offloader spills before the client truncates
+    # (~42 KB at 3.5 ch/token, under the ~60 KB client cap)
     unknown_token_limit: int = 12000
 
     # Feature toggles
@@ -106,7 +107,7 @@ class TokenLimitSettings:
         profiles = {
             TokenLimitProfile.CONSERVATIVE: cls(
                 llm_token_limit=15000,
-                unknown_token_limit=18000,
+                unknown_token_limit=8000,
                 enable_content_optimization=True,
                 enable_intelligent_truncation=True,
                 add_truncation_warnings=True,

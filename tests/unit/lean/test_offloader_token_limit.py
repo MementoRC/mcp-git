@@ -9,6 +9,7 @@ even when MCP_GIT_UNKNOWN_TOKEN_LIMIT was set to a larger value via env var.
 import pytest
 
 import mcp_server_git.config.token_limits as _token_limits_mod
+from mcp_server_git.config.token_limits import TokenLimitProfile
 from mcp_server_git.lean.token_limiter import MCPTokenLimiter
 
 # A payload length that sits between the old 2000-token default and the
@@ -95,8 +96,8 @@ class TestOffloaderUsesConfiguredLimit:
 # offloader triggers first.
 _OLD_OFFLOADER_DEFAULT = 25_000
 _NEW_OFFLOADER_DEFAULT = 12_000
-_CLIENT_CAP_APPROX_TOKENS = 17_000  # ~60 KB / 3.5 ch per token, rounded down
 _CHARS_PER_TOKEN_ESTIMATE = 3.5
+_CLIENT_CAP_APPROX_TOKENS = int(60 * 1024 / _CHARS_PER_TOKEN_ESTIMATE)
 
 
 class TestOffloaderDefaultBelowClientCap:
@@ -162,4 +163,47 @@ class TestOffloaderDefaultBelowClientCap:
         assert not old_limiter.would_truncate(large_payload, "git_log"), (
             "Sanity-check failed: old 25 000-token limiter should NOT truncate a "
             "~50 KB payload, confirming the regression was real."
+        )
+
+
+# ---------------------------------------------------------------------------
+# Profile coverage: safe profiles must stay below the client output cap
+# ---------------------------------------------------------------------------
+
+class TestProfilesBelowClientCap:
+    """Guard that CONSERVATIVE and BALANCED profiles stay below the client cap."""
+
+    def test_conservative_unknown_token_limit_is_below_default_and_client_cap(
+        self,
+    ) -> None:
+        """CONSERVATIVE profile unknown_token_limit must be below the new default (12000)
+        and strictly below the client cap — a 'conservative' profile must be the most
+        restrictive of the safe profiles.
+        """
+        settings = _token_limits_mod.TokenLimitSettings.from_profile(
+            TokenLimitProfile.CONSERVATIVE
+        )
+        assert settings.unknown_token_limit <= _NEW_OFFLOADER_DEFAULT, (
+            f"CONSERVATIVE unknown_token_limit ({settings.unknown_token_limit}) must be "
+            f"<= the new default ({_NEW_OFFLOADER_DEFAULT})."
+        )
+        assert settings.unknown_token_limit < _CLIENT_CAP_APPROX_TOKENS, (
+            f"CONSERVATIVE unknown_token_limit ({settings.unknown_token_limit}) must be "
+            f"< client cap ({_CLIENT_CAP_APPROX_TOKENS} tokens ≈ 60 KB)."
+        )
+
+    def test_balanced_unknown_token_limit_equals_new_default_and_is_below_client_cap(
+        self,
+    ) -> None:
+        """BALANCED profile unknown_token_limit must equal 12000 and be below the client cap."""
+        settings = _token_limits_mod.TokenLimitSettings.from_profile(
+            TokenLimitProfile.BALANCED
+        )
+        assert settings.unknown_token_limit == _NEW_OFFLOADER_DEFAULT, (
+            f"BALANCED unknown_token_limit ({settings.unknown_token_limit}) must equal "
+            f"{_NEW_OFFLOADER_DEFAULT}."
+        )
+        assert settings.unknown_token_limit < _CLIENT_CAP_APPROX_TOKENS, (
+            f"BALANCED unknown_token_limit ({settings.unknown_token_limit}) must be "
+            f"< client cap ({_CLIENT_CAP_APPROX_TOKENS} tokens ≈ 60 KB)."
         )
