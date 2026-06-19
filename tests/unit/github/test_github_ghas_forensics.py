@@ -185,6 +185,21 @@ class TestGithubGetRuleset:
         assert "42" in result
         assert f"{_OWNER}/{_REPO}" in result
 
+    @pytest.mark.asyncio
+    async def test_get_ruleset_returns_error_when_status_403(self):
+        """GET 403 (insufficient security_events scope) returns an error string."""
+        mock_client, _ = _mock_client("get", 403, text_body="Forbidden")
+
+        with patch(_PATCH_CTX) as mock_ctx:
+            mock_ctx.return_value.__aenter__.return_value = mock_client
+
+            result = await github_get_ruleset(
+                repo_owner=_OWNER, repo_name=_REPO, ruleset_id=42
+            )
+
+        assert "❌" in result
+        assert "403" in result
+
 
 # ===========================================================================
 # github_get_branch_rules
@@ -226,6 +241,21 @@ class TestGithubGetBranchRules:
 
         assert "❌" in result
         assert f"{_OWNER}/{_REPO}#main" in result
+
+    @pytest.mark.asyncio
+    async def test_get_branch_rules_returns_error_when_status_403(self):
+        """GET 403 (insufficient security_events scope) returns an error string."""
+        mock_client, _ = _mock_client("get", 403, text_body="Forbidden")
+
+        with patch(_PATCH_CTX) as mock_ctx:
+            mock_ctx.return_value.__aenter__.return_value = mock_client
+
+            result = await github_get_branch_rules(
+                repo_owner=_OWNER, repo_name=_REPO, branch="main"
+            )
+
+        assert "❌" in result
+        assert "403" in result
 
 
 # ===========================================================================
@@ -458,6 +488,21 @@ class TestGithubListCodeScanningAnalyses:
         assert params["per_page"] == "30"
         assert params["page"] == "2"
 
+    @pytest.mark.asyncio
+    async def test_list_analyses_returns_error_when_status_403(self):
+        """GET 403 (insufficient security_events scope) returns an error string."""
+        mock_client, _ = _mock_client("get", 403, text_body="Forbidden")
+
+        with patch(_PATCH_CTX) as mock_ctx:
+            mock_ctx.return_value.__aenter__.return_value = mock_client
+
+            result = await github_list_code_scanning_analyses(
+                repo_owner=_OWNER, repo_name=_REPO
+            )
+
+        assert "❌" in result
+        assert "403" in result
+
 
 # ===========================================================================
 # github_get_code_scanning_default_setup
@@ -499,6 +544,37 @@ class TestGithubGetCodeScanningDefaultSetup:
 
         assert "❌" in result
         assert f"{_OWNER}/{_REPO}" in result
+
+    @pytest.mark.asyncio
+    async def test_get_default_setup_returns_error_when_status_403(self):
+        """GET 403 (insufficient security_events scope) returns an error string."""
+        mock_client, _ = _mock_client("get", 403, text_body="Forbidden")
+
+        with patch(_PATCH_CTX) as mock_ctx:
+            mock_ctx.return_value.__aenter__.return_value = mock_client
+
+            result = await github_get_code_scanning_default_setup(
+                repo_owner=_OWNER, repo_name=_REPO
+            )
+
+        assert "❌" in result
+        assert "403" in result
+
+    @pytest.mark.asyncio
+    async def test_get_default_setup_returns_error_on_exception(self):
+        """An unexpected exception raised by the client returns an error string."""
+        mock_client = MagicMock()
+        mock_client.get = AsyncMock(side_effect=ConnectionError("refused"))
+
+        with patch(_PATCH_CTX) as mock_ctx:
+            mock_ctx.return_value.__aenter__.return_value = mock_client
+
+            result = await github_get_code_scanning_default_setup(
+                repo_owner=_OWNER, repo_name=_REPO
+            )
+
+        assert "❌" in result
+        assert "Network connection failed" in result
 
 
 # ===========================================================================
