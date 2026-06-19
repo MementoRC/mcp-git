@@ -82,10 +82,16 @@ class GitLog(BaseModel):
 
 
 class GitReflog(BaseModel):
+    model_config = {"populate_by_name": True}
+
     repo_path: str
     ref: str = Field(default="HEAD", description="Ref to show reflog for (default: HEAD)")
     max_count: int | None = Field(default=None, description="Maximum number of reflog entries to return")
-    all: bool = Field(default=False, description="Show reflog for all refs (git reflog --all)")
+    show_all: bool = Field(
+        default=False,
+        validation_alias="all",
+        description="Show reflog for all refs (git reflog --all)",
+    )
 
 
 class GitCreateBranch(BaseModel):

@@ -2,6 +2,7 @@
 
 import logging
 import os
+import re
 import subprocess
 
 from ..utils.git_import import GitCommandError, Repo
@@ -288,8 +289,8 @@ def git_reflog(
     repo: Repo,
     ref: str = "HEAD",
     max_count: int | None = None,
-    all: bool = False,
-) -> list[dict]:
+    all: bool = False,  # noqa: A002
+) -> list[dict] | str:
     """Read git reflog (HEAD/ref movement history including non-commit operations).
 
     Args:
@@ -300,21 +301,29 @@ def git_reflog(
 
     Returns:
         List of dicts with keys: new_sha, label, action, message, and
-        old_sha when the parent SHA is available.
+        old_sha (the SHA before this operation, derived from the next entry's
+        new_sha since reflog is newest-first; absent for the oldest entry).
+        Returns a string starting with '❌' on error.
+
+    Note on old_sha:
+        %gP (reflog parent selector) yields a reflog selector like 'HEAD@{1}',
+        not a commit SHA. old_sha is instead taken from entry[i+1].new_sha,
+        which is always the commit HEAD pointed to before entry[i]'s operation.
     """
     try:
         # %H = new (post-move) full SHA, %gD = reflog selector (HEAD@{0}),
-        # %gP = reflog parent (previous position SHA, empty for initial entry),
         # %gs = reflog subject (e.g. "checkout: moving from main to feature")
+        # Note: %gP gives a reflog selector (HEAD@{N}), not a commit SHA,
+        # so old_sha is derived from the next entry's new_sha instead.
         sep = "\x00"
-        fmt = f"%H{sep}%gD{sep}%gP{sep}%gs"
+        fmt = f"%H{sep}%gD{sep}%gs"
 
         args = ["show", f"--format={fmt}", "--no-abbrev", "--no-patch"]
 
         if max_count is not None and max_count > 0:
             args.extend(["-n", str(max_count)])
 
-        if all:
+        if all:  # noqa: A002
             args.append("--all")
         else:
             args.append(ref)
@@ -330,43 +339,36 @@ def git_reflog(
             if not line:
                 continue
             parts = line.split(sep)
-            if len(parts) < 4:
+            if len(parts) < 3:
                 continue
-            new_sha, label, old_sha_raw, subject = (
-                parts[0],
-                parts[1],
-                parts[2],
-                parts[3],
-            )
+            new_sha, label, subject = parts[0], parts[1], parts[2]
 
-            # Derive action from subject: first token before ':',
-            # plus any parenthetical qualifier: "commit (amend)" / "rebase (start)"
-            # e.g. "checkout: moving from A to B" -> "checkout"
-            #      "merge origin/main: Fast-forward" -> "merge"
-            #      "commit (amend): msg" -> "commit (amend)"
+            # Derive action from subject: verb before ':', keeping any
+            # parenthetical qualifier that immediately follows the verb.
+            # Examples:
+            #   "checkout: moving from A to B"    -> "checkout"
+            #   "merge origin/main: Fast-forward" -> "merge"
+            #   "commit (amend): fixup msg"        -> "commit (amend)"
+            #   "rebase (start): checkout main"    -> "rebase (start)"
+            #   "commit (initial import): msg"     -> "commit (initial import)"
             pre_colon = subject.split(":", 1)[0].strip() if subject else ""
-            _parts = pre_colon.split()
-            if len(_parts) >= 2 and _parts[1].startswith("("):
-                action = f"{_parts[0]} {_parts[1]}"
-            elif _parts:
-                action = _parts[0]
-            else:
-                action = "unknown"
+            m = re.match(r'^(\w[\w-]*(?:\s+\([^)]*\))?)', pre_colon)
+            action = m.group(1) if m else (pre_colon.split()[0] if pre_colon.split() else "unknown")
 
-            entry: dict = {
+            entries.append({
                 "new_sha": new_sha,
                 "label": label,
                 "action": action,
                 "message": subject,
-            }
-            if old_sha_raw and old_sha_raw != "0" * 40:
-                entry["old_sha"] = old_sha_raw
+            })
 
-            entries.append(entry)
+        # old_sha for entry[i] = entry[i+1].new_sha (reflog is newest-first).
+        for i in range(len(entries) - 1):
+            entries[i]["old_sha"] = entries[i + 1]["new_sha"]
 
         return entries
 
     except GitCommandError as e:
-        return [{"error": f"Reflog failed: {str(e)}"}]
+        return f"❌ Reflog failed: {str(e)}"
     except Exception as e:
-        return [{"error": f"Reflog error: {str(e)}"}]
+        return f"❌ Reflog error: {str(e)}"

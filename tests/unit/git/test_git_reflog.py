@@ -17,10 +17,10 @@ SEP = "\x00"
 
 
 def _make_raw(*entries: tuple) -> str:
-    """Build fake reflog output for (new_sha, label, old_sha, subject) tuples."""
+    """Build fake reflog output for (new_sha, label, subject) tuples."""
     lines = []
-    for new_sha, label, old_sha, subject in entries:
-        lines.append(f"{new_sha}{SEP}{label}{SEP}{old_sha}{SEP}{subject}")
+    for new_sha, label, subject in entries:
+        lines.append(f"{new_sha}{SEP}{label}{SEP}{subject}")
     return "\n".join(lines)
 
 
@@ -32,7 +32,7 @@ class TestGitReflogBasic:
         mock_repo = Mock()
         new_sha = "a" * 40
         mock_repo.git.reflog.return_value = _make_raw(
-            (new_sha, "HEAD@{0}", "0" * 40, "commit: initial commit")
+            (new_sha, "HEAD@{0}", "commit: initial commit")
         )
 
         result = git_reflog(mock_repo)
@@ -45,29 +45,31 @@ class TestGitReflogBasic:
         assert entry["action"] == "commit"
         assert entry["message"] == "commit: initial commit"
 
-    def test_git_reflog_old_sha_omitted_when_zero(self):
-        """Should omit old_sha when it is the all-zeros sentinel."""
+    def test_git_reflog_old_sha_absent_for_single_entry(self):
+        """Should omit old_sha when there is only one (oldest) entry."""
         mock_repo = Mock()
         mock_repo.git.reflog.return_value = _make_raw(
-            ("a" * 40, "HEAD@{0}", "0" * 40, "commit: initial")
+            ("a" * 40, "HEAD@{0}", "commit: initial")
         )
 
         result = git_reflog(mock_repo)
 
         assert "old_sha" not in result[0]
 
-    def test_git_reflog_old_sha_present_when_non_zero(self):
-        """Should include old_sha when previous position is known."""
+    def test_git_reflog_old_sha_derived_from_next_entry(self):
+        """old_sha for entry[i] must equal entry[i+1].new_sha (newest-first order)."""
         mock_repo = Mock()
-        new_sha = "b" * 40
-        old_sha = "a" * 40
+        sha0 = "b" * 40  # newest entry's new_sha
+        sha1 = "a" * 40  # older entry's new_sha == sha0's old_sha
         mock_repo.git.reflog.return_value = _make_raw(
-            (new_sha, "HEAD@{0}", old_sha, "checkout: moving from main to feature")
+            (sha0, "HEAD@{0}", "checkout: moving from main to feature"),
+            (sha1, "HEAD@{1}", "commit: initial"),
         )
 
         result = git_reflog(mock_repo)
 
-        assert result[0]["old_sha"] == old_sha
+        assert result[0]["old_sha"] == sha1
+        assert "old_sha" not in result[1]
 
     def test_git_reflog_empty_returns_empty_list(self):
         """Should return empty list when reflog is empty."""
@@ -112,6 +114,8 @@ class TestGitReflogActionParsing:
             ("rebase (start): checkout main", "rebase (start)"),
             ("pull: Fast-forward", "pull"),
             ("commit (amend): fixup", "commit (amend)"),
+            # Multi-word parenthetical qualifier must be captured in full
+            ("commit (initial import): first checkin", "commit (initial import)"),
         ],
     )
     def test_git_reflog_action_parsing_returns_correct_action(
@@ -120,7 +124,7 @@ class TestGitReflogActionParsing:
         """Should parse action from reflog subject correctly."""
         mock_repo = Mock()
         mock_repo.git.reflog.return_value = _make_raw(
-            ("a" * 40, "HEAD@{0}", "b" * 40, subject)
+            ("a" * 40, "HEAD@{0}", subject)
         )
 
         result = git_reflog(mock_repo)
@@ -131,7 +135,7 @@ class TestGitReflogActionParsing:
         """Should set action='unknown' when subject is empty."""
         mock_repo = Mock()
         mock_repo.git.reflog.return_value = _make_raw(
-            ("a" * 40, "HEAD@{0}", "b" * 40, "")
+            ("a" * 40, "HEAD@{0}", "")
         )
 
         result = git_reflog(mock_repo)
@@ -203,13 +207,17 @@ class TestGitReflogMultipleEntries:
     """Test parsing of multiple reflog entries."""
 
     def test_git_reflog_multiple_entries_parsed_correctly(self):
-        """Should parse multiple entries into correctly ordered list."""
+        """Should parse multiple entries into correctly ordered list.
+
+        old_sha for each entry is derived from the next entry's new_sha;
+        the oldest entry has no old_sha.
+        """
         mock_repo = Mock()
         sha0, sha1, sha2 = "c" * 40, "b" * 40, "a" * 40
         mock_repo.git.reflog.return_value = _make_raw(
-            (sha0, "HEAD@{0}", sha1, "checkout: moving from main to feature"),
-            (sha1, "HEAD@{1}", sha2, "commit: add tests"),
-            (sha2, "HEAD@{2}", "0" * 40, "commit: initial"),
+            (sha0, "HEAD@{0}", "checkout: moving from main to feature"),
+            (sha1, "HEAD@{1}", "commit: add tests"),
+            (sha2, "HEAD@{2}", "commit: initial"),
         )
 
         result = git_reflog(mock_repo)
@@ -217,8 +225,10 @@ class TestGitReflogMultipleEntries:
         assert len(result) == 3
         assert result[0]["new_sha"] == sha0
         assert result[0]["action"] == "checkout"
+        assert result[0]["old_sha"] == sha1
         assert result[1]["new_sha"] == sha1
         assert result[1]["action"] == "commit"
+        assert result[1]["old_sha"] == sha2
         assert result[2]["new_sha"] == sha2
         assert "old_sha" not in result[2]
 
@@ -226,24 +236,24 @@ class TestGitReflogMultipleEntries:
 class TestGitReflogErrorHandling:
     """Test error handling in git_reflog."""
 
-    def test_git_reflog_returns_error_dict_on_git_command_error(self):
-        """Should return list with error dict on GitCommandError."""
+    def test_git_reflog_returns_error_str_on_git_command_error(self):
+        """Should return a '❌ Reflog failed:' string on GitCommandError."""
         mock_repo = Mock()
         mock_repo.git.reflog.side_effect = GitCommandError("git reflog", 128, "error")
 
         result = git_reflog(mock_repo)
 
-        assert len(result) == 1
-        assert "error" in result[0]
-        assert "Reflog failed" in result[0]["error"]
+        assert isinstance(result, str)
+        assert result.startswith("❌")
+        assert "Reflog failed" in result
 
-    def test_git_reflog_returns_error_dict_on_general_exception(self):
-        """Should return list with error dict on unexpected exception."""
+    def test_git_reflog_returns_error_str_on_general_exception(self):
+        """Should return a '❌ Reflog error:' string on unexpected exception."""
         mock_repo = Mock()
         mock_repo.git.reflog.side_effect = RuntimeError("unexpected")
 
         result = git_reflog(mock_repo)
 
-        assert len(result) == 1
-        assert "error" in result[0]
-        assert "Reflog error" in result[0]["error"]
+        assert isinstance(result, str)
+        assert result.startswith("❌")
+        assert "Reflog error" in result
