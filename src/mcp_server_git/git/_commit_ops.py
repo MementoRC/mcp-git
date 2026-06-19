@@ -339,9 +339,19 @@ def git_reflog(
                 parts[3],
             )
 
-            # Derive action from subject: first token before ':'
+            # Derive action from subject: first token before ':',
+            # plus any parenthetical qualifier: "commit (amend)" / "rebase (start)"
             # e.g. "checkout: moving from A to B" -> "checkout"
-            action = subject.split(":")[0].strip() if subject else "unknown"
+            #      "merge origin/main: Fast-forward" -> "merge"
+            #      "commit (amend): msg" -> "commit (amend)"
+            pre_colon = subject.split(":", 1)[0].strip() if subject else ""
+            _parts = pre_colon.split()
+            if len(_parts) >= 2 and _parts[1].startswith("("):
+                action = f"{_parts[0]} {_parts[1]}"
+            elif _parts:
+                action = _parts[0]
+            else:
+                action = "unknown"
 
             entry: dict = {
                 "new_sha": new_sha,
