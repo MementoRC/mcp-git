@@ -980,3 +980,74 @@ class GitHubCreateRepo(BaseModel):
                 "can only contain alphanumeric characters and hyphens"
             )
         return v
+
+
+# ============================================================================
+# GHAS Forensics Models (Issue #186)
+# ============================================================================
+
+
+class GitHubListRulesets(BaseModel):
+    """Model for listing rulesets defined on a repository."""
+
+    repo_owner: str
+    repo_name: str
+
+
+class GitHubGetRuleset(BaseModel):
+    """Model for fetching a specific ruleset by ID.
+
+    Returns full ruleset config including required_status_checks,
+    code_scanning rules, and bypass actors.
+    """
+
+    repo_owner: str
+    repo_name: str
+    ruleset_id: int  # Numeric ruleset ID (from github_list_rulesets)
+
+
+class GitHubGetBranchRules(BaseModel):
+    """Model for listing all rules that apply to a branch.
+
+    Returns both classic branch-protection rules and ruleset-based rules
+    active for the given branch ref.
+    """
+
+    repo_owner: str
+    repo_name: str
+    branch: str  # Branch name (e.g. 'main') or pattern
+
+
+class GitHubListCodeScanningAlerts(BaseModel):
+    """Model for listing code scanning alerts with optional filters."""
+
+    repo_owner: str
+    repo_name: str
+    state: str | None = None  # 'open', 'closed', 'dismissed', or 'fixed'
+    severity: str | None = None  # 'critical', 'high', 'medium', 'low', 'warning', 'note', 'error'
+    tool_name: str | None = None  # Code-scanning tool (e.g. 'CodeQL')
+    ref: str | None = None  # Branch name or refs/pull/N/head
+
+
+class GitHubListCodeScanningAnalyses(BaseModel):
+    """Model for listing code scanning analyses for a repository."""
+
+    repo_owner: str
+    repo_name: str
+    ref: str | None = None  # Branch name or refs/pull/N/head
+    tool_name: str | None = None  # Code-scanning tool (e.g. 'CodeQL')
+
+
+class GitHubGetCodeScanningDefaultSetup(BaseModel):
+    """Model for fetching the default-setup configuration for code scanning."""
+
+    repo_owner: str
+    repo_name: str
+
+
+class GitHubListSecretScanningAlerts(BaseModel):
+    """Model for listing secret scanning alerts for a repository."""
+
+    repo_owner: str
+    repo_name: str
+    state: str | None = None  # 'open' or 'resolved'

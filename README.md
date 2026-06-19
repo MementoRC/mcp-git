@@ -137,7 +137,7 @@ The server provides Azure DevOps integration for monitoring and analyzing Azure 
 
 ### Lean MCP Interface (Context-Optimized)
 
-The server provides an alternative **lean interface** that reduces context consumption by ~97% (from ~30k tokens to ~900 tokens). Instead of exposing all 56 tools upfront, it uses a 3-meta-tool pattern:
+The server provides an alternative **lean interface** that reduces context consumption by ~97% (from ~30k tokens to ~900 tokens). Instead of exposing all 63 tools upfront, it uses a 3-meta-tool pattern:
 
 | Meta-Tool | Purpose |
 |-----------|---------|
@@ -145,7 +145,7 @@ The server provides an alternative **lean interface** that reduces context consu
 | `get_tool_spec(tool_name)` | Get full schema for a specific tool on-demand |
 | `execute_tool(tool_name, params)` | Execute any tool dynamically |
 
-**Tool Coverage**: All 55 tools remain accessible (27 git, 25 GitHub, 3 Azure DevOps).
+**Tool Coverage**: All 62 tools remain accessible (27 git, 32 GitHub, 3 Azure DevOps).
 
 **Usage Example**:
 ```python

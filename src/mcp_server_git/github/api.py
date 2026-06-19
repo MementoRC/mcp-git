@@ -13,6 +13,7 @@ from .pr_actions import *  # noqa: F401,F403
 from .release_assets import *  # noqa: F401,F403
 from .releases import *  # noqa: F401,F403
 from .repos import *  # noqa: F401,F403
+from .scanning import *  # noqa: F401,F403
 from .security import *  # noqa: F401,F403
 from .workflows import *  # noqa: F401,F403
 
