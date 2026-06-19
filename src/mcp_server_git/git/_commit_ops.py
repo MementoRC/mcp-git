@@ -320,6 +320,7 @@ def git_reflog(
 
         args = ["show", f"--format={fmt}", "--no-abbrev", "--no-patch"]
 
+        # max_count <= 0 (or None) means no limit; only positive values constrain.
         if max_count is not None and max_count > 0:
             args.extend(["-n", str(max_count)])
 
@@ -365,6 +366,17 @@ def git_reflog(
         # old_sha for entry[i] = entry[i+1].new_sha (reflog is newest-first).
         for i in range(len(entries) - 1):
             entries[i]["old_sha"] = entries[i + 1]["new_sha"]
+
+        # Warn on large output, mirroring git_show's 50KB threshold.
+        serialized_size = len(str(entries))
+        if serialized_size > 50000:  # 50KB threshold
+            entries.append({
+                "warning": (
+                    f"⚠️  Large reflog detected ({len(entries) - 1} entries, "
+                    f"~{serialized_size // 1000}KB). "
+                    "Consider using max_count to limit output."
+                )
+            })
 
         return entries
 

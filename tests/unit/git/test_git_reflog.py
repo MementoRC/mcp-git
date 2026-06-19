@@ -257,3 +257,92 @@ class TestGitReflogErrorHandling:
         assert isinstance(result, str)
         assert result.startswith("❌")
         assert "Reflog error" in result
+
+
+class TestGitReflogModel:
+    """Test GitReflog Pydantic model schema and field naming (FIX 1)."""
+
+    def test_gitreflog_schema_property_is_all_not_show_all(self):
+        """Schema property must be 'all', not 'show_all' — no alias indirection."""
+        from mcp_server_git.git.models import GitReflog
+
+        props = GitReflog.model_json_schema()["properties"]
+        assert "all" in props, "Schema must expose 'all', not 'show_all'"
+        assert "show_all" not in props, "Schema must not expose deprecated 'show_all'"
+
+    def test_gitreflog_accepts_all_true_directly(self):
+        """Model should accept {'all': True} without alias."""
+        from mcp_server_git.git.models import GitReflog
+
+        instance = GitReflog(repo_path="/tmp/repo", **{"all": True})
+        assert instance.all is True  # noqa: A003
+
+    def test_gitreflog_max_count_rejects_negative(self):
+        """ge=0 constraint should reject negative max_count at validation."""
+        from pydantic import ValidationError
+
+        from mcp_server_git.git.models import GitReflog
+
+        with pytest.raises(ValidationError):
+            GitReflog(repo_path="/tmp/repo", max_count=-1)
+
+
+class TestGitReflogLargeOutputWarning:
+    """Test large-output warning appended for big reflogs (FIX 3)."""
+
+    def test_git_reflog_appends_warning_when_output_exceeds_50kb(self):
+        """Should append a warning dict when serialized entries exceed 50KB."""
+        mock_repo = Mock()
+        # Generate enough entries to exceed 50KB when serialized.
+        # Each line ~100 chars; 600 entries pushes str(entries) well above 50KB.
+        sha = "a" * 40
+        lines = [
+            f"{sha}\x00HEAD@{{{i}}}\x00checkout: moving from branch-{i} to branch-{i + 1}"
+            for i in range(600)
+        ]
+        mock_repo.git.reflog.return_value = "\n".join(lines)
+
+        result = git_reflog(mock_repo)
+
+        assert isinstance(result, list)
+        last = result[-1]
+        assert "warning" in last, "Last entry must be a warning dict for large output"
+        assert "⚠️" in last["warning"]
+        assert "KB" in last["warning"]
+
+    def test_git_reflog_no_warning_for_small_output(self):
+        """Should not append a warning dict for small reflog output."""
+        mock_repo = Mock()
+        mock_repo.git.reflog.return_value = _make_raw(
+            ("a" * 40, "HEAD@{0}", "commit: initial commit")
+        )
+
+        result = git_reflog(mock_repo)
+
+        assert isinstance(result, list)
+        assert len(result) == 1
+        assert "warning" not in result[-1]
+
+
+class TestGitReflogMaxCountContract:
+    """Test max_count <= 0 means no limit (FIX 4)."""
+
+    def test_git_reflog_max_count_negative_treated_as_no_limit(self):
+        """max_count <= 0 must not pass -n flag (no-limit behaviour)."""
+        mock_repo = Mock()
+        mock_repo.git.reflog.return_value = ""
+
+        git_reflog(mock_repo, max_count=-1)
+
+        args = mock_repo.git.reflog.call_args[0]
+        assert "-n" not in args
+
+    def test_git_reflog_max_count_zero_treated_as_no_limit(self):
+        """max_count=0 must not pass -n flag (explicit no-limit contract)."""
+        mock_repo = Mock()
+        mock_repo.git.reflog.return_value = ""
+
+        git_reflog(mock_repo, max_count=0)
+
+        args = mock_repo.git.reflog.call_args[0]
+        assert "-n" not in args
