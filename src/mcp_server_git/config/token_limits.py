@@ -33,7 +33,8 @@ class TokenLimitSettings:
     # Core token limits
     llm_token_limit: int = 20000
     human_token_limit: int = 0  # 0 = unlimited
-    unknown_token_limit: int = 25000
+    # kept below client MAX_MCP_OUTPUT_TOKENS so the offloader spills before the client truncates
+    unknown_token_limit: int = 12000
 
     # Feature toggles
     enable_content_optimization: bool = True
@@ -112,7 +113,7 @@ class TokenLimitSettings:
             ),
             TokenLimitProfile.BALANCED: cls(
                 llm_token_limit=20000,
-                unknown_token_limit=25000,
+                unknown_token_limit=12000,
                 enable_content_optimization=True,
                 enable_intelligent_truncation=True,
             ),
