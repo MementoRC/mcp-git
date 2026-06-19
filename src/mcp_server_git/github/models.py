@@ -2,7 +2,9 @@
 
 import re
 
-from pydantic import BaseModel, field_validator, model_validator
+from typing import Literal
+
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 # ============================================================================
 # Validation Constants
@@ -992,6 +994,8 @@ class GitHubListRulesets(BaseModel):
 
     repo_owner: str
     repo_name: str
+    per_page: int | None = Field(default=None, ge=1, le=100, description="Results per page (max 100)")
+    page: int | None = Field(default=None, ge=1, description="Page number")
 
 
 class GitHubGetRuleset(BaseModel):
@@ -1023,10 +1027,12 @@ class GitHubListCodeScanningAlerts(BaseModel):
 
     repo_owner: str
     repo_name: str
-    state: str | None = None  # 'open', 'closed', 'dismissed', or 'fixed'
-    severity: str | None = None  # 'critical', 'high', 'medium', 'low', 'warning', 'note', 'error'
-    tool_name: str | None = None  # Code-scanning tool (e.g. 'CodeQL')
+    state: Literal["open", "closed", "dismissed", "fixed"] | None = None
+    severity: Literal["critical", "high", "medium", "low", "warning", "note", "error"] | None = None
+    tool_name: str | None = None  # Code-scanning tool (e.g. 'CodeQL') — free-form
     ref: str | None = None  # Branch name or refs/pull/N/head
+    per_page: int | None = Field(default=None, ge=1, le=100, description="Results per page (max 100)")
+    page: int | None = Field(default=None, ge=1, description="Page number")
 
 
 class GitHubListCodeScanningAnalyses(BaseModel):
@@ -1036,6 +1042,8 @@ class GitHubListCodeScanningAnalyses(BaseModel):
     repo_name: str
     ref: str | None = None  # Branch name or refs/pull/N/head
     tool_name: str | None = None  # Code-scanning tool (e.g. 'CodeQL')
+    per_page: int | None = Field(default=None, ge=1, le=100, description="Results per page (max 100)")
+    page: int | None = Field(default=None, ge=1, description="Page number")
 
 
 class GitHubGetCodeScanningDefaultSetup(BaseModel):
@@ -1050,4 +1058,6 @@ class GitHubListSecretScanningAlerts(BaseModel):
 
     repo_owner: str
     repo_name: str
-    state: str | None = None  # 'open' or 'resolved'
+    state: Literal["open", "resolved"] | None = None
+    per_page: int | None = Field(default=None, ge=1, le=100, description="Results per page (max 100)")
+    page: int | None = Field(default=None, ge=1, description="Page number")

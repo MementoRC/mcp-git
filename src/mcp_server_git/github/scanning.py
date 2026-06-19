@@ -9,6 +9,16 @@ from mcp_server_git.github.client import github_client_context
 
 logger = logging.getLogger(__name__)
 
+__all__ = [
+    "github_list_rulesets",
+    "github_get_ruleset",
+    "github_get_branch_rules",
+    "github_list_code_scanning_alerts",
+    "github_list_code_scanning_analyses",
+    "github_get_code_scanning_default_setup",
+    "github_list_secret_scanning_alerts",
+]
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -16,8 +26,8 @@ logger = logging.getLogger(__name__)
 
 
 def _build_params(**kwargs: Any) -> dict[str, str]:
-    """Build query-param dict omitting None values."""
-    return {k: str(v) for k, v in kwargs.items() if v is not None}
+    """Build query-param dict omitting None and empty-string values."""
+    return {k: str(v) for k, v in kwargs.items() if v is not None and v != ""}
 
 
 # ---------------------------------------------------------------------------
@@ -28,14 +38,19 @@ def _build_params(**kwargs: Any) -> dict[str, str]:
 async def github_list_rulesets(
     repo_owner: str,
     repo_name: str,
+    per_page: int | None = None,
+    page: int | None = None,
 ) -> list[dict[str, Any]] | str:
     """List rulesets defined on a repository."""
     logger.debug("Getting rulesets for %s/%s", repo_owner, repo_name)
 
+    params = _build_params(per_page=per_page, page=page)
+
     try:
         async with github_client_context() as client:
             response = await client.get(
-                f"/repos/{repo_owner}/{repo_name}/rulesets"
+                f"/repos/{repo_owner}/{repo_name}/rulesets",
+                params=params if params else None,
             )
 
             if response.status == 200:
@@ -143,6 +158,8 @@ async def github_list_code_scanning_alerts(
     severity: str | None = None,
     tool_name: str | None = None,
     ref: str | None = None,
+    per_page: int | None = None,
+    page: int | None = None,
 ) -> list[dict[str, Any]] | str:
     """List code scanning alerts with optional filters.
 
@@ -151,13 +168,16 @@ async def github_list_code_scanning_alerts(
         severity: Filter by severity ('critical', 'high', 'medium', 'low', 'warning', 'note', 'error').
         tool_name: Filter by code-scanning tool name (e.g. 'CodeQL').
         ref: Filter by Git ref (branch name or refs/pull/N/head).
+        per_page: Results per page (max 100).
+        page: Page number (1-based).
     """
     logger.debug(
         "Listing code scanning alerts for %s/%s", repo_owner, repo_name
     )
 
     params = _build_params(
-        state=state, severity=severity, tool_name=tool_name, ref=ref
+        state=state, severity=severity, tool_name=tool_name, ref=ref,
+        per_page=per_page, page=page,
     )
 
     try:
@@ -203,18 +223,22 @@ async def github_list_code_scanning_analyses(
     repo_name: str,
     ref: str | None = None,
     tool_name: str | None = None,
+    per_page: int | None = None,
+    page: int | None = None,
 ) -> list[dict[str, Any]] | str:
     """List code scanning analyses for a repository.
 
     Args:
         ref: Git ref to filter by (branch name or refs/pull/N/head).
         tool_name: Code-scanning tool name to filter by (e.g. 'CodeQL').
+        per_page: Results per page (max 100).
+        page: Page number (1-based).
     """
     logger.debug(
         "Listing code scanning analyses for %s/%s", repo_owner, repo_name
     )
 
-    params = _build_params(ref=ref, tool_name=tool_name)
+    params = _build_params(ref=ref, tool_name=tool_name, per_page=per_page, page=page)
 
     try:
         async with github_client_context() as client:
@@ -311,17 +335,21 @@ async def github_list_secret_scanning_alerts(
     repo_owner: str,
     repo_name: str,
     state: str | None = None,
+    per_page: int | None = None,
+    page: int | None = None,
 ) -> list[dict[str, Any]] | str:
     """List secret scanning alerts for a repository.
 
     Args:
         state: Filter by alert state ('open' or 'resolved').
+        per_page: Results per page (max 100).
+        page: Page number (1-based).
     """
     logger.debug(
         "Listing secret scanning alerts for %s/%s", repo_owner, repo_name
     )
 
-    params = _build_params(state=state)
+    params = _build_params(state=state, per_page=per_page, page=page)
 
     try:
         async with github_client_context() as client:

@@ -64,7 +64,8 @@ class TestGithubListRulesets:
 
         assert result == rulesets
         mock_client.get.assert_called_once_with(
-            f"/repos/{_OWNER}/{_REPO}/rulesets"
+            f"/repos/{_OWNER}/{_REPO}/rulesets",
+            params=None,
         )
 
     @pytest.mark.asyncio
@@ -82,6 +83,64 @@ class TestGithubListRulesets:
         assert "❌" in result
         assert "not found" in result.lower()
         assert f"{_OWNER}/{_REPO}" in result
+
+    @pytest.mark.asyncio
+    async def test_list_rulesets_forwards_pagination_params(self):
+        """per_page and page are forwarded as query params when set."""
+        mock_client, _ = _mock_client("get", 200, json_body=[])
+
+        with patch(_PATCH_CTX) as mock_ctx:
+            mock_ctx.return_value.__aenter__.return_value = mock_client
+
+            await github_list_rulesets(
+                repo_owner=_OWNER, repo_name=_REPO, per_page=50, page=2
+            )
+
+        params = mock_client.get.call_args.kwargs["params"]
+        assert params["per_page"] == "50"
+        assert params["page"] == "2"
+
+    @pytest.mark.asyncio
+    async def test_list_rulesets_omits_none_pagination(self):
+        """None per_page/page must not appear in params."""
+        mock_client, _ = _mock_client("get", 200, json_body=[])
+
+        with patch(_PATCH_CTX) as mock_ctx:
+            mock_ctx.return_value.__aenter__.return_value = mock_client
+
+            await github_list_rulesets(
+                repo_owner=_OWNER, repo_name=_REPO, per_page=None, page=None
+            )
+
+        params = mock_client.get.call_args.kwargs["params"]
+        assert params is None
+
+    @pytest.mark.asyncio
+    async def test_list_rulesets_returns_error_when_status_403(self):
+        """GET 403 (insufficient security_events scope) returns an error string."""
+        mock_client, _ = _mock_client("get", 403, text_body="Forbidden")
+
+        with patch(_PATCH_CTX) as mock_ctx:
+            mock_ctx.return_value.__aenter__.return_value = mock_client
+
+            result = await github_list_rulesets(repo_owner=_OWNER, repo_name=_REPO)
+
+        assert "❌" in result
+        assert "403" in result
+
+    @pytest.mark.asyncio
+    async def test_list_rulesets_returns_error_on_connection_exception(self):
+        """A ConnectionError raised by the client returns a network-error string."""
+        mock_client = MagicMock()
+        mock_client.get = AsyncMock(side_effect=ConnectionError("timeout"))
+
+        with patch(_PATCH_CTX) as mock_ctx:
+            mock_ctx.return_value.__aenter__.return_value = mock_client
+
+            result = await github_list_rulesets(repo_owner=_OWNER, repo_name=_REPO)
+
+        assert "❌" in result
+        assert "Network connection failed" in result
 
 
 # ===========================================================================
@@ -213,8 +272,7 @@ class TestGithubListCodeScanningAlerts:
                 ref="refs/pull/207/head",
             )
 
-        call_kwargs = mock_client.get.call_args
-        params = call_kwargs[1]["params"]
+        params = mock_client.get.call_args.kwargs["params"]
         assert params["state"] == "open"
         assert params["severity"] == "critical"
         assert params["tool_name"] == "CodeQL"
@@ -237,8 +295,7 @@ class TestGithubListCodeScanningAlerts:
                 ref=None,
             )
 
-        call_kwargs = mock_client.get.call_args
-        params = call_kwargs[1]["params"]
+        params = mock_client.get.call_args.kwargs["params"]
         assert "severity" not in params
         assert "tool_name" not in params
         assert "ref" not in params
@@ -257,6 +314,53 @@ class TestGithubListCodeScanningAlerts:
 
         assert "❌" in result
         assert f"{_OWNER}/{_REPO}" in result
+
+    @pytest.mark.asyncio
+    async def test_list_alerts_forwards_pagination_params(self):
+        """per_page and page are forwarded as query params when set."""
+        mock_client, _ = _mock_client("get", 200, json_body=[])
+
+        with patch(_PATCH_CTX) as mock_ctx:
+            mock_ctx.return_value.__aenter__.return_value = mock_client
+
+            await github_list_code_scanning_alerts(
+                repo_owner=_OWNER, repo_name=_REPO, per_page=100, page=3
+            )
+
+        params = mock_client.get.call_args.kwargs["params"]
+        assert params["per_page"] == "100"
+        assert params["page"] == "3"
+
+    @pytest.mark.asyncio
+    async def test_list_alerts_returns_error_when_status_403(self):
+        """GET 403 (insufficient security_events scope) returns an error string."""
+        mock_client, _ = _mock_client("get", 403, text_body="Forbidden")
+
+        with patch(_PATCH_CTX) as mock_ctx:
+            mock_ctx.return_value.__aenter__.return_value = mock_client
+
+            result = await github_list_code_scanning_alerts(
+                repo_owner=_OWNER, repo_name=_REPO
+            )
+
+        assert "❌" in result
+        assert "403" in result
+
+    @pytest.mark.asyncio
+    async def test_list_alerts_returns_error_on_exception(self):
+        """An unexpected exception raised by the client returns an error string."""
+        mock_client = MagicMock()
+        mock_client.get = AsyncMock(side_effect=RuntimeError("unexpected"))
+
+        with patch(_PATCH_CTX) as mock_ctx:
+            mock_ctx.return_value.__aenter__.return_value = mock_client
+
+            result = await github_list_code_scanning_alerts(
+                repo_owner=_OWNER, repo_name=_REPO
+            )
+
+        assert "❌" in result
+        assert "Error listing code scanning alerts" in result
 
 
 # ===========================================================================
@@ -301,8 +405,7 @@ class TestGithubListCodeScanningAnalyses:
                 tool_name="CodeQL",
             )
 
-        call_kwargs = mock_client.get.call_args
-        params = call_kwargs[1]["params"]
+        params = mock_client.get.call_args.kwargs["params"]
         assert params["ref"] == "refs/pull/207/head"
         assert params["tool_name"] == "CodeQL"
 
@@ -321,8 +424,7 @@ class TestGithubListCodeScanningAnalyses:
                 tool_name=None,
             )
 
-        call_kwargs = mock_client.get.call_args
-        params = call_kwargs[1]["params"]
+        params = mock_client.get.call_args.kwargs["params"]
         assert params is None
 
     @pytest.mark.asyncio
@@ -339,6 +441,22 @@ class TestGithubListCodeScanningAnalyses:
 
         assert "❌" in result
         assert f"{_OWNER}/{_REPO}" in result
+
+    @pytest.mark.asyncio
+    async def test_list_analyses_forwards_pagination_params(self):
+        """per_page and page are forwarded as query params when set."""
+        mock_client, _ = _mock_client("get", 200, json_body=[])
+
+        with patch(_PATCH_CTX) as mock_ctx:
+            mock_ctx.return_value.__aenter__.return_value = mock_client
+
+            await github_list_code_scanning_analyses(
+                repo_owner=_OWNER, repo_name=_REPO, per_page=30, page=2
+            )
+
+        params = mock_client.get.call_args.kwargs["params"]
+        assert params["per_page"] == "30"
+        assert params["page"] == "2"
 
 
 # ===========================================================================
@@ -422,8 +540,7 @@ class TestGithubListSecretScanningAlerts:
                 repo_owner=_OWNER, repo_name=_REPO, state="open"
             )
 
-        call_kwargs = mock_client.get.call_args
-        params = call_kwargs[1]["params"]
+        params = mock_client.get.call_args.kwargs["params"]
         assert params["state"] == "open"
 
     @pytest.mark.asyncio
@@ -438,8 +555,7 @@ class TestGithubListSecretScanningAlerts:
                 repo_owner=_OWNER, repo_name=_REPO, state=None
             )
 
-        call_kwargs = mock_client.get.call_args
-        params = call_kwargs[1]["params"]
+        params = mock_client.get.call_args.kwargs["params"]
         assert params is None
 
     @pytest.mark.asyncio
@@ -456,3 +572,34 @@ class TestGithubListSecretScanningAlerts:
 
         assert "❌" in result
         assert f"{_OWNER}/{_REPO}" in result
+
+    @pytest.mark.asyncio
+    async def test_list_secret_alerts_forwards_pagination_params(self):
+        """per_page and page are forwarded as query params when set."""
+        mock_client, _ = _mock_client("get", 200, json_body=[])
+
+        with patch(_PATCH_CTX) as mock_ctx:
+            mock_ctx.return_value.__aenter__.return_value = mock_client
+
+            await github_list_secret_scanning_alerts(
+                repo_owner=_OWNER, repo_name=_REPO, per_page=100, page=1
+            )
+
+        params = mock_client.get.call_args.kwargs["params"]
+        assert params["per_page"] == "100"
+        assert params["page"] == "1"
+
+    @pytest.mark.asyncio
+    async def test_list_secret_alerts_returns_error_when_status_403(self):
+        """GET 403 (insufficient security_events scope) returns an error string."""
+        mock_client, _ = _mock_client("get", 403, text_body="Forbidden")
+
+        with patch(_PATCH_CTX) as mock_ctx:
+            mock_ctx.return_value.__aenter__.return_value = mock_client
+
+            result = await github_list_secret_scanning_alerts(
+                repo_owner=_OWNER, repo_name=_REPO
+            )
+
+        assert "❌" in result
+        assert "403" in result
