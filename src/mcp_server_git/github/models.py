@@ -2,7 +2,9 @@
 
 import re
 
-from pydantic import BaseModel, field_validator, model_validator
+from typing import Literal
+
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 # ============================================================================
 # Validation Constants
@@ -980,3 +982,82 @@ class GitHubCreateRepo(BaseModel):
                 "can only contain alphanumeric characters and hyphens"
             )
         return v
+
+
+# ============================================================================
+# GHAS Forensics Models (Issue #186)
+# ============================================================================
+
+
+class GitHubListRulesets(BaseModel):
+    """Model for listing rulesets defined on a repository."""
+
+    repo_owner: str
+    repo_name: str
+    per_page: int | None = Field(default=None, ge=1, le=100, description="Results per page (max 100)")
+    page: int | None = Field(default=None, ge=1, description="Page number")
+
+
+class GitHubGetRuleset(BaseModel):
+    """Model for fetching a specific ruleset by ID.
+
+    Returns full ruleset config including required_status_checks,
+    code_scanning rules, and bypass actors.
+    """
+
+    repo_owner: str
+    repo_name: str
+    ruleset_id: int  # Numeric ruleset ID (from github_list_rulesets)
+
+
+class GitHubGetBranchRules(BaseModel):
+    """Model for listing all rules that apply to a branch.
+
+    Returns both classic branch-protection rules and ruleset-based rules
+    active for the given branch ref.
+    """
+
+    repo_owner: str
+    repo_name: str
+    branch: str  # Branch name (e.g. 'main') or pattern
+
+
+class GitHubListCodeScanningAlerts(BaseModel):
+    """Model for listing code scanning alerts with optional filters."""
+
+    repo_owner: str
+    repo_name: str
+    state: Literal["open", "closed", "dismissed", "fixed"] | None = None
+    severity: Literal["critical", "high", "medium", "low", "warning", "note", "error"] | None = None
+    tool_name: str | None = None  # Code-scanning tool (e.g. 'CodeQL') — free-form
+    ref: str | None = None  # Branch name or refs/pull/N/head
+    per_page: int | None = Field(default=None, ge=1, le=100, description="Results per page (max 100)")
+    page: int | None = Field(default=None, ge=1, description="Page number")
+
+
+class GitHubListCodeScanningAnalyses(BaseModel):
+    """Model for listing code scanning analyses for a repository."""
+
+    repo_owner: str
+    repo_name: str
+    ref: str | None = None  # Branch name or refs/pull/N/head
+    tool_name: str | None = None  # Code-scanning tool (e.g. 'CodeQL')
+    per_page: int | None = Field(default=None, ge=1, le=100, description="Results per page (max 100)")
+    page: int | None = Field(default=None, ge=1, description="Page number")
+
+
+class GitHubGetCodeScanningDefaultSetup(BaseModel):
+    """Model for fetching the default-setup configuration for code scanning."""
+
+    repo_owner: str
+    repo_name: str
+
+
+class GitHubListSecretScanningAlerts(BaseModel):
+    """Model for listing secret scanning alerts for a repository."""
+
+    repo_owner: str
+    repo_name: str
+    state: Literal["open", "resolved"] | None = None
+    per_page: int | None = Field(default=None, ge=1, le=100, description="Results per page (max 100)")
+    page: int | None = Field(default=None, ge=1, description="Page number")
