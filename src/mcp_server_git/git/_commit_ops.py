@@ -2,6 +2,7 @@
 
 import logging
 import os
+import re
 import subprocess
 
 from ..utils.git_import import GitCommandError, Repo
@@ -14,6 +15,7 @@ __all__ = [
     "git_log",
     "git_show",
     "git_blame",
+    "git_reflog",
 ]
 
 
@@ -281,3 +283,104 @@ def git_blame(
         return f"❌ Blame failed: {str(e)}"
     except Exception as e:
         return f"❌ Blame error: {str(e)}"
+
+
+def git_reflog(
+    repo: Repo,
+    ref: str = "HEAD",
+    max_count: int | None = None,
+    all: bool = False,  # noqa: A002
+) -> list[dict] | str:
+    """Read git reflog (HEAD/ref movement history including non-commit operations).
+
+    Args:
+        repo: Git repository object
+        ref: Ref to show reflog for (default: HEAD)
+        max_count: Maximum number of entries to return
+        all: If True, show reflog for all refs (--all)
+
+    Returns:
+        List of dicts with keys: new_sha, label, action, message, and
+        old_sha (the SHA before this operation, derived from the next entry's
+        new_sha since reflog is newest-first; absent for the oldest entry).
+        Returns a string starting with '❌' on error.
+
+    Note on old_sha:
+        %gP (reflog parent selector) yields a reflog selector like 'HEAD@{1}',
+        not a commit SHA. old_sha is instead taken from entry[i+1].new_sha,
+        which is always the commit HEAD pointed to before entry[i]'s operation.
+    """
+    try:
+        # %H = new (post-move) full SHA, %gD = reflog selector (HEAD@{0}),
+        # %gs = reflog subject (e.g. "checkout: moving from main to feature")
+        # Note: %gP gives a reflog selector (HEAD@{N}), not a commit SHA,
+        # so old_sha is derived from the next entry's new_sha instead.
+        sep = "\x00"
+        fmt = f"%H{sep}%gD{sep}%gs"
+
+        args = ["show", f"--format={fmt}", "--no-abbrev", "--no-patch"]
+
+        # max_count <= 0 (or None) means no limit; only positive values constrain.
+        if max_count is not None and max_count > 0:
+            args.extend(["-n", str(max_count)])
+
+        if all:  # noqa: A002
+            args.append("--all")
+        else:
+            args.append(ref)
+
+        raw_output = repo.git.reflog(*args)
+
+        if not raw_output.strip():
+            return []
+
+        entries = []
+        for line in raw_output.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            parts = line.split(sep)
+            if len(parts) < 3:
+                continue
+            new_sha, label, subject = parts[0], parts[1], parts[2]
+
+            # Derive action from subject: verb before ':', keeping any
+            # parenthetical qualifier that immediately follows the verb.
+            # Examples:
+            #   "checkout: moving from A to B"    -> "checkout"
+            #   "merge origin/main: Fast-forward" -> "merge"
+            #   "commit (amend): fixup msg"        -> "commit (amend)"
+            #   "rebase (start): checkout main"    -> "rebase (start)"
+            #   "commit (initial import): msg"     -> "commit (initial import)"
+            pre_colon = subject.split(":", 1)[0].strip() if subject else ""
+            m = re.match(r'^(\w[\w-]*(?:\s+\([^)]*\))?)', pre_colon)
+            action = m.group(1) if m else (pre_colon.split()[0] if pre_colon.split() else "unknown")
+
+            entries.append({
+                "new_sha": new_sha,
+                "label": label,
+                "action": action,
+                "message": subject,
+            })
+
+        # old_sha for entry[i] = entry[i+1].new_sha (reflog is newest-first).
+        for i in range(len(entries) - 1):
+            entries[i]["old_sha"] = entries[i + 1]["new_sha"]
+
+        # Warn on large output, mirroring git_show's 50KB threshold.
+        serialized_size = len(str(entries))
+        if serialized_size > 50000:  # 50KB threshold
+            entries.append({
+                "warning": (
+                    f"⚠️  Large reflog detected ({len(entries) - 1} entries, "
+                    f"~{serialized_size // 1000}KB). "
+                    "Consider using max_count to limit output."
+                )
+            })
+
+        return entries
+
+    except GitCommandError as e:
+        return f"❌ Reflog failed: {str(e)}"
+    except Exception as e:
+        return f"❌ Reflog error: {str(e)}"
