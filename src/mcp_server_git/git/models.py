@@ -81,6 +81,13 @@ class GitLog(BaseModel):
     merges: bool | None = None  # None=all, True=only merges, False=no merges
 
 
+class GitReflog(BaseModel):
+    repo_path: str
+    ref: str = Field(default="HEAD", description="Ref to show reflog for (default: HEAD)")
+    max_count: int | None = Field(default=None, description="Maximum number of reflog entries to return")
+    all: bool = Field(default=False, description="Show reflog for all refs (git reflog --all)")
+
+
 class GitCreateBranch(BaseModel):
     repo_path: str
     branch_name: str

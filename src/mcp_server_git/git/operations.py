@@ -17,6 +17,7 @@ from ._commit_ops import (
     git_blame,
     git_commit,
     git_log,
+    git_reflog,
     git_show,
     git_status,
 )
@@ -105,6 +106,7 @@ __all__ = [
     "git_tag_create",
     "git_tag_delete",
     "git_blame",
+    "git_reflog",
     "git_branch_list",
     "git_merge_base",
     "git_submodule_status",

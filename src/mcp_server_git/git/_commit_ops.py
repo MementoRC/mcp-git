@@ -14,6 +14,7 @@ __all__ = [
     "git_log",
     "git_show",
     "git_blame",
+    "git_reflog",
 ]
 
 
@@ -281,3 +282,81 @@ def git_blame(
         return f"❌ Blame failed: {str(e)}"
     except Exception as e:
         return f"❌ Blame error: {str(e)}"
+
+
+def git_reflog(
+    repo: Repo,
+    ref: str = "HEAD",
+    max_count: int | None = None,
+    all: bool = False,
+) -> list[dict]:
+    """Read git reflog (HEAD/ref movement history including non-commit operations).
+
+    Args:
+        repo: Git repository object
+        ref: Ref to show reflog for (default: HEAD)
+        max_count: Maximum number of entries to return
+        all: If True, show reflog for all refs (--all)
+
+    Returns:
+        List of dicts with keys: new_sha, label, action, message, and
+        old_sha when the parent SHA is available.
+    """
+    try:
+        # %H = new (post-move) full SHA, %gD = reflog selector (HEAD@{0}),
+        # %gP = reflog parent (previous position SHA, empty for initial entry),
+        # %gs = reflog subject (e.g. "checkout: moving from main to feature")
+        sep = "\x00"
+        fmt = f"%H{sep}%gD{sep}%gP{sep}%gs"
+
+        args = ["show", f"--format={fmt}", "--no-abbrev", "--no-patch"]
+
+        if max_count is not None and max_count > 0:
+            args.extend(["-n", str(max_count)])
+
+        if all:
+            args.append("--all")
+        else:
+            args.append(ref)
+
+        raw_output = repo.git.reflog(*args)
+
+        if not raw_output.strip():
+            return []
+
+        entries = []
+        for line in raw_output.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            parts = line.split(sep)
+            if len(parts) < 4:
+                continue
+            new_sha, label, old_sha_raw, subject = (
+                parts[0],
+                parts[1],
+                parts[2],
+                parts[3],
+            )
+
+            # Derive action from subject: first token before ':'
+            # e.g. "checkout: moving from A to B" -> "checkout"
+            action = subject.split(":")[0].strip() if subject else "unknown"
+
+            entry: dict = {
+                "new_sha": new_sha,
+                "label": label,
+                "action": action,
+                "message": subject,
+            }
+            if old_sha_raw and old_sha_raw != "0" * 40:
+                entry["old_sha"] = old_sha_raw
+
+            entries.append(entry)
+
+        return entries
+
+    except GitCommandError as e:
+        return [{"error": f"Reflog failed: {str(e)}"}]
+    except Exception as e:
+        return [{"error": f"Reflog error: {str(e)}"}]
