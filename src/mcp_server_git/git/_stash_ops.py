@@ -2,6 +2,7 @@
 
 import logging
 import os
+import re
 import subprocess
 
 from ..utils.git_import import Repo
@@ -21,6 +22,8 @@ __all__ = [
 _GIT_ENV_KEYS = frozenset(
     {"GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_COMMON_DIR"}
 )
+
+_STASH_ID_RE = re.compile(r"^stash@\{\d+\}$")
 
 
 def _clean_git_env() -> dict[str, str]:
@@ -92,6 +95,8 @@ def git_stash_pop(repo: Repo, stash_id: str | None = None) -> str:
     try:
         if repo.working_dir is None:
             return "❌ Stash operation requires a non-bare repository"
+        if stash_id and not _STASH_ID_RE.match(stash_id):
+            return f"❌ Invalid stash ID: {stash_id!r} (expected format: stash@{{N}})"
         args = ["stash", "pop"]
         if stash_id:
             args.append(stash_id)
@@ -112,6 +117,8 @@ def git_stash_drop(repo: Repo, stash_id: str | None = None) -> str:
     try:
         if repo.working_dir is None:
             return "❌ Stash operation requires a non-bare repository"
+        if stash_id and not _STASH_ID_RE.match(stash_id):
+            return f"❌ Invalid stash ID: {stash_id!r} (expected format: stash@{{N}})"
         args = ["stash", "drop"]
         if stash_id:
             args.append(stash_id)
