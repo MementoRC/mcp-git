@@ -42,6 +42,8 @@ def _run_git(args: list[str], cwd: str) -> subprocess.CompletedProcess[str]:
 def git_stash_list(repo: Repo) -> str:
     """List all stashes"""
     try:
+        if repo.working_dir is None:
+            return "❌ Stash operation requires a non-bare repository"
         result = _run_git(["stash", "list"], cwd=repo.working_dir)
         if result.returncode != 0:
             return f"❌ Stash list failed: {result.stderr.strip() or result.stdout.strip()}"
@@ -62,6 +64,8 @@ def git_stash_push(
     handling that causes exit-code-1 failures in git linked worktrees (#189).
     """
     try:
+        if repo.working_dir is None:
+            return "❌ Stash operation requires a non-bare repository"
         args = ["stash", "push"]
         if include_untracked:
             args.append("--include-untracked")
@@ -73,11 +77,11 @@ def git_stash_push(
         if result.returncode == 0:
             return "✅ Successfully created stash" + (f": {message}" if message else "")
 
-        output = result.stdout.strip()
-        if result.returncode == 1 and "No local changes to save" in output:
+        combined = result.stdout.strip() or result.stderr.strip()
+        if result.returncode == 1 and "No local changes to save" in combined:
             return "ℹ️ No local changes to stash"
 
-        error = result.stderr.strip() or output
+        error = result.stderr.strip() or result.stdout.strip()
         return f"❌ Stash push failed: {error}"
     except Exception as e:
         return f"❌ Stash push error: {str(e)}"
@@ -86,6 +90,8 @@ def git_stash_push(
 def git_stash_pop(repo: Repo, stash_id: str | None = None) -> str:
     """Apply and remove a stash"""
     try:
+        if repo.working_dir is None:
+            return "❌ Stash operation requires a non-bare repository"
         args = ["stash", "pop"]
         if stash_id:
             args.append(stash_id)
@@ -104,6 +110,8 @@ def git_stash_pop(repo: Repo, stash_id: str | None = None) -> str:
 def git_stash_drop(repo: Repo, stash_id: str | None = None) -> str:
     """Remove a stash without applying it"""
     try:
+        if repo.working_dir is None:
+            return "❌ Stash operation requires a non-bare repository"
         args = ["stash", "drop"]
         if stash_id:
             args.append(stash_id)
