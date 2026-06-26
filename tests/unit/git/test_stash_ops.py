@@ -57,7 +57,33 @@ class TestGitStashPush:
         assert "my stash message" in result
 
     def test_git_stash_push_returns_info_when_nothing_to_stash(self):
-        result = git_stash_push(self.repo)
+        """Exit code 1 + 'No local changes to save' must return info, not error."""
+        from unittest.mock import MagicMock, patch
+        import subprocess as _sp
+
+        mock_result = MagicMock(spec=_sp.CompletedProcess)
+        mock_result.returncode = 1
+        mock_result.stdout = "No local changes to save"
+        mock_result.stderr = ""
+
+        with patch("src.mcp_server_git.git._stash_ops.subprocess.run", return_value=mock_result):
+            result = git_stash_push(self.repo)
+
+        assert "ℹ️" in result or "No local changes" in result
+
+    def test_git_stash_push_returns_info_when_nothing_to_stash_stderr(self):
+        """'No local changes to save' on stderr (some git versions) must also return info."""
+        from unittest.mock import MagicMock, patch
+        import subprocess as _sp
+
+        mock_result = MagicMock(spec=_sp.CompletedProcess)
+        mock_result.returncode = 1
+        mock_result.stdout = ""
+        mock_result.stderr = "No local changes to save"
+
+        with patch("src.mcp_server_git.git._stash_ops.subprocess.run", return_value=mock_result):
+            result = git_stash_push(self.repo)
+
         assert "ℹ️" in result or "No local changes" in result
 
     def test_git_stash_push_in_worktree(self, tmp_path):
