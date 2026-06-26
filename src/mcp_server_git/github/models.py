@@ -1019,7 +1019,7 @@ class GitHubGetBranchRules(BaseModel):
 
     repo_owner: str
     repo_name: str
-    branch: str  # Branch name (e.g. 'main') or pattern
+    branch: str  # Branch name or glob pattern — no ref-name validation (API accepts patterns)
 
 
 class GitHubListCodeScanningAlerts(BaseModel):

@@ -41,7 +41,10 @@ async def github_list_rulesets(
     per_page: int | None = None,
     page: int | None = None,
 ) -> list[dict[str, Any]] | str:
-    """List rulesets defined on a repository."""
+    """List rulesets defined on a repository.
+
+    Note: Returns a single page of results. Use per_page/page for manual pagination.
+    """
     logger.debug("Getting rulesets for %s/%s", repo_owner, repo_name)
 
     params = _build_params(per_page=per_page, page=page)
@@ -163,6 +166,8 @@ async def github_list_code_scanning_alerts(
 ) -> list[dict[str, Any]] | str:
     """List code scanning alerts with optional filters.
 
+    Note: Returns a single page of results. Use per_page/page for manual pagination.
+
     Args:
         state: Filter by alert state ('open', 'closed', 'dismissed', 'fixed').
         severity: Filter by severity ('critical', 'high', 'medium', 'low', 'warning', 'note', 'error').
@@ -227,6 +232,8 @@ async def github_list_code_scanning_analyses(
     page: int | None = None,
 ) -> list[dict[str, Any]] | str:
     """List code scanning analyses for a repository.
+
+    Note: Returns a single page of results. Use per_page/page for manual pagination.
 
     Args:
         ref: Git ref to filter by (branch name or refs/pull/N/head).
@@ -339,6 +346,8 @@ async def github_list_secret_scanning_alerts(
     page: int | None = None,
 ) -> list[dict[str, Any]] | str:
     """List secret scanning alerts for a repository.
+
+    Note: Returns a single page of results. Use per_page/page for manual pagination.
 
     Args:
         state: Filter by alert state ('open' or 'resolved').

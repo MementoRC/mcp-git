@@ -200,6 +200,36 @@ class TestGithubGetRuleset:
         assert "❌" in result
         assert "403" in result
 
+    @pytest.mark.asyncio
+    async def test_get_ruleset_returns_error_on_value_error(self):
+        """A ValueError raised by the client returns an error string."""
+        mock_client = MagicMock()
+        mock_client.get = AsyncMock(side_effect=ValueError("Auth error"))
+
+        with patch(_PATCH_CTX) as mock_ctx:
+            mock_ctx.return_value.__aenter__.return_value = mock_client
+
+            result = await github_get_ruleset(
+                repo_owner=_OWNER, repo_name=_REPO, ruleset_id=1
+            )
+
+        assert "❌" in result
+
+    @pytest.mark.asyncio
+    async def test_get_ruleset_returns_error_on_connection_error(self):
+        """A ConnectionError raised by the client returns a network-error string."""
+        mock_client = MagicMock()
+        mock_client.get = AsyncMock(side_effect=ConnectionError("Network error"))
+
+        with patch(_PATCH_CTX) as mock_ctx:
+            mock_ctx.return_value.__aenter__.return_value = mock_client
+
+            result = await github_get_ruleset(
+                repo_owner=_OWNER, repo_name=_REPO, ruleset_id=1
+            )
+
+        assert "❌" in result
+
 
 # ===========================================================================
 # github_get_branch_rules
@@ -256,6 +286,36 @@ class TestGithubGetBranchRules:
 
         assert "❌" in result
         assert "403" in result
+
+    @pytest.mark.asyncio
+    async def test_get_branch_rules_returns_error_on_value_error(self):
+        """A ValueError raised by the client returns an error string."""
+        mock_client = MagicMock()
+        mock_client.get = AsyncMock(side_effect=ValueError("Auth error"))
+
+        with patch(_PATCH_CTX) as mock_ctx:
+            mock_ctx.return_value.__aenter__.return_value = mock_client
+
+            result = await github_get_branch_rules(
+                repo_owner=_OWNER, repo_name=_REPO, branch="main"
+            )
+
+        assert "❌" in result
+
+    @pytest.mark.asyncio
+    async def test_get_branch_rules_returns_error_on_connection_error(self):
+        """A ConnectionError raised by the client returns a network-error string."""
+        mock_client = MagicMock()
+        mock_client.get = AsyncMock(side_effect=ConnectionError("Network error"))
+
+        with patch(_PATCH_CTX) as mock_ctx:
+            mock_ctx.return_value.__aenter__.return_value = mock_client
+
+            result = await github_get_branch_rules(
+                repo_owner=_OWNER, repo_name=_REPO, branch="main"
+            )
+
+        assert "❌" in result
 
 
 # ===========================================================================
