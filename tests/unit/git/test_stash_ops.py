@@ -18,8 +18,11 @@ from src.mcp_server_git.utils.git_import import Repo
 def _make_repo(path: Path) -> Repo:
     """Create a minimal git repo with an initial commit."""
     repo = Repo.init(str(path))
-    repo.config_writer().set_value("user", "name", "Test").release()
-    repo.config_writer().set_value("user", "email", "test@test.com").release()
+    cw = repo.config_writer()
+    cw.set_value("user", "name", "Test")
+    cw.set_value("user", "email", "test@test.com")
+    cw.set_value("core", "fileMode", "false")
+    cw.release()
     readme = path / "README.md"
     readme.write_text("initial")
     repo.index.add(["README.md"])
