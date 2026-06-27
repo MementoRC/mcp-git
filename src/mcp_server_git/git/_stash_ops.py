@@ -1,8 +1,11 @@
 """Stash operations for MCP Git Server."""
 
 import logging
+import os
+import re
+import subprocess
 
-from ..utils.git_import import GitCommandError, Repo
+from ..utils.git_import import Repo
 
 logger = logging.getLogger(__name__)
 
@@ -13,16 +16,44 @@ __all__ = [
     "git_stash_drop",
 ]
 
+# Git environment variables that can interfere with worktree stash operations.
+# Stripping these lets git auto-detect the repo from the working directory,
+# which matches what a plain shell `git stash` does.
+_GIT_ENV_KEYS = frozenset(
+    {"GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_COMMON_DIR"}
+)
+
+_STASH_ID_RE = re.compile(r"^stash@\{\d+\}$")
+
+
+def _clean_git_env() -> dict[str, str]:
+    """Return os.environ without keys that confuse git in worktrees."""
+    return {k: v for k, v in os.environ.items() if k not in _GIT_ENV_KEYS}
+
+
+def _run_git(args: list[str], cwd: str) -> subprocess.CompletedProcess[str]:
+    """Run a git command in *cwd* with a worktree-safe environment."""
+    return subprocess.run(
+        ["git", *args],
+        cwd=cwd,
+        env=_clean_git_env(),
+        capture_output=True,
+        text=True,
+    )
+
 
 def git_stash_list(repo: Repo) -> str:
     """List all stashes"""
     try:
-        stash_list = repo.git.stash("list")
-        if not stash_list.strip():
+        if repo.working_dir is None:
+            return "❌ Stash operation requires a non-bare repository"
+        result = _run_git(["stash", "list"], cwd=repo.working_dir)
+        if result.returncode != 0:
+            return f"❌ Stash list failed: {result.stderr.strip() or result.stdout.strip()}"
+        output = result.stdout.strip()
+        if not output:
             return "No stashes found"
-        return f"Stash list:\n{stash_list}"
-    except GitCommandError as e:
-        return f"❌ Stash list failed: {str(e)}"
+        return f"Stash list:\n{output}"
     except Exception as e:
         return f"❌ Stash list error: {str(e)}"
 
@@ -30,18 +61,31 @@ def git_stash_list(repo: Repo) -> str:
 def git_stash_push(
     repo: Repo, message: str | None = None, include_untracked: bool = False
 ) -> str:
-    """Create a new stash"""
+    """Create a new stash.
+
+    Uses subprocess rather than repo.git.stash() to avoid GitPython's GIT_DIR
+    handling that causes exit-code-1 failures in git linked worktrees (#189).
+    """
     try:
-        args = ["push"]
+        if repo.working_dir is None:
+            return "❌ Stash operation requires a non-bare repository"
+        args = ["stash", "push"]
         if include_untracked:
             args.append("--include-untracked")
         if message:
             args.extend(["-m", message])
 
-        repo.git.stash(*args)
-        return "✅ Successfully created stash" + (f": {message}" if message else "")
-    except GitCommandError as e:
-        return f"❌ Stash push failed: {str(e)}"
+        result = _run_git(args, cwd=repo.working_dir)
+
+        if result.returncode == 0:
+            return "✅ Successfully created stash" + (f": {message}" if message else "")
+
+        combined = result.stdout.strip() or result.stderr.strip()
+        if result.returncode == 1 and "No local changes to save" in combined:
+            return "ℹ️ No local changes to stash"
+
+        error = result.stderr.strip() or result.stdout.strip()
+        return f"❌ Stash push failed: {error}"
     except Exception as e:
         return f"❌ Stash push error: {str(e)}"
 
@@ -49,14 +93,21 @@ def git_stash_push(
 def git_stash_pop(repo: Repo, stash_id: str | None = None) -> str:
     """Apply and remove a stash"""
     try:
+        if repo.working_dir is None:
+            return "❌ Stash operation requires a non-bare repository"
+        if stash_id and not _STASH_ID_RE.match(stash_id):
+            return f"❌ Invalid stash ID: {stash_id!r} (expected format: stash@{{N}})"
+        args = ["stash", "pop"]
         if stash_id:
-            repo.git.stash("pop", stash_id)
+            args.append(stash_id)
+
+        result = _run_git(args, cwd=repo.working_dir)
+        if result.returncode != 0:
+            return f"❌ Stash pop failed: {result.stderr.strip() or result.stdout.strip()}"
+
+        if stash_id:
             return f"✅ Successfully popped stash {stash_id}"
-        else:
-            repo.git.stash("pop")
-            return "✅ Successfully popped latest stash"
-    except GitCommandError as e:
-        return f"❌ Stash pop failed: {str(e)}"
+        return "✅ Successfully popped latest stash"
     except Exception as e:
         return f"❌ Stash pop error: {str(e)}"
 
@@ -64,13 +115,20 @@ def git_stash_pop(repo: Repo, stash_id: str | None = None) -> str:
 def git_stash_drop(repo: Repo, stash_id: str | None = None) -> str:
     """Remove a stash without applying it"""
     try:
+        if repo.working_dir is None:
+            return "❌ Stash operation requires a non-bare repository"
+        if stash_id and not _STASH_ID_RE.match(stash_id):
+            return f"❌ Invalid stash ID: {stash_id!r} (expected format: stash@{{N}})"
+        args = ["stash", "drop"]
         if stash_id:
-            repo.git.stash("drop", stash_id)
+            args.append(stash_id)
+
+        result = _run_git(args, cwd=repo.working_dir)
+        if result.returncode != 0:
+            return f"❌ Stash drop failed: {result.stderr.strip() or result.stdout.strip()}"
+
+        if stash_id:
             return f"✅ Successfully dropped stash {stash_id}"
-        else:
-            repo.git.stash("drop")
-            return "✅ Successfully dropped latest stash"
-    except GitCommandError as e:
-        return f"❌ Stash drop failed: {str(e)}"
+        return "✅ Successfully dropped latest stash"
     except Exception as e:
         return f"❌ Stash drop error: {str(e)}"
