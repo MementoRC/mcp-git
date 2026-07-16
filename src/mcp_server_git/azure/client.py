@@ -56,14 +56,25 @@ class AzureClient:
             return aiohttp.BasicAuth("", self.token)
         return None
 
-    async def get(self, endpoint: str, **kwargs) -> aiohttp.ClientResponse:
-        """Make GET request to Azure DevOps API"""
+    async def get(
+        self, endpoint: str, accept: str = "application/json", **kwargs
+    ) -> aiohttp.ClientResponse:
+        """Make GET request to Azure DevOps API.
+
+        Args:
+            endpoint: API endpoint (organization is prepended automatically).
+            accept: Value for the Accept header. Defaults to
+                "application/json". Pass "text/plain" for endpoints that return
+                a bare ``List<String>`` — notably build log *content*
+                (``.../logs/{logId}``), which Azure DevOps refuses to serialize
+                as JSON with a 500 "doesn't implement ISecuredObject" error.
+        """
         # Azure DevOps API expects the organization in the URL
         # Format: https://dev.azure.com/{organization}/{project}/_apis/...
         url = f"{self.base_url}/{self.organization}/{endpoint.lstrip('/')}"
 
         headers = {
-            "Accept": "application/json",
+            "Accept": accept,
             "User-Agent": "MCP-Git-Server/1.1.0",
         }
 

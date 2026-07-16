@@ -145,10 +145,14 @@ async def azure_get_build_logs(
 
                 return "\n".join(output)
             else:
-                # Get specific log content
+                # Get specific log content.
                 # API: GET https://dev.azure.com/{organization}/{project}/_apis/build/builds/{buildId}/logs/{logId}?api-version=7.1
+                # Request text/plain: the single-log endpoint returns a bare
+                # List<String>, which Azure refuses to serialize as JSON
+                # (500 "doesn't implement ISecuredObject"). Plain text works.
                 response = await client.get(
-                    f"{project}/_apis/build/builds/{build_id}/logs/{log_id}?api-version=7.1"
+                    f"{project}/_apis/build/builds/{build_id}/logs/{log_id}?api-version=7.1",
+                    accept="text/plain",
                 )
 
                 if response.status != 200:
@@ -290,12 +294,16 @@ async def azure_get_failing_jobs(
                         message = issue.get("message", "No message")
                         output.append(f"     [{issue_type}] {message}")
 
-                # Include log excerpt if requested
-                if include_logs and record.get("log", {}).get("id"):
+                # Include log excerpt if requested.
+                # Use `record.get("log") or {}`: the log key may be present but
+                # explicitly null, in which case `.get("log", {})` returns None
+                # and `.get("id")` would raise 'NoneType' object has no attribute 'get'.
+                if include_logs and (record.get("log") or {}).get("id"):
                     log_id = record["log"]["id"]
                     try:
                         log_response = await client.get(
-                            f"{project}/_apis/build/builds/{build_id}/logs/{log_id}?api-version=7.1"
+                            f"{project}/_apis/build/builds/{build_id}/logs/{log_id}?api-version=7.1",
+                            accept="text/plain",
                         )
                         if log_response.status == 200:
                             # Azure DevOps returns log content as JSON with a "value" array
