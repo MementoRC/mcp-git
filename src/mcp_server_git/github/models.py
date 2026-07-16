@@ -783,6 +783,31 @@ class GitHubGetRelease(BaseModel):
         return self
 
 
+class GitHubGetContent(BaseModel):
+    """Model for fetching a single file's contents at an optional ref.
+
+    Wraps the GitHub contents API; returns decoded file text plus the blob
+    sha and size. A directory path returns a listing instead.
+    """
+
+    repo_owner: str
+    repo_name: str
+    path: str
+    ref: str | None = None  # branch, tag, or SHA; default = repo default branch
+
+
+class GitHubResolveRef(BaseModel):
+    """Model for resolving a branch/tag/short-SHA to a full commit SHA.
+
+    Wraps GET /repos/{owner}/{repo}/commits/{ref}, which dereferences
+    annotated tags and expands short SHAs.
+    """
+
+    repo_owner: str
+    repo_name: str
+    ref: str
+
+
 class GitHubListReleases(BaseModel):
     """Model for listing repository releases.
 

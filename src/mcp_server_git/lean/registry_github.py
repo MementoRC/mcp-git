@@ -25,6 +25,7 @@ from ..github.models import (
     GitHubGetBranchProtection,
     GitHubGetBranchRules,
     GitHubGetCodeScanningDefaultSetup,
+    GitHubGetContent,
     GitHubGetFailingJobs,
     GitHubGetIssue,
     GitHubGetJobLogs,
@@ -49,6 +50,7 @@ from ..github.models import (
     GitHubListRulesets,
     GitHubListSecretScanningAlerts,
     GitHubListWorkflowRuns,
+    GitHubResolveRef,
     GitHubSearchIssues,
     GitHubUpdateActionsPermissions,
     GitHubUpdateBranchProtection,
@@ -574,6 +576,23 @@ def _register_github_tools(interface: Any, github_service: Any):
             schema=GitHubListSecretScanningAlerts.model_json_schema(),
             domain="github",
             complexity="focused",
+        ),
+        # Read-by-ref Tools (#193)
+        ToolDefinition(
+            name="github_get_content",
+            implementation=github_ops.github_get_content,
+            description="Read a file's decoded contents at a ref (branch/tag/SHA) without cloning",
+            schema=GitHubGetContent.model_json_schema(),
+            domain="github",
+            complexity="core",
+        ),
+        ToolDefinition(
+            name="github_resolve_ref",
+            implementation=github_ops.github_resolve_ref,
+            description="Resolve a branch/tag/short-SHA to its full commit SHA",
+            schema=GitHubResolveRef.model_json_schema(),
+            domain="github",
+            complexity="core",
         ),
         # Release Management Tools
         ToolDefinition(
