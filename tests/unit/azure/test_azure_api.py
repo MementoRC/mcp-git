@@ -199,6 +199,35 @@ class TestAzureGetBuildLogs:
             assert "truncated 80 lines" in result
             assert "showing last 20 of 100 lines" in result  # New format
 
+    @pytest.mark.asyncio
+    async def test_get_specific_log_requests_text_plain_accept_header(self):
+        """Fetching a specific log must call client.get with accept='text/plain'."""
+        mock_client = MagicMock()
+
+        mock_response = AsyncMock()
+        mock_response.status = 200
+        mock_response.headers = {"Content-Type": "text/plain"}
+        mock_response.text = AsyncMock(
+            return_value="Build log line 1\nBuild log line 2\nBuild log line 3"
+        )
+        mock_client.get = AsyncMock(return_value=mock_response)
+
+        with patch("src.mcp_server_git.azure.api.azure_client_context") as mock_context:
+            mock_context.return_value.__aenter__.return_value = mock_client
+
+            result = await azure_get_build_logs(
+                project="myproject", build_id=123, log_id=1
+            )
+
+            mock_client.get.assert_called_once()
+            _, kwargs = mock_client.get.call_args
+            assert kwargs.get("accept") == "text/plain"
+
+            assert "Log #1" in result
+            assert "Build log line 1" in result
+            assert "Build log line 2" in result
+            assert "Build log line 3" in result
+
 
 class TestAzureGetFailingJobs:
     """Test azure_get_failing_jobs function."""
@@ -271,6 +300,58 @@ class TestAzureGetFailingJobs:
             assert "failed" in result
             assert "Build failed with error" in result
             assert "Error log line" in result
+
+    @pytest.mark.asyncio
+    async def test_get_failing_jobs_does_not_raise_when_log_is_none(self):
+        """A failed record whose 'log' key is present but null must not raise
+        AttributeError ('NoneType' object has no attribute 'get') and must
+        not attempt a log fetch for that record."""
+        mock_client = MagicMock()
+
+        build_response = AsyncMock()
+        build_response.status = 200
+        build_response.json = AsyncMock(
+            return_value={"id": 123, "result": "failed"}
+        )
+
+        timeline_response = AsyncMock()
+        timeline_response.status = 200
+        timeline_response.json = AsyncMock(
+            return_value={
+                "records": [
+                    {
+                        "id": "job1",
+                        "type": "Job",
+                        "name": "Build Job",
+                        "result": "failed",
+                        "state": "completed",
+                        "log": None,
+                    }
+                ]
+            }
+        )
+
+        async def mock_get(url, **kwargs):
+            if "timeline" in url:
+                return timeline_response
+            elif "logs" in url:
+                raise AssertionError(
+                    "Log fetch should not be attempted when log is None"
+                )
+            return build_response
+
+        mock_client.get = AsyncMock(side_effect=mock_get)
+
+        with patch("src.mcp_server_git.azure.api.azure_client_context") as mock_context:
+            mock_context.return_value.__aenter__.return_value = mock_client
+
+            result = await azure_get_failing_jobs(
+                project="myproject", build_id=123, include_logs=True
+            )
+
+            assert isinstance(result, str)
+            assert "Failed Jobs" in result
+            assert "Build Job" in result
 
 
 class TestAzureClientAnonymousMode:

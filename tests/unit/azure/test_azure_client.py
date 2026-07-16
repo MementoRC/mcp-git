@@ -135,6 +135,41 @@ class TestAzureClientMethods:
         assert isinstance(auth, BasicAuth)
 
     @pytest.mark.asyncio
+    async def test_get_sends_text_plain_accept_header_when_accept_arg_passed(self):
+        """GET with accept='text/plain' must send that value in the Accept header."""
+        mock_session = AsyncMock()
+        mock_response = AsyncMock()
+        mock_response.status = 200
+        mock_session.get = AsyncMock(return_value=mock_response)
+
+        client = AzureClient(token=None, organization="myorg", session=mock_session)
+
+        await client.get(
+            "myproject/_apis/build/builds/123/logs/5?api-version=7.1",
+            accept="text/plain",
+        )
+
+        mock_session.get.assert_called_once()
+        _, kwargs = mock_session.get.call_args
+        assert kwargs["headers"]["Accept"] == "text/plain"
+
+    @pytest.mark.asyncio
+    async def test_get_defaults_accept_header_to_application_json(self):
+        """GET without an accept arg must default the Accept header to application/json."""
+        mock_session = AsyncMock()
+        mock_response = AsyncMock()
+        mock_response.status = 200
+        mock_session.get = AsyncMock(return_value=mock_response)
+
+        client = AzureClient(token=None, organization="myorg", session=mock_session)
+
+        await client.get("myproject/_apis/build/builds/123")
+
+        mock_session.get.assert_called_once()
+        _, kwargs = mock_session.get.call_args
+        assert kwargs["headers"]["Accept"] == "application/json"
+
+    @pytest.mark.asyncio
     async def test_post_request(self):
         """Test Azure client POST request."""
         session = MagicMock()
