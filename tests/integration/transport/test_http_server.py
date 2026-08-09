@@ -21,6 +21,7 @@ import asyncio
 import subprocess
 import tempfile
 from pathlib import Path
+from unittest.mock import AsyncMock
 
 import httpx
 import pytest
@@ -696,3 +697,43 @@ class TestToolsListAndServerInfo:
         )
         # Should work - server_info doesn't need repo access
         assert response.status_code == 200
+
+    @pytest.mark.asyncio
+    async def test_server_info_returns_session_not_found_error_when_session_unresolvable(
+        self, http_server, async_client, temp_git_repo, monkeypatch
+    ):
+        """Test server_info returns -32000 when session lookup resolves to None."""
+        # Create a valid session so the MCP-Session-Id header passes the
+        # earlier missing-header branch and reaches the server_info branch.
+        create_response = await async_client.post(
+            "/mcp/session/create",
+            json={
+                "repository_path": str(temp_git_repo),
+                "expected_remote_url": "https://github.com/test/repo.git",
+            },
+        )
+        assert create_response.status_code == 201
+        session_id = create_response.json()["session_id"]
+
+        monkeypatch.setattr(
+            http_server.session_manager,
+            "get_or_create_session",
+            AsyncMock(return_value=None),
+        )
+
+        response = await async_client.post(
+            "/mcp",
+            json={
+                "jsonrpc": "2.0",
+                "method": "tools/call",
+                "params": {"name": "server_info", "arguments": {}},
+                "id": 4,
+            },
+            headers={"MCP-Session-Id": session_id},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["jsonrpc"] == "2.0"
+        assert data["error"]["code"] == -32000
+        assert "Session not found" in data["error"]["message"]

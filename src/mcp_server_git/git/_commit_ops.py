@@ -9,6 +9,10 @@ from ..utils.git_import import GitCommandError, Repo
 
 logger = logging.getLogger(__name__)
 
+# Signature-aware pretty format used when show_signature=True (issue #196).
+# %G? = signature validity code (G/B/U/X/Y/R/E/N), %GS = signer name.
+SIGNATURE_LOG_FORMAT = "%h %G? %GS %s"
+
 __all__ = [
     "git_status",
     "git_commit",
@@ -132,6 +136,7 @@ def git_log(
     oneline: bool = False,
     graph: bool = False,
     format_str: str | None = None,  # Renamed from 'format'
+    show_signature: bool = False,
     since: str | None = None,
     until: str | None = None,
     author: str | None = None,
@@ -149,6 +154,8 @@ def git_log(
         oneline: Compact "hash message" format (equivalent to --oneline)
         graph: Show merge graph (--graph)
         format_str: Custom format string (e.g., "%h - %s (%an)")
+        show_signature: Include GPG signature status via %G? / %GS placeholders.
+            Ignored when `oneline` or `format_str` is given.
         since: Date filter - commits after this date (e.g., "2024-01-01", "1 week ago")
         until: Date filter - commits before this date (e.g., "yesterday", "2024-12-31")
         author: Filter by commit author (email or name)
@@ -177,6 +184,8 @@ def git_log(
             args.append("--oneline")
         elif format_str:  # Use format_str
             args.extend(["--pretty=format:" + format_str])
+        elif show_signature:
+            args.extend(["--pretty=format:" + SIGNATURE_LOG_FORMAT])
 
         if graph:
             args.append("--graph")

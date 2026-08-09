@@ -32,6 +32,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
 from ..repository_binding import RemoteContaminationError, RepositoryBindingError
+from ..server_metadata import build_server_info
 from .http_session_manager import HTTPSessionManager
 from .security import APIKeyMiddleware, LocalhostOnlyMiddleware
 
@@ -599,31 +600,28 @@ class HTTPGitServer:
                             args=tool_params,
                         )
                     elif tool_name == "server_info":
-                        try:
-                            from importlib.metadata import version as pkg_version
-
-                            ver = pkg_version("mcp-server-git")
-                        except Exception:
-                            ver = "unknown"
-                        result = {
-                            "name": "mcp-git",
-                            "version": ver,
-                            "description": "MCP server for Git, GitHub, and Azure DevOps operations",
-                            "repository": "https://github.com/MementoRC/mcp-git",
-                            "issues": "https://github.com/MementoRC/mcp-git/issues",
-                            "documentation": "https://github.com/MementoRC/mcp-git#readme",
-                            "support": {
-                                "bug_reports": "https://github.com/MementoRC/mcp-git/issues/new?template=bug_report.md",
-                                "feature_requests": "https://github.com/MementoRC/mcp-git/issues/new?template=feature_request.md",
-                            },
-                            "domains": {
-                                "git": "Local git operations (30 tools)",
-                                "github": "GitHub API (52 tools)",
-                                "azure": "Azure DevOps (4 tools)",
-                            },
-                            "transport": "HTTP (SSE)",
-                            "protocol_version": "2024-11-05",
-                        }
+                        session_context = (
+                            await self.session_manager.get_or_create_session(
+                                mcp_session_id
+                            )
+                        )
+                        if session_context is None:
+                            return JSONResponse(
+                                content={
+                                    "jsonrpc": "2.0",
+                                    "id": req_id,
+                                    "error": {
+                                        "code": -32000,
+                                        "message": (
+                                            f"Session not found: {mcp_session_id}"
+                                        ),
+                                    },
+                                }
+                            )
+                        result = build_server_info(
+                            session_context.lean_interface.tool_registry,
+                            "HTTP (SSE)",
+                        )
                     else:
                         # Direct tool execution (legacy/fallback)
                         result = await self.session_manager.execute_tool(

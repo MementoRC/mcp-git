@@ -15,6 +15,7 @@ from typing import Any
 
 from jsonschema import ValidationError, validate
 
+from ..server_metadata import build_server_info
 from .token_limiter import apply_token_limits
 
 logger = logging.getLogger(__name__)
@@ -95,7 +96,7 @@ def setup_meta_tools(interface) -> None:
 
         Args:
             pattern: Filter tools by name (e.g., "status", "pr", "merge", "rebase")
-                     Leave empty "" to see all 51 tools
+                     Leave empty "" to see all registered tools
 
         Returns:
             Dictionary containing:
@@ -104,9 +105,9 @@ def setup_meta_tools(interface) -> None:
               * description: What the tool does
               * domain: "git", "github", or "azure"
               * complexity: "core", "focused", "advanced", or "comprehensive"
-            - total_tools: Total tools in registry (51)
+            - total_tools: Total tools in registry
             - filtered_count: How many matched your pattern
-            - domains: Breakdown by domain (git: 25, github: 22, azure: 4)
+            - domains: Breakdown by domain (counted live from the registry)
 
             Example output for discover_tools("status"):
             {
@@ -115,11 +116,11 @@ def setup_meta_tools(interface) -> None:
                 {"name": "github_get_pr_status", "description": "Get PR status", "domain": "github"}
               ],
               "filtered_count": 2,
-              "total_tools": 51
+              "total_tools": 115
             }
 
         Examples:
-            discover_tools("")              # List all 51 tools
+            discover_tools("")              # List all registered tools
             discover_tools("status")        # Find: git_status, github_get_pr_status
             discover_tools("pr")            # Find all PR tools: create, list, merge, etc.
             discover_tools("rebase")        # Find: git_rebase, git_abort, git_continue
@@ -445,35 +446,12 @@ def setup_meta_tools(interface) -> None:
             - issues: URL to file bug reports or feature requests
             - documentation: README / docs URL
             - support: Specific URLs for bug reports and feature requests
-            - domains: Supported operation domains with descriptions
+            - domains: Supported operation domains with live tool counts
+            - total_tools: Number of registered tools
             - transport: MCP transport type
             - protocol_version: MCP protocol version
 
         Examples:
             server_info()  # Get server metadata and support URLs
         """
-        try:
-            from importlib.metadata import version
-
-            pkg_version = version("mcp-server-git")
-        except Exception:
-            pkg_version = "unknown"
-        return {
-            "name": "mcp-git",
-            "version": pkg_version,
-            "description": "MCP server for Git, GitHub, and Azure DevOps operations",
-            "repository": "https://github.com/MementoRC/mcp-git",
-            "issues": "https://github.com/MementoRC/mcp-git/issues",
-            "documentation": "https://github.com/MementoRC/mcp-git#readme",
-            "support": {
-                "bug_reports": "https://github.com/MementoRC/mcp-git/issues/new?template=bug_report.md",
-                "feature_requests": "https://github.com/MementoRC/mcp-git/issues/new?template=feature_request.md",
-            },
-            "domains": {
-                "git": "Local git operations",
-                "github": "GitHub API",
-                "azure": "Azure DevOps",
-            },
-            "transport": "HTTP (SSE)",
-            "protocol_version": "2024-11-05",
-        }
+        return build_server_info(interface.tool_registry, "HTTP (SSE)")
