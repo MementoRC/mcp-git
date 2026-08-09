@@ -66,10 +66,21 @@ def _register_git_tools(interface: Any, git_service: Any):
 
     # Create wrapper functions that convert repo_path to Repo object
     # The underlying operations expect Repo objects, not path strings
-    def wrap_repo_op(op_func):
-        """Wrap a git operation that takes Repo as first argument."""
+    def wrap_repo_op(op_func, param_map: dict[str, str] | None = None):
+        """Wrap a git operation that takes Repo as first argument.
+
+        param_map renames public schema parameter names to the implementation's
+        internal names (e.g. "format" -> "format_str", where the internal name
+        avoids shadowing a builtin). Without it the public name is forwarded
+        verbatim and the call fails with an unexpected-keyword TypeError
+        (issue #196).
+        """
 
         def wrapper(repo_path: str, **kwargs):
+            if param_map:
+                for public_name, internal_name in param_map.items():
+                    if public_name in kwargs:
+                        kwargs[internal_name] = kwargs.pop(public_name)
             repo = Repo(repo_path)
             return op_func(repo, **kwargs)
 
@@ -134,7 +145,7 @@ def _register_git_tools(interface: Any, git_service: Any):
         ),
         ToolDefinition(
             name="git_log",
-            implementation=wrap_repo_op(git_ops.git_log),
+            implementation=wrap_repo_op(git_ops.git_log, param_map={"format": "format_str"}),
             description="Shows the commit logs",
             schema=GitLog.model_json_schema(),
             domain="git",

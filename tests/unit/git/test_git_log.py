@@ -9,6 +9,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
+from mcp_server_git.git._commit_ops import SIGNATURE_LOG_FORMAT
 from mcp_server_git.git.operations import git_log
 from mcp_server_git.utils.git_import import GitCommandError
 
@@ -500,3 +501,70 @@ class TestGitLogRealWorldScenarios:
         assert "--since" in args
         assert "--until" in args
         assert "--grep" in args
+
+
+class TestGitLogShowSignature:
+    """Test show_signature parameter (issue #196)."""
+
+    def test_git_log_returns_signature_format_when_show_signature_true_and_no_oneline_or_format(
+        self,
+    ):
+        """Should use SIGNATURE_LOG_FORMAT when show_signature=True and neither
+        oneline nor format_str is given."""
+        # Arrange
+        mock_repo = Mock()
+        mock_repo.git.log.return_value = "abc123 G Alice Fix bug"
+
+        # Act
+        result = git_log(mock_repo, max_count=10, show_signature=True)
+
+        # Assert
+        args = mock_repo.git.log.call_args[0]
+        assert "--pretty=format:" + SIGNATURE_LOG_FORMAT in args
+
+    def test_git_log_prefers_format_str_when_show_signature_true_and_format_str_given(
+        self,
+    ):
+        """Should use format_str, not the signature format, when both are given."""
+        # Arrange
+        mock_repo = Mock()
+        mock_repo.git.log.return_value = "abc123 Fix bug"
+        format_str = "%h - %s"
+
+        # Act
+        result = git_log(
+            mock_repo, max_count=10, show_signature=True, format_str=format_str
+        )
+
+        # Assert
+        args = mock_repo.git.log.call_args[0]
+        assert "--pretty=format:" + format_str in args
+        assert "--pretty=format:" + SIGNATURE_LOG_FORMAT not in args
+
+    def test_git_log_prefers_oneline_when_show_signature_true_and_oneline_true(self):
+        """Should use --oneline, not the signature format, when both are given."""
+        # Arrange
+        mock_repo = Mock()
+        mock_repo.git.log.return_value = "abc123 Fix bug"
+
+        # Act
+        result = git_log(mock_repo, max_count=10, show_signature=True, oneline=True)
+
+        # Assert
+        args = mock_repo.git.log.call_args[0]
+        assert "--oneline" in args
+        assert "--pretty=format:" + SIGNATURE_LOG_FORMAT not in args
+
+    def test_git_log_omits_pretty_format_when_show_signature_false(self):
+        """Should not add any --pretty=format: argument when show_signature is
+        left at its default (False)."""
+        # Arrange
+        mock_repo = Mock()
+        mock_repo.git.log.return_value = "commit abc123"
+
+        # Act
+        result = git_log(mock_repo, max_count=10, show_signature=False)
+
+        # Assert
+        args = mock_repo.git.log.call_args[0]
+        assert not any(str(a).startswith("--pretty=format:") for a in args)

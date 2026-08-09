@@ -71,6 +71,7 @@ class GitLog(BaseModel):
     oneline: bool = False
     graph: bool = False
     format: str | None = None
+    show_signature: bool = False  # Include GPG signature status (%G? / %GS)
     since: str | None = None  # Date filter: "2024-01-01", "1 week ago"
     until: str | None = None  # Date filter: "yesterday", "2024-12-31"
     author: str | None = None  # Author filter: email or name
