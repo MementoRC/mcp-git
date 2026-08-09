@@ -21,6 +21,62 @@ from .token_limiter import apply_token_limits
 logger = logging.getLogger(__name__)
 
 
+def _is_error_result(result: Any) -> bool:
+    """
+    Detect whether a tool implementation's return value is error-shaped.
+
+    Issue #196 defect 2: ``_wrap_tool`` in interface.py catches exceptions
+    raised by tool implementations and converts them into a dict of the
+    form ``{"error": str(e), "tool": tool_name, "success": False}`` rather
+    than re-raising. Previously, ``execute_tool`` unconditionally wrapped
+    *any* returned value (including this error dict) in a
+    ``{"status": "success", "result": ...}`` envelope, producing a
+    contradictory response where the outer envelope claims success while
+    the inner payload reports failure.
+
+    This check is intentionally strict to avoid false positives on tools
+    that legitimately carry an ``"error"`` key as *data* (e.g. a CI-log
+    payload describing someone else's error): a result is only considered
+    error-shaped when it is a dict, contains an ``"error"`` key, AND its
+    ``"success"`` key is precisely the value ``False`` (identity
+    comparison, not truthiness) as emitted by ``_wrap_tool``.
+
+    Args:
+        result: The raw value returned by a tool implementation.
+
+    Returns:
+        True if the result matches the ``_wrap_tool`` error shape.
+    """
+    if not isinstance(result, dict):
+        return False
+    if "error" not in result:
+        return False
+    return result.get("success") is False
+
+
+def _build_envelope(tool_name: str, result: Any) -> dict[str, Any]:
+    """Build the execute_tool response envelope.
+
+    Kept module-level so tests exercise the real construction rather than a
+    copy of it: the top-level status must never contradict an error payload
+    (issue #196 defect 2).
+    """
+    if _is_error_result(result):
+        return {
+            "tool": tool_name,
+            "status": "error",
+            "error": result.get("error"),
+            "result": result,
+            "execution_mode": "lean_mcp_dynamic",
+        }
+    return {
+        "tool": tool_name,
+        "status": "success",
+        "result": result,
+        "execution_mode": "lean_mcp_dynamic",
+    }
+
+
 def _sanitize_json_string(s: str) -> str:
     """
     Escape bare control characters inside JSON string values.
@@ -402,12 +458,7 @@ def setup_meta_tools(interface) -> None:
             else:
                 result = tool_def.implementation(**parameters)
 
-            return {
-                "tool": tool_name,
-                "status": "success",
-                "result": result,
-                "execution_mode": "lean_mcp_dynamic",
-            }
+            return _build_envelope(tool_name, result)
 
         except ValidationError as ve:
             # Catch any schema validation errors not caught above
