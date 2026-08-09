@@ -605,6 +605,19 @@ class HTTPGitServer:
                                 mcp_session_id
                             )
                         )
+                        if session_context is None:
+                            return JSONResponse(
+                                content={
+                                    "jsonrpc": "2.0",
+                                    "id": req_id,
+                                    "error": {
+                                        "code": -32000,
+                                        "message": (
+                                            f"Session not found: {mcp_session_id}"
+                                        ),
+                                    },
+                                }
+                            )
                         result = build_server_info(
                             session_context.lean_interface.tool_registry,
                             "HTTP (SSE)",
