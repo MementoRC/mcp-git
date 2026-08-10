@@ -375,11 +375,24 @@ class GitWorktreeAdd(BaseModel):
     )
     branch: str | None = Field(
         default=None,
-        description="Existing branch to check out in the new worktree.",
+        description=(
+            "Existing branch to check out in the new worktree. When new_branch "
+            "is also set, this is instead used as the START POINT that the new "
+            "branch is created from (legacy form; prefer commit_ish)."
+        ),
     )
     new_branch: str | None = Field(
         default=None,
         description="Name of a NEW branch to create and check out (uses -b, or -B with force).",
+    )
+    commit_ish: str | None = Field(
+        default=None,
+        description=(
+            "Start point for new_branch: the trailing <commit-ish> of "
+            "`git worktree add` (branch, tag, or SHA). Without new_branch this "
+            "creates a detached worktree at that commit. Takes precedence over "
+            "branch when both are supplied alongside new_branch."
+        ),
     )
     force: bool = Field(
         default=False,

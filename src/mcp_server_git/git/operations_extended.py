@@ -190,15 +190,18 @@ def git_worktree_add(
     worktree_path: str,
     branch: str | None = None,
     new_branch: str | None = None,
+    commit_ish: str | None = None,
     force: bool = False,
 ) -> str:
     """Create a new linked worktree at `worktree_path`.
 
-    Wraps `git worktree add`. Supports four modes (see issue #167):
-    - No branch + no new_branch: detached HEAD at current HEAD
+    Wraps `git worktree add`. Supported modes:
+    - nothing set: detached HEAD at current HEAD
     - branch only: check out the existing branch
     - new_branch only: create new_branch from HEAD (uses -b, or -B with force)
-    - new_branch + branch: create new_branch from the given start-point
+    - new_branch + commit_ish: create new_branch from that start point
+    - new_branch + branch: legacy form of the above (commit_ish wins if both)
+    - commit_ish only: detached HEAD at that commit-ish
     """
     if DANGEROUS_CHARS.search(worktree_path):
         return f"❌ Invalid characters in worktree path: '{worktree_path}'"
@@ -206,8 +209,19 @@ def git_worktree_add(
         return f"❌ Invalid characters in branch: '{branch}'"
     if new_branch and DANGEROUS_CHARS.search(new_branch):
         return f"❌ Invalid characters in new_branch: '{new_branch}'"
+    if commit_ish and DANGEROUS_CHARS.search(commit_ish):
+        return f"❌ Invalid characters in commit_ish: '{commit_ish}'"
+
+    if commit_ish and branch and not new_branch:
+        return (
+            "❌ commit_ish and branch are mutually exclusive unless new_branch "
+            "is set: 'branch' checks out an existing branch, 'commit_ish' "
+            "creates a detached worktree."
+        )
 
     try:
+        start_point = commit_ish if commit_ish is not None else branch
+
         args = ["add"]
         if force:
             args.append("--force")
@@ -215,18 +229,20 @@ def git_worktree_add(
             args.append("-B" if force else "-b")
             args.append(new_branch)
         args.append(worktree_path)
-        if branch:
-            args.append(branch)
+        if start_point:
+            args.append(start_point)
 
         repo.git.worktree(*args)
 
-        suffix = (
-            f" (new branch {new_branch})"
-            if new_branch
-            else f" (branch {branch})"
-            if branch
-            else " (detached HEAD)"
-        )
+        if new_branch:
+            suffix = f" (new branch {new_branch}"
+            suffix += f" from {start_point})" if start_point else ")"
+        elif branch:
+            suffix = f" (branch {branch})"
+        elif commit_ish:
+            suffix = f" (detached HEAD at {commit_ish})"
+        else:
+            suffix = " (detached HEAD)"
         return f"✅ Worktree added at {worktree_path}{suffix}"
 
     except GitCommandError as e:
