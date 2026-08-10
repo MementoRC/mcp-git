@@ -6,7 +6,7 @@ Tests the GitHub issue retrieval functionality including:
 - 404 error handling with helpful suggestions
 - Pull request rejection logic (when issue is actually a PR)
 - Authentication error handling
-- Body truncation logic (>2000 chars)
+- Body returned in full by default; opt-in truncation via max_body_chars (issue #201)
 - Connection error handling
 """
 
@@ -15,6 +15,31 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from src.mcp_server_git.github.api import github_get_issue
+
+
+def _issue_response(body: str, number: int = 77) -> AsyncMock:
+    """Build a minimal 200 response for an issue with the given body."""
+    mock_response = AsyncMock()
+    mock_response.status = 200
+    mock_response.json = AsyncMock(
+        return_value={
+            "number": number,
+            "title": "Issue with a body",
+            "state": "open",
+            "user": {"login": "alice"},
+            "created_at": "2023-01-15T10:30:00Z",
+            "updated_at": "2023-01-16T14:20:00Z",
+            "closed_at": None,
+            "labels": [],
+            "assignees": [],
+            "milestone": None,
+            "comments": 0,
+            "html_url": f"https://github.com/owner/repo/issues/{number}",
+            "body": body,
+            "pull_request": None,
+        }
+    )
+    return mock_response
 
 
 class TestGitHubGetIssue:
@@ -231,8 +256,8 @@ class TestGitHubGetIssue:
             assert "Network timeout" in result
 
     @pytest.mark.asyncio
-    async def test_body_truncation_long_description(self):
-        """Test that very long issue bodies are truncated at 2000 chars."""
+    async def test_get_issue_returns_full_body_when_max_body_chars_not_set(self):
+        """Issue #201: a long body is returned in full when no cap is given."""
         mock_client = MagicMock()
 
         # Create a long body > 2000 characters
@@ -271,12 +296,11 @@ class TestGitHubGetIssue:
                 issue_number=99,
             )
 
-            # Verify truncation message appears
-            assert "... (truncated)" in result
-            # Verify that body truncation occurred (contains 2000 A's but not all 2500)
-            assert result.count("A") >= 2000
-            # Verify it doesn't contain the full 2500 characters
-            assert long_body not in result
+            # No cap requested: the whole body must survive, no marker emitted.
+            # Assert on the body itself rather than a character count: the
+            # header ("Author: alice") also contains an "A".
+            assert long_body in result
+            assert "truncated" not in result
 
     @pytest.mark.asyncio
     async def test_body_not_truncated_short_description(self):
@@ -451,3 +475,78 @@ class TestGitHubGetIssue:
             assert "Author: N/A" in result
             # URL is None since we explicitly set it to None in the mock
             assert "URL:" in result
+
+    @pytest.mark.asyncio
+    async def test_get_issue_truncates_body_and_reports_real_size_when_max_body_chars_set(
+        self,
+    ):
+        """Issue #201: body is truncated and marker reports the real size."""
+        mock_client = MagicMock()
+        long_body = "A" * 2500
+        mock_client.get = AsyncMock(return_value=_issue_response(long_body))
+
+        with patch(
+            "src.mcp_server_git.github.issues.github_client_context"
+        ) as mock_context:
+            mock_context.return_value.__aenter__.return_value = mock_client
+
+            result = await github_get_issue(
+                repo_owner="owner",
+                repo_name="repo",
+                issue_number=77,
+                max_body_chars=2000,
+            )
+
+            assert "... (truncated: showing 2000 of 2500 chars)" in result
+            assert "A" * 2000 in result
+            assert long_body not in result
+
+    @pytest.mark.asyncio
+    async def test_get_issue_returns_full_body_when_body_shorter_than_max_body_chars(
+        self,
+    ):
+        """Issue #201: body shorter than cap is returned in full, no marker."""
+        mock_client = MagicMock()
+        short_body = "short description"
+        mock_client.get = AsyncMock(return_value=_issue_response(short_body))
+
+        with patch(
+            "src.mcp_server_git.github.issues.github_client_context"
+        ) as mock_context:
+            mock_context.return_value.__aenter__.return_value = mock_client
+
+            result = await github_get_issue(
+                repo_owner="owner",
+                repo_name="repo",
+                issue_number=77,
+                max_body_chars=2000,
+            )
+
+            assert short_body in result
+            assert "truncated" not in result
+
+    @pytest.mark.asyncio
+    async def test_get_issue_returns_full_body_when_max_body_chars_is_zero_or_negative(
+        self,
+    ):
+        """Issue #201: a nonsense cap (<=0) must not silently blank the body."""
+        mock_client = MagicMock()
+        long_body = "A" * 2500
+
+        for cap in (0, -5):
+            mock_client.get = AsyncMock(return_value=_issue_response(long_body))
+
+            with patch(
+                "src.mcp_server_git.github.issues.github_client_context"
+            ) as mock_context:
+                mock_context.return_value.__aenter__.return_value = mock_client
+
+                result = await github_get_issue(
+                    repo_owner="owner",
+                    repo_name="repo",
+                    issue_number=77,
+                    max_body_chars=cap,
+                )
+
+                assert long_body in result
+                assert "truncated" not in result

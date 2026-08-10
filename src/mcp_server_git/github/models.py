@@ -239,6 +239,14 @@ class GitHubGetIssue(BaseModel):
     repo_owner: str
     repo_name: str
     issue_number: int
+    max_body_chars: int | None = Field(
+        default=None,
+        description=(
+            "Optional cap on the returned issue body length. Default None "
+            "returns the body in full. When set, the truncation marker "
+            "reports the real body size."
+        ),
+    )
 
 
 class GitHubUpdateIssue(BaseModel):
