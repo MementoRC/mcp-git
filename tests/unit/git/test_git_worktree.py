@@ -313,6 +313,90 @@ class TestGitWorktreeAdd:
         assert "/tmp/wt-nb" in call_args
         assert "main" in call_args
 
+    def test_worktree_add_creates_new_branch_from_commit_ish_when_both_given(self):
+        """new_branch + commit_ish: creates new_branch from the given commit-ish."""
+        mock_repo = Mock()
+
+        result = git_worktree_add(
+            mock_repo,
+            worktree_path="/tmp/wt",
+            new_branch="feature",
+            commit_ish="development",
+        )
+
+        assert "✅" in result
+        assert "from development" in result
+        call_args = mock_repo.git.worktree.call_args[0]
+        assert call_args == ("add", "-b", "feature", "/tmp/wt", "development")
+
+    def test_worktree_add_uses_branch_as_start_point_when_new_branch_set(self):
+        """Legacy form: new_branch + branch still works as the start point."""
+        mock_repo = Mock()
+
+        result = git_worktree_add(
+            mock_repo,
+            worktree_path="/tmp/wt",
+            new_branch="feature",
+            branch="development",
+        )
+
+        assert "✅" in result
+        call_args = mock_repo.git.worktree.call_args[0]
+        assert call_args == ("add", "-b", "feature", "/tmp/wt", "development")
+
+    def test_worktree_add_prefers_commit_ish_over_branch_when_new_branch_set(self):
+        """When both branch and commit_ish are set, commit_ish wins."""
+        mock_repo = Mock()
+
+        result = git_worktree_add(
+            mock_repo,
+            worktree_path="/tmp/wt",
+            new_branch="feature",
+            branch="development",
+            commit_ish="v1.2.3",
+        )
+
+        assert "✅" in result
+        call_args = mock_repo.git.worktree.call_args[0]
+        assert call_args[-1] == "v1.2.3"
+        assert "development" not in call_args
+
+    def test_worktree_add_creates_detached_worktree_when_only_commit_ish_given(self):
+        """commit_ish only: detached HEAD at that commit-ish."""
+        mock_repo = Mock()
+
+        result = git_worktree_add(mock_repo, worktree_path="/tmp/wt", commit_ish="abc1234")
+
+        assert "✅" in result
+        assert "detached HEAD at abc1234" in result
+        call_args = mock_repo.git.worktree.call_args[0]
+        assert call_args == ("add", "/tmp/wt", "abc1234")
+
+    def test_worktree_add_returns_error_when_commit_ish_and_branch_without_new_branch(self):
+        """commit_ish + branch without new_branch is rejected as ambiguous."""
+        mock_repo = Mock()
+
+        result = git_worktree_add(
+            mock_repo,
+            worktree_path="/tmp/wt",
+            branch="development",
+            commit_ish="abc1234",
+        )
+
+        assert "❌" in result
+        assert "mutually exclusive" in result
+        mock_repo.git.worktree.assert_not_called()
+
+    def test_worktree_add_returns_error_when_commit_ish_has_dangerous_chars(self):
+        """Should reject dangerous characters in commit_ish."""
+        mock_repo = Mock()
+
+        result = git_worktree_add(mock_repo, worktree_path="/tmp/wt", commit_ish="abc; rm -rf /")
+
+        assert "❌" in result
+        assert "Invalid characters in commit_ish" in result
+        mock_repo.git.worktree.assert_not_called()
+
     def test_worktree_add_rejects_dangerous_chars_in_worktree_path(self):
         """Should reject dangerous characters in worktree_path."""
         mock_repo = Mock()
