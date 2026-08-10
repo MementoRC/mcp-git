@@ -156,13 +156,23 @@ async def github_get_issue(
     repo_owner: str,
     repo_name: str,
     issue_number: int,
+    max_body_chars: int | None = None,
 ) -> str:
     """Get a single GitHub issue by number.
 
     Returns full issue details including title, body, state, labels,
     assignees, milestone, comments count, and timestamps.
+
+    The body is returned in full by default (issue #201). Previously it was
+    silently cut at a hardcoded 2000 characters, which hid requirements from
+    callers with no way to opt out. Pass ``max_body_chars`` to opt in to
+    truncation; when it triggers, the marker reports the real body size so the
+    caller knows something was withheld.
+
+    Args:
+        max_body_chars: Optional cap on body length. ``None`` (the default)
+            means no truncation. Values <= 0 are treated as no truncation.
     """
-    BODY_TRUNCATION_LIMIT = 2000
     logger.debug(f"🔍 Getting issue #{issue_number} for {repo_owner}/{repo_name}")
 
     try:
@@ -219,14 +229,17 @@ async def github_get_issue(
             # Add URL
             output.append(f"URL: {issue.get('html_url', 'N/A')}")
 
-            # Add body (with truncation for very long bodies)
+            # Add body (full by default; truncated only on explicit request)
             body = issue.get("body") or "(No description provided)"
             output.append("")
             output.append("Description:")
             output.append("-" * 40)
-            # Truncate very long bodies
-            if len(body) > BODY_TRUNCATION_LIMIT:
-                output.append(body[:BODY_TRUNCATION_LIMIT] + "\n\n... (truncated)")
+            if max_body_chars and max_body_chars > 0 and len(body) > max_body_chars:
+                output.append(
+                    body[:max_body_chars]
+                    + f"\n\n... (truncated: showing {max_body_chars} "
+                    f"of {len(body)} chars)"
+                )
             else:
                 output.append(body)
 
