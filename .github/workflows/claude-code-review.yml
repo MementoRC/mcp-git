@@ -1,14 +1,20 @@
 name: Claude Code Review
 
 on:
-  pull_request:
-    types: [opened, synchronize]
-    # Optional: Only run on specific file changes
-    # paths:
-    #   - "src/**/*.ts"
-    #   - "src/**/*.tsx"
-    #   - "src/**/*.js"
-    #   - "src/**/*.jsx"
+  # Disabled as an automatic PR check: this workflow authenticates with
+  # CLAUDE_CODE_OAUTH_TOKEN, which expires and needs manual rotation. It failed
+  # on every recent PR (#200, #202, #203) purely on expired credentials, so it
+  # produced a permanently red check that reviewers learned to ignore.
+  #
+  # It is NOT a required status check (branch protection on `development`
+  # requires only "CI Success"), so this never blocked a merge.
+  #
+  # Kept here rather than deleted so it can be re-enabled by restoring the
+  # pull_request trigger below once the token situation is sorted out:
+  #
+  #   pull_request:
+  #     types: [opened, synchronize]
+  workflow_dispatch:
 
 jobs:
   claude-review:
