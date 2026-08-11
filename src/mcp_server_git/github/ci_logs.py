@@ -1,4 +1,5 @@
 """GitHub Actions CI logs and workflow completion monitoring."""
+
 from __future__ import annotations
 import asyncio
 import json
@@ -6,6 +7,12 @@ import logging
 import time
 from datetime import datetime
 from mcp_server_git.github.client import github_client_context
+from mcp_server_git.github.job_log_selection import (
+    LogSelectionError,
+    build_log_response_lines,
+    write_full_log_response,
+)
+
 logger = logging.getLogger(__name__)
 
 # Constants for job logs processing - LLM-friendly defaults
@@ -244,6 +251,13 @@ async def github_get_job_logs(
     job_id: int,
     tail_lines: int | None = None,
     full_log: bool = False,
+    head_lines: int | None = None,
+    start_line: int | None = None,
+    end_line: int | None = None,
+    grep: str | None = None,
+    context_lines: int = 0,
+    ignore_case: bool = False,
+    output_path: str | None = None,
 ) -> str:
     """Get logs for a specific GitHub Actions job.
 
@@ -252,18 +266,33 @@ async def github_get_job_logs(
     github_get_failing_jobs or github_get_workflow_run output.
 
     IMPORTANT: By default, logs are truncated to the last 500 lines to be
-    LLM-context-friendly. Use tail_lines to adjust or full_log=True for complete logs.
+    LLM-context-friendly. Use head_lines/tail_lines/start_line+end_line/grep
+    to select a different slice, or output_path to get the complete log
+    without any of it entering context.
 
     Args:
         repo_owner: Repository owner/organization
         repo_name: Repository name
         job_id: The job ID (from check runs or workflow jobs)
         tail_lines: Return only last N lines (default: 500 for LLM efficiency)
-        full_log: If True, return complete log without line limit (still has 100KB char limit)
+        full_log: If True, return complete log without line limit (still has
+            100KB char limit unless output_path is given)
+        head_lines: Return only first N lines, reaching the start of the log
+        start_line: 1-indexed inclusive start of an explicit window
+        end_line: 1-indexed inclusive end of an explicit window
+        grep: Regex; return only matching lines. Searches the whole log by
+            default, not just the last 500 lines
+        context_lines: Lines of context to keep either side of a grep match
+        ignore_case: Case-insensitive grep
+        output_path: Absolute path to write the complete log to disk instead
+            of returning it inline; the response then carries only metadata
 
     Returns:
-        Formatted string with job information and log content.
-        Logs are automatically truncated to be LLM-context-friendly.
+        Formatted string with job information and log content (or, when
+        output_path is given, job information and write metadata only).
+        Every response reports total lines, total bytes, and whether the
+        returned content was truncated. Only one of head_lines, tail_lines,
+        or start_line/end_line may be given; grep composes with any of them.
     """
     logger.debug(f"🔍 Fetching logs for job {job_id} in {repo_owner}/{repo_name}")
 
@@ -273,28 +302,12 @@ async def github_get_job_logs(
             job_response = await client.get(
                 f"/repos/{repo_owner}/{repo_name}/actions/jobs/{job_id}"
             )
-            if job_response.status == 404:
-                return f"❌ Job #{job_id} not found in {repo_owner}/{repo_name}"
-            if job_response.status == 403:
-                return f"❌ Access denied for job #{job_id}. Check repository permissions or API rate limits."
-            if job_response.status == 429:
-                return "❌ GitHub API rate limit exceeded. Please wait and try again."
-            if job_response.status != 200:
-                return f"❌ Failed to get job #{job_id}: HTTP {job_response.status}"
+            job_error = _check_job_response(job_response, job_id, repo_owner, repo_name)
+            if job_error is not None:
+                return job_error
 
             job_data = await job_response.json()
-
-            # Build job info header
-            output = [f"Job #{job_id} - {job_data.get('name', 'N/A')}:\n"]
-            output.append(f"Status: {job_data.get('status', 'N/A')}")
-            if job_data.get("conclusion"):
-                output.append(f"Conclusion: {job_data['conclusion']}")
-            if job_data.get("started_at"):
-                output.append(f"Started: {job_data['started_at']}")
-            if job_data.get("completed_at"):
-                output.append(f"Completed: {job_data['completed_at']}")
-            if job_data.get("html_url"):
-                output.append(f"URL: {job_data['html_url']}")
+            output = _build_job_header(job_id, job_data)
 
             # Fetch the actual logs
             # Note: GitHub API returns logs as plain text, not JSON
@@ -303,20 +316,9 @@ async def github_get_job_logs(
                 f"/repos/{repo_owner}/{repo_name}/actions/jobs/{job_id}/logs",
                 allow_redirects=True,
             )
-
-            if logs_response.status == 404:
-                output.append("\n⚠️ Logs not available (may have been deleted)")
-                return "\n".join(output)
-            if logs_response.status == 403:
-                output.append(
-                    "\n❌ Access denied for logs. Check repository permissions."
-                )
-                return "\n".join(output)
-            if logs_response.status == 429:
-                output.append("\n❌ GitHub API rate limit exceeded for logs.")
-                return "\n".join(output)
-            if logs_response.status != 200:
-                output.append(f"\n❌ Failed to fetch logs: HTTP {logs_response.status}")
+            logs_error = _check_logs_response(logs_response)
+            if logs_error is not None:
+                output.append(logs_error)
                 return "\n".join(output)
 
             # Get logs as text
@@ -326,74 +328,28 @@ async def github_get_job_logs(
                 output.append("\n📭 Log content is empty")
                 return "\n".join(output)
 
-            # Check for oversized logs and truncate if necessary (memory protection)
-            original_size = len(logs_text)
-            was_size_truncated = False
-            if original_size > _JOB_LOGS_MAX_SIZE_BYTES:
-                logs_text = logs_text[-_JOB_LOGS_MAX_SIZE_BYTES:]
-                was_size_truncated = True
-                logger.warning(
-                    f"Job logs truncated from {original_size} to {_JOB_LOGS_MAX_SIZE_BYTES} bytes"
+            if output_path is not None:
+                return write_full_log_response(output, output_path, logs_text)
+
+            try:
+                output.extend(
+                    build_log_response_lines(
+                        logs_text,
+                        tail_lines=tail_lines,
+                        full_log=full_log,
+                        head_lines=head_lines,
+                        start_line=start_line,
+                        end_line=end_line,
+                        grep=grep,
+                        context_lines=context_lines,
+                        ignore_case=ignore_case,
+                        size_limit=_JOB_LOGS_MAX_SIZE_BYTES,
+                        char_limit=_JOB_LOGS_MAX_CHARS_FOR_LLM,
+                        separator_length=_JOB_LOGS_SEPARATOR_LENGTH,
+                    )
                 )
-
-            # Split lines once for efficient processing
-            lines = logs_text.splitlines()
-            total_lines = len(lines)
-
-            # Apply LLM-friendly truncation
-            # Priority: explicit tail_lines > full_log flag > default limit
-            effective_tail_lines = tail_lines
-            was_line_truncated = False
-
-            if tail_lines is None and not full_log:
-                # Apply default LLM-friendly limit
-                effective_tail_lines = _JOB_LOGS_DEFAULT_TAIL_LINES
-
-            if (
-                effective_tail_lines is not None
-                and effective_tail_lines > 0
-                and total_lines > effective_tail_lines
-            ):
-                lines = lines[-effective_tail_lines:]
-                was_line_truncated = True
-                output.append(
-                    f"\n📋 Logs (last {effective_tail_lines} of {total_lines} lines):"
-                )
-            else:
-                output.append(f"\n📋 Logs ({total_lines} lines):")
-
-            # Apply character limit for LLM context efficiency
-            logs_output = "\n".join(lines)
-            was_char_truncated = False
-            if len(logs_output) > _JOB_LOGS_MAX_CHARS_FOR_LLM:
-                logs_output = logs_output[-_JOB_LOGS_MAX_CHARS_FOR_LLM:]
-                # Find first complete line after truncation
-                first_newline = logs_output.find("\n")
-                if first_newline > 0:
-                    logs_output = logs_output[first_newline + 1 :]
-                was_char_truncated = True
-                logger.info(
-                    f"Job logs char-truncated to {_JOB_LOGS_MAX_CHARS_FOR_LLM} chars for LLM context"
-                )
-
-            # Add truncation warnings
-            truncation_notes = []
-            if was_size_truncated:
-                truncation_notes.append(f"size: {original_size:,} bytes")
-            if was_line_truncated:
-                truncation_notes.append(f"lines: {total_lines} total")
-            if was_char_truncated:
-                truncation_notes.append("chars: exceeded 100KB limit")
-
-            if truncation_notes:
-                output.append(
-                    f"⚠️ Truncated for LLM context ({', '.join(truncation_notes)})"
-                )
-
-            separator = "-" * _JOB_LOGS_SEPARATOR_LENGTH
-            output.append(separator)
-            output.append(logs_output)
-            output.append(separator)
+            except LogSelectionError as exc:
+                return f"❌ {exc}"
 
             return "\n".join(output)
 
@@ -406,3 +362,49 @@ async def github_get_job_logs(
     except Exception as e:
         logger.error(f"Unexpected error getting job logs: {e}", exc_info=True)
         return f"❌ Error getting job logs: {str(e)}"
+
+
+def _check_job_response(
+    response, job_id: int, repo_owner: str, repo_name: str
+) -> str | None:
+    """Translate a bad job-details HTTP response into a user-facing error."""
+    if response.status == 404:
+        return f"❌ Job #{job_id} not found in {repo_owner}/{repo_name}"
+    if response.status == 403:
+        return (
+            f"❌ Access denied for job #{job_id}. "
+            "Check repository permissions or API rate limits."
+        )
+    if response.status == 429:
+        return "❌ GitHub API rate limit exceeded. Please wait and try again."
+    if response.status != 200:
+        return f"❌ Failed to get job #{job_id}: HTTP {response.status}"
+    return None
+
+
+def _build_job_header(job_id: int, job_data: dict) -> list[str]:
+    """Render the job info lines shown above the log content."""
+    output = [f"Job #{job_id} - {job_data.get('name', 'N/A')}:\n"]
+    output.append(f"Status: {job_data.get('status', 'N/A')}")
+    if job_data.get("conclusion"):
+        output.append(f"Conclusion: {job_data['conclusion']}")
+    if job_data.get("started_at"):
+        output.append(f"Started: {job_data['started_at']}")
+    if job_data.get("completed_at"):
+        output.append(f"Completed: {job_data['completed_at']}")
+    if job_data.get("html_url"):
+        output.append(f"URL: {job_data['html_url']}")
+    return output
+
+
+def _check_logs_response(response) -> str | None:
+    """Translate a bad log-fetch HTTP response into a user-facing message."""
+    if response.status == 404:
+        return "\n⚠️ Logs not available (may have been deleted)"
+    if response.status == 403:
+        return "\n❌ Access denied for logs. Check repository permissions."
+    if response.status == 429:
+        return "\n❌ GitHub API rate limit exceeded for logs."
+    if response.status != 200:
+        return f"\n❌ Failed to fetch logs: HTTP {response.status}"
+    return None

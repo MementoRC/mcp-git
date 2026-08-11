@@ -923,11 +923,26 @@ class GitHubGetJobLogs(BaseModel):
         logs = github_get_job_logs(owner, repo, job_id=12345)
         # For more context, increase tail_lines
         logs = github_get_job_logs(owner, repo, job_id=12345, tail_lines=1000)
+        # Reach the start of the log instead of the end
+        logs = github_get_job_logs(owner, repo, job_id=12345, head_lines=200)
+        # An explicit 1-indexed window
+        logs = github_get_job_logs(owner, repo, job_id=12345, start_line=500, end_line=650)
+        # Search the whole log, with 2 lines of context around each match
+        logs = github_get_job_logs(owner, repo, job_id=12345, grep="FAILED", context_lines=2)
+        # Write the complete log to disk instead of returning it inline
+        logs = github_get_job_logs(owner, repo, job_id=12345, output_path="/tmp/job.log")
         # For complete logs (still capped at 100KB for LLM safety)
         logs = github_get_job_logs(owner, repo, job_id=12345, full_log=True)
 
     Note:
-        - Default: last 500 lines (LLM-friendly)
+        - Only one of head_lines / tail_lines / (start_line, end_line) may be
+          given; grep composes with any of them.
+        - grep searches the whole log by default, not just the last 500 lines.
+        - output_path writes the complete log to disk and returns only
+          metadata (no log content enters context); it must be an absolute
+          path.
+        - Every response reports total lines, total bytes, and whether the
+          returned content was truncated.
         - Hard limit: 100KB character limit for LLM context protection
         - Memory limit: 10MB for very large logs
         - Logs may not be available for old jobs (GitHub retention policy)
@@ -938,7 +953,14 @@ class GitHubGetJobLogs(BaseModel):
     repo_name: str  # GitHub repository name
     job_id: int  # Job ID from GitHub Actions (from check runs or workflow jobs)
     tail_lines: int | None = None  # Return only last N lines; None uses default (500)
+    head_lines: int | None = None  # Return only first N lines (reaches the log start)
+    start_line: int | None = None  # 1-indexed inclusive start of an explicit window
+    end_line: int | None = None  # 1-indexed inclusive end of an explicit window
     full_log: bool = False  # If True, skip line limit (still has 100KB char limit)
+    grep: str | None = None  # Regex; return only matching lines, searched log-wide
+    context_lines: int = 0  # Lines of context to keep either side of a grep match
+    ignore_case: bool = False  # Case-insensitive grep
+    output_path: str | None = None  # Absolute path; write the full log there instead
 
 
 # ============================================================================
@@ -1027,7 +1049,9 @@ class GitHubListRulesets(BaseModel):
 
     repo_owner: str
     repo_name: str
-    per_page: int | None = Field(default=None, ge=1, le=100, description="Results per page (max 100)")
+    per_page: int | None = Field(
+        default=None, ge=1, le=100, description="Results per page (max 100)"
+    )
     page: int | None = Field(default=None, ge=1, description="Page number")
 
 
@@ -1061,10 +1085,14 @@ class GitHubListCodeScanningAlerts(BaseModel):
     repo_owner: str
     repo_name: str
     state: Literal["open", "closed", "dismissed", "fixed"] | None = None
-    severity: Literal["critical", "high", "medium", "low", "warning", "note", "error"] | None = None
+    severity: (
+        Literal["critical", "high", "medium", "low", "warning", "note", "error"] | None
+    ) = None
     tool_name: str | None = None  # Code-scanning tool (e.g. 'CodeQL') — free-form
     ref: str | None = None  # Branch name or refs/pull/N/head
-    per_page: int | None = Field(default=None, ge=1, le=100, description="Results per page (max 100)")
+    per_page: int | None = Field(
+        default=None, ge=1, le=100, description="Results per page (max 100)"
+    )
     page: int | None = Field(default=None, ge=1, description="Page number")
 
 
@@ -1075,7 +1103,9 @@ class GitHubListCodeScanningAnalyses(BaseModel):
     repo_name: str
     ref: str | None = None  # Branch name or refs/pull/N/head
     tool_name: str | None = None  # Code-scanning tool (e.g. 'CodeQL')
-    per_page: int | None = Field(default=None, ge=1, le=100, description="Results per page (max 100)")
+    per_page: int | None = Field(
+        default=None, ge=1, le=100, description="Results per page (max 100)"
+    )
     page: int | None = Field(default=None, ge=1, description="Page number")
 
 
@@ -1092,5 +1122,7 @@ class GitHubListSecretScanningAlerts(BaseModel):
     repo_owner: str
     repo_name: str
     state: Literal["open", "resolved"] | None = None
-    per_page: int | None = Field(default=None, ge=1, le=100, description="Results per page (max 100)")
+    per_page: int | None = Field(
+        default=None, ge=1, le=100, description="Results per page (max 100)"
+    )
     page: int | None = Field(default=None, ge=1, description="Page number")
