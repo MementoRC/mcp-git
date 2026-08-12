@@ -585,6 +585,10 @@ def _register_github_tools(interface: Any, github_service: Any):
             schema=GitHubGetContent.model_json_schema(),
             domain="github",
             complexity="core",
+            # `path` is a repo-relative identifier for the GitHub contents API,
+            # not a local filesystem path — nothing is read from disk, so the
+            # absolute-path requirement would leave no valid input (#206).
+            relative_path_params={"path"},
         ),
         ToolDefinition(
             name="github_resolve_ref",

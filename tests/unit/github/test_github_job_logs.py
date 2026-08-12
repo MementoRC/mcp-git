@@ -408,6 +408,197 @@ class TestGitHubGetJobLogs:
             # Result should be under 150KB (100KB limit + overhead)
             assert len(result) < 150 * 1024
 
+    def _mock_job_logs_client(self, log_lines: str) -> MagicMock:
+        """Build a mock client returning a 200 job response and *log_lines* text."""
+        mock_client = MagicMock()
+
+        mock_job_response = AsyncMock()
+        mock_job_response.status = 200
+        mock_job_response.json = AsyncMock(
+            return_value={
+                "id": 12345,
+                "name": "Selector Job",
+                "status": "completed",
+            }
+        )
+
+        mock_logs_response = AsyncMock()
+        mock_logs_response.status = 200
+        mock_logs_response.text = AsyncMock(return_value=log_lines)
+
+        mock_client.get = AsyncMock(side_effect=[mock_job_response, mock_logs_response])
+        return mock_client
+
+    @pytest.mark.asyncio
+    async def test_get_job_logs_with_head_lines_returns_first_lines(self):
+        """head_lines=100 returns the first lines of the log, reaching the start."""
+        log_lines = "\n".join([f"Line {i}" for i in range(500)])
+        mock_client = self._mock_job_logs_client(log_lines)
+
+        with patch(
+            "src.mcp_server_git.github.ci_logs.github_client_context"
+        ) as mock_context:
+            mock_context.return_value.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_context.return_value.__aexit__ = AsyncMock(return_value=None)
+
+            result = await github_get_job_logs("owner", "repo", 12345, head_lines=100)
+
+            assert "first 100" in result
+            assert "Line 0" in result
+            assert "Line 99" in result
+            assert "Line 100\n" not in result
+
+    @pytest.mark.asyncio
+    async def test_get_job_logs_with_start_end_line_returns_exact_window(self):
+        """start_line/end_line returns exactly that window of lines."""
+        log_lines = "\n".join([f"Line {i}" for i in range(500)])
+        mock_client = self._mock_job_logs_client(log_lines)
+
+        with patch(
+            "src.mcp_server_git.github.ci_logs.github_client_context"
+        ) as mock_context:
+            mock_context.return_value.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_context.return_value.__aexit__ = AsyncMock(return_value=None)
+
+            result = await github_get_job_logs(
+                "owner", "repo", 12345, start_line=10, end_line=15
+            )
+
+            for i in range(9, 15):  # Line 9 (1-indexed 10) .. Line 14 (1-indexed 15)
+                assert f"Line {i}" in result
+            assert "Line 15\n" not in result
+            assert "Line 8\n" not in result
+
+    @pytest.mark.asyncio
+    async def test_get_job_logs_with_grep_returns_only_matching_lines(self):
+        """grep returns only matching lines, prefixed with their line numbers."""
+        lines = ["filler" for _ in range(50)]
+        lines[9] = "ERROR: something broke"
+        log_lines = "\n".join(lines)
+        mock_client = self._mock_job_logs_client(log_lines)
+
+        with patch(
+            "src.mcp_server_git.github.ci_logs.github_client_context"
+        ) as mock_context:
+            mock_context.return_value.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_context.return_value.__aexit__ = AsyncMock(return_value=None)
+
+            result = await github_get_job_logs("owner", "repo", 12345, grep="ERROR")
+
+            assert "10: ERROR: something broke" in result
+            assert "1: filler" not in result
+
+    @pytest.mark.asyncio
+    async def test_get_job_logs_with_conflicting_selectors_returns_error_message(self):
+        """A conflicting selector combination surfaces as a '❌ ' message, not a traceback."""
+        log_lines = "\n".join([f"Line {i}" for i in range(10)])
+        mock_client = self._mock_job_logs_client(log_lines)
+
+        with patch(
+            "src.mcp_server_git.github.ci_logs.github_client_context"
+        ) as mock_context:
+            mock_context.return_value.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_context.return_value.__aexit__ = AsyncMock(return_value=None)
+
+            result = await github_get_job_logs(
+                "owner", "repo", 12345, head_lines=5, tail_lines=5
+            )
+
+            assert result.startswith("❌ ")
+
+    @pytest.mark.asyncio
+    async def test_get_job_logs_with_output_path_writes_file_with_no_log_body(
+        self, tmp_path
+    ):
+        """output_path writes the file; the response carries no log body."""
+        output_path = tmp_path / "job_log.txt"
+        log_lines = "\n".join([f"Line {i}" for i in range(10)])
+        mock_client = self._mock_job_logs_client(log_lines)
+
+        with patch(
+            "src.mcp_server_git.github.ci_logs.github_client_context"
+        ) as mock_context:
+            mock_context.return_value.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_context.return_value.__aexit__ = AsyncMock(return_value=None)
+
+            result = await github_get_job_logs(
+                "owner", "repo", 12345, output_path=str(output_path)
+            )
+
+            assert output_path.exists()
+            assert output_path.read_text(encoding="utf-8") == log_lines
+            assert "Line 0" not in result
+            assert "written to" in result
+
+    @pytest.mark.asyncio
+    async def test_get_job_logs_with_relative_output_path_returns_error(self):
+        """A relative output_path returns the absolute-path error."""
+        log_lines = "\n".join([f"Line {i}" for i in range(10)])
+        mock_client = self._mock_job_logs_client(log_lines)
+
+        with patch(
+            "src.mcp_server_git.github.ci_logs.github_client_context"
+        ) as mock_context:
+            mock_context.return_value.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_context.return_value.__aexit__ = AsyncMock(return_value=None)
+
+            result = await github_get_job_logs(
+                "owner", "repo", 12345, output_path="relative/log.txt"
+            )
+
+            assert "❌ output_path must be an absolute path" in result
+
+    @pytest.mark.asyncio
+    async def test_get_job_logs_response_always_contains_totals_line(self):
+        """Every response reports the '📊 Total:' totals line."""
+        log_lines = "\n".join([f"Line {i}" for i in range(10)])
+        mock_client = self._mock_job_logs_client(log_lines)
+
+        with patch(
+            "src.mcp_server_git.github.ci_logs.github_client_context"
+        ) as mock_context:
+            mock_context.return_value.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_context.return_value.__aexit__ = AsyncMock(return_value=None)
+
+            result = await github_get_job_logs("owner", "repo", 12345)
+
+            assert "📊 Total:" in result
+
+    @pytest.mark.asyncio
+    async def test_get_job_logs_regression_tail_lines_only_still_returns_tail(self):
+        """Regression: a call with only tail_lines still returns the tail."""
+        log_lines = "\n".join([f"Line {i}" for i in range(100)])
+        mock_client = self._mock_job_logs_client(log_lines)
+
+        with patch(
+            "src.mcp_server_git.github.ci_logs.github_client_context"
+        ) as mock_context:
+            mock_context.return_value.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_context.return_value.__aexit__ = AsyncMock(return_value=None)
+
+            result = await github_get_job_logs("owner", "repo", 12345, tail_lines=10)
+
+            assert "last 10 of 100 lines" in result
+            assert "Line 99" in result
+
+    @pytest.mark.asyncio
+    async def test_get_job_logs_regression_no_selectors_defaults_to_last_500(self):
+        """Regression: a call with no selectors still defaults to the last 500 lines."""
+        log_lines = "\n".join([f"Line {i}" for i in range(1000)])
+        mock_client = self._mock_job_logs_client(log_lines)
+
+        with patch(
+            "src.mcp_server_git.github.ci_logs.github_client_context"
+        ) as mock_context:
+            mock_context.return_value.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_context.return_value.__aexit__ = AsyncMock(return_value=None)
+
+            result = await github_get_job_logs("owner", "repo", 12345)
+
+            assert "last 500 of 1000 lines" in result
+            assert "Line 999" in result
+            assert "Line 499\n" not in result
+
 
 class TestGitHubGetJobLogsModel:
     """Test GitHubGetJobLogs Pydantic model."""
