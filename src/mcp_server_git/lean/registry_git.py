@@ -57,6 +57,7 @@ from ..git.operations_extended import (
 )
 from ..utils.git_import import Repo
 from .interface import ToolDefinition
+from .lock_reaper import reap_stale_index_lock
 
 logger = logging.getLogger(__name__)
 
@@ -66,7 +67,11 @@ def _register_git_tools(interface: Any, git_service: Any):
 
     # Create wrapper functions that convert repo_path to Repo object
     # The underlying operations expect Repo objects, not path strings
-    def wrap_repo_op(op_func, param_map: dict[str, str] | None = None):
+    def wrap_repo_op(
+        op_func,
+        param_map: dict[str, str] | None = None,
+        mutates_index: bool = False,
+    ):
         """Wrap a git operation that takes Repo as first argument.
 
         param_map renames public schema parameter names to the implementation's
@@ -74,6 +79,13 @@ def _register_git_tools(interface: Any, git_service: Any):
         avoids shadowing a builtin). Without it the public name is forwarded
         verbatim and the call fails with an unexpected-keyword TypeError
         (issue #196).
+
+        mutates_index is an explicit opt-in (never inferred from the function
+        name) that gates the stale index.lock reaper: only tools that
+        genuinely write to the index pay the (cheap, stat-only) reaper check
+        before the underlying git op runs. Read-only tools (git_status,
+        git_diff*, git_log, ...) leave it at the default False and see zero
+        added overhead.
         """
 
         def wrapper(repo_path: str, **kwargs):
@@ -82,6 +94,8 @@ def _register_git_tools(interface: Any, git_service: Any):
                     if public_name in kwargs:
                         kwargs[internal_name] = kwargs.pop(public_name)
             repo = Repo(repo_path)
+            if mutates_index:
+                reap_stale_index_lock(repo.git_dir)
             return op_func(repo, **kwargs)
 
         return wrapper
@@ -121,7 +135,7 @@ def _register_git_tools(interface: Any, git_service: Any):
         ),
         ToolDefinition(
             name="git_commit",
-            implementation=wrap_repo_op(git_ops.git_commit),
+            implementation=wrap_repo_op(git_ops.git_commit, mutates_index=True),
             description="Records changes to the repository",
             schema=GitCommit.model_json_schema(),
             domain="git",
@@ -129,7 +143,7 @@ def _register_git_tools(interface: Any, git_service: Any):
         ),
         ToolDefinition(
             name="git_add",
-            implementation=wrap_repo_op(git_ops.git_add),
+            implementation=wrap_repo_op(git_ops.git_add, mutates_index=True),
             description="Adds file contents to the staging area",
             schema=GitAdd.model_json_schema(),
             domain="git",
@@ -137,7 +151,7 @@ def _register_git_tools(interface: Any, git_service: Any):
         ),
         ToolDefinition(
             name="git_reset",
-            implementation=wrap_repo_op(git_ops.git_reset),
+            implementation=wrap_repo_op(git_ops.git_reset, mutates_index=True),
             description="Reset repository with advanced options (--soft, --mixed, --hard)",
             schema=GitReset.model_json_schema(),
             domain="git",
@@ -161,7 +175,7 @@ def _register_git_tools(interface: Any, git_service: Any):
         ),
         ToolDefinition(
             name="git_create_branch",
-            implementation=wrap_repo_op(git_ops.git_create_branch),
+            implementation=wrap_repo_op(git_ops.git_create_branch, mutates_index=True),
             description="Creates a new branch from an optional base branch",
             schema=GitCreateBranch.model_json_schema(),
             domain="git",
@@ -169,7 +183,7 @@ def _register_git_tools(interface: Any, git_service: Any):
         ),
         ToolDefinition(
             name="git_checkout",
-            implementation=wrap_repo_op(git_ops.git_checkout),
+            implementation=wrap_repo_op(git_ops.git_checkout, mutates_index=True),
             description="Switches branches",
             schema=GitCheckout.model_json_schema(),
             domain="git",
@@ -225,7 +239,7 @@ def _register_git_tools(interface: Any, git_service: Any):
         ),
         ToolDefinition(
             name="git_rebase",
-            implementation=wrap_repo_op(git_ops.git_rebase),
+            implementation=wrap_repo_op(git_ops.git_rebase, mutates_index=True),
             description="Rebase branch onto another. Supports --onto <new_base> <fork_point> [<branch>] for moving branches between bases",
             schema=GitRebase.model_json_schema(),
             domain="git",
@@ -233,7 +247,7 @@ def _register_git_tools(interface: Any, git_service: Any):
         ),
         ToolDefinition(
             name="git_merge",
-            implementation=wrap_repo_op(git_ops.git_merge),
+            implementation=wrap_repo_op(git_ops.git_merge, mutates_index=True),
             description="Merge a branch into the current branch",
             schema=GitMerge.model_json_schema(),
             domain="git",
@@ -241,7 +255,7 @@ def _register_git_tools(interface: Any, git_service: Any):
         ),
         ToolDefinition(
             name="git_cherry_pick",
-            implementation=wrap_repo_op(git_ops.git_cherry_pick),
+            implementation=wrap_repo_op(git_ops.git_cherry_pick, mutates_index=True),
             description="Apply a commit from another branch to current branch",
             schema=GitCherryPick.model_json_schema(),
             domain="git",
@@ -352,7 +366,7 @@ def _register_git_tools(interface: Any, git_service: Any):
         ),
         ToolDefinition(
             name="git_stash_push",
-            implementation=wrap_repo_op(git_ops.git_stash_push),
+            implementation=wrap_repo_op(git_ops.git_stash_push, mutates_index=True),
             description="Create a new stash with optional message",
             schema={
                 "type": "object",
@@ -375,7 +389,7 @@ def _register_git_tools(interface: Any, git_service: Any):
         ),
         ToolDefinition(
             name="git_stash_pop",
-            implementation=wrap_repo_op(git_ops.git_stash_pop),
+            implementation=wrap_repo_op(git_ops.git_stash_pop, mutates_index=True),
             description="Apply and remove a stash (defaults to latest)",
             schema={
                 "type": "object",
@@ -393,7 +407,7 @@ def _register_git_tools(interface: Any, git_service: Any):
         ),
         ToolDefinition(
             name="git_stash_drop",
-            implementation=wrap_repo_op(git_ops.git_stash_drop),
+            implementation=wrap_repo_op(git_ops.git_stash_drop, mutates_index=True),
             description="Remove a stash without applying it",
             schema={
                 "type": "object",
@@ -473,7 +487,7 @@ def _register_git_tools(interface: Any, git_service: Any):
         ),
         ToolDefinition(
             name="git_restore",
-            implementation=wrap_repo_op(git_restore),
+            implementation=wrap_repo_op(git_restore, mutates_index=True),
             description="Restore working tree files or unstage files (git restore / git restore --staged)",
             schema=GitRestore.model_json_schema(),
             domain="git",
@@ -513,7 +527,7 @@ def _register_git_tools(interface: Any, git_service: Any):
         ),
         ToolDefinition(
             name="git_worktree_remove",
-            implementation=wrap_repo_op(git_worktree_remove),
+            implementation=wrap_repo_op(git_worktree_remove, mutates_index=True),
             description="Remove a worktree (with optional force for modified worktrees)",
             schema=GitWorktreeRemove.model_json_schema(),
             domain="git",
@@ -521,7 +535,7 @@ def _register_git_tools(interface: Any, git_service: Any):
         ),
         ToolDefinition(
             name="git_worktree_add",
-            implementation=wrap_repo_op(git_worktree_add),
+            implementation=wrap_repo_op(git_worktree_add, mutates_index=True),
             description="Create a new linked worktree (detached, existing branch, or new branch)",
             schema=GitWorktreeAdd.model_json_schema(),
             domain="git",
@@ -537,7 +551,7 @@ def _register_git_tools(interface: Any, git_service: Any):
         ),
         ToolDefinition(
             name="git_rm",
-            implementation=wrap_repo_op(git_rm),
+            implementation=wrap_repo_op(git_rm, mutates_index=True),
             description="Remove a single file from working tree and/or index (safe: no wildcards, no directories)",
             schema=GitRm.model_json_schema(),
             domain="git",
