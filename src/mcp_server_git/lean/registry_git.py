@@ -28,6 +28,7 @@ from ..git.models import (
     GitReflog,
     GitMerge,
     GitMergeBase,
+    GitMergeFile,
     GitMergeTree,
     GitPull,
     GitPush,
@@ -45,6 +46,7 @@ from ..git.models import (
     GitWorktreeList,
     GitWorktreeRemove,
 )
+from ..git.merge_ops import git_merge_file
 from ..git.operations_extended import (
     git_branch_delete,
     git_branch_update,
@@ -159,7 +161,9 @@ def _register_git_tools(interface: Any, git_service: Any):
         ),
         ToolDefinition(
             name="git_log",
-            implementation=wrap_repo_op(git_ops.git_log, param_map={"format": "format_str"}),
+            implementation=wrap_repo_op(
+                git_ops.git_log, param_map={"format": "format_str"}
+            ),
             description="Shows the commit logs",
             schema=GitLog.model_json_schema(),
             domain="git",
@@ -544,8 +548,16 @@ def _register_git_tools(interface: Any, git_service: Any):
         ToolDefinition(
             name="git_merge_tree",
             implementation=wrap_repo_op(git_merge_tree),
-            description="Dry-run merge conflict detection without modifying working tree",
+            description="Dry-run merge conflict detection without modifying working tree; returns the merged tree OID",
             schema=GitMergeTree.model_json_schema(),
+            domain="git",
+            complexity="focused",
+        ),
+        ToolDefinition(
+            name="git_merge_file",
+            implementation=wrap_repo_op(git_merge_file),
+            description="Three-way merge of a single file across three revisions, returning merged content with conflict markers",
+            schema=GitMergeFile.model_json_schema(),
             domain="git",
             complexity="focused",
         ),

@@ -84,8 +84,12 @@ class GitLog(BaseModel):
 
 class GitReflog(BaseModel):
     repo_path: str
-    ref: str = Field(default="HEAD", description="Ref to show reflog for (default: HEAD)")
-    max_count: int | None = Field(default=None, ge=0, description="Maximum number of reflog entries to return")
+    ref: str = Field(
+        default="HEAD", description="Ref to show reflog for (default: HEAD)"
+    )
+    max_count: int | None = Field(
+        default=None, ge=0, description="Maximum number of reflog entries to return"
+    )
     all: bool = Field(  # noqa: A003
         default=False,
         description="Show reflog for all refs (git reflog --all)",
@@ -349,9 +353,7 @@ class GitBranchUpdate(BaseModel):
 class GitBranchDelete(BaseModel):
     repo_path: str
     branch_name: str = Field(description="Branch to delete")
-    force: bool = Field(
-        default=False, description="Force delete unmerged branch (-D)"
-    )
+    force: bool = Field(default=False, description="Force delete unmerged branch (-D)")
 
 
 class GitWorktreeList(BaseModel):
@@ -401,9 +403,36 @@ class GitWorktreeAdd(BaseModel):
 
 
 class GitMergeTree(BaseModel):
+    """Dry-run three-way merge; returns the merged tree's OID on success."""
+
     repo_path: str
     branch1: str = Field(description="First branch (typically current)")
-    branch2: str = Field(description="Second branch (typically incoming)")
+    branch2: str = Field(
+        description="Second branch (typically incoming); accepts a raw SHA"
+    )
+
+
+class GitMergeFile(BaseModel):
+    """Three-way merge of a single file across three arbitrary revisions.
+
+    The natural unit of work when hand-resolving a transplant: one file at a
+    time, with conflict markers, without merging every other conflicting
+    path. Neither the working tree nor the index is modified.
+    """
+
+    repo_path: str
+    path: str = Field(description="File path as it appears in each revision")
+    base_rev: str = Field(description="Merge base revision")
+    ours_rev: str = Field(description="Our side revision (accepts a raw SHA)")
+    theirs_rev: str = Field(description="Their side revision (accepts a raw SHA)")
+    labels: list[str] | None = Field(
+        default=None,
+        description="Three conflict-marker labels: ours, base, theirs",
+    )
+    output_path: str | None = Field(
+        default=None,
+        description="Absolute path; write the complete merged result there instead of returning it inline",
+    )
 
 
 class GitRm(BaseModel):

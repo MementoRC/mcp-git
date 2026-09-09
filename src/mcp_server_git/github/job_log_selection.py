@@ -16,10 +16,11 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
+from ..text_limits import MAX_CHARS_FOR_LLM, cap_characters  # noqa: F401  # re-export
+
 logger = logging.getLogger(__name__)
 
 DEFAULT_TAIL_LINES = 500
-MAX_CHARS_FOR_LLM = 100 * 1024
 
 _GREP_GROUP_SEPARATOR = "--"
 
@@ -172,30 +173,6 @@ def filter_lines(
 
     keep = _expand_context(match_indexes, context_lines, len(numbered))
     return _render_groups(numbered, keep, set(match_indexes)), len(match_indexes)
-
-
-def cap_characters(
-    text: str, *, keep_head: bool, limit: int = MAX_CHARS_FOR_LLM
-) -> tuple[str, bool]:
-    """Trim *text* to *limit* characters, keeping whichever end was asked for.
-
-    Trimming stops at a line boundary so the result never starts or ends with
-    half a line.
-    """
-    if len(text) <= limit:
-        return text, False
-
-    if keep_head:
-        trimmed = text[:limit]
-        boundary = trimmed.rfind("\n")
-        if boundary > 0:
-            trimmed = trimmed[:boundary]
-    else:
-        trimmed = text[-limit:]
-        boundary = trimmed.find("\n")
-        if boundary >= 0:
-            trimmed = trimmed[boundary + 1 :]
-    return trimmed, True
 
 
 def select_log_text(
