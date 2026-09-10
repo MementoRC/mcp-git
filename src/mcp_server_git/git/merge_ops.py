@@ -140,8 +140,8 @@ def git_merge_file(
         return error
 
     resolved_labels, label_error = _resolve_labels(labels)
-    if label_error:
-        return label_error
+    if resolved_labels is None:
+        return label_error or "❌ Invalid labels"
 
     sides = {}
     for name, revision in (
