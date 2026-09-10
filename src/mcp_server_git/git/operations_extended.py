@@ -8,6 +8,11 @@ import os
 import re
 
 from ..utils.git_import import GitCommandError, Repo
+from .merge_parse import (
+    parse_merge_tree_output,
+    render_conflict_paths,
+    render_tree_hint,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +35,24 @@ def _validate_ref(ref: str, param_name: str) -> str | None:
     if DANGEROUS_CHARS.search(ref):
         return f"❌ Invalid characters detected in {param_name}: '{ref}'"
     return None
+
+
+def _clean_git_error_text(raw: bytes | str | None, label: str) -> str:
+    """Unwrap GitPython's decorated ``GitCommandError`` stdout/stderr text.
+
+    GitPython's ``CommandError.__init__`` never exposes the raw stdout/stderr
+    it was given: it re-formats it as ``"\\n  <label>: '<text>'"`` (see
+    ``git.exc.CommandError``). Any code that wants to parse the actual git
+    output -- not GitPython's decorated wrapper -- needs to undo that first.
+    """
+    if raw is None:
+        return ""
+    if isinstance(raw, bytes):
+        raw = raw.decode()
+    prefix = f"\n  {label}: '"
+    if raw.startswith(prefix) and raw.endswith("'"):
+        return raw[len(prefix) : -1]
+    return raw
 
 
 def git_restore(
@@ -260,6 +283,9 @@ def git_merge_tree(
     """Simulate a merge without modifying working tree (dry-run conflict detection).
 
     Uses `git merge-tree --write-tree` (Git 2.38+) for three-way merge simulation.
+    `branch2` accepts a raw SHA (unlike `git_diff_branches`). On success, the
+    merged tree's OID is returned so any file -- conflict markers included --
+    can be read via `git_show(revision="<oid>:<path>")` with no checkout.
     """
     error = _validate_ref(branch1, "branch1")
     if error:
@@ -270,19 +296,30 @@ def git_merge_tree(
 
     try:
         output = repo.git.merge_tree("--write-tree", branch1, branch2)
-        return f"✅ Clean merge: {branch1} + {branch2} → no conflicts\n{output}"
+        result = parse_merge_tree_output(output)
+        lines = [f"✅ Clean merge: {branch1} + {branch2} → no conflicts"]
+        if result.tree_oid:
+            lines.extend(render_tree_hint(result.tree_oid))
+        else:
+            lines.append(output)
+        return "\n".join(lines)
 
     except GitCommandError as e:
-        stdout = e.stdout.decode() if isinstance(e.stdout, bytes) else (e.stdout or "")
-        stderr = e.stderr.decode() if isinstance(e.stderr, bytes) else (e.stderr or "")
+        stdout = _clean_git_error_text(e.stdout, "stdout")
+        stderr = _clean_git_error_text(e.stderr, "stderr")
 
         # Exit code 1 = conflicts detected (expected behavior, not an error)
         if e.status == 1:
-            conflicts = [line for line in stdout.split("\n") if "CONFLICT" in line]
-            if conflicts:
-                conflict_list = "\n".join(f"  - {c}" for c in conflicts)
-                return f"⚠️ Conflicts detected merging {branch1} + {branch2}:\n{conflict_list}"
-            return f"⚠️ Conflicts detected merging {branch1} + {branch2}\n{stdout}"
+            result = parse_merge_tree_output(stdout)
+            if not result.messages:
+                return f"⚠️ Conflicts detected merging {branch1} + {branch2}\n{stdout}"
+
+            lines = [f"⚠️ Conflicts detected merging {branch1} + {branch2}:"]
+            lines.extend(f"  - {message}" for message in result.messages)
+            if result.tree_oid:
+                lines.extend(render_tree_hint(result.tree_oid))
+            lines.extend(render_conflict_paths(result))
+            return "\n".join(lines)
 
         return f"❌ Merge-tree failed: {stderr or stdout}"
 
@@ -328,7 +365,9 @@ def git_rm(
 
     # Block absolute paths to prevent accidental system file removal
     if os.path.isabs(file):
-        return "❌ Absolute paths not allowed. Use a path relative to the repository root."
+        return (
+            "❌ Absolute paths not allowed. Use a path relative to the repository root."
+        )
 
     if _UNSAFE_PATH.search(file):
         return "❌ Wildcards/globs not allowed. Specify an explicit file path."

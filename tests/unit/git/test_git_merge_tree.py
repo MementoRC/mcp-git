@@ -43,7 +43,9 @@ class TestGitMergeTreeCleanMerge:
 
         git_merge_tree(mock_repo, "main", "feature")
 
-        mock_repo.git.merge_tree.assert_called_once_with("--write-tree", "main", "feature")
+        mock_repo.git.merge_tree.assert_called_once_with(
+            "--write-tree", "main", "feature"
+        )
 
 
 class TestGitMergeTreeConflicts:
@@ -62,17 +64,24 @@ class TestGitMergeTreeConflicts:
         assert "main" in result
         assert "feature" in result
 
-    def test_git_merge_tree_lists_conflict_files_when_conflicts_in_stdout(self, mock_repo):
+    def test_git_merge_tree_lists_conflict_files_when_conflicts_in_stdout(
+        self, mock_repo
+    ):
         # GitCommandError(command, status, stderr, stdout) — stdout is 4th arg
         mock_repo.git.merge_tree.side_effect = GitCommandError(
-            "git merge-tree", 1, b"", b"CONFLICT (content): Merge conflict in src/app.py"
+            "git merge-tree",
+            1,
+            b"",
+            b"CONFLICT (content): Merge conflict in src/app.py",
         )
 
         result = git_merge_tree(mock_repo, "main", "feature")
 
         assert "src/app.py" in result
 
-    def test_git_merge_tree_lists_multiple_conflict_files_when_multiple_conflicts(self, mock_repo):
+    def test_git_merge_tree_lists_multiple_conflict_files_when_multiple_conflicts(
+        self, mock_repo
+    ):
         stdout = (
             b"CONFLICT (content): Merge conflict in src/app.py\n"
             b"CONFLICT (modify/delete): foo.txt deleted in feature\n"
@@ -90,7 +99,9 @@ class TestGitMergeTreeConflicts:
         # Non-conflict line should not appear as a conflict item
         assert result.count("  -") == 2
 
-    def test_git_merge_tree_returns_warning_with_stdout_when_exit1_no_conflict_lines(self, mock_repo):
+    def test_git_merge_tree_returns_warning_with_stdout_when_exit1_no_conflict_lines(
+        self, mock_repo
+    ):
         # GitCommandError(command, status, stderr, stdout) — stdout is 4th arg
         mock_repo.git.merge_tree.side_effect = GitCommandError(
             "git merge-tree", 1, b"", b"some other output without conflict markers"
@@ -100,6 +111,53 @@ class TestGitMergeTreeConflicts:
 
         assert "⚠️" in result
         assert "some other output" in result
+
+
+class TestGitMergeTreeConflictsWithTreeOid:
+    """Tests for conflict stdout that leads with the merged tree OID (#210)."""
+
+    _OID = "abc1234def5678901234567890abcdef12345678"
+    _STDOUT = (
+        f"{_OID}\n"
+        "CONFLICT (content): Merge conflict in src/app.py\n"
+        "CONFLICT (modify/delete): foo.txt deleted in feature\n"
+    ).encode()
+
+    def test_git_merge_tree_includes_tree_oid_hint_when_conflicts_and_oid_present(
+        self, mock_repo
+    ):
+        mock_repo.git.merge_tree.side_effect = GitCommandError(
+            "git merge-tree", 1, b"", self._STDOUT
+        )
+
+        result = git_merge_tree(mock_repo, "main", "feature")
+
+        assert f"🌳 Merged tree: {self._OID}" in result
+        assert f'git_show(revision="{self._OID}:<path>")' in result
+
+    def test_git_merge_tree_lists_conflicted_paths_section_when_oid_present(
+        self, mock_repo
+    ):
+        mock_repo.git.merge_tree.side_effect = GitCommandError(
+            "git merge-tree", 1, b"", self._STDOUT
+        )
+
+        result = git_merge_tree(mock_repo, "main", "feature")
+
+        assert "📄 Conflicted paths" in result
+        assert "src/app.py" in result
+        assert "foo.txt" in result
+
+    def test_git_merge_tree_bullet_count_unaffected_by_tree_oid_and_paths_sections(
+        self, mock_repo
+    ):
+        mock_repo.git.merge_tree.side_effect = GitCommandError(
+            "git merge-tree", 1, b"", self._STDOUT
+        )
+
+        result = git_merge_tree(mock_repo, "main", "feature")
+
+        assert result.count("  - ") == 2
 
 
 class TestGitMergeTreeValidation:
