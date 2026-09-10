@@ -963,6 +963,59 @@ class GitHubGetJobLogs(BaseModel):
     output_path: str | None = None  # Absolute path; write the full log there instead
 
 
+class GitHubGetPRDiff(BaseModel):
+    """Model for fetching a pull request's unified diff.
+
+    ``github_get_pr_files`` returns only per-file status and (+N, -M) counts;
+    this returns the actual changed lines, in one request.
+
+    IMPORTANT - LLM Context Efficiency:
+        The complete diff is returned inline only while it fits under the
+        100KB cap. Past that, nothing is returned inline and the response
+        explains which parameter to use instead.
+
+    Example usage:
+        # Whole diff, when it fits
+        diff = github_get_pr_diff(owner, repo, pr_number=182)
+        # Only the files you care about
+        diff = github_get_pr_diff(owner, repo, 182, file_filter="recipe/*")
+        # Search the whole diff, with 3 lines of context around each match
+        diff = github_get_pr_diff(owner, repo, 182, grep="^\\+.*TODO", context_lines=3)
+        # Write the complete diff to disk; no content enters context
+        diff = github_get_pr_diff(owner, repo, 182, output_path="/tmp/pr182.diff")
+        # An explicit 1-indexed window
+        diff = github_get_pr_diff(owner, repo, 182, start_line=200, end_line=400)
+        # The mbox patch form, with commit messages and authorship
+        diff = github_get_pr_diff(owner, repo, 182, as_patch=True)
+
+    Note:
+        - Only one of head_lines / tail_lines / (start_line, end_line) may be
+          given; grep composes with any of them.
+        - file_filter is a glob in which ``*`` also matches ``/``; the
+          basename is tried as well.
+        - output_path must be an absolute path and returns metadata only.
+        - Every response reports total lines, total bytes, and whether the
+          returned content was truncated.
+        - Hard limit: 100KB character limit for LLM context protection
+        - Memory limit: 10MB for very large diffs
+    """
+
+    repo_owner: str  # GitHub repository owner or organization name
+    repo_name: str  # GitHub repository name
+    pr_number: int  # Pull request number
+    output_path: str | None = None  # Absolute path; write the full diff there instead
+    grep: str | None = None  # Regex; return only matching lines, searched diff-wide
+    context_lines: int = 0  # Lines of context to keep either side of a grep match
+    ignore_case: bool = False  # Case-insensitive grep
+    file_filter: str | None = None  # Glob; keep only files whose path matches
+    head_lines: int | None = None  # Return only first N lines
+    tail_lines: int | None = None  # Return only last N lines
+    start_line: int | None = None  # 1-indexed inclusive start of an explicit window
+    end_line: int | None = None  # 1-indexed inclusive end of an explicit window
+    full_diff: bool = False  # Return despite the inline cap (still 100KB-capped)
+    as_patch: bool = False  # Fetch the .patch mbox form (commit messages + authorship)
+
+
 # ============================================================================
 # GitHub Repository Creation Model (Issue #127)
 # ============================================================================
