@@ -240,6 +240,7 @@ def format_totals(
     label: str,
     truncated: bool,
     was_size_truncated: bool,
+    clamp_noun: str = "log",
 ) -> str:
     """Render the one-line totals summary shown before every log body."""
     truncated_text = "yes" if truncated else "no"
@@ -248,7 +249,7 @@ def format_totals(
         f"Returned: {label} | Truncated: {truncated_text}"
     )
     if was_size_truncated:
-        line += " (log clamped to 10MB before selection)"
+        line += f" ({clamp_noun} clamped to 10MB before selection)"
     return line
 
 
@@ -271,8 +272,10 @@ def _truncation_notes(
     return notes
 
 
-def write_full_log_response(output: list[str], output_path: str, logs_text: str) -> str:
-    """Write the complete log to disk and return metadata only (#205).
+def write_full_log_response(
+    output: list[str], output_path: str, logs_text: str, noun: str = "log"
+) -> str:
+    """Write the complete log/diff to disk and return metadata only (#205).
 
     No log content enters the response — only the caller-supplied header
     lines, the write confirmation, and the totals line.
@@ -287,9 +290,9 @@ def write_full_log_response(output: list[str], output_path: str, logs_text: str)
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(logs_text, encoding="utf-8")
     except OSError as exc:
-        return f"❌ Failed to write log to {output_path}: {exc}"
+        return f"❌ Failed to write {noun} to {output_path}: {exc}"
 
-    output.append(f"💾 Full log written to {output_path}")
+    output.append(f"💾 Full {noun} written to {output_path}")
     output.append(
         format_totals(
             total_lines=total_lines,
@@ -316,6 +319,8 @@ def build_log_response_lines(
     size_limit: int,
     char_limit: int,
     separator_length: int = 60,
+    body_label: str = "Logs",
+    clamp_noun: str = "log",
 ) -> list[str]:
     """Clamp, window, and render a fetched log for the LLM response.
 
@@ -358,6 +363,7 @@ def build_log_response_lines(
             label=selection.label,
             truncated=selection.truncated,
             was_size_truncated=was_size_truncated,
+            clamp_noun=clamp_noun,
         )
     ]
 
@@ -376,7 +382,7 @@ def build_log_response_lines(
         return result
 
     separator = "-" * separator_length
-    result.append(f"\n📋 Logs ({selection.label}):")
+    result.append(f"\n📋 {body_label} ({selection.label}):")
     result.append(separator)
     result.append(selection.text)
     result.append(separator)
