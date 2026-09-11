@@ -105,8 +105,11 @@ def _sanitize_json_string(s: str) -> str:
         content = content.replace("\r", "\\r")
         content = content.replace("\t", "\\t")
         # Cover remaining C0 controls that JSON forbids
-        content = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]',
-                         lambda c: f'\\u{ord(c.group()):04x}', content)
+        content = re.sub(
+            r"[\x00-\x08\x0b\x0c\x0e-\x1f]",
+            lambda c: f"\\u{ord(c.group()):04x}",
+            content,
+        )
         return f'"{content}"'
 
     # Match JSON string literals: opening quote, captured body, closing quote.
@@ -212,7 +215,11 @@ def setup_meta_tools(interface) -> None:
                     [t for t in interface.tool_registry.values() if t.domain == "git"]
                 ),
                 "github": len(
-                    [t for t in interface.tool_registry.values() if t.domain == "github"]
+                    [
+                        t
+                        for t in interface.tool_registry.values()
+                        if t.domain == "github"
+                    ]
                 ),
                 "azure": len(
                     [t for t in interface.tool_registry.values() if t.domain == "azure"]

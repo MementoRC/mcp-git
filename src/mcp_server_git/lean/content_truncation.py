@@ -9,7 +9,11 @@ import json
 import re
 
 from mcp_server_git.lean.token_estimation import TokenEstimator
-from mcp_server_git.lean.token_types import ContentType, TruncationConfig, TruncationResult
+from mcp_server_git.lean.token_types import (
+    ContentType,
+    TruncationConfig,
+    TruncationResult,
+)
 
 
 class ContentTruncator:

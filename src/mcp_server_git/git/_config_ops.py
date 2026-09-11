@@ -57,10 +57,10 @@ def _validate_config_file(repo: Repo, file: str) -> None:
     if file_path.is_absolute():
         try:
             file_path.relative_to(Path(repo.working_dir))
-        except ValueError:
+        except ValueError as e:
             raise ValueError(
                 f"Invalid file path '{file}': absolute path must be within the repository"
-            )
+            ) from e
     # Resolve to catch symlink escapes (belt-and-suspenders)
     repo_root = Path(repo.working_dir).resolve()
     resolved = (repo_root / file_path).resolve()

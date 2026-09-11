@@ -50,7 +50,9 @@ class TestGitBranchDeleteInputValidation:
     """Test input validation for git_branch_delete."""
 
     @pytest.mark.parametrize("dangerous_char", [";", "|", "&", "`", "$"])
-    def test_git_branch_delete_rejects_dangerous_chars_in_branch_name(self, dangerous_char):
+    def test_git_branch_delete_rejects_dangerous_chars_in_branch_name(
+        self, dangerous_char
+    ):
         """Should reject dangerous characters in branch_name."""
         mock_repo = Mock()
         malicious_name = f"feature{dangerous_char}rm -rf /"
@@ -61,7 +63,9 @@ class TestGitBranchDeleteInputValidation:
         assert "Invalid characters detected in branch_name" in result
         mock_repo.git.branch.assert_not_called()
 
-    def test_git_branch_delete_accepts_valid_branch_names_with_slashes_and_hyphens(self):
+    def test_git_branch_delete_accepts_valid_branch_names_with_slashes_and_hyphens(
+        self,
+    ):
         """Should accept valid branch names with slashes and hyphens."""
         mock_repo = Mock()
 

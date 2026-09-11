@@ -189,7 +189,9 @@ class TestGitPushDryRun:
     def test_dry_run_with_delete_appends_flag(self, mock_repo: MagicMock) -> None:
         git_push(mock_repo, branch="feature", delete=True, dry_run=True)
 
-        mock_repo.git.push.assert_called_with("origin", "--delete", "feature", "--dry-run")
+        mock_repo.git.push.assert_called_with(
+            "origin", "--delete", "feature", "--dry-run"
+        )
 
     def test_dry_run_with_refspec_appends_flag(self, mock_repo: MagicMock) -> None:
         git_push(mock_repo, refspec=":feature", dry_run=True)

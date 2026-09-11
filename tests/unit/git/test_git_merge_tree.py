@@ -1,8 +1,8 @@
 """Tests for git_merge_tree operation (dry-run conflict detection)."""
 
-import pytest
 from unittest.mock import MagicMock
 
+import pytest
 from git.exc import GitCommandError
 
 from mcp_server_git.git.operations_extended import git_merge_tree

@@ -105,9 +105,15 @@ class TestExecuteToolEnvelope:
         assert envelope["status"] == "success"
         assert envelope["result"] == result
 
-    def test_build_envelope_returns_success_when_error_key_present_but_success_true(self):
+    def test_build_envelope_returns_success_when_error_key_present_but_success_true(
+        self,
+    ):
         """No false positive: 'error' as legitimate data must stay 'success'."""
-        result = {"error": "some CI job reported an error", "success": True, "log": "..."}
+        result = {
+            "error": "some CI job reported an error",
+            "success": True,
+            "log": "...",
+        }
         envelope = _build_envelope("azure_get_build_logs", result)
 
         assert envelope["status"] == "success"
@@ -132,7 +138,9 @@ class TestWrapToolIntegrationWithEnvelope:
             azure_service=MockService(),
         )
 
-    def test_build_envelope_returns_error_status_when_implementation_raises_typeerror(self):
+    def test_build_envelope_returns_error_status_when_implementation_raises_typeerror(
+        self,
+    ):
         """
         Original issue reproduction: a TypeError raised by a tool implementation
         is converted by the real (unmodified) _wrap_tool into an error dict, and
@@ -158,7 +166,9 @@ class TestWrapToolIntegrationWithEnvelope:
         assert envelope["result"] == raw_result
 
     @pytest.mark.asyncio
-    async def test_build_envelope_returns_error_status_when_async_implementation_raises(self):
+    async def test_build_envelope_returns_error_status_when_async_implementation_raises(
+        self,
+    ):
         """Async variant: raised exception in an async implementation is also caught."""
 
         async def failing_async_impl(**kwargs):
@@ -202,9 +212,7 @@ class TestExecuteToolEndToEnd:
         )
 
         def failing_git_log(**kwargs):
-            raise TypeError(
-                "git_log() got an unexpected keyword argument 'format'"
-            )
+            raise TypeError("git_log() got an unexpected keyword argument 'format'")
 
         interface.register_tool(
             ToolDefinition(
@@ -227,8 +235,7 @@ class TestExecuteToolEndToEnd:
 
         assert envelope["status"] == "error"
         assert (
-            "git_log() got an unexpected keyword argument 'format'"
-            in envelope["error"]
+            "git_log() got an unexpected keyword argument 'format'" in envelope["error"]
         )
         assert envelope["result"]["success"] is False
         assert (

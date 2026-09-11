@@ -13,7 +13,9 @@ from mcp_server_git.git.operations import git_branch_list
 from mcp_server_git.utils.git_import import GitCommandError
 
 
-def _make_head(name: str, sha: str, is_active: bool = False, tracking: str | None = None) -> Mock:
+def _make_head(
+    name: str, sha: str, is_active: bool = False, tracking: str | None = None
+) -> Mock:
     """Build a mock GitPython Head object."""
     head = Mock()
     head.name = name
@@ -57,7 +59,7 @@ def _make_repo(
 
     # repo.remotes
     remote_mocks = []
-    for ref_list in (remotes or []):
+    for ref_list in remotes or []:
         remote = Mock()
         remote.refs = ref_list
         remote_mocks.append(remote)
@@ -314,8 +316,7 @@ class TestGitBranchListSort:
 
     # NUL-separated format: name\x00sha\x00upstream
     _FEI_TWO_BRANCHES = (
-        "feature/z\x00aaa" + "a" * 37 + "\x00\n"
-        "feature/a\x00bbb" + "b" * 37 + "\x00\n"
+        "feature/z\x00aaa" + "a" * 37 + "\x00\nfeature/a\x00bbb" + "b" * 37 + "\x00\n"
     )
 
     def _make_sort_repo(
@@ -402,8 +403,7 @@ class TestGitBranchListSort:
     def test_sort_with_pattern_filter_applied_after_sort(self):
         """Pattern filter is applied to for-each-ref results."""
         output = (
-            "feature/z\x00aaa" + "a" * 37 + "\x00\n"
-            "main\x00bbb" + "b" * 37 + "\x00\n"
+            "feature/z\x00aaa" + "a" * 37 + "\x00\nmain\x00bbb" + "b" * 37 + "\x00\n"
         )
         repo = self._make_sort_repo(for_each_ref_output=output)
 
@@ -415,8 +415,7 @@ class TestGitBranchListSort:
     def test_sort_with_merged_filter_applied_after_sort(self):
         """merged=True filter is applied to for-each-ref results."""
         output = (
-            "feature/z\x00aaa" + "a" * 37 + "\x00\n"
-            "main\x00bbb" + "b" * 37 + "\x00\n"
+            "feature/z\x00aaa" + "a" * 37 + "\x00\nmain\x00bbb" + "b" * 37 + "\x00\n"
         )
         repo = self._make_sort_repo(for_each_ref_output=output)
         repo.git.branch.return_value = "  main"  # only main is merged

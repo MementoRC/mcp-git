@@ -23,10 +23,10 @@ import pytest
 
 from src.mcp_server_git.lean.meta_tools import _sanitize_json_string
 
-
 # ---------------------------------------------------------------------------
 # Tests for _sanitize_json_string helper
 # ---------------------------------------------------------------------------
+
 
 class TestSanitizeJsonString:
     """Direct tests for the _sanitize_json_string escape helper."""
@@ -91,7 +91,9 @@ class TestSanitizeJsonString:
 
     def test_markdown_code_fence_with_newlines(self):
         """Markdown code fence body with newlines is sanitized correctly."""
-        code_body = "## Summary\nUse `code` here.\n\n```python\ndef foo():\n    pass\n```"
+        code_body = (
+            "## Summary\nUse `code` here.\n\n```python\ndef foo():\n    pass\n```"
+        )
         broken = '{"body": "' + code_body + '"}'
         result = _sanitize_json_string(broken)
         # Must now be valid JSON
@@ -130,6 +132,7 @@ class TestSanitizeJsonString:
 # exactly the coercion block at meta_tools.py:302-320, without spinning up
 # a full GitLeanInterface (which is expensive and causes timeouts).
 # ---------------------------------------------------------------------------
+
 
 async def _coerce_parameters(parameters):
     """
@@ -228,7 +231,10 @@ class TestCoercionPath:
         assert result is None
         assert err is not None
         assert err["status"] == "error"
-        assert "unparseable" in err["error"].lower() or "parameters" in err["error"].lower()
+        assert (
+            "unparseable" in err["error"].lower()
+            or "parameters" in err["error"].lower()
+        )
 
     @pytest.mark.asyncio
     async def test_error_message_truncates_long_input(self):

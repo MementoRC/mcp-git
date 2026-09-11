@@ -1,4 +1,5 @@
 """Tests for submodule and config operations."""
+
 import re
 import subprocess
 from pathlib import Path
@@ -27,9 +28,7 @@ def git_repo(tmp_path):
     repo_path = tmp_path / "test_repo"
     repo_path.mkdir()
     subprocess.run(["git", "init"], cwd=repo_path, check=True, capture_output=True)
-    subprocess.run(
-        ["git", "config", "user.name", "Test"], cwd=repo_path, check=True
-    )
+    subprocess.run(["git", "config", "user.name", "Test"], cwd=repo_path, check=True)
     subprocess.run(
         ["git", "config", "user.email", "test@test.com"], cwd=repo_path, check=True
     )

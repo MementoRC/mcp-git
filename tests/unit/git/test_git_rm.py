@@ -60,7 +60,9 @@ class TestGitRmSuccess:
         result = git_rm(mock_repo, file="data.json", cached=True, dry_run=True)
 
         assert "🔍" in result
-        mock_repo.git.rm.assert_called_once_with("--cached", "--dry-run", "--", "data.json")
+        mock_repo.git.rm.assert_called_once_with(
+            "--cached", "--dry-run", "--", "data.json"
+        )
 
     def test_git_rm_accepts_nested_path(self):
         """Should accept deeply nested file paths."""
@@ -158,7 +160,7 @@ class TestGitRmInputValidation:
     @pytest.mark.parametrize(
         "path",
         [
-            "./",       # trailing slash caught first
+            "./",  # trailing slash caught first
             "dir/../",  # trailing slash caught first
         ],
     )
@@ -193,7 +195,7 @@ class TestGitRmInputValidation:
     @pytest.mark.parametrize(
         "path",
         [
-            "dir/..",     # normpath collapses to .
+            "dir/..",  # normpath collapses to .
             "a/b/../..",  # normpath collapses to .
         ],
     )
@@ -273,7 +275,9 @@ class TestGitRmErrorHandling:
         """Should return specific message when file has local modifications."""
         mock_repo = Mock()
         mock_repo.git.rm.side_effect = GitCommandError(
-            "git rm", 1, b"error: the following file has local modifications:\n  file.py"
+            "git rm",
+            1,
+            b"error: the following file has local modifications:\n  file.py",
         )
 
         result = git_rm(mock_repo, file="file.py")
@@ -285,7 +289,9 @@ class TestGitRmErrorHandling:
         """Should return specific message when file has staged changes."""
         mock_repo = Mock()
         mock_repo.git.rm.side_effect = GitCommandError(
-            "git rm", 1, b"error: the following file has changes staged in the index:\n  file.py"
+            "git rm",
+            1,
+            b"error: the following file has changes staged in the index:\n  file.py",
         )
 
         result = git_rm(mock_repo, file="file.py")

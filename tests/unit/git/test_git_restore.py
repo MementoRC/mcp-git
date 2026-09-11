@@ -46,16 +46,22 @@ class TestGitRestoreSuccess:
 
         assert "✅" in result
         assert "src/main.py" in result
-        mock_repo.git.restore.assert_called_once_with("--source", "HEAD~1", "src/main.py")
+        mock_repo.git.restore.assert_called_once_with(
+            "--source", "HEAD~1", "src/main.py"
+        )
 
     def test_git_restore_staged_with_source(self):
         """Should combine --staged and --source flags."""
         mock_repo = Mock()
 
-        result = git_restore(mock_repo, files=["config.yaml"], staged=True, source="abc123")
+        result = git_restore(
+            mock_repo, files=["config.yaml"], staged=True, source="abc123"
+        )
 
         assert "✅" in result
-        mock_repo.git.restore.assert_called_once_with("--staged", "--source", "abc123", "config.yaml")
+        mock_repo.git.restore.assert_called_once_with(
+            "--staged", "--source", "abc123", "config.yaml"
+        )
 
     def test_git_restore_multiple_files(self):
         """Should restore multiple files and list them in the result."""
@@ -122,7 +128,9 @@ class TestGitRestoreInputValidation:
         """Should accept valid source refs with common characters."""
         mock_repo = Mock()
 
-        result = git_restore(mock_repo, files=["file.py"], source="feature/my-branch_v2")
+        result = git_restore(
+            mock_repo, files=["file.py"], source="feature/my-branch_v2"
+        )
 
         assert "✅" in result
         mock_repo.git.restore.assert_called_once()

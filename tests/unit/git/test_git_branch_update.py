@@ -42,7 +42,9 @@ class TestGitBranchUpdateSuccess:
         """Should use -D flag for force delete (unmerged branch)."""
         mock_repo = Mock()
 
-        result = git_branch_update(mock_repo, branch_name="unmerged-branch", delete=True, force=True)
+        result = git_branch_update(
+            mock_repo, branch_name="unmerged-branch", delete=True, force=True
+        )
 
         assert "✅" in result
         assert "unmerged-branch" in result
@@ -77,14 +79,18 @@ class TestGitBranchUpdateInputValidation:
         """Should reject when both target and delete are specified."""
         mock_repo = Mock()
 
-        result = git_branch_update(mock_repo, branch_name="feature", target="main", delete=True)
+        result = git_branch_update(
+            mock_repo, branch_name="feature", target="main", delete=True
+        )
 
         assert "❌" in result
         assert "Cannot specify both target and delete" in result
         mock_repo.git.branch.assert_not_called()
 
     @pytest.mark.parametrize("dangerous_char", [";", "|", "&", "`", "$"])
-    def test_git_branch_update_rejects_dangerous_chars_in_branch_name(self, dangerous_char):
+    def test_git_branch_update_rejects_dangerous_chars_in_branch_name(
+        self, dangerous_char
+    ):
         """Should reject dangerous characters in branch_name."""
         mock_repo = Mock()
         malicious_name = f"feature{dangerous_char}rm -rf /"
@@ -101,7 +107,9 @@ class TestGitBranchUpdateInputValidation:
         mock_repo = Mock()
         malicious_target = f"main{dangerous_char}rm -rf /"
 
-        result = git_branch_update(mock_repo, branch_name="feature", target=malicious_target)
+        result = git_branch_update(
+            mock_repo, branch_name="feature", target=malicious_target
+        )
 
         assert "❌" in result
         assert "Invalid characters detected in target" in result
@@ -111,7 +119,9 @@ class TestGitBranchUpdateInputValidation:
         """Should accept valid branch names with slashes and hyphens."""
         mock_repo = Mock()
 
-        result = git_branch_update(mock_repo, branch_name="feature/my-branch_v2", target="main")
+        result = git_branch_update(
+            mock_repo, branch_name="feature/my-branch_v2", target="main"
+        )
 
         assert "✅" in result
         mock_repo.git.branch.assert_called_once()

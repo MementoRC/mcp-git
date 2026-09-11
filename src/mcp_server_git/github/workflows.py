@@ -1,8 +1,13 @@
 """GitHub Actions workflow listing and status operations."""
+
 from __future__ import annotations
+
 import logging
+
 from mcp_server_git.github.client import github_client_context
+
 from .ci_logs import *  # noqa: F401,F403
+
 logger = logging.getLogger(__name__)
 
 
@@ -315,4 +320,3 @@ async def github_list_workflow_runs(
     except Exception as e:
         logger.error(f"Unexpected error listing workflow runs: {e}", exc_info=True)
         return f"❌ Error listing workflow runs: {str(e)}"
-

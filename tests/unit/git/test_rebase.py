@@ -173,7 +173,8 @@ class TestGitRebaseRefValidation:
         repo = _make_repo()
         repo.git.rebase.return_value = ""
         result = git_rebase(
-            repo, "main",
+            repo,
+            "main",
             onto="origin/feature-branch.v2",
             fork_point="refs/heads/old-base",
         )

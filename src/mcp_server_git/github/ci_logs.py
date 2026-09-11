@@ -1,11 +1,13 @@
 """GitHub Actions CI logs and workflow completion monitoring."""
 
 from __future__ import annotations
+
 import asyncio
 import json
 import logging
 import time
 from datetime import datetime
+
 from mcp_server_git.github.client import github_client_context
 from mcp_server_git.github.job_log_selection import (
     LogSelectionError,

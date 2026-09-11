@@ -310,9 +310,7 @@ class TestAzureGetFailingJobs:
 
         build_response = AsyncMock()
         build_response.status = 200
-        build_response.json = AsyncMock(
-            return_value={"id": 123, "result": "failed"}
-        )
+        build_response.json = AsyncMock(return_value={"id": 123, "result": "failed"})
 
         timeline_response = AsyncMock()
         timeline_response.status = 200
@@ -360,7 +358,9 @@ class TestAzureClientAnonymousMode:
     def test_auth_returns_none_when_no_token(self):
         """_auth() must return None so no Authorization header is sent."""
         mock_session = MagicMock()
-        client = AzureClient(token=None, organization="conda-forge", session=mock_session)
+        client = AzureClient(
+            token=None, organization="conda-forge", session=mock_session
+        )
         assert client._auth() is None
 
     def test_auth_returns_basicauth_when_token_present(self):
@@ -370,7 +370,9 @@ class TestAzureClientAnonymousMode:
         mock_session = MagicMock()
         # Use a syntactically valid-looking PAT (40 base64 chars)
         fake_token = "a" * 40
-        client = AzureClient(token=fake_token, organization="conda-forge", session=mock_session)
+        client = AzureClient(
+            token=fake_token, organization="conda-forge", session=mock_session
+        )
         auth = client._auth()
         assert isinstance(auth, aiohttp.BasicAuth)
 
@@ -383,7 +385,9 @@ class TestAzureClientAnonymousMode:
         mock_session = AsyncMock()
         mock_session.get = AsyncMock(return_value=mock_response)
 
-        client = AzureClient(token=None, organization="conda-forge", session=mock_session)
+        client = AzureClient(
+            token=None, organization="conda-forge", session=mock_session
+        )
         await client.get("someproject/_apis/build/builds/1?api-version=7.1")
 
         # Verify session.get was called exactly once
@@ -400,18 +404,26 @@ class TestAzureClientAnonymousMode:
     async def test_post_raises_without_token(self):
         """POST must raise ValueError when no token is configured."""
         mock_session = AsyncMock()
-        client = AzureClient(token=None, organization="conda-forge", session=mock_session)
+        client = AzureClient(
+            token=None, organization="conda-forge", session=mock_session
+        )
 
-        with pytest.raises(ValueError, match="AZURE_DEVOPS_TOKEN required for write operations"):
+        with pytest.raises(
+            ValueError, match="AZURE_DEVOPS_TOKEN required for write operations"
+        ):
             await client.post("someproject/_apis/something")
 
     @pytest.mark.asyncio
     async def test_patch_raises_without_token(self):
         """PATCH must raise ValueError when no token is configured."""
         mock_session = AsyncMock()
-        client = AzureClient(token=None, organization="conda-forge", session=mock_session)
+        client = AzureClient(
+            token=None, organization="conda-forge", session=mock_session
+        )
 
-        with pytest.raises(ValueError, match="AZURE_DEVOPS_TOKEN required for write operations"):
+        with pytest.raises(
+            ValueError, match="AZURE_DEVOPS_TOKEN required for write operations"
+        ):
             await client.patch("someproject/_apis/something")
 
     def test_get_azure_client_defaults_to_conda_forge_org(self):
@@ -439,6 +451,7 @@ class TestAzureClientAnonymousMode:
             patch("src.mcp_server_git.azure.client.os.getenv") as mock_getenv,
             patch("src.mcp_server_git.azure.client.aiohttp.ClientSession"),
         ):
+
             def _env(key, *args):
                 return "" if key == "AZURE_DEVOPS_TOKEN" else "my-org"
 

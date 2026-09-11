@@ -20,7 +20,6 @@ from src.mcp_server_git.github.job_log_selection import (
     write_full_log_response,
 )
 
-
 # ---------------------------------------------------------------------------
 # resolve_window
 # ---------------------------------------------------------------------------
