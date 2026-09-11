@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 
 from ..utils.git_import import GitCommandError, Repo
+from .error_text import clean_git_error_text
 
 logger = logging.getLogger(__name__)
 
@@ -117,7 +118,7 @@ def git_add(
                 else:
                     return f"⚠️ No files matched patterns: {', '.join(patterns)}"
             except GitCommandError as e:
-                return f"❌ Pattern matching failed: {str(e)}"
+                return f"❌ Pattern matching failed: {clean_git_error_text(e.stderr, 'stderr')}"
 
         # Traditional file-by-file behavior (backward compatible)
         if files:
@@ -160,12 +161,7 @@ def git_add(
         return "❌ No files specified. Use files, add_all, update_only, or patterns parameter."
 
     except GitCommandError as e:
-        # Handle GitCommandError string representation variations
-        error_msg = str(e)
-        if "Git command failed" in error_msg:
-            return "❌ Git add failed: Git command failed"
-        else:
-            return f"❌ Git add failed: {error_msg}"
+        return f"❌ Git add failed: {clean_git_error_text(e.stderr, 'stderr')}"
     except Exception as e:
         return f"❌ Git add failed: {str(e)}"
 
@@ -360,6 +356,6 @@ def git_reset(
             return "✅ Reset completed"
 
     except GitCommandError as e:
-        return f"❌ Reset failed: {str(e)}"
+        return f"❌ Reset failed: {clean_git_error_text(e.stderr, 'stderr')}"
     except Exception as e:
         return f"❌ Reset error: {str(e)}"

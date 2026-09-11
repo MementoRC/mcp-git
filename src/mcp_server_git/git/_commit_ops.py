@@ -6,6 +6,7 @@ import re
 import subprocess
 
 from ..utils.git_import import GitCommandError, Repo
+from .error_text import clean_git_error_text
 
 logger = logging.getLogger(__name__)
 
@@ -125,7 +126,10 @@ def git_commit(
             return "❌ SECURITY VIOLATION: Unsigned commits are not allowed by MCP Git Server"
 
     except GitCommandError as e:
-        return f"❌ Commit failed: {str(e)}\n🔒 Security enforcement may have prevented insecure operation"
+        return (
+            f"❌ Commit failed: {clean_git_error_text(e.stderr, 'stderr')}\n"
+            "🔒 Security enforcement may have prevented insecure operation"
+        )
     except Exception as e:
         return f"❌ Commit error: {str(e)}\n🔒 Verify repository security configuration"
 
@@ -228,7 +232,7 @@ def git_log(
         return log_output
 
     except GitCommandError as e:
-        return f"❌ Log failed: {str(e)}"
+        return f"❌ Log failed: {clean_git_error_text(e.stderr, 'stderr')}"
     except Exception as e:
         return f"❌ Log error: {str(e)}"
 
@@ -267,7 +271,7 @@ def git_show(
         return show_output
 
     except GitCommandError as e:
-        return f"❌ Show failed: {str(e)}"
+        return f"❌ Show failed: {clean_git_error_text(e.stderr, 'stderr')}"
     except Exception as e:
         return f"❌ Show error: {str(e)}"
 
@@ -289,7 +293,7 @@ def git_blame(
         blame_output = repo.git.blame(*args)
         return f"Blame for {file_path}:\n{blame_output}"
     except GitCommandError as e:
-        return f"❌ Blame failed: {str(e)}"
+        return f"❌ Blame failed: {clean_git_error_text(e.stderr, 'stderr')}"
     except Exception as e:
         return f"❌ Blame error: {str(e)}"
 
@@ -406,6 +410,6 @@ def git_reflog(
         return entries
 
     except GitCommandError as e:
-        return f"❌ Reflog failed: {str(e)}"
+        return f"❌ Reflog failed: {clean_git_error_text(e.stderr, 'stderr')}"
     except Exception as e:
         return f"❌ Reflog error: {str(e)}"

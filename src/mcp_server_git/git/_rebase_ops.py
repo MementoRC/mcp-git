@@ -4,6 +4,7 @@ import logging
 import subprocess
 
 from ..utils.git_import import GitCommandError, Repo
+from .error_text import clean_git_error_text
 
 logger = logging.getLogger(__name__)
 
@@ -89,10 +90,11 @@ def git_rebase(
         return f"✅ Successfully rebased {rebase_branch} onto {target_branch}\n{result}"
 
     except GitCommandError as e:
-        if "conflict" in str(e).lower():
+        error_text = clean_git_error_text(e.stderr, "stderr")
+        if "conflict" in error_text.lower():
             return "❌ Rebase failed due to conflicts. Resolve conflicts and run 'git rebase --continue'"
         else:
-            return f"❌ Rebase failed: {str(e)}"
+            return f"❌ Rebase failed: {error_text}"
     except Exception as e:
         return f"❌ Rebase error: {str(e)}"
 
@@ -138,10 +140,11 @@ def git_merge(
         return f"✅ Successfully merged {source_branch} into {current_branch}\n{result}"
 
     except GitCommandError as e:
-        if "conflict" in str(e).lower():
+        error_text = clean_git_error_text(e.stderr, "stderr")
+        if "conflict" in error_text.lower():
             return "❌ Merge failed due to conflicts. Resolve conflicts and commit"
         else:
-            return f"❌ Merge failed: {str(e)}"
+            return f"❌ Merge failed: {error_text}"
     except Exception as e:
         return f"❌ Merge error: {str(e)}"
 
@@ -161,12 +164,13 @@ def git_cherry_pick(repo: Repo, commit_hash: str, no_commit: bool = False) -> st
         return f"✅ Successfully {action} commit {commit_hash[:8]}\n{result}"
 
     except GitCommandError as e:
-        if "conflict" in str(e).lower():
+        error_text = clean_git_error_text(e.stderr, "stderr")
+        if "conflict" in error_text.lower():
             return (
                 "❌ Cherry-pick failed due to conflicts. Resolve conflicts and continue"
             )
         else:
-            return f"❌ Cherry-pick failed: {str(e)}"
+            return f"❌ Cherry-pick failed: {error_text}"
     except Exception as e:
         return f"❌ Cherry-pick error: {str(e)}"
 
@@ -189,7 +193,9 @@ def git_abort(repo: Repo, operation: str) -> str:
         return f"✅ Successfully aborted {operation}"
 
     except GitCommandError as e:
-        return f"❌ Abort {operation} failed: {str(e)}"
+        return (
+            f"❌ Abort {operation} failed: {clean_git_error_text(e.stderr, 'stderr')}"
+        )
     except Exception as e:
         return f"❌ Abort error: {str(e)}"
 
@@ -256,6 +262,6 @@ def git_continue(repo: Repo, operation: str) -> str:
     except subprocess.TimeoutExpired:
         return f"❌ {operation} continue operation timed out after 60 seconds"
     except GitCommandError as e:
-        return f"❌ Continue {operation} failed: {str(e)}"
+        return f"❌ Continue {operation} failed: {clean_git_error_text(e.stderr, 'stderr')}"
     except Exception as e:
         return f"❌ Continue error: {str(e)}"

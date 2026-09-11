@@ -4,6 +4,7 @@ import logging
 import re
 
 from ..utils.git_import import GitCommandError, Repo
+from .error_text import clean_git_error_text
 
 logger = logging.getLogger(__name__)
 
@@ -191,7 +192,7 @@ def git_diff_unstaged(
         )
 
     except GitCommandError as e:
-        return f"❌ Diff unstaged failed: {str(e)}"
+        return f"❌ Diff unstaged failed: {clean_git_error_text(e.stderr, 'stderr')}"
     except Exception as e:
         return f"❌ Diff unstaged error: {str(e)}"
 
@@ -243,7 +244,7 @@ def git_diff_staged(
         )
 
     except GitCommandError as e:
-        return f"❌ Diff staged failed: {str(e)}"
+        return f"❌ Diff staged failed: {clean_git_error_text(e.stderr, 'stderr')}"
     except Exception as e:
         return f"❌ Diff staged error: {str(e)}"
 
@@ -364,7 +365,7 @@ def git_diff(
         return result
 
     except GitCommandError as e:
-        return f"❌ Diff failed: {str(e)}"
+        return f"❌ Diff failed: {clean_git_error_text(e.stderr, 'stderr')}"
     except Exception as e:
         return f"❌ Diff error: {str(e)}"
 
@@ -444,6 +445,6 @@ def git_diff_branches(
         return diff_output
 
     except GitCommandError as e:
-        return f"❌ Diff failed: {str(e)}"
+        return f"❌ Diff failed: {clean_git_error_text(e.stderr, 'stderr')}"
     except Exception as e:
         return f"❌ Diff error: {str(e)}"

@@ -147,8 +147,11 @@ class TestGitAdd:
         # Arrange
         mock_repo = Mock()
         mock_repo.working_dir = "/test/repo"
-        # GitCommandError has complex string representation including cmdline
-        mock_repo.git.status.side_effect = GitCommandError("Git command failed")
+        mock_repo.git.status.side_effect = GitCommandError(
+            ["git", "add", "a.txt"],
+            128,
+            b"fatal: pathspec 'a.txt' did not match any files",
+        )
 
         files = ["test.py"]
 
@@ -156,9 +159,9 @@ class TestGitAdd:
         result = git_add(mock_repo, files)
 
         # Assert
-        # GitCommandError format includes "Cmd('...') failed!" and "cmdline: ..."
         assert "❌ Git add failed:" in result
-        assert "Git command failed" in result
+        assert "fatal: pathspec 'a.txt' did not match any files" in result
+        assert "stderr: '" not in result
 
     def test_git_add_handles_general_exception(self):
         """Should handle general exceptions gracefully."""

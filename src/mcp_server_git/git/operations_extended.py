@@ -8,6 +8,7 @@ import os
 import re
 
 from ..utils.git_import import GitCommandError, Repo
+from .error_text import clean_git_error_text
 from .merge_parse import (
     parse_merge_tree_output,
     render_conflict_paths,
@@ -37,22 +38,11 @@ def _validate_ref(ref: str, param_name: str) -> str | None:
     return None
 
 
-def _clean_git_error_text(raw: bytes | str | None, label: str) -> str:
-    """Unwrap GitPython's decorated ``GitCommandError`` stdout/stderr text.
-
-    GitPython's ``CommandError.__init__`` never exposes the raw stdout/stderr
-    it was given: it re-formats it as ``"\\n  <label>: '<text>'"`` (see
-    ``git.exc.CommandError``). Any code that wants to parse the actual git
-    output -- not GitPython's decorated wrapper -- needs to undo that first.
-    """
-    if raw is None:
-        return ""
-    if isinstance(raw, bytes):
-        raw = raw.decode()
-    prefix = f"\n  {label}: '"
-    if raw.startswith(prefix) and raw.endswith("'"):
-        return raw[len(prefix) : -1]
-    return raw
+# Re-exported for backward compatibility: moved to error_text.py (issue #219)
+# so modules other than operations_extended.py can import it without pulling
+# in this module's unrelated tool functions. merge_ops.py imports the
+# private alias directly; keep it resolvable.
+_clean_git_error_text = clean_git_error_text
 
 
 def git_restore(

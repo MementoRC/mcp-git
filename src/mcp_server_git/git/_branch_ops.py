@@ -5,6 +5,7 @@ import logging
 from typing import Any, Literal
 
 from ..utils.git_import import GitCommandError, Repo
+from .error_text import clean_git_error_text
 
 logger = logging.getLogger(__name__)
 
@@ -72,7 +73,7 @@ def git_create_branch(
         return f"✅ Created branch '{branch_name}' (HEAD unchanged)"
 
     except GitCommandError as e:
-        return f"❌ Branch creation failed: {str(e)}"
+        return f"❌ Branch creation failed: {clean_git_error_text(e.stderr, 'stderr')}"
     except Exception as e:
         return f"❌ Branch creation error: {str(e)}"
 
@@ -113,7 +114,7 @@ def git_checkout(repo: Repo, branch_name: str) -> str:
                 return f"❌ Branch '{branch_name}' not found"
 
     except GitCommandError as e:
-        return f"❌ Checkout failed: {str(e)}"
+        return f"❌ Checkout failed: {clean_git_error_text(e.stderr, 'stderr')}"
     except Exception as e:
         return f"❌ Checkout error: {str(e)}"
 
@@ -334,7 +335,7 @@ def git_branch_list(
     except ValueError as e:
         return f"❌ Branch list error: {str(e)}"
     except GitCommandError as e:
-        return f"❌ Branch list failed: {str(e)}"
+        return f"❌ Branch list failed: {clean_git_error_text(e.stderr, 'stderr')}"
     except Exception as e:
         return f"❌ Branch list error: {str(e)}"
 
@@ -376,6 +377,8 @@ def git_merge_base(
             f"Message: {commit.message.strip()}"
         )
     except GitCommandError as e:
-        return f"❌ Error finding merge-base: {str(e)}"
+        return (
+            f"❌ Error finding merge-base: {clean_git_error_text(e.stderr, 'stderr')}"
+        )
     except Exception as e:
         return f"❌ Merge-base error: {str(e)}"

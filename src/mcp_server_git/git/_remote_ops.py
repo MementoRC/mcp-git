@@ -6,6 +6,7 @@ import subprocess
 from pathlib import Path
 
 from ..utils.git_import import GitCommandError, Repo
+from .error_text import clean_git_error_text
 
 logger = logging.getLogger(__name__)
 
@@ -312,9 +313,10 @@ def git_push(
                 success_msg += " (dry-run; no remote state modified)"
             return success_msg
         except GitCommandError as e:
+            error_text = clean_git_error_text(e.stderr, "stderr")
             # If regular push fails and this is GitHub HTTPS, suggest auth options
             if is_github and remote_url.startswith("https://"):
-                if "Authentication failed" in str(e) or "401" in str(e):
+                if "Authentication failed" in error_text or "401" in error_text:
                     # Add debug info directly to error message - REGULAR PUSH PATH
                     repo_env = Path(repo.working_dir) / ".env"
                     token_status = "SET" if os.getenv("GITHUB_TOKEN") else "NOT SET"
@@ -324,19 +326,20 @@ def git_push(
                         f"🔍 DEBUG [REGULAR_PUSH]: GITHUB_TOKEN: {token_status}, "
                         f".env exists: {repo_env.exists()}, "
                         f"working_dir: {repo.working_dir}\n"
-                        f"🔍 GitPython error: {str(e)}"
+                        f"🔍 GitPython error: {error_text}"
                     )
-                elif "403" in str(e) or "Permission denied" in str(e):
+                elif "403" in error_text or "Permission denied" in error_text:
                     return "❌ Permission denied. Check repository access permissions"
 
             # Standard error handling for non-GitHub or non-auth issues
-            if "non-fast-forward" in str(e):
+            if "non-fast-forward" in error_text:
                 return "❌ Push rejected (non-fast-forward). Use force_with_lease=True (safe) or force=True (unconditional)"
             else:
-                return f"❌ Push failed: {str(e)}"
+                return f"❌ Push failed (exit {e.status}): {error_text}"
 
     except GitCommandError as e:
-        if "Authentication failed" in str(e) or "401" in str(e):
+        error_text = clean_git_error_text(e.stderr, "stderr")
+        if "Authentication failed" in error_text or "401" in error_text:
             # Add debug info directly to error message - OUTER EXCEPTION PATH
             repo_env = Path(repo.working_dir) / ".env"
             token = os.getenv("GITHUB_TOKEN", "")
@@ -351,14 +354,14 @@ def git_push(
                 f"🔍 DEBUG [OUTER_EXCEPTION]: GITHUB_TOKEN: {token_info}, "
                 f".env exists: {repo_env.exists()}, "
                 f"working_dir: {repo.working_dir}\n"
-                f"🔍 Outer GitPython error: {str(e)}"
+                f"🔍 Outer GitPython error: {error_text}"
             )
-        elif "403" in str(e):
+        elif "403" in error_text:
             return "❌ Permission denied. Check repository access permissions"
-        elif "non-fast-forward" in str(e):
+        elif "non-fast-forward" in error_text:
             return "❌ Push rejected (non-fast-forward). Use force_with_lease=True (safe) or force=True (unconditional)"
         else:
-            return f"❌ Push failed: {str(e)}"
+            return f"❌ Push failed (exit {e.status}): {error_text}"
     except Exception as e:
         return f"❌ Push error: {str(e)}"
 
@@ -382,12 +385,13 @@ def git_pull(repo: Repo, remote: str = "origin", branch: str | None = None) -> s
         return f"✅ Successfully pulled from {remote}/{branch}\n{result}"
 
     except GitCommandError as e:
-        if "Authentication failed" in str(e):
+        error_text = clean_git_error_text(e.stderr, "stderr")
+        if "Authentication failed" in error_text:
             return f"❌ Authentication failed. Check credentials for {remote}"
-        elif "merge conflict" in str(e).lower():
+        elif "merge conflict" in error_text.lower():
             return "❌ Pull failed due to merge conflicts. Resolve conflicts and retry"
         else:
-            return f"❌ Pull failed: {str(e)}"
+            return f"❌ Pull failed (exit {e.status}): {error_text}"
     except Exception as e:
         return f"❌ Pull error: {str(e)}"
 
@@ -400,7 +404,7 @@ def git_remote_list(repo: Repo, verbose: bool = False) -> str:
         else:
             return repo.git.remote()
     except GitCommandError as e:
-        return f"❌ Remote list failed: {str(e)}"
+        return f"❌ Remote list failed: {clean_git_error_text(e.stderr, 'stderr')}"
     except Exception as e:
         return f"❌ Remote list error: {str(e)}"
 
@@ -411,7 +415,7 @@ def git_remote_add(repo: Repo, name: str, url: str) -> str:
         repo.git.remote("add", name, url)
         return f"✅ Successfully added remote '{name}' -> {url}"
     except GitCommandError as e:
-        return f"❌ Remote add failed: {str(e)}"
+        return f"❌ Remote add failed: {clean_git_error_text(e.stderr, 'stderr')}"
     except Exception as e:
         return f"❌ Remote add error: {str(e)}"
 
@@ -422,7 +426,7 @@ def git_remote_remove(repo: Repo, name: str) -> str:
         repo.git.remote("remove", name)
         return f"✅ Successfully removed remote '{name}'"
     except GitCommandError as e:
-        return f"❌ Remote remove failed: {str(e)}"
+        return f"❌ Remote remove failed: {clean_git_error_text(e.stderr, 'stderr')}"
     except Exception as e:
         return f"❌ Remote remove error: {str(e)}"
 
@@ -433,7 +437,7 @@ def git_remote_rename(repo: Repo, old_name: str, new_name: str) -> str:
         repo.git.remote("rename", old_name, new_name)
         return f"✅ Successfully renamed remote '{old_name}' to '{new_name}'"
     except GitCommandError as e:
-        return f"❌ Remote rename failed: {str(e)}"
+        return f"❌ Remote rename failed: {clean_git_error_text(e.stderr, 'stderr')}"
     except Exception as e:
         return f"❌ Remote rename error: {str(e)}"
 
@@ -444,7 +448,7 @@ def git_remote_set_url(repo: Repo, name: str, url: str) -> str:
         repo.git.remote("set-url", name, url)
         return f"✅ Successfully set URL for remote '{name}' -> {url}"
     except GitCommandError as e:
-        return f"❌ Remote set-url failed: {str(e)}"
+        return f"❌ Remote set-url failed: {clean_git_error_text(e.stderr, 'stderr')}"
     except Exception as e:
         return f"❌ Remote set-url error: {str(e)}"
 
@@ -455,7 +459,7 @@ def git_remote_get_url(repo: Repo, name: str) -> str:
         url = repo.git.remote("get-url", name)
         return f"Remote '{name}' URL: {url}"
     except GitCommandError as e:
-        return f"❌ Remote get-url failed: {str(e)}"
+        return f"❌ Remote get-url failed: {clean_git_error_text(e.stderr, 'stderr')}"
     except Exception as e:
         return f"❌ Remote get-url error: {str(e)}"
 
@@ -494,7 +498,7 @@ def git_clone(
     except ValueError:
         raise
     except GitCommandError as e:
-        return f"❌ Clone failed: {str(e)}"
+        return f"❌ Clone failed (exit {e.status}): {clean_git_error_text(e.stderr, 'stderr')}"
     except Exception as e:
         return f"❌ Clone error: {str(e)}"
 
@@ -524,6 +528,6 @@ def git_fetch(
                 " (with prune)" if prune else ""
             )
     except GitCommandError as e:
-        return f"❌ Fetch failed: {str(e)}"
+        return f"❌ Fetch failed: {clean_git_error_text(e.stderr, 'stderr')}"
     except Exception as e:
         return f"❌ Fetch error: {str(e)}"

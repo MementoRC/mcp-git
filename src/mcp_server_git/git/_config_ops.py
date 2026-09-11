@@ -5,6 +5,7 @@ import re
 from pathlib import Path
 
 from ..utils.git_import import GitCommandError, Repo
+from .error_text import clean_git_error_text
 
 logger = logging.getLogger(__name__)
 
@@ -97,7 +98,7 @@ def git_config_get(
     except ValueError as e:
         return f"❌ {e}"
     except GitCommandError as e:
-        return f"❌ Config get failed: {str(e)}"
+        return f"❌ Config get failed: {clean_git_error_text(e.stderr, 'stderr')}"
     except Exception as e:
         return f"❌ Config get error: {str(e)}"
 
@@ -135,7 +136,7 @@ def git_config_set(
     except ValueError as e:
         return f"❌ {e}"
     except GitCommandError as e:
-        return f"❌ Config set failed: {str(e)}"
+        return f"❌ Config set failed: {clean_git_error_text(e.stderr, 'stderr')}"
     except Exception as e:
         return f"❌ Config set error: {str(e)}"
 
@@ -169,6 +170,6 @@ def git_config_list(
     except ValueError as e:
         return f"❌ {e}"
     except GitCommandError as e:
-        return f"❌ Config list failed: {str(e)}"
+        return f"❌ Config list failed: {clean_git_error_text(e.stderr, 'stderr')}"
     except Exception as e:
         return f"❌ Config list error: {str(e)}"
