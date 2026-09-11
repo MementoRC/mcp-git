@@ -55,7 +55,13 @@ class GitCommit(BaseModel):
 
 class GitAdd(BaseModel):
     repo_path: str
-    files: list[str]
+    files: list[str] = Field(
+        description=(
+            "File paths to stage. Accepts explicit file paths, directory "
+            "paths (e.g. 'src/'), and '.' to stage the entire working tree, "
+            "same as `git add <pathspec>`."
+        )
+    )
 
 
 class GitReset(BaseModel):

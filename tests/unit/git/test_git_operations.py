@@ -32,7 +32,9 @@ class TestGitAdd:
         mock_repo.working_dir = "/test/repo"
         mock_repo.git.status.return_value = ""  # No files in status
         mock_repo.git.add = Mock()
-        mock_repo.git.diff.return_value = "file1.py\nfile2.py"
+        # git_add snapshots the index before/after the add; nothing staged
+        # yet, then both files staged.
+        mock_repo.git.diff.side_effect = ["", "file1.py\nfile2.py"]
 
         mock_path = Mock()
         mock_path.__truediv__ = Mock(return_value=mock_path)
@@ -48,7 +50,7 @@ class TestGitAdd:
         # Assert
         assert "✅ Added 2 file(s) to staging area: file1.py, file2.py" in result
         mock_repo.git.add.assert_called_once_with(*files)
-        mock_repo.git.diff.assert_called_once_with("--cached", "--name-only")
+        assert mock_repo.git.diff.call_count == 2
 
     @patch("mcp_server_git.git._staging_ops.Path")
     def test_git_add_stages_deleted_files_successfully(self, mock_path_class):
@@ -59,7 +61,7 @@ class TestGitAdd:
         # Simulate git status showing deleted file
         mock_repo.git.status.return_value = " D deleted_file.py\n M modified_file.py"
         mock_repo.git.add = Mock()
-        mock_repo.git.diff.return_value = "deleted_file.py"
+        mock_repo.git.diff.side_effect = ["", "deleted_file.py"]
 
         mock_path = Mock()
         mock_path.__truediv__ = Mock(return_value=mock_path)
@@ -112,7 +114,7 @@ class TestGitAdd:
         # Git status shows one deleted file
         mock_repo.git.status.return_value = " D deleted.py"
         mock_repo.git.add = Mock()
-        mock_repo.git.diff.return_value = "existing.py\ndeleted.py"
+        mock_repo.git.diff.side_effect = ["", "existing.py\ndeleted.py"]
 
         # Mock Path constructor and the / operator properly
         mock_repo_path = Mock()
@@ -135,8 +137,9 @@ class TestGitAdd:
         # Act
         result = git_add(mock_repo, files)
 
-        # Assert
-        assert "✅ Added 2 file(s) to staging area: existing.py, deleted.py" in result
+        # Assert — reported names are sorted (index-derived, not
+        # input-order-derived)
+        assert "✅ Added 2 file(s) to staging area: deleted.py, existing.py" in result
         mock_repo.git.add.assert_called_once_with(*files)
 
     def test_git_add_handles_git_command_error(self):
@@ -187,7 +190,7 @@ class TestGitAdd:
             "MM conflict_file.py"
         )
         mock_repo.git.add = Mock()
-        mock_repo.git.diff.return_value = "deleted_file.py"
+        mock_repo.git.diff.side_effect = ["", "deleted_file.py"]
 
         mock_path = Mock()
         mock_path.__truediv__ = Mock(return_value=mock_path)
@@ -236,7 +239,7 @@ class TestGitAdd:
         mock_repo.working_dir = "/test/repo"
         mock_repo.git.status.return_value = ""
         mock_repo.git.add = Mock()
-        mock_repo.git.diff.return_value = "symlink_file.py"
+        mock_repo.git.diff.side_effect = ["", "symlink_file.py"]
 
         mock_path = Mock()
         mock_path.__truediv__ = Mock(return_value=mock_path)
@@ -255,19 +258,17 @@ class TestGitAdd:
 
     @patch("mcp_server_git.git._staging_ops.Path")
     def test_git_add_handles_verification_fallback(self, mock_path_class):
-        """Should handle verification fallback when git diff fails."""
+        """Should fall back to `git ls-files --cached` when `git diff
+        --cached` raises (e.g. no HEAD yet), and still report accurately."""
         # Arrange
         mock_repo = Mock()
         mock_repo.working_dir = "/test/repo"
         mock_repo.git.status.return_value = ""
         mock_repo.git.add = Mock()
-        # First diff call fails, should try fallback
+        # git diff --cached fails on both snapshot calls (e.g. no HEAD);
+        # the ls-files fallback provides the before/after staged sets.
         mock_repo.git.diff.side_effect = GitCommandError("diff failed")
-
-        # Mock the index.diff fallback
-        mock_item = Mock()
-        mock_item.a_path = "test_file.py"
-        mock_repo.index.diff.return_value = [mock_item]
+        mock_repo.git.ls_files.side_effect = ["", "test_file.py"]
 
         mock_path = Mock()
         mock_path.__truediv__ = Mock(return_value=mock_path)
@@ -286,15 +287,17 @@ class TestGitAdd:
 
     @patch("mcp_server_git.git._staging_ops.Path")
     def test_git_add_handles_verification_double_fallback(self, mock_path_class):
-        """Should handle when both verification methods fail."""
+        """When both the index-diff and ls-files snapshot methods fail,
+        git_add cannot know what is actually staged, so it must report an
+        error rather than guess "no changes" or "success"."""
         # Arrange
         mock_repo = Mock()
         mock_repo.working_dir = "/test/repo"
         mock_repo.git.status.return_value = ""
         mock_repo.git.add = Mock()
-        # Both verification methods fail
+        # Both snapshot methods fail
         mock_repo.git.diff.side_effect = GitCommandError("diff failed")
-        mock_repo.index.diff.side_effect = GitCommandError("index diff failed")
+        mock_repo.git.ls_files.side_effect = GitCommandError("ls-files failed")
 
         mock_path = Mock()
         mock_path.__truediv__ = Mock(return_value=mock_path)
@@ -307,9 +310,10 @@ class TestGitAdd:
         # Act
         result = git_add(mock_repo, files)
 
-        # Assert
-        assert "⚠️ No changes detected in specified files" in result
-        mock_repo.git.add.assert_called_once_with(*files)
+        # Assert — fails before the index is touched, since the pre-add
+        # snapshot itself could not be taken
+        assert "❌ Git add failed:" in result
+        mock_repo.git.add.assert_not_called()
 
 
 class TestGitAddBatchOperations:
@@ -518,7 +522,7 @@ class TestGitAddBatchOperations:
         mock_repo.working_dir = "/test/repo"
         mock_repo.git.status.return_value = " M file1.py"
         mock_repo.git.add = Mock()
-        mock_repo.git.diff.return_value = "file1.py"
+        mock_repo.git.diff.side_effect = ["", "file1.py"]
 
         mock_path = Mock()
         mock_path.__truediv__ = Mock(return_value=mock_path)
