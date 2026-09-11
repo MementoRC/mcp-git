@@ -12,8 +12,12 @@ __all__ = [
     "git_add",
     "_file_exists_or_in_git",
     "_get_mocked_file_path",
+    "_get_staged_file_set",
+    "_format_file_list",
     "git_reset",
 ]
+
+_FILE_LIST_DISPLAY_LIMIT = 20
 
 
 def git_add(
@@ -137,27 +141,18 @@ def git_add(
             if missing_files:
                 return f"❌ Files not found: {', '.join(missing_files)}"
 
-            # Add files to staging area
+            # Snapshot the index before/after the add and report the actual
+            # difference. Pathspecs like "." or a directory never equal a
+            # staged filename, so comparing the literal input strings
+            # against staged filenames (the previous approach) always
+            # under-reports for any non-explicit-file pathspec.
+            staged_before = _get_staged_file_set(repo)
             repo.git.add(*files)
+            staged_after = _get_staged_file_set(repo)
+            newly_staged = sorted(staged_after - staged_before)
 
-            # Verify files were added
-            try:
-                # Use git diff --cached to get staged files (works in all cases)
-                staged_output = repo.git.diff("--cached", "--name-only")
-                staged_files = [
-                    f.strip() for f in staged_output.split("\n") if f.strip()
-                ]
-            except (GitCommandError, Exception):
-                # Fallback to traditional method
-                try:
-                    staged_files = [item.a_path for item in repo.index.diff("HEAD")]
-                except (GitCommandError, Exception):
-                    staged_files = []
-
-            added_files = [f for f in files if f in staged_files]
-
-            if added_files:
-                return f"✅ Added {len(added_files)} file(s) to staging area: {', '.join(added_files)}"
+            if newly_staged:
+                return f"✅ Added {len(newly_staged)} file(s) to staging area: {_format_file_list(newly_staged)}"
             else:
                 return "⚠️ No changes detected in specified files"
 
@@ -173,6 +168,32 @@ def git_add(
             return f"❌ Git add failed: {error_msg}"
     except Exception as e:
         return f"❌ Git add failed: {str(e)}"
+
+
+def _get_staged_file_set(repo: Repo) -> set:
+    """Return the set of file paths currently present in the git index.
+
+    Compares the index against HEAD so callers can diff two snapshots to
+    find what an operation actually staged, independent of what pathspec
+    (explicit files, a directory, or ".") was used to stage it.
+
+    Falls back to listing the index directly when there is no HEAD yet
+    (a repo with no initial commit), where `git diff --cached` has
+    nothing to diff against and raises.
+    """
+    try:
+        staged_output = repo.git.diff("--cached", "--name-only")
+    except GitCommandError:
+        staged_output = repo.git.ls_files("--cached")
+    return {line.strip() for line in staged_output.split("\n") if line.strip()}
+
+
+def _format_file_list(files: list[str], limit: int = _FILE_LIST_DISPLAY_LIMIT) -> str:
+    """Render a file list for display, capping long lists at *limit* names."""
+    if len(files) <= limit:
+        return ", ".join(files)
+    shown = ", ".join(files[:limit])
+    return f"{shown} (and {len(files) - limit} more)"
 
 
 def _file_exists_or_in_git(repo: Repo, file: str, status_files: set) -> bool:
