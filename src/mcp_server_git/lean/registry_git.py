@@ -4,11 +4,12 @@ import logging
 from typing import Any
 
 from ..git import operations as git_ops
+from ..git.merge_ops import git_merge_file
 from ..git.models import (
     GitAbort,
     GitAdd,
-    GitBranchList,
     GitBranchDelete,
+    GitBranchList,
     GitBranchUpdate,
     GitCheckout,
     GitCherryPick,
@@ -25,7 +26,6 @@ from ..git.models import (
     GitDiffUnstaged,
     GitInit,
     GitLog,
-    GitReflog,
     GitMerge,
     GitMergeBase,
     GitMergeFile,
@@ -33,20 +33,20 @@ from ..git.models import (
     GitPull,
     GitPush,
     GitRebase,
+    GitReflog,
     GitReset,
     GitRestore,
+    GitRm,
     GitShow,
     GitStatus,
     GitSubmoduleAdd,
     GitSubmoduleStatus,
     GitSubmoduleSync,
     GitSubmoduleUpdate,
-    GitRm,
     GitWorktreeAdd,
     GitWorktreeList,
     GitWorktreeRemove,
 )
-from ..git.merge_ops import git_merge_file
 from ..git.operations_extended import (
     git_branch_delete,
     git_branch_update,
@@ -560,6 +560,10 @@ def _register_git_tools(interface: Any, git_service: Any):
             schema=GitMergeFile.model_json_schema(),
             domain="git",
             complexity="focused",
+            # `path` names a path inside a git revision, not one on disk, so it
+            # must stay repo-relative. `output_path` is a real filesystem
+            # destination and deliberately stays subject to the absolute check.
+            relative_path_params={"path"},
         ),
         ToolDefinition(
             name="git_rm",
