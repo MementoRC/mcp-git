@@ -322,28 +322,13 @@ class TestGitAdd:
 class TestGitAddBatchOperations:
     """Test git_add batch operations and new parameters."""
 
-    def test_git_add_all_stages_all_changes(self):
-        """Should stage all changes including untracked files with add_all=True."""
-        # Arrange
-        mock_repo = Mock()
-        mock_repo.working_dir = "/test/repo"
-        mock_repo.git.add = Mock()
-        mock_repo.git.diff.return_value = "file1.py\nfile2.py\nnew_file.py"
-
-        # Act
-        result = git_add(mock_repo, add_all=True)
-
-        # Assert
-        assert "✅ Added 3 file(s) to staging area (all changes)" in result
-        mock_repo.git.add.assert_called_once_with("-A")
-
     def test_git_add_update_only_stages_tracked_changes(self):
         """Should stage only tracked file updates and deletions with update_only=True."""
         # Arrange
         mock_repo = Mock()
         mock_repo.working_dir = "/test/repo"
         mock_repo.git.add = Mock()
-        mock_repo.git.diff.return_value = "modified.py\ndeleted.py"
+        mock_repo.git.diff.side_effect = ["", "modified.py\ndeleted.py"]
 
         # Act
         result = git_add(mock_repo, update_only=True)
@@ -358,14 +343,15 @@ class TestGitAddBatchOperations:
         mock_repo = Mock()
         mock_repo.working_dir = "/test/repo"
         mock_repo.git.add = Mock()
-        mock_repo.git.diff.return_value = "file1.py\nfile2.py"
+        mock_repo.git.diff.side_effect = ["", "file1.py\nfile2.py"]
         patterns = ["*.py"]
 
         # Act
         result = git_add(mock_repo, patterns=patterns)
 
         # Assert
-        assert "✅ Added 2 file(s) to staging area: *.py" in result
+        assert "✅ Added 2 file(s) to staging area: file1.py, file2.py" in result
+        assert "matching *.py" in result
         mock_repo.git.add.assert_called_once_with(*patterns)
 
     def test_git_add_patterns_multiple_patterns(self):
@@ -374,14 +360,15 @@ class TestGitAddBatchOperations:
         mock_repo = Mock()
         mock_repo.working_dir = "/test/repo"
         mock_repo.git.add = Mock()
-        mock_repo.git.diff.return_value = "file1.py\nfile2.js"
+        mock_repo.git.diff.side_effect = ["", "file1.py\nfile2.js"]
         patterns = ["*.py", "*.js"]
 
         # Act
         result = git_add(mock_repo, patterns=patterns)
 
         # Assert
-        assert "✅ Added 2 file(s) to staging area: *.py, *.js" in result
+        assert "✅ Added 2 file(s) to staging area: file1.py, file2.js" in result
+        assert "matching *.py, *.js" in result
         mock_repo.git.add.assert_called_once_with(*patterns)
 
     def test_git_add_patterns_no_matches(self):
@@ -390,7 +377,7 @@ class TestGitAddBatchOperations:
         mock_repo = Mock()
         mock_repo.working_dir = "/test/repo"
         mock_repo.git.add = Mock()
-        mock_repo.git.diff.return_value = ""  # No files staged
+        mock_repo.git.diff.side_effect = ["", ""]  # No files staged
         patterns = ["*.nonexistent"]
 
         # Act
@@ -399,19 +386,6 @@ class TestGitAddBatchOperations:
         # Assert
         assert "⚠️ No files matched patterns: *.nonexistent" in result
         mock_repo.git.add.assert_called_once_with(*patterns)
-
-    def test_git_add_rejects_conflicting_files_and_add_all(self):
-        """Should reject when both files and add_all are specified."""
-        # Arrange
-        mock_repo = Mock()
-        mock_repo.working_dir = "/test/repo"
-
-        # Act
-        result = git_add(mock_repo, files=["file.py"], add_all=True)
-
-        # Assert
-        assert "❌ Conflicting parameters: files, add_all" in result
-        mock_repo.git.add.assert_not_called()
 
     def test_git_add_rejects_conflicting_files_and_update_only(self):
         """Should reject when both files and update_only are specified."""
@@ -424,19 +398,6 @@ class TestGitAddBatchOperations:
 
         # Assert
         assert "❌ Conflicting parameters: files, update_only" in result
-        mock_repo.git.add.assert_not_called()
-
-    def test_git_add_rejects_conflicting_add_all_and_update_only(self):
-        """Should reject when both add_all and update_only are specified."""
-        # Arrange
-        mock_repo = Mock()
-        mock_repo.working_dir = "/test/repo"
-
-        # Act
-        result = git_add(mock_repo, add_all=True, update_only=True)
-
-        # Assert
-        assert "❌ Conflicting parameters: add_all, update_only" in result
         mock_repo.git.add.assert_not_called()
 
     def test_git_add_rejects_conflicting_patterns_and_files(self):
@@ -463,7 +424,7 @@ class TestGitAddBatchOperations:
 
         # Assert
         assert (
-            "❌ No files specified. Use files, add_all, update_only, or patterns parameter."
+            "❌ No files specified. Use files, update_only, or patterns parameter."
             in result
         )
         mock_repo.git.add.assert_not_called()
@@ -494,6 +455,7 @@ class TestGitAddBatchOperations:
         # Arrange
         mock_repo = Mock()
         mock_repo.working_dir = "/test/repo"
+        mock_repo.git.diff.return_value = ""  # staged_before snapshot succeeds
         mock_repo.git.add.side_effect = GitCommandError("Pattern matching failed")
         patterns = ["*.py"]
 
@@ -502,21 +464,6 @@ class TestGitAddBatchOperations:
 
         # Assert
         assert "❌ Pattern matching failed:" in result
-
-    def test_git_add_all_handles_empty_repo(self):
-        """Should handle add_all on empty repository."""
-        # Arrange
-        mock_repo = Mock()
-        mock_repo.working_dir = "/test/repo"
-        mock_repo.git.add = Mock()
-        mock_repo.git.diff.return_value = ""  # No files staged
-
-        # Act
-        result = git_add(mock_repo, add_all=True)
-
-        # Assert
-        assert "✅ Added 0 file(s) to staging area (all changes)" in result
-        mock_repo.git.add.assert_called_once_with("-A")
 
     def test_git_add_backward_compatible_with_files_list(self):
         """Should maintain backward compatibility with traditional files parameter."""

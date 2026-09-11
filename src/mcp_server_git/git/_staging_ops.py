@@ -24,7 +24,6 @@ _FILE_LIST_DISPLAY_LIMIT = 20
 def git_add(
     repo: Repo,
     files: list[str] | None = None,
-    add_all: bool = False,
     update_only: bool = False,
     patterns: list[str] | None = None,
 ) -> str:
@@ -33,7 +32,6 @@ def git_add(
     Args:
         repo: Git repository object
         files: List of specific file paths to add (traditional behavior)
-        add_all: If True, stage all changes including untracked files (equivalent to git add -A)
         update_only: If True, stage only modifications and deletions, not new files (equivalent to git add -u)
         patterns: List of glob patterns to match files (e.g., ["*.py", "src/**/*.js"])
 
@@ -42,8 +40,7 @@ def git_add(
 
     Note:
         Parameters are mutually exclusive:
-        - Use files for specific file paths
-        - Use add_all for staging all changes (git add -A)
+        - Use files for specific file paths (use files=["."] to stage everything)
         - Use update_only for staging only tracked file changes (git add -u)
         - Use patterns for glob-based file matching
 
@@ -55,8 +52,6 @@ def git_add(
         provided_options = []
         if files:
             provided_options.append("files")
-        if add_all:
-            provided_options.append("add_all")
         if update_only:
             provided_options.append("update_only")
         if patterns:
@@ -66,36 +61,19 @@ def git_add(
             return f"❌ Conflicting parameters: {', '.join(provided_options)}. Use only one method to specify what to add."
 
         if len(provided_options) == 0:
-            return "❌ No files specified. Use files, add_all, update_only, or patterns parameter."
-
-        # Handle batch operations (add_all or update_only)
-        if add_all:
-            # Stage all changes including untracked files
-            repo.git.add("-A")
-            # Get count of staged changes
-            try:
-                staged_output = repo.git.diff("--cached", "--name-only")
-                staged_files = [
-                    f.strip() for f in staged_output.split("\n") if f.strip()
-                ]
-                count = len(staged_files)
-                return f"✅ Added {count} file(s) to staging area (all changes)"
-            except Exception:
-                return "✅ Added files to staging area (all changes)"
+            return (
+                "❌ No files specified. Use files, update_only, or patterns parameter."
+            )
 
         if update_only:
-            # Stage only modifications and deletions (no new files)
+            # Stage only modifications and deletions (no new files). Report
+            # the delta between before/after snapshots, not the total
+            # staged set, so a pre-existing staged file isn't counted.
+            staged_before = _get_staged_file_set(repo)
             repo.git.add("-u")
-            # Get count of staged changes
-            try:
-                staged_output = repo.git.diff("--cached", "--name-only")
-                staged_files = [
-                    f.strip() for f in staged_output.split("\n") if f.strip()
-                ]
-                count = len(staged_files)
-                return f"✅ Added {count} file(s) to staging area (tracked updates)"
-            except Exception:
-                return "✅ Added files to staging area (tracked updates)"
+            staged_after = _get_staged_file_set(repo)
+            newly_staged = staged_after - staged_before
+            return f"✅ Added {len(newly_staged)} file(s) to staging area (tracked updates)"
 
         # Handle pattern-based additions
         if patterns:
@@ -105,16 +83,20 @@ def git_add(
                 if any(char in pattern for char in dangerous_chars):
                     return f"❌ Invalid characters detected in pattern: {pattern}"
 
-            # Add files matching patterns
+            # Add files matching patterns and report the delta, not the
+            # total staged set (which would report success/failure based on
+            # stale state left over from an earlier, unrelated staging call).
             try:
+                staged_before = _get_staged_file_set(repo)
                 repo.git.add(*patterns)
-                # Get list of what was added
-                staged_output = repo.git.diff("--cached", "--name-only")
-                staged_files = [
-                    f.strip() for f in staged_output.split("\n") if f.strip()
-                ]
-                if staged_files:
-                    return f"✅ Added {len(staged_files)} file(s) to staging area: {', '.join(patterns)}"
+                staged_after = _get_staged_file_set(repo)
+                newly_staged = sorted(staged_after - staged_before)
+                if newly_staged:
+                    return (
+                        f"✅ Added {len(newly_staged)} file(s) to staging area: "
+                        f"{_format_file_list(newly_staged)} "
+                        f"(matching {', '.join(patterns)})"
+                    )
                 else:
                     return f"⚠️ No files matched patterns: {', '.join(patterns)}"
             except GitCommandError as e:
@@ -158,7 +140,7 @@ def git_add(
                 return "⚠️ No changes detected in specified files"
 
         # Fallback (should not be reached due to parameter validation above)
-        return "❌ No files specified. Use files, add_all, update_only, or patterns parameter."
+        return "❌ No files specified. Use files, update_only, or patterns parameter."
 
     except GitCommandError as e:
         return f"❌ Git add failed: {clean_git_error_text(e.stderr, 'stderr')}"
