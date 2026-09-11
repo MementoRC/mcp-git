@@ -46,12 +46,11 @@ Please note that mcp-server-git is currently in early development. The functiona
    - Adds file contents to the staging area with support for batch operations
    - Inputs:
      - `repo_path` (string): Path to Git repository
-     - `files` (string[], optional): Array of file paths to stage
-     - `add_all` (boolean, optional): Stage all changes including untracked files (git add -A)
+     - `files` (string[], optional): Array of file paths to stage (use `["."]` to stage everything)
      - `update_only` (boolean, optional): Stage only tracked file updates and deletions (git add -u)
      - `patterns` (string[], optional): Array of glob patterns to match files (e.g., ["*.py", "src/**/*.js"])
    - Returns: Confirmation of staged files
-   - Note: Only one of files, add_all, update_only, or patterns should be specified
+   - Note: Only one of files, update_only, or patterns should be specified
 
 7. `git_reset`
    - Unstages all staged changes

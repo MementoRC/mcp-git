@@ -55,12 +55,23 @@ class GitCommit(BaseModel):
 
 class GitAdd(BaseModel):
     repo_path: str
-    files: list[str] = Field(
+    files: list[str] | None = Field(
+        default=None,
         description=(
             "File paths to stage. Accepts explicit file paths, directory "
             "paths (e.g. 'src/'), and '.' to stage the entire working tree, "
             "same as `git add <pathspec>`."
-        )
+        ),
+    )
+    update_only: bool = Field(
+        default=False,
+        description=(
+            "Stage only modifications and deletions to tracked files "
+            "(git add -u); does not stage untracked files."
+        ),
+    )
+    patterns: list[str] | None = Field(
+        default=None, description="Glob patterns to stage"
     )
 
 
