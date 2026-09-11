@@ -1,4 +1,5 @@
 """GitHub Pull Request action operations — create, update, merge, comments."""
+
 from __future__ import annotations
 
 import logging

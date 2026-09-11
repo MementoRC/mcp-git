@@ -1,7 +1,9 @@
 """GitHub security operations - vulnerability alerts, security fixes, analysis."""
 
 from __future__ import annotations
+
 import logging
+
 from mcp_server_git.github.client import github_client_context
 
 logger = logging.getLogger(__name__)

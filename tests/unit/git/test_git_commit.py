@@ -25,7 +25,9 @@ class TestGitCommitModel:
 
     def test_allow_empty_can_be_set_to_true(self):
         """allow_empty field should accept True."""
-        model = GitCommit(repo_path="/tmp/repo", message="test commit", allow_empty=True)
+        model = GitCommit(
+            repo_path="/tmp/repo", message="test commit", allow_empty=True
+        )
         assert model.allow_empty is True
 
     def test_allow_empty_field_description(self):
@@ -59,9 +61,7 @@ class TestGitCommitAllowEmpty:
 
     @patch("mcp_server_git.git._commit_ops.subprocess.run")
     @patch("mcp_server_git.git.security.enforce_secure_git_config")
-    def test_allow_empty_true_adds_flag_to_command(
-        self, mock_security, mock_run
-    ):
+    def test_allow_empty_true_adds_flag_to_command(self, mock_security, mock_run):
         """allow_empty=True must add --allow-empty before --gpg-sign in cmd."""
         mock_security.return_value = "✅ secure"
         commit_result, rev_parse_result = self._make_subprocess_results()
@@ -76,9 +76,7 @@ class TestGitCommitAllowEmpty:
 
     @patch("mcp_server_git.git._commit_ops.subprocess.run")
     @patch("mcp_server_git.git.security.enforce_secure_git_config")
-    def test_allow_empty_false_does_not_add_flag(
-        self, mock_security, mock_run
-    ):
+    def test_allow_empty_false_does_not_add_flag(self, mock_security, mock_run):
         """allow_empty=False (default) must NOT add --allow-empty to cmd."""
         mock_security.return_value = "✅ secure"
         commit_result, rev_parse_result = self._make_subprocess_results()
@@ -93,9 +91,7 @@ class TestGitCommitAllowEmpty:
 
     @patch("mcp_server_git.git._commit_ops.subprocess.run")
     @patch("mcp_server_git.git.security.enforce_secure_git_config")
-    def test_allow_empty_default_does_not_add_flag(
-        self, mock_security, mock_run
-    ):
+    def test_allow_empty_default_does_not_add_flag(self, mock_security, mock_run):
         """Calling git_commit without allow_empty must not add --allow-empty."""
         mock_security.return_value = "✅ secure"
         commit_result, rev_parse_result = self._make_subprocess_results()
@@ -110,9 +106,7 @@ class TestGitCommitAllowEmpty:
 
     @patch("mcp_server_git.git._commit_ops.subprocess.run")
     @patch("mcp_server_git.git.security.enforce_secure_git_config")
-    def test_allow_empty_flag_position_before_gpg_sign(
-        self, mock_security, mock_run
-    ):
+    def test_allow_empty_flag_position_before_gpg_sign(self, mock_security, mock_run):
         """--allow-empty must appear before --gpg-sign= in the command."""
         mock_security.return_value = "✅ secure"
         commit_result, rev_parse_result = self._make_subprocess_results()
@@ -128,9 +122,7 @@ class TestGitCommitAllowEmpty:
 
     @patch("mcp_server_git.git._commit_ops.subprocess.run")
     @patch("mcp_server_git.git.security.enforce_secure_git_config")
-    def test_allow_empty_combined_with_amend(
-        self, mock_security, mock_run
-    ):
+    def test_allow_empty_combined_with_amend(self, mock_security, mock_run):
         """allow_empty=True and amend=True should both appear in command."""
         mock_security.return_value = "✅ secure"
         commit_result, rev_parse_result = self._make_subprocess_results()

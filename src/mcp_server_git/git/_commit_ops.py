@@ -367,15 +367,21 @@ def git_reflog(
             #   "rebase (start): checkout main"    -> "rebase (start)"
             #   "commit (initial import): msg"     -> "commit (initial import)"
             pre_colon = subject.split(":", 1)[0].strip() if subject else ""
-            m = re.match(r'^(\w[\w-]*(?:\s+\([^)]*\))?)', pre_colon)
-            action = m.group(1) if m else (pre_colon.split()[0] if pre_colon.split() else "unknown")
+            m = re.match(r"^(\w[\w-]*(?:\s+\([^)]*\))?)", pre_colon)
+            action = (
+                m.group(1)
+                if m
+                else (pre_colon.split()[0] if pre_colon.split() else "unknown")
+            )
 
-            entries.append({
-                "new_sha": new_sha,
-                "label": label,
-                "action": action,
-                "message": subject,
-            })
+            entries.append(
+                {
+                    "new_sha": new_sha,
+                    "label": label,
+                    "action": action,
+                    "message": subject,
+                }
+            )
 
         # old_sha for entry[i] = entry[i+1].new_sha (reflog is newest-first).
         # Only valid for single-ref reflogs; under all=True entries from different
@@ -387,13 +393,15 @@ def git_reflog(
         # Warn on large output, mirroring git_show's 50KB threshold.
         serialized_size = len(str(entries))
         if serialized_size > 50000:  # 50KB threshold
-            entries.append({
-                "warning": (
-                    f"⚠️  Large reflog detected ({len(entries) - 1} entries, "
-                    f"~{serialized_size // 1000}KB). "
-                    "Consider using max_count to limit output."
-                )
-            })
+            entries.append(
+                {
+                    "warning": (
+                        f"⚠️  Large reflog detected ({len(entries) - 1} entries, "
+                        f"~{serialized_size // 1000}KB). "
+                        "Consider using max_count to limit output."
+                    )
+                }
+            )
 
         return entries
 

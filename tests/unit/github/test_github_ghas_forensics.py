@@ -58,9 +58,7 @@ class TestGithubListRulesets:
         with patch(_PATCH_CTX) as mock_ctx:
             mock_ctx.return_value.__aenter__.return_value = mock_client
 
-            result = await github_list_rulesets(
-                repo_owner=_OWNER, repo_name=_REPO
-            )
+            result = await github_list_rulesets(repo_owner=_OWNER, repo_name=_REPO)
 
         assert result == rulesets
         mock_client.get.assert_called_once_with(
@@ -76,9 +74,7 @@ class TestGithubListRulesets:
         with patch(_PATCH_CTX) as mock_ctx:
             mock_ctx.return_value.__aenter__.return_value = mock_client
 
-            result = await github_list_rulesets(
-                repo_owner=_OWNER, repo_name=_REPO
-            )
+            result = await github_list_rulesets(repo_owner=_OWNER, repo_name=_REPO)
 
         assert "❌" in result
         assert "not found" in result.lower()
@@ -165,9 +161,7 @@ class TestGithubGetRuleset:
             )
 
         assert result == ruleset
-        mock_client.get.assert_called_once_with(
-            f"/repos/{_OWNER}/{_REPO}/rulesets/42"
-        )
+        mock_client.get.assert_called_once_with(f"/repos/{_OWNER}/{_REPO}/rulesets/42")
 
     @pytest.mark.asyncio
     async def test_get_ruleset_returns_not_found_when_status_404(self):
@@ -575,7 +569,11 @@ class TestGithubGetCodeScanningDefaultSetup:
     @pytest.mark.asyncio
     async def test_get_default_setup_returns_dict_when_status_200(self):
         """GET 200 returns the default-setup configuration."""
-        config = {"state": "configured", "languages": ["python"], "query_suite": "default"}
+        config = {
+            "state": "configured",
+            "languages": ["python"],
+            "query_suite": "default",
+        }
         mock_client, _ = _mock_client("get", 200, json_body=config)
 
         with patch(_PATCH_CTX) as mock_ctx:
@@ -648,7 +646,13 @@ class TestGithubListSecretScanningAlerts:
     @pytest.mark.asyncio
     async def test_list_secret_alerts_returns_list_when_status_200(self):
         """GET 200 returns the alert list."""
-        alerts = [{"number": 1, "state": "open", "secret_type": "github_personal_access_token"}]
+        alerts = [
+            {
+                "number": 1,
+                "state": "open",
+                "secret_type": "github_personal_access_token",
+            }
+        ]
         mock_client, _ = _mock_client("get", 200, json_body=alerts)
 
         with patch(_PATCH_CTX) as mock_ctx:

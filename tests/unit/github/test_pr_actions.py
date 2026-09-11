@@ -4,6 +4,7 @@ Unit tests for github_get_pr_comments and github_get_pr_reviews functions.
 Tests bot-template placeholder expansion via rendered body_text and diff_hunk
 inclusion in review comment output.
 """
+
 from __future__ import annotations
 
 from contextlib import asynccontextmanager

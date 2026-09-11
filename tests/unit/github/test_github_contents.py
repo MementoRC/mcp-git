@@ -7,7 +7,6 @@ Tests the lightweight read-by-ref GitHub tools:
 """
 
 import base64
-
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -30,9 +29,7 @@ class TestGitHubGetContent:
             return_value={
                 "type": "file",
                 "encoding": "base64",
-                "content": base64.b64encode(raw_text.encode("utf-8")).decode(
-                    "ascii"
-                ),
+                "content": base64.b64encode(raw_text.encode("utf-8")).decode("ascii"),
                 "sha": "abc123def456",
                 "size": len(raw_text),
             }

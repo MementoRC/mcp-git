@@ -86,7 +86,8 @@ def git_restore(
         return f"✅ Restored {len(files)} file(s): {file_list}{suffix} ({mode})"
 
     except GitCommandError as e:
-        return f"❌ Restore failed: {e.stderr.decode() if isinstance(e.stderr, bytes) else e.stderr}"
+        stderr = _clean_git_error_text(e.stderr, "stderr")
+        return f"❌ Restore failed: {stderr}"
     except Exception as e:
         return f"❌ Error during restore: {str(e)}"
 
@@ -123,7 +124,7 @@ def git_branch_update(
             return f"✅ Updated branch '{branch_name}' → {target}"
 
     except GitCommandError as e:
-        stderr = e.stderr.decode() if isinstance(e.stderr, bytes) else e.stderr
+        stderr = _clean_git_error_text(e.stderr, "stderr")
         return f"❌ Branch update failed: {stderr}"
     except Exception as e:
         return f"❌ Error updating branch: {str(e)}"
@@ -177,7 +178,7 @@ def git_worktree_list(repo: Repo) -> str:
         return "\n".join(lines)
 
     except GitCommandError as e:
-        stderr = e.stderr.decode() if isinstance(e.stderr, bytes) else e.stderr
+        stderr = _clean_git_error_text(e.stderr, "stderr")
         return f"❌ Failed to list worktrees: {stderr}"
     except Exception as e:
         return f"❌ Error listing worktrees: {str(e)}"
@@ -202,7 +203,7 @@ def git_worktree_remove(
         return f"✅ Removed worktree: {worktree_path}"
 
     except GitCommandError as e:
-        stderr = e.stderr.decode() if isinstance(e.stderr, bytes) else e.stderr
+        stderr = _clean_git_error_text(e.stderr, "stderr")
         return f"❌ Failed to remove worktree: {stderr}"
     except Exception as e:
         return f"❌ Error removing worktree: {str(e)}"
@@ -269,7 +270,7 @@ def git_worktree_add(
         return f"✅ Worktree added at {worktree_path}{suffix}"
 
     except GitCommandError as e:
-        stderr = e.stderr.decode() if isinstance(e.stderr, bytes) else e.stderr
+        stderr = _clean_git_error_text(e.stderr, "stderr")
         return f"❌ Failed to add worktree: {stderr}"
     except Exception as e:
         return f"❌ Error adding worktree: {str(e)}"
@@ -393,7 +394,7 @@ def git_rm(
         return f"✅ Removed '{file}' {mode}"
 
     except GitCommandError as e:
-        stderr = e.stderr.decode() if isinstance(e.stderr, bytes) else e.stderr
+        stderr = _clean_git_error_text(e.stderr, "stderr")
         if "did not match any files" in stderr:
             return f"❌ File not found: '{file}' is not tracked by git"
         if "has local modifications" in stderr or "has changes staged" in stderr:

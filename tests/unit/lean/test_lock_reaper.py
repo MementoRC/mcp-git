@@ -125,9 +125,7 @@ class TestReapStaleIndexLockWorktree:
     'gitdir: <path>'. The lock lives in that resolved gitdir, not at
     <repo>/.git/index.lock. Uses a real worktree, no mocked resolution."""
 
-    def test_worktree_resolves_to_real_gitdir_and_reaps_lock_there(
-        self, tmp_path
-    ):
+    def test_worktree_resolves_to_real_gitdir_and_reaps_lock_there(self, tmp_path):
         pytest.importorskip("git")
         from git import Repo
 

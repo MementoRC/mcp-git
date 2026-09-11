@@ -103,7 +103,9 @@ def git_stash_pop(repo: Repo, stash_id: str | None = None) -> str:
 
         result = _run_git(args, cwd=repo.working_dir)
         if result.returncode != 0:
-            return f"❌ Stash pop failed: {result.stderr.strip() or result.stdout.strip()}"
+            return (
+                f"❌ Stash pop failed: {result.stderr.strip() or result.stdout.strip()}"
+            )
 
         if stash_id:
             return f"✅ Successfully popped stash {stash_id}"

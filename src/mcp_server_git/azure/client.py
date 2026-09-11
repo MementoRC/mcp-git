@@ -4,7 +4,6 @@ import logging
 import os
 import re
 from dataclasses import dataclass
-from typing import Optional
 
 import aiohttp
 
@@ -24,7 +23,7 @@ class AzureClient:
     Write endpoints (POST/PATCH) always require a token.
     """
 
-    token: Optional[str]
+    token: str | None
     organization: str
     session: aiohttp.ClientSession
     base_url: str = "https://dev.azure.com"
@@ -46,7 +45,7 @@ class AzureClient:
         pattern = r"^[a-zA-Z0-9+/=]{20,}$"
         return bool(re.match(pattern, token.strip()))
 
-    def _auth(self) -> Optional[aiohttp.BasicAuth]:
+    def _auth(self) -> aiohttp.BasicAuth | None:
         """Return BasicAuth only when a token is present.
 
         Omitting auth entirely avoids sending an Authorization header,

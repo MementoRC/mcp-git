@@ -4,14 +4,11 @@ Decomposed for AG file-size policy. See _*_ops.py modules for implementations.
 Public API preserved: tests and `git/__init__.py` continue to import from here.
 """
 
-from ._diff_ops import (
-    _apply_diff_size_limiting,
-    _validate_commit_range,
-    _validate_diff_parameters,
-    git_diff,
-    git_diff_branches,
-    git_diff_staged,
-    git_diff_unstaged,
+from ._branch_ops import (
+    git_branch_list,
+    git_checkout,
+    git_create_branch,
+    git_merge_base,
 )
 from ._commit_ops import (
     git_blame,
@@ -21,14 +18,30 @@ from ._commit_ops import (
     git_show,
     git_status,
 )
-from ._staging_ops import git_add, git_reset
-from ._branch_ops import (
-    git_branch_list,
-    git_checkout,
-    git_create_branch,
-    git_merge_base,
+from ._config_ops import (
+    _validate_config_file,
+    _validate_config_key,
+    git_config_get,
+    git_config_list,
+    git_config_set,
+)
+from ._diff_ops import (
+    _apply_diff_size_limiting,
+    _validate_commit_range,
+    _validate_diff_parameters,
+    git_diff,
+    git_diff_branches,
+    git_diff_staged,
+    git_diff_unstaged,
 )
 from ._init_ops import git_init
+from ._rebase_ops import (
+    git_abort,
+    git_cherry_pick,
+    git_continue,
+    git_merge,
+    git_rebase,
+)
 from ._remote_ops import (
     git_clone,
     git_fetch,
@@ -41,33 +54,20 @@ from ._remote_ops import (
     git_remote_rename,
     git_remote_set_url,
 )
-from ._rebase_ops import (
-    git_abort,
-    git_cherry_pick,
-    git_continue,
-    git_merge,
-    git_rebase,
-)
+from ._staging_ops import git_add, git_reset
 from ._stash_ops import (
     git_stash_drop,
     git_stash_list,
     git_stash_pop,
     git_stash_push,
 )
-from ._tag_ops import git_tag_create, git_tag_delete, git_tag_list
 from ._submodule_ops import (
     git_submodule_add,
     git_submodule_status,
     git_submodule_sync,
     git_submodule_update,
 )
-from ._config_ops import (
-    _validate_config_file,
-    _validate_config_key,
-    git_config_get,
-    git_config_list,
-    git_config_set,
-)
+from ._tag_ops import git_tag_create, git_tag_delete, git_tag_list
 
 __all__ = [
     "git_clone",

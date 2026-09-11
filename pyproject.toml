@@ -83,7 +83,7 @@ exclude = ["tests/", "docs/", "examples/"]
 ignore_decorators = ["@app.route", "@click.command", "@click.option"]
 ignore_names = ["__all__", "__version__", "__author__"]
 
-[tool.pixi.project]
+[tool.pixi.workspace]
 channels = ["conda-forge"]
 platforms = ["linux-64"]  # CI-optimized: single platform for reliability
 
@@ -202,7 +202,7 @@ test-property = { cmd = "pytest tests/ -m property -v", env = { CLAUDECODE = "0"
 
 # Quality Gates (CRITICAL - MUST PASS)
 # NOTE: These require quality environment - run with: pixi run -e quality lint
-lint = "ruff check src/ tests/ --select=F,E9"
+lint = "ruff check src/ tests/"
 lint-fix = "ruff check --fix src/ tests/"
 format = "ruff format src/ tests/"
 format-check = "ruff format --check src/ tests/"

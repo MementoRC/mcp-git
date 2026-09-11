@@ -49,10 +49,7 @@ async def github_get_content(
 
             if response.status == 404:
                 where = f" at ref '{ref}'" if ref else ""
-                return (
-                    f"❌ Path '{path}' not found in "
-                    f"{repo_owner}/{repo_name}{where}"
-                )
+                return f"❌ Path '{path}' not found in {repo_owner}/{repo_name}{where}"
             if response.status != 200:
                 error_text = await response.text()
                 return f"❌ Failed to get content: {response.status} - {error_text}"

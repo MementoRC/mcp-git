@@ -12,13 +12,13 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from mcp_server_git.lean.interface import GitLeanInterface
 from mcp_server_git.git._submodule_ops import git_submodule_add
-
+from mcp_server_git.lean.interface import GitLeanInterface
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_minimal_interface() -> GitLeanInterface:
     """Build a GitLeanInterface with real tool registry (no network calls)."""
@@ -28,6 +28,7 @@ def _make_minimal_interface() -> GitLeanInterface:
 # ---------------------------------------------------------------------------
 # Unit tests for the _validate_path_parameters exemption mechanism
 # ---------------------------------------------------------------------------
+
 
 class TestValidatePathParametersExemption:
     """Unit-test the validator with the relative_path_params exemption set."""
@@ -44,7 +45,7 @@ class TestValidatePathParametersExemption:
         )
 
     def test_exempt_param_still_rejects_dotdot(self):
-        """".." traversal in an exempted parameter must still raise ValueError."""
+        """ ".." traversal in an exempted parameter must still raise ValueError."""
         with pytest.raises(ValueError, match="traversal"):
             self.iface._validate_path_parameters(
                 {"path": "../escape"},
@@ -52,7 +53,7 @@ class TestValidatePathParametersExemption:
             )
 
     def test_exempt_param_still_rejects_dotdot_nested(self):
-        """".." embedded in a deeper path must still raise ValueError."""
+        """ ".." embedded in a deeper path must still raise ValueError."""
         with pytest.raises(ValueError, match="traversal"):
             self.iface._validate_path_parameters(
                 {"path": "a/b/../../../etc/passwd"},
@@ -87,6 +88,7 @@ class TestValidatePathParametersExemption:
 # Unit test: git_submodule_add function passes relative path verbatim
 # ---------------------------------------------------------------------------
 
+
 class TestGitSubmoduleAddRelativePath:
     """Direct unit tests for git_submodule_add path forwarding."""
 
@@ -112,7 +114,9 @@ class TestGitSubmoduleAddRelativePath:
             f"Expected 'lib/submod' in submodule call args, got: {call_args}"
         )
         # Must NOT have mutated the path into an absolute path
-        absolute_args = [a for a in call_args if isinstance(a, str) and a.startswith("/")]
+        absolute_args = [
+            a for a in call_args if isinstance(a, str) and a.startswith("/")
+        ]
         assert not absolute_args, (
             f"Absolute path(s) unexpectedly found in submodule args: {absolute_args}"
         )
@@ -139,6 +143,7 @@ class TestGitSubmoduleAddRelativePath:
 # ---------------------------------------------------------------------------
 # Integration tests: execute_tool_direct path through lean interface
 # ---------------------------------------------------------------------------
+
 
 class TestSubmoduleAddViaLeanInterface:
     """Integration tests for git_submodule_add via execute_tool_direct."""

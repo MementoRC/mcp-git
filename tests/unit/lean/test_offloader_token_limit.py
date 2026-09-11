@@ -78,7 +78,9 @@ class TestOffloaderUsesConfiguredLimit:
 
         from mcp_server_git.lean.interface import GitLeanInterface
 
-        iface = GitLeanInterface(git_service=None, github_service=None, azure_service=None)
+        iface = GitLeanInterface(
+            git_service=None, github_service=None, azure_service=None
+        )
         assert iface.token_limiter.default_limit == _CONFIGURED_LIMIT, (
             f"Expected default_limit={_CONFIGURED_LIMIT}, "
             f"got {iface.token_limiter.default_limit} (hard-wired 2000 bug still present)"
@@ -169,6 +171,7 @@ class TestOffloaderDefaultBelowClientCap:
 # ---------------------------------------------------------------------------
 # Profile coverage: safe profiles must stay below the client output cap
 # ---------------------------------------------------------------------------
+
 
 class TestProfilesBelowClientCap:
     """Guard that CONSERVATIVE and BALANCED profiles stay below the client cap."""

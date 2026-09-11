@@ -123,9 +123,7 @@ class TestGitReflogActionParsing:
     ):
         """Should parse action from reflog subject correctly."""
         mock_repo = Mock()
-        mock_repo.git.reflog.return_value = _make_raw(
-            ("a" * 40, "HEAD@{0}", subject)
-        )
+        mock_repo.git.reflog.return_value = _make_raw(("a" * 40, "HEAD@{0}", subject))
 
         result = git_reflog(mock_repo)
 
@@ -134,9 +132,7 @@ class TestGitReflogActionParsing:
     def test_git_reflog_action_unknown_when_subject_empty(self):
         """Should set action='unknown' when subject is empty."""
         mock_repo = Mock()
-        mock_repo.git.reflog.return_value = _make_raw(
-            ("a" * 40, "HEAD@{0}", "")
-        )
+        mock_repo.git.reflog.return_value = _make_raw(("a" * 40, "HEAD@{0}", ""))
 
         result = git_reflog(mock_repo)
 
@@ -220,7 +216,9 @@ class TestGitReflogAllFlag:
         assert isinstance(result, list)
         assert len(result) == 3
         for entry in result:
-            assert "old_sha" not in entry, f"old_sha must be absent under all=True, got: {entry}"
+            assert "old_sha" not in entry, (
+                f"old_sha must be absent under all=True, got: {entry}"
+            )
             assert "new_sha" in entry
             assert "label" in entry
             assert "action" in entry

@@ -15,7 +15,6 @@ from mcp_server_git.git.operations_extended import (
 )
 from mcp_server_git.utils.git_import import GitCommandError
 
-
 PORCELAIN_TWO_WORKTREES = """\
 worktree /home/user/project
 HEAD abc12345def67890abc12345def67890abc12345
@@ -152,11 +151,15 @@ class TestGitWorktreeRemoveSuccess:
         """Should call worktree remove and return success message."""
         mock_repo = Mock()
 
-        result = git_worktree_remove(mock_repo, worktree_path="/home/user/project-feature")
+        result = git_worktree_remove(
+            mock_repo, worktree_path="/home/user/project-feature"
+        )
 
         assert "✅" in result
         assert "/home/user/project-feature" in result
-        mock_repo.git.worktree.assert_called_once_with("remove", "/home/user/project-feature")
+        mock_repo.git.worktree.assert_called_once_with(
+            "remove", "/home/user/project-feature"
+        )
 
     def test_git_worktree_remove_force_removal_passes_force_flag(self):
         """Should pass --force flag when force=True."""
@@ -201,7 +204,9 @@ class TestGitWorktreeRemoveInputValidation:
         """Should accept valid absolute paths with slashes and hyphens."""
         mock_repo = Mock()
 
-        result = git_worktree_remove(mock_repo, worktree_path="/home/user/my-worktree_v2")
+        result = git_worktree_remove(
+            mock_repo, worktree_path="/home/user/my-worktree_v2"
+        )
 
         assert "✅" in result
         mock_repo.git.worktree.assert_called_once()
@@ -264,7 +269,9 @@ class TestGitWorktreeAdd:
         """branch='main', no new_branch: checks out existing branch."""
         mock_repo = Mock()
 
-        result = git_worktree_add(mock_repo, worktree_path="/tmp/wt-main", branch="main")
+        result = git_worktree_add(
+            mock_repo, worktree_path="/tmp/wt-main", branch="main"
+        )
 
         assert "✅" in result
         assert "branch main" in result
@@ -274,7 +281,9 @@ class TestGitWorktreeAdd:
         """new_branch='feature', no branch: creates branch from HEAD using -b."""
         mock_repo = Mock()
 
-        result = git_worktree_add(mock_repo, worktree_path="/tmp/wt-feature", new_branch="feature")
+        result = git_worktree_add(
+            mock_repo, worktree_path="/tmp/wt-feature", new_branch="feature"
+        )
 
         assert "✅" in result
         assert "new branch feature" in result
@@ -365,14 +374,18 @@ class TestGitWorktreeAdd:
         """commit_ish only: detached HEAD at that commit-ish."""
         mock_repo = Mock()
 
-        result = git_worktree_add(mock_repo, worktree_path="/tmp/wt", commit_ish="abc1234")
+        result = git_worktree_add(
+            mock_repo, worktree_path="/tmp/wt", commit_ish="abc1234"
+        )
 
         assert "✅" in result
         assert "detached HEAD at abc1234" in result
         call_args = mock_repo.git.worktree.call_args[0]
         assert call_args == ("add", "/tmp/wt", "abc1234")
 
-    def test_worktree_add_returns_error_when_commit_ish_and_branch_without_new_branch(self):
+    def test_worktree_add_returns_error_when_commit_ish_and_branch_without_new_branch(
+        self,
+    ):
         """commit_ish + branch without new_branch is rejected as ambiguous."""
         mock_repo = Mock()
 
@@ -391,7 +404,9 @@ class TestGitWorktreeAdd:
         """Should reject dangerous characters in commit_ish."""
         mock_repo = Mock()
 
-        result = git_worktree_add(mock_repo, worktree_path="/tmp/wt", commit_ish="abc; rm -rf /")
+        result = git_worktree_add(
+            mock_repo, worktree_path="/tmp/wt", commit_ish="abc; rm -rf /"
+        )
 
         assert "❌" in result
         assert "Invalid characters in commit_ish" in result

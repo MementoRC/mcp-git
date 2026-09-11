@@ -1,8 +1,8 @@
 """Tests for git_merge_file operation (issue #210, Gap 2)."""
 
-import pytest
 from unittest.mock import MagicMock
 
+import pytest
 from git.exc import GitCommandError
 
 from mcp_server_git.git.merge_ops import git_merge_file

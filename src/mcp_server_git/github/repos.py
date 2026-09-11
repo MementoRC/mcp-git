@@ -1,9 +1,14 @@
 """GitHub repository settings operations."""
+
 from __future__ import annotations
+
 import logging
 from typing import Any
+
 from mcp_server_git.github.client import github_client_context
+
 from .permissions import *  # noqa: F401,F403
+
 logger = logging.getLogger(__name__)
 
 

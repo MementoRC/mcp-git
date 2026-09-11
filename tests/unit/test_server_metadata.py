@@ -142,7 +142,8 @@ class TestServerMetadataConsistency:
         discover_counts = interface.discover_tools()["domains"]
         info = build_server_info(interface.tool_registry, "test")
         info_counts = {
-            domain: _extract_tool_count(text) for domain, text in info["domains"].items()
+            domain: _extract_tool_count(text)
+            for domain, text in info["domains"].items()
         }
 
         # Assert

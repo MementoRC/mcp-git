@@ -6,6 +6,7 @@ import logging
 
 from mcp_server_git.github.client import github_client_context
 from mcp_server_git.github.patches import PatchMemoryManager
+
 from .pr_actions import *  # noqa: F401,F403
 
 logger = logging.getLogger(__name__)
@@ -537,4 +538,3 @@ async def github_get_pr_files(
             f"Unexpected error getting PR files for PR #{pr_number}: {e}", exc_info=True
         )
         return f"❌ Error getting PR files: {str(e)}"
-

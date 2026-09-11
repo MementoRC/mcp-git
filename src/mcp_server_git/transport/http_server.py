@@ -247,13 +247,13 @@ class HTTPGitServer:
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,
                     detail=str(e),
-                )
+                ) from e
             except Exception as e:
                 logger.error(f"Failed to create session: {e}", exc_info=True)
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=f"Failed to create session: {str(e)}",
-                )
+                ) from e
 
         @self.app.delete(
             "/mcp/session/{session_id}",
