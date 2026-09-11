@@ -3,6 +3,7 @@
 import logging
 
 from ..utils.git_import import GitCommandError, Repo
+from .error_text import clean_git_error_text
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +22,7 @@ def git_tag_list(repo: Repo) -> str:
             return "No tags found"
         return f"Tags:\n{tag_list}"
     except GitCommandError as e:
-        return f"❌ Tag list failed: {str(e)}"
+        return f"❌ Tag list failed: {clean_git_error_text(e.stderr, 'stderr')}"
     except Exception as e:
         return f"❌ Tag list error: {str(e)}"
 
@@ -45,7 +46,7 @@ def git_tag_create(
             f" on {commit}" if commit else ""
         )
     except GitCommandError as e:
-        return f"❌ Tag create failed: {str(e)}"
+        return f"❌ Tag create failed: {clean_git_error_text(e.stderr, 'stderr')}"
     except Exception as e:
         return f"❌ Tag create error: {str(e)}"
 
@@ -56,6 +57,6 @@ def git_tag_delete(repo: Repo, tag_name: str) -> str:
         repo.git.tag("-d", tag_name)
         return f"✅ Successfully deleted tag '{tag_name}'"
     except GitCommandError as e:
-        return f"❌ Tag delete failed: {str(e)}"
+        return f"❌ Tag delete failed: {clean_git_error_text(e.stderr, 'stderr')}"
     except Exception as e:
         return f"❌ Tag delete error: {str(e)}"
