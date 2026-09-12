@@ -61,7 +61,7 @@ _REQUIRED_MODULES = {
 # function that does NOT -- simulating someone stripping
 # `clean_git_error_text` from the real outer handler. Used only to prove the
 # fingerprint check discriminates between the two (HOLE 1).
-_BROKEN_GIT_RESET_SOURCE = '''
+_BROKEN_GIT_RESET_SOURCE = """
 def git_reset(repo, mode=None, target=None, files=None):
     if target:
         try:
@@ -72,7 +72,7 @@ def git_reset(repo, mode=None, target=None, files=None):
         repo.git.reset()
     except GitCommandError as e:
         return f"Reset failed: {e}"
-'''
+"""
 
 
 class TestGitCommandErrorHandlersRenderBareText:
@@ -96,7 +96,7 @@ class TestGitCommandErrorHandlersRenderBareText:
                 "`clean_git_error_text(e.stderr, 'stderr')` (or 'stdout'), or\n"
                 "  2. If this handler is a predicate (an existence/support "
                 "test that never reports a failed op), add "
-                "`(filename, function_name): (fingerprint, \"reason\")` to "
+                '`(filename, function_name): (fingerprint, "reason")` to '
                 "`_PREDICATE_HANDLERS` in this test file, where fingerprint "
                 "is a substring unique to THIS handler's body."
             )
@@ -115,7 +115,9 @@ class TestGitCommandErrorHandlersRenderBareText:
             match_counts[key] = sum(
                 1
                 for h in handlers
-                if h.key == key and not h.renders() and h.matches_fingerprint(fingerprint)
+                if h.key == key
+                and not h.renders()
+                and h.matches_fingerprint(fingerprint)
             )
 
         bad = {key: count for key, count in match_counts.items() if count != 1}

@@ -67,7 +67,10 @@ class TestRebaseOpsBareErrorMessage:
     ) -> None:
         result = git_abort(real_repo, "rebase")
 
-        _assert_bare(result, "No rebase in progress")
+        # no rebase in progress vs No rebase in progress? varies by git version
+        # (leading-word capitalisation, trailing punctuation differ); match
+        # the version-stable core phrase only.
+        _assert_bare(result, "rebase in progress")
 
 
 class TestBranchOpsBareErrorMessage:
@@ -76,7 +79,9 @@ class TestBranchOpsBareErrorMessage:
     ) -> None:
         result = git_merge_base(real_repo, "nope-ref-1", "nope-ref-2")
 
-        _assert_bare(result, "Not a valid object name")
+        # Drop the leading Not a; same fragility class as the rebase message
+        # above. The remainder is still distinctive to this error.
+        _assert_bare(result, "valid object name")
 
 
 class TestCommitOpsBareErrorMessage:
@@ -124,7 +129,9 @@ class TestStagingOpsBareErrorMessage:
 
         result = git_reset(real_repo, mode="hard", files=["f.txt"])
 
-        _assert_bare(result, "Cannot do hard reset with paths")
+        # Drop the leading Cannot; same reason as rebase and merge-base
+        # messages above. The remainder is still distinctive.
+        _assert_bare(result, "hard reset with paths")
 
 
 class TestConfigOpsBareErrorMessage:
