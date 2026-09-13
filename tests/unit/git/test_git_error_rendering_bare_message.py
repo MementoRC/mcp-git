@@ -12,21 +12,15 @@ The six defects fixed across #214-#222 all survived a green suite that
 mocked the exact boundary where the bug lived (a hand-built ``.stderr``
 string never goes through GitPython's real decoration path). These tests
 therefore drive a REAL git repository via the ``real_repo`` fixture
-(``conftest.py``) and provoke an ACTUAL git failure wherever practical,
+(``conftest.py``) and provoke an ACTUAL git failure,
 asserting on a stable substring of git's own wording (verified against the
 installed git/GitPython version, not guessed) rather than a hand-authored
 message. ``clean_git_error_text``'s decoration-stripping itself is unit
 tested independently in ``test_operations_extended_error_cleaning.py``
 (#215); this file only proves each call site actually uses it in practice.
-
-The submodule status case is the one exception: provoking a real `git
-submodule status` failure needs a corrupted `.gitmodules` / broken mapping,
-which is impractical to stage reliably in a throwaway tmp_path repo, so it
-stays mocked.
 """
 
 from pathlib import Path
-from unittest.mock import Mock
 
 from mcp_server_git.git._branch_ops import git_merge_base
 from mcp_server_git.git._commit_ops import git_log
@@ -37,7 +31,6 @@ from mcp_server_git.git._remote_ops import git_remote_add
 from mcp_server_git.git._staging_ops import git_reset
 from mcp_server_git.git._submodule_ops import git_submodule_status
 from mcp_server_git.git._tag_ops import git_tag_create
-from mcp_server_git.utils.git_import import GitCommandError
 
 _DECORATION_MARKERS = ("Cmd('git') failed", "cmdline:", "stderr: '")
 
@@ -104,18 +97,17 @@ class TestDiffOpsBareErrorMessage:
 
 class TestSubmoduleOpsBareErrorMessage:
     def test_git_submodule_status_returns_bare_stderr_when_mapping_missing(
-        self,
+        self, real_repo
     ) -> None:
-        # Kept mocked: a broken submodule mapping isn't practically
-        # provokable in a throwaway tmp_path repo (see module docstring).
-        mock_repo = Mock()
-        mock_repo.git.submodule.side_effect = GitCommandError(
-            ["git", "submodule", "status"], 128, b"fatal: no submodule mapping found"
-        )
+        # A gitlink (mode 160000) index entry with no matching `.gitmodules`
+        # stanza IS the "no submodule mapping found" condition, and stages
+        # without needing a real nested clone.
+        head = real_repo.head.commit.hexsha
+        real_repo.git.update_index("--add", "--cacheinfo", f"160000,{head},sub")
 
-        result = git_submodule_status(mock_repo)
+        result = git_submodule_status(real_repo)
 
-        _assert_bare(result, "fatal: no submodule mapping found")
+        _assert_bare(result, "no submodule mapping found")
 
 
 class TestStagingOpsBareErrorMessage:
