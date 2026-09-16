@@ -5,6 +5,7 @@ These tests verify the enhanced git_log function that provides comprehensive
 filtering, formatting, and search capabilities for commit history.
 """
 
+from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest
@@ -568,3 +569,170 @@ class TestGitLogShowSignature:
         # Assert
         args = mock_repo.git.log.call_args[0]
         assert not any(str(a).startswith("--pretty=format:") for a in args)
+
+
+class TestGitLogPickaxe:
+    """Test pickaxe content search (-S/-G) on git_log (issue #227)."""
+
+    @staticmethod
+    def _commit_file(real_repo, filename: str, content: str, message: str) -> None:
+        path = Path(real_repo.working_tree_dir) / filename
+        path.write_text(content)
+        real_repo.index.add([filename])
+        real_repo.index.commit(message)
+
+    def test_search_content_finds_commits_changing_occurrence_count(self, real_repo):
+        """-S matches commits that add/remove the marker; excludes unrelated ones."""
+        # Arrange
+        self._commit_file(real_repo, "notes.txt", "hello\n", "unrelated-1")
+        self._commit_file(real_repo, "marker.txt", "_MARKER_TOKEN\n", "adds-marker")
+        self._commit_file(real_repo, "other.txt", "world\n", "unrelated-2")
+        self._commit_file(real_repo, "marker.txt", "gone\n", "removes-marker")
+        self._commit_file(real_repo, "another.txt", "final\n", "unrelated-3")
+
+        # Act
+        result = git_log(
+            real_repo, max_count=20, search_content="_MARKER_TOKEN", format_str="%s"
+        )
+
+        # Assert
+        assert "adds-marker" in result
+        assert "removes-marker" in result
+        assert "unrelated-1" not in result
+        assert "unrelated-2" not in result
+        assert "unrelated-3" not in result
+
+    def test_search_content_regex_matches_edit_that_search_content_misses(
+        self, real_repo
+    ):
+        """The core -S vs -G distinction: a commit that edits a line containing
+        the token (occurrence count unchanged) is matched by -G but not -S."""
+        # Arrange
+        self._commit_file(
+            real_repo, "config.txt", "_MARKER_TOKEN value=1\n", "add-config"
+        )
+        self._commit_file(
+            real_repo, "config.txt", "_MARKER_TOKEN value=2\n", "edit-config-value"
+        )
+
+        # Act
+        s_result = git_log(
+            real_repo, max_count=20, search_content="_MARKER_TOKEN", format_str="%s"
+        )
+        g_result = git_log(
+            real_repo,
+            max_count=20,
+            search_content_regex="_MARKER_TOKEN",
+            format_str="%s",
+        )
+
+        # Assert: -S only sees the commit that changes the occurrence count
+        assert "add-config" in s_result
+        assert "edit-config-value" not in s_result
+
+        # Assert: -G sees the edit too, since the diff text still matches
+        assert "edit-config-value" in g_result
+
+    def test_search_content_with_shell_metacharacters_matches_and_is_not_rejected(
+        self, real_repo
+    ):
+        """Shell metacharacters in search content are literal pickaxe text,
+        never validated as a ref (guards the no-validate_ref decision)."""
+        # Arrange
+        self._commit_file(
+            real_repo, "script.txt", "cost = $(compute)\n", "add-dollar-paren"
+        )
+        self._commit_file(real_repo, "other.txt", "noop\n", "unrelated")
+
+        # Act
+        result = git_log(real_repo, max_count=20, search_content="$(", format_str="%s")
+
+        # Assert
+        assert "add-dollar-paren" in result
+        assert "❌" not in result
+        assert "unrelated" not in result
+
+    def test_search_content_with_pipe_matches_and_is_not_rejected(self, real_repo):
+        """A search string containing '|' is treated as literal content."""
+        # Arrange
+        self._commit_file(real_repo, "expr.txt", "value = a|b\n", "add-pipe-expr")
+        self._commit_file(real_repo, "other.txt", "noop\n", "unrelated")
+
+        # Act
+        result = git_log(real_repo, max_count=20, search_content="a|b", format_str="%s")
+
+        # Assert
+        assert "add-pipe-expr" in result
+        assert "❌" not in result
+        assert "unrelated" not in result
+
+    def test_search_content_with_leading_dash_is_single_token(self):
+        """A leading-dash search value is embedded in one argv token, not
+        passed as a separate ["-S", value] pair, so it can never be mistaken
+        for its own git flag."""
+        # Arrange
+        mock_repo = Mock()
+        mock_repo.git.log.return_value = "commit abc123"
+
+        # Act
+        git_log(mock_repo, max_count=20, search_content="-x-value", format_str="%s")
+
+        # Assert
+        args = mock_repo.git.log.call_args[0]
+        assert "-S-x-value" in args
+        assert "-x-value" not in args
+
+    def test_search_content_with_leading_dash_matches_in_real_repo(self, real_repo):
+        """A leading-dash search value actually matches the commit that
+        introduces it, end-to-end."""
+        # Arrange
+        self._commit_file(real_repo, "flags.txt", "flag: -x enabled\n", "add-flag-x")
+        self._commit_file(real_repo, "other.txt", "noop\n", "unrelated")
+
+        # Act
+        result = git_log(real_repo, max_count=20, search_content="-x", format_str="%s")
+
+        # Assert
+        assert "add-flag-x" in result
+        assert "❌" not in result
+        assert "unrelated" not in result
+
+    def test_search_content_and_search_content_regex_together_returns_error(self):
+        """Specifying both -S and -G is rejected before git is ever invoked."""
+        # Arrange
+        mock_repo = Mock()
+
+        # Act
+        result = git_log(mock_repo, search_content="foo", search_content_regex="bar")
+
+        # Assert
+        assert "❌" in result
+        assert "search_content" in result
+        mock_repo.git.log.assert_not_called()
+
+    def test_search_content_all_appends_pickaxe_all_only_when_search_set(self):
+        """--pickaxe-all is only appended alongside -S or -G, never alone."""
+        # Arrange
+        mock_repo = Mock()
+        mock_repo.git.log.return_value = "commit abc123"
+
+        # Act / Assert: with -S
+        git_log(mock_repo, search_content="foo", search_content_all=True)
+        args = mock_repo.git.log.call_args[0]
+        assert "-Sfoo" in args
+        assert "--pickaxe-all" in args
+
+        # Act / Assert: with -G
+        mock_repo.reset_mock()
+        mock_repo.git.log.return_value = "commit abc123"
+        git_log(mock_repo, search_content_regex="bar", search_content_all=True)
+        args = mock_repo.git.log.call_args[0]
+        assert "-Gbar" in args
+        assert "--pickaxe-all" in args
+
+        # Act / Assert: search_content_all alone, no search set -> no flag
+        mock_repo.reset_mock()
+        mock_repo.git.log.return_value = "commit abc123"
+        git_log(mock_repo, search_content_all=True)
+        args = mock_repo.git.log.call_args[0]
+        assert "--pickaxe-all" not in args

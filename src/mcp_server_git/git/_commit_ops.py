@@ -134,6 +134,9 @@ def git_log(
     until: str | None = None,
     author: str | None = None,
     grep: str | None = None,
+    search_content: str | None = None,
+    search_content_regex: str | None = None,
+    search_content_all: bool = False,
     files: list[str] | None = None,
     branch: str | None = None,
     reverse: bool = False,
@@ -153,6 +156,12 @@ def git_log(
         until: Date filter - commits before this date (e.g., "yesterday", "2024-12-31")
         author: Filter by commit author (email or name)
         grep: Search commit messages (regex pattern)
+        search_content: Pickaxe search (-S) - commits that change the number of
+            occurrences of this string
+        search_content_regex: Pickaxe search (-G) - commits whose added/removed
+            diff text matches this regex, regardless of occurrence count
+        search_content_all: With search_content or search_content_regex, show
+            the whole commit (--pickaxe-all) rather than just matching files
         files: Commits affecting specific files (list of file paths)
         branch: Specific branch to show log for (default: current branch)
         reverse: Reverse chronological order (oldest first)
@@ -161,6 +170,9 @@ def git_log(
     Returns:
         Formatted commit log output
     """
+    if search_content and search_content_regex:
+        return "❌ Specify only one of search_content (-S) or search_content_regex (-G)"
+
     try:
         args = []
 
@@ -196,6 +208,26 @@ def git_log(
         # Add message search
         if grep:
             args.extend(["--grep", grep])
+
+        # Add pickaxe content search. Passed as a single argv token
+        # (f"-S{value}" / f"-G{value}") rather than two separate tokens so a
+        # search string starting with a dash (e.g. "-x") lands inside the
+        # token instead of being parsed as its own flag.
+        #
+        # search_content/search_content_regex are NOT run through
+        # validate_ref/DANGEROUS_CHARS: unlike a ref, search content
+        # legitimately contains shell metacharacters ($ ( ) | ; &) -
+        # searching a codebase for "$(" or "a|b" is exactly the intended
+        # use case. These args go to repo.git.log(*args) via GitPython,
+        # which execs git directly and never invokes a shell, so there is
+        # no injection path to guard against here.
+        if search_content:
+            args.append(f"-S{search_content}")
+        elif search_content_regex:
+            args.append(f"-G{search_content_regex}")
+
+        if search_content_all and (search_content or search_content_regex):
+            args.append("--pickaxe-all")
 
         # Add merge commit filter
         if merges is True:

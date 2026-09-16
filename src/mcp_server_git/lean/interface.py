@@ -22,6 +22,8 @@ from fastmcp import FastMCP
 
 from mcp_server_git.config import config_manager
 
+from ._error_hints import add_valid_parameters_hint
+from .meta_tools import _is_error_result
 from .response_offloader import ResponseOffloader
 from .token_limiter import MCPTokenLimiter
 
@@ -308,6 +310,9 @@ class GitLeanInterface:
             - status: "success" or "error"
             - result: Tool execution result (on success)
             - error: Error message (on failure)
+            - valid_parameters: Accepted parameter names, present only when
+              ``error`` reports an unexpected keyword argument (issue #227
+              Part 2), mirroring the ``execute_tool`` MCP path.
         """
         if tool_name not in self.tool_registry:
             return {
@@ -340,17 +345,40 @@ class GitLeanInterface:
             else:
                 result = tool_def.implementation(**parameters)
 
+            # Every registered implementation is wrapped by _wrap_tool,
+            # which catches exceptions -- including the TypeError for an
+            # unexpected/removed keyword argument -- and returns an
+            # error-shaped dict rather than raising. Only that specific
+            # unknown-kwarg case is promoted to a "status": "error"
+            # envelope with a "valid_parameters" hint here; other
+            # error-shaped results keep their existing "success" envelope
+            # shape unchanged (issue #227 Part 2 scope only).
+            if _is_error_result(result):
+                error_message = str(result.get("error") or "")
+                if "unexpected keyword argument" in error_message:
+                    schema = self._schema_cache.get(tool_name, tool_def.schema)
+                    envelope = {
+                        "tool": tool_name,
+                        "status": "error",
+                        "error": error_message,
+                        "result": result,
+                    }
+                    return add_valid_parameters_hint(envelope, error_message, schema)
+
             return {
                 "tool": tool_name,
                 "status": "success",
                 "result": result,
             }
         except Exception as e:
-            return {
+            error_message = str(e)
+            envelope = {
                 "tool": tool_name,
                 "status": "error",
-                "error": str(e),
+                "error": error_message,
             }
+            schema = self._schema_cache.get(tool_name, tool_def.schema)
+            return add_valid_parameters_hint(envelope, error_message, schema)
 
     def discover_tools(self, pattern: str = "") -> dict[str, Any]:
         """Discover available tools (direct method for HTTP transport)."""

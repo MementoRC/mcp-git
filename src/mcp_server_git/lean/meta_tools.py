@@ -16,6 +16,7 @@ from typing import Any
 from jsonschema import ValidationError, validate
 
 from ..server_metadata import build_server_info
+from ._error_hints import add_valid_parameters_hint
 from .token_limiter import apply_token_limits
 
 logger = logging.getLogger(__name__)
@@ -54,21 +55,38 @@ def _is_error_result(result: Any) -> bool:
     return result.get("success") is False
 
 
-def _build_envelope(tool_name: str, result: Any) -> dict[str, Any]:
+def _build_envelope(
+    tool_name: str, result: Any, schema: dict[str, Any] | None = None
+) -> dict[str, Any]:
     """Build the execute_tool response envelope.
 
     Kept module-level so tests exercise the real construction rather than a
     copy of it: the top-level status must never contradict an error payload
     (issue #196 defect 2).
+
+    Every registered tool implementation is wrapped by
+    ``GitLeanInterface._wrap_tool`` (see ``register_tool``), which catches
+    exceptions -- including the ``TypeError`` raised for an unexpected/
+    removed keyword argument (e.g. a deprecated alias) -- and converts them
+    into this error-shaped dict rather than letting them propagate. This is
+    the MCP-path chokepoint, shared by every git/github/azure tool, where an
+    unknown-kwarg error is enriched with the accepted parameter names via
+    ``add_valid_parameters_hint`` (issue #227 Part 2), mirroring the
+    "valid_parameters" hint already returned for JSON Schema validation
+    failures. ``execute_tool_direct`` (interface.py) applies the same
+    helper for the HTTP transport path.
     """
     if _is_error_result(result):
-        return {
+        envelope = {
             "tool": tool_name,
             "status": "error",
             "error": result.get("error"),
             "result": result,
             "execution_mode": "lean_mcp_dynamic",
         }
+        return add_valid_parameters_hint(
+            envelope, str(result.get("error") or ""), schema
+        )
     return {
         "tool": tool_name,
         "status": "success",
@@ -465,7 +483,7 @@ def setup_meta_tools(interface) -> None:
             else:
                 result = tool_def.implementation(**parameters)
 
-            return _build_envelope(tool_name, result)
+            return _build_envelope(tool_name, result, schema)
 
         except ValidationError as ve:
             # Catch any schema validation errors not caught above
