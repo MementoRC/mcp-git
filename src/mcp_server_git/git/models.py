@@ -93,6 +93,13 @@ class GitLog(BaseModel):
     until: str | None = None  # Date filter: "yesterday", "2024-12-31"
     author: str | None = None  # Author filter: email or name
     grep: str | None = None  # Commit message search (regex)
+    search_content: str | None = None  # -S: commits changing the count of this string
+    search_content_regex: str | None = (
+        None  # -G: commits whose diff text matches this regex
+    )
+    search_content_all: bool = (
+        False  # --pickaxe-all: show the whole commit, not just matching files
+    )
     files: list[str] | None = None  # Commits affecting these files
     branch: str | None = None  # Specific branch (default: current)
     reverse: bool = False  # Reverse chronological order

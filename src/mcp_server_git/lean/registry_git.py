@@ -168,7 +168,10 @@ def _register_git_tools(interface: Any, git_service: Any):
             implementation=wrap_repo_op(
                 git_ops.git_log, param_map={"format": "format_str"}
             ),
-            description="Shows the commit logs",
+            description=(
+                "Shows the commit logs, with optional message (grep) and "
+                "content (-S/-G) search"
+            ),
             schema=GitLog.model_json_schema(),
             domain="git",
             complexity="core",
