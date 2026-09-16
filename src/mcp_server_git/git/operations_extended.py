@@ -8,6 +8,8 @@ import os
 import re
 
 from ..utils.git_import import GitCommandError, Repo
+from ._ref_validation import DANGEROUS_CHARS
+from ._ref_validation import validate_ref as _validate_ref
 from .error_text import clean_git_error_text
 from .merge_parse import (
     parse_merge_tree_output,
@@ -16,8 +18,6 @@ from .merge_parse import (
 )
 
 logger = logging.getLogger(__name__)
-
-DANGEROUS_CHARS = re.compile(r"[;&|`$()]")
 
 __all__ = [
     "git_restore",
@@ -29,13 +29,6 @@ __all__ = [
     "git_merge_tree",
     "git_rm",
 ]
-
-
-def _validate_ref(ref: str, param_name: str) -> str | None:
-    """Validate a git ref for dangerous characters. Returns error string or None."""
-    if DANGEROUS_CHARS.search(ref):
-        return f"❌ Invalid characters detected in {param_name}: '{ref}'"
-    return None
 
 
 # Re-exported for backward compatibility: moved to error_text.py (issue #219)
