@@ -1,11 +1,11 @@
 """Commit, status, log, show, and blame operations for MCP Git Server."""
 
 import logging
-import os
 import re
 import subprocess
 
 from ..utils.git_import import GitCommandError, Repo
+from ._gpg import resolve_gpg_key
 from .error_text import clean_git_error_text
 
 logger = logging.getLogger(__name__)
@@ -63,20 +63,9 @@ def git_commit(
         force_gpg = True
 
         # Get GPG key from parameters, environment, or git config
-        if gpg_key_id:
-            force_key_id = gpg_key_id
-        else:
-            # Try environment variable first
-            env_key = os.getenv("GPG_SIGNING_KEY")
-            if env_key:
-                force_key_id = env_key
-            else:
-                # Fall back to git config
-                try:
-                    config_key = repo.config_reader().get_value("user", "signingkey")
-                    force_key_id = str(config_key)
-                except Exception:
-                    return "❌ Could not determine GPG signing key. Please configure GPG_SIGNING_KEY env var"
+        force_key_id, gpg_error = resolve_gpg_key(repo, gpg_key_id)
+        if gpg_error:
+            return gpg_error
 
         if force_gpg:
             # Use git command directly for GPG signing

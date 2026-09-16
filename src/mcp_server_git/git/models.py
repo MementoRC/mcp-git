@@ -373,6 +373,46 @@ class GitBranchDelete(BaseModel):
     force: bool = Field(default=False, description="Force delete unmerged branch (-D)")
 
 
+class GitTagCreate(BaseModel):
+    repo_path: str
+    tag_name: str = Field(description="Name of the tag to create")
+    commit_ish: str | None = Field(
+        default=None, description="Commit-ish to tag (default: HEAD)"
+    )
+    message: str | None = Field(
+        default=None,
+        description="Tag message. Required for annotated/signed tags; defaults "
+        "to tag_name when sign or annotate is True and no message is given.",
+    )
+    sign: bool = Field(
+        default=False, description="Create a GPG-signed tag (implies annotated)"
+    )
+    annotate: bool = Field(default=False, description="Create an annotated tag")
+    force: bool = Field(
+        default=False, description="Replace an existing tag of the same name"
+    )
+    gpg_key_id: str | None = Field(
+        default=None,
+        description="Explicit GPG key id for signing (falls back to "
+        "GPG_SIGNING_KEY env var, then user.signingkey config)",
+    )
+
+
+class GitTagList(BaseModel):
+    repo_path: str
+    pattern: str | None = Field(
+        default=None, description="fnmatch glob filter, e.g. 'v1.*'"
+    )
+    points_at: str | None = Field(
+        default=None, description="Only list tags pointing at this commit"
+    )
+
+
+class GitTagDelete(BaseModel):
+    repo_path: str
+    tag_name: str = Field(description="Tag to delete")
+
+
 class GitWorktreeList(BaseModel):
     repo_path: str
 

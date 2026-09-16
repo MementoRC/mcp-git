@@ -4,6 +4,7 @@ import logging
 from typing import Any
 
 from ..git import operations as git_ops
+from ..git._tag_ops import git_tag_create, git_tag_delete, git_tag_list
 from ..git.merge_ops import git_merge_file
 from ..git.models import (
     GitAbort,
@@ -43,6 +44,9 @@ from ..git.models import (
     GitSubmoduleStatus,
     GitSubmoduleSync,
     GitSubmoduleUpdate,
+    GitTagCreate,
+    GitTagDelete,
+    GitTagList,
     GitWorktreeAdd,
     GitWorktreeList,
     GitWorktreeRemove,
@@ -518,6 +522,30 @@ def _register_git_tools(interface: Any, git_service: Any):
             implementation=wrap_repo_op(git_branch_delete),
             description="Delete a local git branch (use force=True for unmerged branches)",
             schema=GitBranchDelete.model_json_schema(),
+            domain="git",
+            complexity="focused",
+        ),
+        ToolDefinition(
+            name="git_tag_create",
+            implementation=wrap_repo_op(git_tag_create),
+            description="Create a local git tag (lightweight, annotated, or GPG-signed)",
+            schema=GitTagCreate.model_json_schema(),
+            domain="git",
+            complexity="focused",
+        ),
+        ToolDefinition(
+            name="git_tag_list",
+            implementation=wrap_repo_op(git_tag_list),
+            description="List tags, optionally filtered by glob pattern or --points-at commit",
+            schema=GitTagList.model_json_schema(),
+            domain="git",
+            complexity="focused",
+        ),
+        ToolDefinition(
+            name="git_tag_delete",
+            implementation=wrap_repo_op(git_tag_delete),
+            description="Delete a local git tag",
+            schema=GitTagDelete.model_json_schema(),
             domain="git",
             complexity="focused",
         ),
