@@ -1,9 +1,20 @@
-"""Azure DevOps API operations for MCP Git Server"""
+"""Azure DevOps API operations for MCP Git Server
+
+azure_get_logs_for_check_run lives in check_run_logs.py (kept separate to
+stay under the file-size policy); shared log fetch/render helpers used by
+both modules live in log_rendering.py.
+"""
 
 import logging
 from contextlib import asynccontextmanager
 
 from .client import get_azure_client
+from .log_rendering import (
+    FAILURE_RESULTS,
+    fetch_and_render_log,
+    fetch_timeline,
+    render_log_index,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -101,15 +112,46 @@ async def azure_get_build_status(project: str, build_id: int) -> str:
 
 
 async def azure_get_build_logs(
-    project: str, build_id: int, log_id: int | None = None, tail_lines: int = 500
+    project: str,
+    build_id: int,
+    log_id: int | None = None,
+    tail_lines: int | None = None,
+    full_log: bool = False,
+    head_lines: int | None = None,
+    start_line: int | None = None,
+    end_line: int | None = None,
+    grep: str | None = None,
+    context_lines: int = 0,
+    ignore_case: bool = False,
+    output_path: str | None = None,
 ) -> str:
     """Get logs from an Azure DevOps build
+
+    If log_id is None, lists all logs for the build with joined
+    "<Job name> / <Task name>" labels. Otherwise fetches that log's content,
+    with the same selection/output knobs as github_get_job_logs: by default
+    the last 500 lines are returned; head_lines, start_line/end_line, grep,
+    context_lines, ignore_case, full_log, and output_path all work exactly
+    as they do there (only one of head_lines/tail_lines/start_line+end_line
+    may be given; grep composes with any of them and searches the whole log
+    by default).
 
     Args:
         project: The project name or ID
         build_id: The build ID
         log_id: Optional specific log ID to retrieve. If None, lists all logs.
-        tail_lines: Number of lines to return from the end of the log (default: 500)
+        tail_lines: Return only last N lines (default: 500 for LLM efficiency)
+        full_log: If True, return complete log without line limit (still has
+            100KB char limit unless output_path is given)
+        head_lines: Return only first N lines, reaching the start of the log
+        start_line: 1-indexed inclusive start of an explicit window
+        end_line: 1-indexed inclusive end of an explicit window
+        grep: Regex; return only matching lines. Searches the whole log by
+            default, not just the last 500 lines
+        context_lines: Lines of context to keep either side of a grep match
+        ignore_case: Case-insensitive grep
+        output_path: Absolute path to write the complete log to disk instead
+            of returning it inline; the response then carries only metadata
 
     Returns:
         Formatted string with log information or content
@@ -135,65 +177,32 @@ async def azure_get_build_logs(
                 if not logs:
                     return f"No logs found for build #{build_id}"
 
-                output = [f"Logs for Build #{build_id}:\n"]
-                for log in logs:
-                    log_type = log.get("type", "N/A")
-                    line_count = log.get("lineCount", 0)
-                    output.append(f"Log #{log['id']}: {log_type} ({line_count} lines)")
-                    if log.get("url"):
-                        output.append(f"  URL: {log['url']}")
-
-                return "\n".join(output)
-            else:
-                # Get specific log content.
-                # API: GET https://dev.azure.com/{organization}/{project}/_apis/build/builds/{buildId}/logs/{logId}?api-version=7.1
-                # Request text/plain: the single-log endpoint returns a bare
-                # List<String>, which Azure refuses to serialize as JSON
-                # (500 "doesn't implement ISecuredObject"). Plain text works.
-                response = await client.get(
-                    f"{project}/_apis/build/builds/{build_id}/logs/{log_id}?api-version=7.1",
-                    accept="text/plain",
+                # Join in job/task names from the timeline (best effort: a
+                # timeline fetch failure degrades to plain "Container" labels
+                # rather than failing the whole listing).
+                records, _timeline_error = await fetch_timeline(
+                    client, project, build_id
                 )
+                return render_log_index(build_id, logs, records)
 
-                if response.status != 200:
-                    error_text = await response.text()
-                    return (
-                        f"❌ Failed to get log #{log_id}: "
-                        f"{response.status} - {error_text}"
-                    )
-
-                # Azure DevOps returns log content as JSON with a "value" array of strings
-                # Try JSON first, fall back to text for backwards compatibility
-                content_type = response.headers.get("Content-Type", "")
-                if "application/json" in content_type:
-                    log_data = await response.json()
-                    if isinstance(log_data, dict) and "value" in log_data:
-                        log_lines = log_data["value"]
-                    elif isinstance(log_data, list):
-                        log_lines = log_data
-                    else:
-                        # Unexpected format, try to convert to string
-                        log_lines = [str(log_data)]
-                else:
-                    # Plain text response
-                    log_text = await response.text()
-                    log_lines = log_text.split("\n")
-
-                # Apply tail_lines limit
-                original_line_count = len(log_lines)
-                if len(log_lines) > tail_lines:
-                    truncated_count = len(log_lines) - tail_lines
-                    log_lines = log_lines[-tail_lines:]
-                    log_content = "\n".join(log_lines)
-                    log_content = (
-                        f"... [truncated {truncated_count} lines] ...\n\n" + log_content
-                    )
-                    header = f"Log #{log_id} for Build #{build_id} (showing last {tail_lines} of {original_line_count} lines):\n\n"
-                else:
-                    log_content = "\n".join(log_lines)
-                    header = f"Log #{log_id} for Build #{build_id} ({original_line_count} lines):\n\n"
-
-                return header + log_content
+            # Get specific log content.
+            # API: GET https://dev.azure.com/{organization}/{project}/_apis/build/builds/{buildId}/logs/{logId}?api-version=7.1
+            return await fetch_and_render_log(
+                client,
+                project,
+                build_id,
+                log_id,
+                [f"Log #{log_id} for Build #{build_id}:\n"],
+                tail_lines=tail_lines,
+                full_log=full_log,
+                head_lines=head_lines,
+                start_line=start_line,
+                end_line=end_line,
+                grep=grep,
+                context_lines=context_lines,
+                ignore_case=ignore_case,
+                output_path=output_path,
+            )
 
     except ValueError as auth_error:
         logger.error(f"Authentication error getting build logs: {auth_error}")
@@ -242,26 +251,15 @@ async def azure_get_failing_jobs(
                 )
 
             # Get timeline data which contains job information
-            # API: GET https://dev.azure.com/{organization}/{project}/_apis/build/builds/{buildId}/timeline?api-version=7.1
-            timeline_response = await client.get(
-                f"{project}/_apis/build/builds/{build_id}/timeline?api-version=7.1"
-            )
-
-            if timeline_response.status != 200:
-                error_text = await timeline_response.text()
-                return (
-                    f"❌ Failed to get build timeline: "
-                    f"{timeline_response.status} - {error_text}"
-                )
-
-            timeline_data = await timeline_response.json()
-            records = timeline_data.get("records", [])
+            records, timeline_error = await fetch_timeline(client, project, build_id)
+            if timeline_error is not None:
+                return timeline_error
 
             # Filter for failed jobs/tasks
             failed_records = [
                 record
                 for record in records
-                if record.get("result") in ["failed", "canceled", "abandoned"]
+                if record.get("result") in FAILURE_RESULTS
                 and record.get("type") in ["Job", "Task", "Phase"]
             ]
 

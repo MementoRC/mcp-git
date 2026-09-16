@@ -196,8 +196,9 @@ class TestAzureGetBuildLogs:
             assert (
                 "Log line 10\n" not in result
             )  # Early line with newline to avoid matching in message
-            assert "truncated 80 lines" in result
-            assert "showing last 20 of 100 lines" in result  # New format
+            # Shared job_log_selection helper format (parity with github_get_job_logs)
+            assert "last 20 of 100 lines" in result
+            assert "Truncated: yes" in result
 
     @pytest.mark.asyncio
     async def test_get_specific_log_requests_text_plain_accept_header(self):
@@ -227,6 +228,153 @@ class TestAzureGetBuildLogs:
             assert "Build log line 1" in result
             assert "Build log line 2" in result
             assert "Build log line 3" in result
+
+    @pytest.mark.asyncio
+    async def test_list_all_logs_joins_job_and_task_names_from_timeline(self):
+        """The log index shows joined "<Job> / <Task>" names, not "Container"."""
+        mock_client = MagicMock()
+
+        logs_response = AsyncMock()
+        logs_response.status = 200
+        logs_response.json = AsyncMock(
+            return_value={
+                "value": [
+                    {"id": 22, "type": "Container", "lineCount": 5, "url": "u22"},
+                    {"id": 19, "type": "Container", "lineCount": 400, "url": "u19"},
+                ]
+            }
+        )
+
+        timeline_response = AsyncMock()
+        timeline_response.status = 200
+        timeline_response.json = AsyncMock(
+            return_value={
+                "records": [
+                    {
+                        "id": "job1",
+                        "type": "Job",
+                        "name": "osx osx_64_cross_target_platform_osx-64",
+                        "log": {"id": 22},
+                    },
+                    {
+                        "id": "task1",
+                        "type": "Task",
+                        "name": "Run OSX build",
+                        "parentId": "job1",
+                        "log": {"id": 19},
+                    },
+                ]
+            }
+        )
+
+        async def mock_get(url, **kwargs):
+            return timeline_response if "timeline" in url else logs_response
+
+        mock_client.get = AsyncMock(side_effect=mock_get)
+
+        with patch("src.mcp_server_git.azure.api.azure_client_context") as mock_context:
+            mock_context.return_value.__aenter__.return_value = mock_client
+
+            result = await azure_get_build_logs(project="myproject", build_id=123)
+
+            assert "Log #22: osx osx_64_cross_target_platform_osx-64" in result
+            assert (
+                "Log #19: osx osx_64_cross_target_platform_osx-64 / Run OSX build"
+                in (result)
+            )
+            assert "Container" not in result
+
+    @pytest.mark.asyncio
+    async def test_list_all_logs_handles_null_log_timeline_record(self):
+        """A timeline record with log == null must not crash the index."""
+        mock_client = MagicMock()
+
+        logs_response = AsyncMock()
+        logs_response.status = 200
+        logs_response.json = AsyncMock(
+            return_value={"value": [{"id": 1, "type": "Container", "lineCount": 5}]}
+        )
+
+        timeline_response = AsyncMock()
+        timeline_response.status = 200
+        timeline_response.json = AsyncMock(
+            return_value={
+                "records": [
+                    {
+                        "id": "checkpoint1",
+                        "type": "Checkpoint",
+                        "name": "Checkpoint",
+                        "log": None,
+                    },
+                    {"id": "job1", "type": "Job", "name": "Job", "log": {"id": 1}},
+                ]
+            }
+        )
+
+        async def mock_get(url, **kwargs):
+            return timeline_response if "timeline" in url else logs_response
+
+        mock_client.get = AsyncMock(side_effect=mock_get)
+
+        with patch("src.mcp_server_git.azure.api.azure_client_context") as mock_context:
+            mock_context.return_value.__aenter__.return_value = mock_client
+
+            result = await azure_get_build_logs(project="myproject", build_id=123)
+
+            assert "Log #1: Job" in result
+
+    @pytest.mark.asyncio
+    async def test_get_specific_log_with_grep_returns_only_matching_lines(self):
+        """grep on a specific Azure log reuses the shared selection helper."""
+        mock_client = MagicMock()
+
+        mock_response = AsyncMock()
+        mock_response.status = 200
+        mock_response.headers = {"Content-Type": "application/json"}
+        lines = ["filler" for _ in range(9)] + ["ERROR: something broke"]
+        mock_response.json = AsyncMock(return_value={"value": lines})
+        mock_client.get = AsyncMock(return_value=mock_response)
+
+        with patch("src.mcp_server_git.azure.api.azure_client_context") as mock_context:
+            mock_context.return_value.__aenter__.return_value = mock_client
+
+            result = await azure_get_build_logs(
+                project="myproject", build_id=123, log_id=1, grep="ERROR"
+            )
+
+            assert "10: ERROR: something broke" in result
+            assert "1: filler" not in result
+
+    @pytest.mark.asyncio
+    async def test_get_specific_log_with_output_path_writes_file_with_no_log_body(
+        self, tmp_path
+    ):
+        """output_path writes the file to disk; the response carries no log body."""
+        mock_client = MagicMock()
+
+        mock_response = AsyncMock()
+        mock_response.status = 200
+        mock_response.headers = {"Content-Type": "application/json"}
+        log_lines = [f"Line {i}" for i in range(10)]
+        mock_response.json = AsyncMock(return_value={"value": log_lines})
+        mock_client.get = AsyncMock(return_value=mock_response)
+
+        output_path = tmp_path / "azure_log.txt"
+
+        with patch("src.mcp_server_git.azure.api.azure_client_context") as mock_context:
+            mock_context.return_value.__aenter__.return_value = mock_client
+
+            result = await azure_get_build_logs(
+                project="myproject",
+                build_id=123,
+                log_id=1,
+                output_path=str(output_path),
+            )
+
+            assert output_path.exists()
+            assert output_path.read_text(encoding="utf-8") == "\n".join(log_lines)
+            assert "Line 0" not in result
+            assert "written to" in result
 
 
 class TestAzureGetFailingJobs:

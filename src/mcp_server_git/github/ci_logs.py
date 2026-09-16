@@ -371,7 +371,11 @@ def _check_job_response(
 ) -> str | None:
     """Translate a bad job-details HTTP response into a user-facing error."""
     if response.status == 404:
-        return f"❌ Job #{job_id} not found in {repo_owner}/{repo_name}"
+        return (
+            f"❌ Job #{job_id} not found in {repo_owner}/{repo_name}. "
+            "If this is an Azure-backed check run (e.g. conda-forge builds), "
+            "use azure_get_logs_for_check_run instead."
+        )
     if response.status == 403:
         return (
             f"❌ Access denied for job #{job_id}. "

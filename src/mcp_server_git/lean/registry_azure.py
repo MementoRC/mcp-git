@@ -4,10 +4,12 @@ import logging
 from typing import Any
 
 from ..azure import api as azure_ops
+from ..azure import check_run_logs as azure_check_run_ops
 from ..azure.models import (
     AzureGetBuildLogs,
     AzureGetBuildStatus,
     AzureGetFailingJobs,
+    AzureGetLogsForCheckRun,
 )
 from .interface import ToolDefinition
 
@@ -39,6 +41,14 @@ def _register_azure_tools(interface: Any, azure_service: Any):
             implementation=azure_ops.azure_get_failing_jobs,
             description="Get detailed information about failing jobs in an Azure DevOps build",
             schema=AzureGetFailingJobs.model_json_schema(),
+            domain="azure",
+            complexity="focused",
+        ),
+        ToolDefinition(
+            name="azure_get_logs_for_check_run",
+            implementation=azure_check_run_ops.azure_get_logs_for_check_run,
+            description="Resolve a GitHub check run to its Azure build job and return that job's log",
+            schema=AzureGetLogsForCheckRun.model_json_schema(),
             domain="azure",
             complexity="focused",
         ),
