@@ -22,8 +22,8 @@ from fastmcp import FastMCP
 
 from mcp_server_git.config import config_manager
 
+from ._envelope import build_tool_envelope
 from ._error_hints import add_valid_parameters_hint
-from .meta_tools import _is_error_result
 from .response_offloader import ResponseOffloader
 from .token_limiter import MCPTokenLimiter
 
@@ -348,28 +348,17 @@ class GitLeanInterface:
             # Every registered implementation is wrapped by _wrap_tool,
             # which catches exceptions -- including the TypeError for an
             # unexpected/removed keyword argument -- and returns an
-            # error-shaped dict rather than raising. Only that specific
-            # unknown-kwarg case is promoted to a "status": "error"
-            # envelope with a "valid_parameters" hint here; other
-            # error-shaped results keep their existing "success" envelope
-            # shape unchanged (issue #227 Part 2 scope only).
-            if _is_error_result(result):
-                error_message = str(result.get("error") or "")
-                if "unexpected keyword argument" in error_message:
-                    schema = self._schema_cache.get(tool_name, tool_def.schema)
-                    envelope = {
-                        "tool": tool_name,
-                        "status": "error",
-                        "error": error_message,
-                        "result": result,
-                    }
-                    return add_valid_parameters_hint(envelope, error_message, schema)
-
-            return {
-                "tool": tool_name,
-                "status": "success",
-                "result": result,
-            }
+            # error-shaped dict rather than raising. build_tool_envelope
+            # (shared with the MCP execute_tool path's _build_envelope,
+            # see meta_tools.py) promotes ANY error-shaped result to a
+            # "status": "error" envelope, with a "valid_parameters" hint
+            # when the failure is an unexpected/removed keyword argument
+            # (issue #227 Part 2). Fixes issue #232, where only that
+            # narrow unknown-kwarg case used to be promoted here and every
+            # other error-shaped result was misreported as "success" with
+            # the error buried in "result".
+            schema = self._schema_cache.get(tool_name, tool_def.schema)
+            return build_tool_envelope(tool_name, result, schema)
         except Exception as e:
             error_message = str(e)
             envelope = {

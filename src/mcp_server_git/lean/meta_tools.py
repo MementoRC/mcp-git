@@ -16,83 +16,34 @@ from typing import Any
 from jsonschema import ValidationError, validate
 
 from ..server_metadata import build_server_info
-from ._error_hints import add_valid_parameters_hint
+from ._envelope import _is_error_result, build_tool_envelope
 from .token_limiter import apply_token_limits
 
 logger = logging.getLogger(__name__)
 
-
-def _is_error_result(result: Any) -> bool:
-    """
-    Detect whether a tool implementation's return value is error-shaped.
-
-    Issue #196 defect 2: ``_wrap_tool`` in interface.py catches exceptions
-    raised by tool implementations and converts them into a dict of the
-    form ``{"error": str(e), "tool": tool_name, "success": False}`` rather
-    than re-raising. Previously, ``execute_tool`` unconditionally wrapped
-    *any* returned value (including this error dict) in a
-    ``{"status": "success", "result": ...}`` envelope, producing a
-    contradictory response where the outer envelope claims success while
-    the inner payload reports failure.
-
-    This check is intentionally strict to avoid false positives on tools
-    that legitimately carry an ``"error"`` key as *data* (e.g. a CI-log
-    payload describing someone else's error): a result is only considered
-    error-shaped when it is a dict, contains an ``"error"`` key, AND its
-    ``"success"`` key is precisely the value ``False`` (identity
-    comparison, not truthiness) as emitted by ``_wrap_tool``.
-
-    Args:
-        result: The raw value returned by a tool implementation.
-
-    Returns:
-        True if the result matches the ``_wrap_tool`` error shape.
-    """
-    if not isinstance(result, dict):
-        return False
-    if "error" not in result:
-        return False
-    return result.get("success") is False
+# Re-exported for backward compatibility: tests and callers import
+# `_is_error_result` from this module directly (its canonical home is now
+# `._envelope`, shared with `interface.execute_tool_direct` -- issue #232).
+__all__ = ["_is_error_result", "_build_envelope", "setup_meta_tools"]
 
 
 def _build_envelope(
     tool_name: str, result: Any, schema: dict[str, Any] | None = None
 ) -> dict[str, Any]:
-    """Build the execute_tool response envelope.
+    """Build the MCP execute_tool response envelope.
 
     Kept module-level so tests exercise the real construction rather than a
-    copy of it: the top-level status must never contradict an error payload
-    (issue #196 defect 2).
-
-    Every registered tool implementation is wrapped by
-    ``GitLeanInterface._wrap_tool`` (see ``register_tool``), which catches
-    exceptions -- including the ``TypeError`` raised for an unexpected/
-    removed keyword argument (e.g. a deprecated alias) -- and converts them
-    into this error-shaped dict rather than letting them propagate. This is
-    the MCP-path chokepoint, shared by every git/github/azure tool, where an
-    unknown-kwarg error is enriched with the accepted parameter names via
-    ``add_valid_parameters_hint`` (issue #227 Part 2), mirroring the
-    "valid_parameters" hint already returned for JSON Schema validation
-    failures. ``execute_tool_direct`` (interface.py) applies the same
-    helper for the HTTP transport path.
+    copy of it. Thin wrapper around the transport-shared
+    ``build_tool_envelope`` (see ``_envelope.py``), fixing
+    ``execution_mode`` to ``"lean_mcp_dynamic"`` for the MCP path.
+    ``execute_tool_direct`` (interface.py) calls the same shared builder
+    for the HTTP transport path, omitting ``execution_mode`` -- see
+    ``_envelope.py`` for the full rationale (issues #196 defect 2, #227
+    Part 2, #232).
     """
-    if _is_error_result(result):
-        envelope = {
-            "tool": tool_name,
-            "status": "error",
-            "error": result.get("error"),
-            "result": result,
-            "execution_mode": "lean_mcp_dynamic",
-        }
-        return add_valid_parameters_hint(
-            envelope, str(result.get("error") or ""), schema
-        )
-    return {
-        "tool": tool_name,
-        "status": "success",
-        "result": result,
-        "execution_mode": "lean_mcp_dynamic",
-    }
+    return build_tool_envelope(
+        tool_name, result, schema, execution_mode="lean_mcp_dynamic"
+    )
 
 
 def _sanitize_json_string(s: str) -> str:

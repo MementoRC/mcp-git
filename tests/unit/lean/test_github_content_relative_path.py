@@ -107,15 +107,28 @@ class TestGithubGetContentViaLeanInterface:
         self.iface = _make_minimal_interface()
 
     @pytest.mark.asyncio
-    async def test_execute_tool_direct_no_longer_raises_relative_path_error(
+    async def test_execute_tool_direct_fails_on_missing_credentials_not_relative_path(
         self, monkeypatch
     ):
         """Regression for #206: driving the real tool through the interface
         no longer produces "Relative path ... not supported" for ``path``.
 
-        No GITHUB_TOKEN is set, so the call still fails — but on the
-        (expected, unrelated) missing-credentials path, not on path
-        validation, and with no network access required.
+        No GITHUB_TOKEN is set, so the underlying GitHub operation still
+        fails — but on the expected, unrelated missing-credentials path,
+        not on path validation, and with no network access required.
+
+        Note on envelope "status" (issue #232): unlike tools whose
+        implementations raise or whose ``_wrap_tool`` catch converts the
+        failure into the ``{"error": ..., "success": False}`` dict shape
+        that ``execute_tool_direct``/``execute_tool`` promote to
+        "status": "error", ``github_get_content`` reports its own domain
+        failures as a plain "❌ ..." string return (see
+        ``github/contents.py``) rather than raising or returning an
+        error-shaped dict. So this call does not exercise the #232
+        dict-envelope defect and its envelope legitimately stays
+        "status": "success" — what this test guards is #206: that the
+        *content* of the failure is the credentials message, not a
+        path-validation rejection.
         """
         monkeypatch.delenv("GITHUB_TOKEN", raising=False)
 
@@ -129,6 +142,8 @@ class TestGithubGetContentViaLeanInterface:
             },
         )
 
-        assert "Relative path" not in str(result)
+        rendered = str(result)
+        assert "Relative path" not in rendered
         assert result["status"] == "success"
         assert "Relative path" not in result["result"]
+        assert "GitHub token not configured" in result["result"]
