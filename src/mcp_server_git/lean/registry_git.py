@@ -61,7 +61,7 @@ from ..git.operations_extended import (
     git_worktree_list,
     git_worktree_remove,
 )
-from ..utils.git_import import Repo
+from ..utils.git_import import InvalidGitRepositoryError, NoSuchPathError, Repo
 from .interface import ToolDefinition
 from .lock_reaper import reap_stale_index_lock
 
@@ -99,7 +99,18 @@ def _register_git_tools(interface: Any, git_service: Any):
                 for public_name, internal_name in param_map.items():
                     if public_name in kwargs:
                         kwargs[internal_name] = kwargs.pop(public_name)
-            repo = Repo(repo_path)
+            # These RE-RAISE rather than return a "❌ ..." string on purpose:
+            # a raise is what _wrap_tool turns into an error-shaped result, so
+            # the envelope reports status "error" on both transports (#232);
+            # returning a string would silently downgrade it to "success".
+            try:
+                repo = Repo(repo_path)
+            except NoSuchPathError as err:
+                raise ValueError(f"repo_path does not exist: {repo_path}") from err
+            except InvalidGitRepositoryError as err:
+                raise ValueError(
+                    f"repo_path is not a git repository: {repo_path}"
+                ) from err
             if mutates_index:
                 reap_stale_index_lock(repo.git_dir)
             return op_func(repo, **kwargs)
