@@ -158,11 +158,38 @@ class GitPush(BaseModel):
     remote: str = "origin"
     branch: str | None = None
     set_upstream: bool = False
-    force: bool = False
+    force: bool = Field(
+        default=False,
+        description=(
+            "Unconditional overwrite (git push --force). Mutually exclusive "
+            "with force_with_lease. Applies to the branch and refspec forms."
+        ),
+    )
     # Issue #161: safer force-push variants
-    force_with_lease: bool = False
-    force_with_lease_expect: str | None = None  # "<refname>:<sha>" or "<sha>"
-    force_if_includes: bool = False  # git 2.30+, composes with force_with_lease
+    force_with_lease: bool = Field(
+        default=False,
+        description=(
+            "Refuse the push if the remote ref moved since your last fetch "
+            "(git push --force-with-lease). The safe force-push. Applies to "
+            "the branch and refspec forms."
+        ),
+    )
+    force_with_lease_expect: str | None = Field(
+        default=None,
+        description=(
+            "Expected remote state as '<refname>:<sha>', or a bare '<sha>' "
+            "whose refname is taken from branch (or, on the refspec form, "
+            "the refspec destination). Requires force_with_lease=True."
+        ),
+    )
+    force_if_includes: bool = Field(
+        default=False,
+        description=(
+            "Also refuse if the local branch was rebased onto a stale base "
+            "(git push --force-if-includes, git 2.30+). Composes with "
+            "force_with_lease."
+        ),
+    )
     # Issue #173: delete remote branch and raw refspec support
     delete: bool = Field(
         False,
