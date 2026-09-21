@@ -60,6 +60,46 @@ def _get_github_token_from_cli() -> str | None:
     return None
 
 
+def _lease_flag(expect: str | None, refname: str | None) -> str:
+    """Build the --force-with-lease flag.
+
+    ``expect`` is "<refname>:<sha>" or a bare "<sha>"; a bare SHA takes its
+    refname from ``refname`` (the branch, or the refspec destination).
+    """
+    if not expect:
+        return "--force-with-lease"
+    if ":" in expect:
+        return f"--force-with-lease={expect}"
+    return f"--force-with-lease={refname}:{expect}"
+
+
+def _push_rejected_message(force: bool, force_with_lease: bool) -> str:
+    """Explain a non-fast-forward rejection in terms of what was requested.
+
+    Recommending the force flags only helps when none were supplied. When they
+    were, repeating them reads as caller error and hides the real cause (#237).
+    """
+    if force_with_lease:
+        return (
+            "❌ Push rejected (non-fast-forward) even though force_with_lease=True. "
+            "The lease was refused because the remote ref moved since your last "
+            "fetch. Fetch and re-inspect the remote tip, then retry — passing "
+            "force_with_lease_expect='<refname>:<sha>' to name the commit you "
+            "intend to replace."
+        )
+    if force:
+        return (
+            "❌ Push rejected (non-fast-forward) even though force=True. "
+            "The remote refused the forced update; this is usually branch "
+            "protection or receive.denyNonFastForwards on the server, not a "
+            "local problem."
+        )
+    return (
+        "❌ Push rejected (non-fast-forward). "
+        "Use force_with_lease=True (safe) or force=True (unconditional)"
+    )
+
+
 def git_push(
     repo: Repo,
     remote: str = "origin",
@@ -91,7 +131,11 @@ def git_push(
       - ``delete``: maps to ``--delete <branch>`` (delete remote branch).
         Requires ``branch``; mutually exclusive with force/refspec.
       - ``refspec``: raw push refspec (e.g. ``src:dst`` or ``:branch``).
-        Mutually exclusive with ``branch``/``delete``.
+        Mutually exclusive with ``branch``/``delete``. The force controls
+        above (``force``, ``force_with_lease``, ``force_if_includes``) DO
+        apply to the refspec form; a bare-SHA ``force_with_lease_expect``
+        derives its refname from the refspec destination (``src:dst`` -> the
+        ``dst`` side; a bare ``dst`` refspec -> itself).
 
     Dry-run control (issue #176):
       - ``dry_run``: maps to ``--dry-run``. Compatible with all push modes.
@@ -125,8 +169,18 @@ def git_push(
 
         # Handle raw refspec push
         if refspec is not None:
+            # branch is None here, so a bare-SHA lease takes its refname from
+            # the refspec destination ("src:dst" -> "dst"; "dst" -> "dst").
+            dst = refspec.split(":", 1)[1] if ":" in refspec else refspec
+            force_args: list[str] = []
+            if force:
+                force_args.append("--force")
+            elif force_with_lease:
+                force_args.append(_lease_flag(force_with_lease_expect, dst))
+            if force_if_includes:
+                force_args.append("--force-if-includes")
             extra = ["--dry-run"] if dry_run else []
-            repo.git.push(remote, refspec, *extra)
+            repo.git.push(*force_args, remote, refspec, *extra)
             suffix = " (dry-run; no remote state modified)" if dry_run else ""
             return f"✅ Successfully pushed refspec '{refspec}' to {remote}{suffix}"
 
@@ -154,15 +208,7 @@ def git_push(
         if force:
             push_args.insert(0, "--force")
         elif force_with_lease:
-            if force_with_lease_expect:
-                # Accept "<refname>:<sha>" or "<sha>" (derive refname from branch)
-                if ":" in force_with_lease_expect:
-                    lease_arg = f"--force-with-lease={force_with_lease_expect}"
-                else:
-                    lease_arg = f"--force-with-lease={branch}:{force_with_lease_expect}"
-            else:
-                lease_arg = "--force-with-lease"
-            push_args.insert(0, lease_arg)
+            push_args.insert(0, _lease_flag(force_with_lease_expect, branch))
         if force_if_includes:
             # Compatible with --force-with-lease; harmless without it on git 2.30+.
             push_args.insert(0, "--force-if-includes")
@@ -294,7 +340,7 @@ def git_push(
                         ):
                             return "❌ Permission denied. Check repository access permissions"
                         elif "non-fast-forward" in error_output:
-                            return "❌ Push rejected (non-fast-forward). Use force_with_lease=True (safe) or force=True (unconditional)"
+                            return _push_rejected_message(force, force_with_lease)
                         else:
                             return f"❌ Push failed: {error_output}"
 
@@ -333,7 +379,7 @@ def git_push(
 
             # Standard error handling for non-GitHub or non-auth issues
             if "non-fast-forward" in error_text:
-                return "❌ Push rejected (non-fast-forward). Use force_with_lease=True (safe) or force=True (unconditional)"
+                return _push_rejected_message(force, force_with_lease)
             else:
                 return f"❌ Push failed (exit {e.status}): {error_text}"
 
@@ -359,7 +405,7 @@ def git_push(
         elif "403" in error_text:
             return "❌ Permission denied. Check repository access permissions"
         elif "non-fast-forward" in error_text:
-            return "❌ Push rejected (non-fast-forward). Use force_with_lease=True (safe) or force=True (unconditional)"
+            return _push_rejected_message(force, force_with_lease)
         else:
             return f"❌ Push failed (exit {e.status}): {error_text}"
     except Exception as e:
