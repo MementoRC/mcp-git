@@ -15,7 +15,9 @@ __all__ = [
     "_get_mocked_file_path",
     "_get_staged_file_set",
     "_format_file_list",
+    "git_ls_files",
     "git_reset",
+    "git_update_index",
 ]
 
 _FILE_LIST_DISPLAY_LIMIT = 20
@@ -341,3 +343,92 @@ def git_reset(
         return f"❌ Reset failed: {clean_git_error_text(e.stderr, 'stderr')}"
     except Exception as e:
         return f"❌ Reset error: {str(e)}"
+
+
+def git_update_index(repo: Repo, files: list[str], chmod: str) -> str:
+    """Set or clear the executable bit recorded in the git INDEX (issue #236).
+
+    Uses the plumbing `git update-index --chmod` rather than a working-tree
+    os.chmod: a working-tree chmod is silently dropped when
+    core.filemode=false, whereas --chmod records the mode in the index
+    regardless of that setting.
+
+    Args:
+        repo: Git repository object
+        files: File paths to update (must already be tracked by git)
+        chmod: "+x" to set the executable bit, "-x" to clear it
+
+    Returns:
+        Success or error message string
+    """
+    try:
+        if not files:
+            return "❌ No files specified. Provide at least one tracked file path."
+
+        untracked = [f for f in files if not repo.git.ls_files("--", f).strip()]
+        if untracked:
+            return (
+                f"❌ Not tracked by git, stage first with git_add: "
+                f"{_format_file_list(untracked)}"
+            )
+
+        repo.git.update_index(f"--chmod={chmod}", "--", *files)
+
+        action = (
+            "Set executable bit (+x)"
+            if chmod == "+x"
+            else "Cleared executable bit (-x)"
+        )
+        return f"✅ {action} on {len(files)} file(s): {_format_file_list(files)}"
+
+    except GitCommandError as e:
+        return f"❌ git update-index failed: {clean_git_error_text(e.stderr, 'stderr')}"
+    except Exception as e:
+        return f"❌ git update-index failed: {str(e)}"
+
+
+def git_ls_files(
+    repo: Repo,
+    files: list[str] | None = None,
+    stage: bool = False,
+) -> str:
+    """List files tracked by git, optionally showing the index mode (issue #236).
+
+    Args:
+        repo: Git repository object
+        files: Optional pathspec to limit the listing
+        stage: If True, show the index mode/object id/stage number per file
+            (git ls-files -s), rendered as "<mode>  <path>" so a
+            100644-vs-100755 problem is visible at a glance.
+
+    Returns:
+        Newline-separated listing, or a "⚠️ "/"❌ " message string
+    """
+    try:
+        if stage:
+            output = (
+                repo.git.ls_files("-s", "--", *files)
+                if files
+                else repo.git.ls_files("-s")
+            )
+            if not output.strip():
+                return "⚠️ No files matched"
+
+            rendered = []
+            for line in output.split("\n"):
+                if not line.strip():
+                    continue
+                meta, _, path = line.partition("\t")
+                mode = meta.split()[0]
+                rendered.append(f"{mode}  {path}")
+            return "\n".join(rendered)
+
+        output = repo.git.ls_files("--", *files) if files else repo.git.ls_files()
+        if not output.strip():
+            return "⚠️ No files matched"
+        return output
+
+    except GitCommandError as e:
+        return f"❌ git ls-files failed: {clean_git_error_text(e.stderr, 'stderr')}"
+    except Exception as e:
+        return f"❌ git ls-files failed: {str(e)}"

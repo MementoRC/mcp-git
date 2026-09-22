@@ -15,6 +15,7 @@ from .models import (
     GitDiffUnstaged,
     GitInit,
     GitLog,
+    GitLsFiles,
     GitMerge,
     GitPull,
     GitPush,
@@ -24,6 +25,7 @@ from .models import (
     GitSecurityValidate,
     GitShow,
     GitStatus,
+    GitUpdateIndex,
 )
 from .operations import (
     git_abort,
@@ -40,6 +42,7 @@ from .operations import (
     git_diff_unstaged,
     git_init,
     git_log,
+    git_ls_files,
     git_merge,
     git_pull,
     git_push,
@@ -47,6 +50,7 @@ from .operations import (
     git_reset,
     git_show,
     git_status,
+    git_update_index,
 )
 from .security import enforce_secure_git_config, validate_git_security_config
 
@@ -66,6 +70,7 @@ __all__ = [
     "git_diff_unstaged",
     "git_init",
     "git_log",
+    "git_ls_files",
     "git_merge",
     "git_pull",
     "git_push",
@@ -73,6 +78,7 @@ __all__ = [
     "git_reset",
     "git_show",
     "git_status",
+    "git_update_index",
     # Security operations
     "enforce_secure_git_config",
     "validate_git_security_config",
@@ -91,6 +97,7 @@ __all__ = [
     "GitDiffUnstaged",
     "GitInit",
     "GitLog",
+    "GitLsFiles",
     "GitMerge",
     "GitPull",
     "GitPush",
@@ -100,4 +107,5 @@ __all__ = [
     "GitSecurityValidate",
     "GitShow",
     "GitStatus",
+    "GitUpdateIndex",
 ]
