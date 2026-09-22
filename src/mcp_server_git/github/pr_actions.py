@@ -5,11 +5,140 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from mcp_server_git.github.client import github_client_context
+from mcp_server_git.github.client import GraphQLError, github_client_context
 
 logger = logging.getLogger(__name__)
 
 _BOT_TEMPLATE_MARKER = "${{"
+
+_MARK_READY_MUTATION = """
+mutation($id: ID!) {
+  markPullRequestReadyForReview(input: {pullRequestId: $id}) {
+    pullRequest {
+      number
+      isDraft
+      url
+    }
+  }
+}
+"""
+
+_CONVERT_TO_DRAFT_MUTATION = """
+mutation($id: ID!) {
+  convertPullRequestToDraft(input: {pullRequestId: $id}) {
+    pullRequest {
+      number
+      isDraft
+      url
+    }
+  }
+}
+"""
+
+
+async def _fetch_pr_node_id(
+    client: Any, repo_owner: str, repo_name: str, pr_number: int
+) -> tuple[str | None, str | None]:
+    """Fetch a PR's GraphQL node_id via the REST API.
+
+    Returns ``(node_id, None)`` on success or ``(None, error_message)`` on
+    failure, where ``error_message`` is a ready-to-return "❌ " string.
+    """
+    response = await client.get(f"/repos/{repo_owner}/{repo_name}/pulls/{pr_number}")
+    if response.status != 200:
+        error_text = await response.text()
+        return None, (
+            f"❌ Failed to fetch PR #{pr_number}: {response.status} - {error_text}"
+        )
+
+    pr = await response.json()
+    return pr["node_id"], None
+
+
+async def _run_draft_mutation(
+    repo_owner: str,
+    repo_name: str,
+    pr_number: int,
+    mutation: str,
+    mutation_key: str,
+    verb: str,
+    past_participle: str,
+) -> str:
+    """Shared implementation for the ready/draft toggle mutations.
+
+    ``verb`` is the infinitive action (e.g. "mark ready for review"), used
+    in error/log context; ``past_participle`` (e.g. "marked ready for
+    review") describes the resulting success state.
+    """
+    try:
+        async with github_client_context() as client:
+            node_id, error = await _fetch_pr_node_id(
+                client, repo_owner, repo_name, pr_number
+            )
+            if error:
+                return error
+
+            try:
+                data = await client.graphql(mutation, variables={"id": node_id})
+            except GraphQLError as graphql_error:
+                return f"❌ Failed to {verb} PR #{pr_number}: {graphql_error}"
+
+            pr = data[mutation_key]["pullRequest"]
+            logger.info(f"✅ Successfully {verb} PR #{pr['number']}")
+            return (
+                f"✅ PR #{pr['number']} {past_participle}: {pr['url']} "
+                f"(isDraft={pr['isDraft']})"
+            )
+
+    except ValueError as auth_error:
+        logger.error(f"Authentication error trying to {verb} PR: {auth_error}")
+        return f"❌ {str(auth_error)}"
+    except ConnectionError as conn_error:
+        logger.error(f"Connection error trying to {verb} PR: {conn_error}")
+        return f"❌ Network connection failed: {str(conn_error)}"
+    except Exception as e:
+        logger.error(
+            f"Unexpected error trying to {verb} PR #{pr_number}: {e}", exc_info=True
+        )
+        return f"❌ Error trying to {verb} PR: {str(e)}"
+
+
+async def github_mark_pr_ready(repo_owner: str, repo_name: str, pr_number: int) -> str:
+    """Mark a draft pull request as ready for review.
+
+    Clearing the draft flag has no REST endpoint; it requires the GraphQL
+    ``markPullRequestReadyForReview`` mutation against the PR's node_id.
+    """
+    logger.debug(f"🚀 Marking PR #{pr_number} in {repo_owner}/{repo_name} ready")
+    return await _run_draft_mutation(
+        repo_owner,
+        repo_name,
+        pr_number,
+        _MARK_READY_MUTATION,
+        "markPullRequestReadyForReview",
+        "mark ready for review",
+        "marked ready for review",
+    )
+
+
+async def github_convert_pr_to_draft(
+    repo_owner: str, repo_name: str, pr_number: int
+) -> str:
+    """Convert a ready pull request back to draft.
+
+    Uses the GraphQL ``convertPullRequestToDraft`` mutation; there is no
+    REST equivalent.
+    """
+    logger.debug(f"🚀 Converting PR #{pr_number} in {repo_owner}/{repo_name} to draft")
+    return await _run_draft_mutation(
+        repo_owner,
+        repo_name,
+        pr_number,
+        _CONVERT_TO_DRAFT_MUTATION,
+        "convertPullRequestToDraft",
+        "convert to draft",
+        "converted to draft",
+    )
 
 
 def _select_rendered_body(comment: dict[str, Any]) -> str:

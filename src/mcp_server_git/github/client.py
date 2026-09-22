@@ -5,10 +5,27 @@ import os
 import re
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
+from typing import Any
 
 import aiohttp
 
 logger = logging.getLogger(__name__)
+
+
+class GraphQLError(Exception):
+    """Raised when a GitHub GraphQL response contains a top-level ``errors``
+    array.
+
+    GraphQL returns HTTP 200 even when the operation failed — the failure
+    lives in ``errors``, not the status code. Raising here (rather than
+    silently returning the errors alongside ``data``) makes it hard for a
+    caller to accidentally treat a failed mutation as a success.
+    """
+
+    def __init__(self, errors: list[dict[str, Any]]):
+        self.errors = errors
+        messages = "; ".join(e.get("message", str(e)) for e in errors)
+        super().__init__(f"GraphQL request failed: {messages}")
 
 
 @dataclass
@@ -100,6 +117,41 @@ class GitHubClient:
         }
 
         return await self.session.delete(url, headers=headers, **kwargs)
+
+    async def graphql(
+        self, query: str, variables: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        """Execute a GraphQL request against ``/graphql``.
+
+        GitHub's GraphQL endpoint returns HTTP 200 even when the operation
+        fails; errors are reported in a top-level ``errors`` array in the
+        JSON body instead. This method raises :class:`GraphQLError` when
+        that array is non-empty, so a caller cannot mistake a failed
+        mutation for success by checking only the HTTP status.
+
+        Returns the ``data`` object of a successful response.
+        """
+        url = f"{self.base_url}/graphql"
+        headers = {
+            "Authorization": f"Bearer {self.token}",
+            "Accept": "application/vnd.github.v3+json",
+            "User-Agent": "MCP-Git-Server/1.1.0",
+        }
+        payload: dict[str, Any] = {"query": query}
+        if variables is not None:
+            payload["variables"] = variables
+
+        response = await self.session.post(url, headers=headers, json=payload)
+        if response.status != 200:
+            error_text = await response.text()
+            raise GraphQLError([{"message": f"HTTP {response.status}: {error_text}"}])
+
+        result = await response.json()
+        errors = result.get("errors")
+        if errors:
+            raise GraphQLError(errors)
+
+        return result.get("data", {})
 
 
 def get_github_client() -> GitHubClient | None:

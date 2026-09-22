@@ -399,6 +399,22 @@ class GitHubUpdatePR(BaseModel):
     base: str | None = None
 
 
+class GitHubMarkPRReady(BaseModel):
+    """Mark a draft pull request as ready for review (GraphQL-only op)."""
+
+    repo_owner: str
+    repo_name: str
+    pr_number: int
+
+
+class GitHubConvertPRToDraft(BaseModel):
+    """Convert a ready pull request back to draft (GraphQL-only op)."""
+
+    repo_owner: str
+    repo_name: str
+    pr_number: int
+
+
 # ============================================================================
 # Repository Settings Management Models (Issue #41)
 # ============================================================================
