@@ -12,6 +12,47 @@ from .pr_actions import *  # noqa: F401,F403
 logger = logging.getLogger(__name__)
 
 
+def _merged_line(pr_data: dict) -> str | None:
+    """Render merged-ness for a closed PR; None while it is still open.
+
+    GitHub's ``state`` is only ever "open" or "closed", so whether a PR was
+    merged has to come from ``merged`` / ``merged_at`` (issue #239). For an
+    open PR the question is premature, so nothing is rendered.
+    """
+    if pr_data.get("state") != "closed":
+        return None
+    if not (pr_data.get("merged") or pr_data.get("merged_at")):
+        return "Merged: no"
+    parts: list[str] = []
+    if pr_data.get("merged_at"):
+        parts.append(str(pr_data["merged_at"]))
+    login = (pr_data.get("merged_by") or {}).get("login")
+    if login:
+        parts.append(f"by {login}")
+    sha = pr_data.get("merge_commit_sha")
+    if sha:
+        parts.append(str(sha)[:7])
+    detail = f" ({', '.join(parts)})" if parts else ""
+    return f"Merged: yes{detail}"
+
+
+def _pr_state_marker(pr: dict) -> str:
+    """Per-PR marker distinguishing merged from closed-but-unmerged (#239).
+
+    The list endpoint carries ``merged_at`` but no ``merged`` bool, and REST
+    never reports ``state == "merged"`` — so the old three-key state map could
+    never emit its purple marker and every closed PR rendered red.
+    """
+    state = pr.get("state")
+    if state == "open":
+        return "🟢"
+    if pr.get("merged") or pr.get("merged_at"):
+        return "🟣"
+    if state == "closed":
+        return "🔴"
+    return "❓"
+
+
 async def github_get_pr_checks(
     repo_owner: str,
     repo_name: str,
@@ -218,6 +259,9 @@ async def github_get_pr_details(
             output = [f"Pull Request #{pr_number}:\n"]
             output.append(f"Title: {pr_data.get('title', 'N/A')}")
             output.append(f"State: {pr_data.get('state', 'N/A')}")
+            merged_line = _merged_line(pr_data)
+            if merged_line:
+                output.append(merged_line)
             output.append(f"Author: {pr_data.get('user', {}).get('login', 'N/A')}")
             output.append(f"Base: {pr_data.get('base', {}).get('ref', 'N/A')}")
             output.append(f"Head: {pr_data.get('head', {}).get('ref', 'N/A')}")
@@ -362,9 +406,7 @@ async def github_list_pull_requests(
             output = [f"{state.title()} Pull Requests for {repo_owner}/{repo_name}:\n"]
 
             for pr in prs:
-                state_emoji = {"open": "🟢", "closed": "🔴", "merged": "🟣"}.get(
-                    pr.get("state"), "❓"
-                )
+                state_emoji = _pr_state_marker(pr)
                 output.append(f"{state_emoji} #{pr['number']}: {pr['title']}")
                 output.append(f"   Author: {pr.get('user', {}).get('login', 'N/A')}")
                 base_ref = pr.get("base", {}).get("ref", "N/A")
@@ -405,8 +447,14 @@ async def github_get_pr_status(repo_owner: str, repo_name: str, pr_number: int) 
 
             output = [f"Status for PR #{pr_number}:\n"]
             output.append(f"State: {pr_data.get('state', 'N/A')}")
-            output.append(f"Mergeable: {pr_data.get('mergeable', 'N/A')}")
-            output.append(f"Merge State: {pr_data.get('mergeable_state', 'N/A')}")
+            merged_line = _merged_line(pr_data)
+            if merged_line:
+                # Closed: report whether it merged. "Mergeable"/"Merge State"
+                # answer "can this merge now", which is noise once closed.
+                output.append(merged_line)
+            else:
+                output.append(f"Mergeable: {pr_data.get('mergeable', 'N/A')}")
+                output.append(f"Merge State: {pr_data.get('mergeable_state', 'N/A')}")
             output.append("")
 
             # Get check runs
