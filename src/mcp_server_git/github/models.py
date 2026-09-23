@@ -98,6 +98,23 @@ class GitHubListWorkflowRuns(BaseModel):
     head_sha: str | None = None
 
 
+class GitHubAwaitWorkflowCompletion(BaseModel):
+    """Monitor a GitHub Actions workflow run until completion."""
+
+    repo_owner: str
+    repo_name: str
+    run_id: int | None = Field(
+        default=None,
+        description="Specific workflow run ID to monitor. If None, monitors the latest run.",
+    )
+    timeout_minutes: int = Field(
+        default=15, description="Maximum time to wait in minutes"
+    )
+    poll_interval_seconds: int = Field(
+        default=20, description="Time between status checks in seconds"
+    )
+
+
 class GitHubGetPRDetails(BaseModel):
     repo_owner: str
     repo_name: str

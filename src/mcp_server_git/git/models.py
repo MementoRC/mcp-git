@@ -271,6 +271,36 @@ class GitPull(BaseModel):
     branch: str | None = None
 
 
+class GitFetch(BaseModel):
+    repo_path: str
+    remote: str = "origin"
+    branch: str | None = None
+    prune: bool = Field(
+        default=False, description="Prune deleted remote-tracking refs (--prune)"
+    )
+
+
+class GitRemoteAdd(BaseModel):
+    repo_path: str
+    name: str
+    url: str
+
+
+class GitRemoteRemove(BaseModel):
+    repo_path: str
+    name: str
+
+
+class GitRemoteList(BaseModel):
+    repo_path: str
+    verbose: bool = Field(default=False, description="Show remote URLs (git remote -v)")
+
+
+class GitRemoteGetUrl(BaseModel):
+    repo_path: str
+    name: str
+
+
 class GitDiffBranches(BaseModel):
     """Compare two branches.
 
@@ -567,4 +597,30 @@ class GitRm(BaseModel):
     dry_run: bool = Field(
         default=False,
         description="Show what would be removed without doing it (--dry-run)",
+    )
+
+
+class GitStashList(BaseModel):
+    repo_path: str
+
+
+class GitStashPush(BaseModel):
+    repo_path: str
+    message: str | None = Field(default=None, description="Optional stash message")
+    include_untracked: bool = Field(
+        default=False, description="Include untracked files"
+    )
+
+
+class GitStashPop(BaseModel):
+    repo_path: str
+    stash_id: str | None = Field(
+        default=None, description="Stash ID (e.g., stash@{0}), defaults to latest"
+    )
+
+
+class GitStashDrop(BaseModel):
+    repo_path: str
+    stash_id: str | None = Field(
+        default=None, description="Stash ID (e.g., stash@{0}), defaults to latest"
     )
