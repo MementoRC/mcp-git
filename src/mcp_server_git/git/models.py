@@ -82,6 +82,35 @@ class GitReset(BaseModel):
     files: list[str] | None = None  # specific files to reset
 
 
+class GitUpdateIndex(BaseModel):
+    repo_path: str
+    files: list[str] = Field(description="File paths to update in the index")
+    chmod: Literal["+x", "-x"] = Field(
+        description=(
+            "Set (+x) or clear (-x) the executable bit recorded in the git "
+            "INDEX for the given files (git update-index --chmod). This "
+            "changes the mode git tracks regardless of core.filemode, unlike "
+            "a working-tree chmod which core.filemode=false silently drops."
+        )
+    )
+
+
+class GitLsFiles(BaseModel):
+    repo_path: str
+    files: list[str] | None = Field(
+        default=None,
+        description="Optional pathspec to limit the listing to specific files or directories",
+    )
+    stage: bool = Field(
+        default=False,
+        description=(
+            "Show the index mode, object id, and stage number for each file "
+            "(git ls-files -s), so the executable bit can be inspected "
+            "directly instead of relying on the working tree."
+        ),
+    )
+
+
 class GitLog(BaseModel):
     repo_path: str
     max_count: int = 10

@@ -54,7 +54,7 @@ from ._remote_ops import (
     git_remote_rename,
     git_remote_set_url,
 )
-from ._staging_ops import git_add, git_reset
+from ._staging_ops import git_add, git_ls_files, git_reset, git_update_index
 from ._stash_ops import (
     git_stash_drop,
     git_stash_list,
@@ -78,6 +78,8 @@ __all__ = [
     "git_commit",
     "git_add",
     "git_reset",
+    "git_update_index",
+    "git_ls_files",
     "git_log",
     "git_show",
     "git_init",
