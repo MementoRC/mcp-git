@@ -81,7 +81,7 @@ jobs:
     - name: Setup pixi
       uses: prefix-dev/setup-pixi@v0.9.0
       with:
-        pixi-version: v0.49.0
+        pixi-version: v0.75.0
         cache: false
         manifest-path: pyproject.toml
 
@@ -217,7 +217,7 @@ jobs:
     - name: Setup pixi
       uses: prefix-dev/setup-pixi@v0.9.0
       with:
-        pixi-version: v0.49.0
+        pixi-version: v0.75.0
         cache: false
         manifest-path: pyproject.toml
 
