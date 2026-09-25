@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 
+from mcp_server_git.github.check_markers import check_marker
 from mcp_server_git.github.client import github_client_context
 from mcp_server_git.github.patches import PatchMemoryManager
 
@@ -101,11 +102,7 @@ async def github_get_pr_checks(
             output = [f"Check runs for PR #{pr_number} (commit {head_sha[:8]}):\n"]
 
             for run in check_runs:
-                status_emoji = {
-                    "completed": "✅" if run.get("conclusion") == "success" else "❌",
-                    "in_progress": "🔄",
-                    "queued": "⏳",
-                }.get(run["status"], "❓")
+                status_emoji = check_marker(run)
 
                 output.append(f"{status_emoji} {run['name']}")
                 output.append(f"   Status: {run['status']}")
@@ -468,13 +465,7 @@ async def github_get_pr_status(repo_owner: str, repo_name: str, pr_number: int) 
                 if check_runs:
                     output.append("Check Runs:")
                     for run in check_runs:
-                        status_emoji = {
-                            "completed": "✅"
-                            if run.get("conclusion") == "success"
-                            else "❌",
-                            "in_progress": "🔄",
-                            "queued": "⏳",
-                        }.get(run["status"], "❓")
+                        status_emoji = check_marker(run)
 
                         output.append(
                             f"  {status_emoji} {run['name']}: {run['status']}"
