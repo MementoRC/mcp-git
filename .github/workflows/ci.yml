@@ -10,7 +10,7 @@ on:
 jobs:
   # Core CI via ci-framework reusable workflow
   ci:
-    uses: Claire-s-Monster/ci-framework/.github/workflows/reusable-ci.yml@v2.5.1
+    uses: Claire-s-Monster/ci-framework/.github/workflows/reusable-ci.yml@v3.0.0
     permissions:
       contents: write
       id-token: write
@@ -19,6 +19,7 @@ jobs:
       checks: write
     with:
       pixi-environment: "ci"
+      pixi-version: "v0.75.0"
       python-versions: '["3.12"]'
       os-matrix: '["ubuntu-latest"]'
       enable-performance: false
