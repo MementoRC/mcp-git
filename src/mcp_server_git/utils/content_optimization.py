@@ -254,7 +254,7 @@ class ResponseFormatter:
         content: str,
         client_type: ClientType,
         operation: str = "",
-        metadata: dict[str, Any] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> str:
         """
         Format response content for the client.

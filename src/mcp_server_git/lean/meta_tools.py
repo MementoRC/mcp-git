@@ -11,7 +11,7 @@ import inspect
 import json
 import logging
 import re
-from typing import Any
+from typing import Any, cast
 
 from jsonschema import ValidationError, validate
 
@@ -374,6 +374,7 @@ def setup_meta_tools(interface) -> None:
 
         # Coerce string parameters to dict (clients may send JSON string)
         if isinstance(parameters, str):
+            raw_parameters = cast(str, parameters)
             try:
                 parameters = json.loads(parameters)
             except json.JSONDecodeError:
@@ -390,7 +391,7 @@ def setup_meta_tools(interface) -> None:
                     return {
                         "tool": tool_name,
                         "status": "error",
-                        "error": f"Parameters must be a JSON object, got unparseable string: {parameters[:100]}",
+                        "error": f"Parameters must be a JSON object, got unparseable string: {raw_parameters[:100]}",
                     }
 
         try:

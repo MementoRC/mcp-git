@@ -82,7 +82,7 @@ class RepositoryBinding:
     """Immutable repository binding configuration."""
 
     repository_path: Path
-    expected_remote_url: str
+    expected_remote_url: str | None
     remote_name: str = DEFAULT_REMOTE_NAME
     binding_timestamp: float = field(default_factory=time.time)
     binding_hash: str = field(init=False)
@@ -115,7 +115,7 @@ class RepositoryBindingManager:
     async def bind_repository(
         self,
         repository_path: Path,
-        expected_remote_url: str,
+        expected_remote_url: str | None,
         verify_remote: bool = True,
         force: bool = False,
     ) -> RepositoryBinding:
@@ -124,7 +124,8 @@ class RepositoryBindingManager:
 
         Args:
             repository_path: Path to git repository
-            expected_remote_url: Expected remote URL for validation
+            expected_remote_url: Expected remote URL for validation, or None
+                when there is no expectation (requires verify_remote=False)
             verify_remote: Verify remote URL matches expectation
             force: Force binding even if already bound
 

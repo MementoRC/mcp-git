@@ -135,7 +135,7 @@ def gh_edit_pr(
             args.extend(["--remove-reviewer", ",".join(remove_reviewer)])
 
         # Run command
-        stdout, stderr, returncode = _run_gh_command(args, repo_path)
+        _stdout, stderr, returncode = _run_gh_command(args, repo_path)
 
         if returncode != 0:
             return f"❌ Failed to edit PR: {stderr}"
@@ -211,7 +211,7 @@ def gh_close_pr(
             args.extend(["--comment", comment])
 
         # Run command
-        stdout, stderr, returncode = _run_gh_command(args, repo_path)
+        _stdout, stderr, returncode = _run_gh_command(args, repo_path)
 
         if returncode != 0:
             return f"❌ Failed to close PR: {stderr}"
@@ -241,7 +241,7 @@ def gh_reopen_pr(
             args.extend(["--comment", comment])
 
         # Run command
-        stdout, stderr, returncode = _run_gh_command(args, repo_path)
+        _stdout, stderr, returncode = _run_gh_command(args, repo_path)
 
         if returncode != 0:
             return f"❌ Failed to reopen PR: {stderr}"
@@ -267,7 +267,7 @@ def gh_ready_pr(
         args = ["pr", "ready", str(pr_number)]
 
         # Run command
-        stdout, stderr, returncode = _run_gh_command(args, repo_path)
+        _stdout, stderr, returncode = _run_gh_command(args, repo_path)
 
         if returncode != 0:
             return f"❌ Failed to mark PR as ready: {stderr}"

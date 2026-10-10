@@ -205,10 +205,11 @@ Let us know what research or attempts you've already made.
             "labels": template_data.get("labels", []),
         }
     else:
-        template = templates.get(template_name)
-        if not template:
+        found = templates.get(template_name)
+        if not found:
             available = ", ".join(templates.keys()) + ", custom"
             return f"❌ Unknown template '{template_name}'. Available templates: {available}"
+        template = found
 
     # Apply template data customizations
     if template_data:

@@ -16,7 +16,7 @@ import json
 import logging
 from collections.abc import Callable
 from functools import wraps
-from typing import Any
+from typing import Any, cast
 
 from fastmcp import FastMCP
 
@@ -324,13 +324,14 @@ class GitLeanInterface:
 
         # Coerce string parameters to dict (clients may send JSON string)
         if isinstance(parameters, str):
+            raw_parameters = cast(str, parameters)
             try:
                 parameters = json.loads(parameters)
             except json.JSONDecodeError:
                 return {
                     "tool": tool_name,
                     "status": "error",
-                    "error": f"Parameters must be a JSON object, got unparseable string: {parameters[:100]}",
+                    "error": f"Parameters must be a JSON object, got unparseable string: {raw_parameters[:100]}",
                 }
 
         try:
