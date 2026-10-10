@@ -18,6 +18,8 @@
 Description=MCP Git HTTP Server (User)
 Documentation=https://github.com/MementoRC/mcp-git
 After=network.target
+StartLimitIntervalSec=60
+StartLimitBurst=3
 
 [Service]
 Type=simple
@@ -36,8 +38,6 @@ ExecReload=/bin/kill -HUP $MAINPID
 # Restart configuration
 Restart=on-failure
 RestartSec=5
-StartLimitBurst=3
-StartLimitIntervalSec=60
 
 # Logging
 StandardOutput=journal
