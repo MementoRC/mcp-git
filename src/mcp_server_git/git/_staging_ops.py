@@ -50,104 +50,117 @@ def git_add(
         The count reflects unique files staged, not pattern matches.
     """
     try:
-        # Validate mutually exclusive parameters
-        provided_options = []
-        if files:
-            provided_options.append("files")
+        invalid = _validate_add_options(files, update_only, patterns)
+        if invalid:
+            return invalid
         if update_only:
-            provided_options.append("update_only")
+            return _add_tracked_updates(repo)
         if patterns:
-            provided_options.append("patterns")
-
-        if len(provided_options) > 1:
-            return f"❌ Conflicting parameters: {', '.join(provided_options)}. Use only one method to specify what to add."
-
-        if len(provided_options) == 0:
-            return (
-                "❌ No files specified. Use files, update_only, or patterns parameter."
-            )
-
-        if update_only:
-            # Stage only modifications and deletions (no new files). Report
-            # the delta between before/after snapshots, not the total
-            # staged set, so a pre-existing staged file isn't counted.
-            staged_before = _get_staged_file_set(repo)
-            repo.git.add("-u")
-            staged_after = _get_staged_file_set(repo)
-            newly_staged = staged_after - staged_before
-            return f"✅ Added {len(newly_staged)} file(s) to staging area (tracked updates)"
-
-        # Handle pattern-based additions
-        if patterns:
-            # Validate patterns for safety (no command injection)
-            dangerous_chars = [";", "|", "&", "`", "$", "(", ")"]
-            for pattern in patterns:
-                if any(char in pattern for char in dangerous_chars):
-                    return f"❌ Invalid characters detected in pattern: {pattern}"
-
-            # Add files matching patterns and report the delta, not the
-            # total staged set (which would report success/failure based on
-            # stale state left over from an earlier, unrelated staging call).
-            try:
-                staged_before = _get_staged_file_set(repo)
-                repo.git.add(*patterns)
-                staged_after = _get_staged_file_set(repo)
-                newly_staged = sorted(staged_after - staged_before)
-                if newly_staged:
-                    return (
-                        f"✅ Added {len(newly_staged)} file(s) to staging area: "
-                        f"{_format_file_list(newly_staged)} "
-                        f"(matching {', '.join(patterns)})"
-                    )
-                else:
-                    return f"⚠️ No files matched patterns: {', '.join(patterns)}"
-            except GitCommandError as e:
-                return f"❌ Pattern matching failed: {clean_git_error_text(e.stderr, 'stderr')}"
-
-        # Traditional file-by-file behavior (backward compatible)
+            return _add_patterns(repo, patterns)
         if files:
-            # Validate files exist or are known to git as changes
-            missing_files = []
-
-            # Get git status once and parse it for all files
-            status_output = repo.git.status("--porcelain")
-            status_files = set()
-            for status_line in status_output.split("\n"):
-                if status_line.strip() and len(status_line) >= 3:
-                    # Porcelain format: XY filename (where X is staged, Y is working tree)
-                    status_file = status_line[3:].strip()
-                    status_files.add(status_file)
-
-            # Check each file
-            for file in files:
-                if not _file_exists_or_in_git(repo, file, status_files):
-                    missing_files.append(file)
-
-            if missing_files:
-                return f"❌ Files not found: {', '.join(missing_files)}"
-
-            # Snapshot the index before/after the add and report the actual
-            # difference. Pathspecs like "." or a directory never equal a
-            # staged filename, so comparing the literal input strings
-            # against staged filenames (the previous approach) always
-            # under-reports for any non-explicit-file pathspec.
-            staged_before = _get_staged_file_set(repo)
-            repo.git.add(*files)
-            staged_after = _get_staged_file_set(repo)
-            newly_staged = sorted(staged_after - staged_before)
-
-            if newly_staged:
-                return f"✅ Added {len(newly_staged)} file(s) to staging area: {_format_file_list(newly_staged)}"
-            else:
-                return "⚠️ No changes detected in specified files"
-
+            return _add_files(repo, files)
         # Fallback (should not be reached due to parameter validation above)
-        return "❌ No files specified. Use files, update_only, or patterns parameter."
+        return _NO_FILES_MESSAGE
 
     except GitCommandError as e:
         return f"❌ Git add failed: {clean_git_error_text(e.stderr, 'stderr')}"
     except Exception as e:
         return f"❌ Git add failed: {str(e)}"
+
+
+_NO_FILES_MESSAGE = (
+    "❌ No files specified. Use files, update_only, or patterns parameter."
+)
+_DANGEROUS_PATTERN_CHARS = [";", "|", "&", "`", "$", "(", ")"]
+
+
+def _validate_add_options(
+    files: list[str] | None, update_only: bool, patterns: list[str] | None
+) -> str | None:
+    """Return an error message unless exactly one add option is provided."""
+    provided_options = []
+    if files:
+        provided_options.append("files")
+    if update_only:
+        provided_options.append("update_only")
+    if patterns:
+        provided_options.append("patterns")
+
+    if len(provided_options) > 1:
+        return f"❌ Conflicting parameters: {', '.join(provided_options)}. Use only one method to specify what to add."
+    if len(provided_options) == 0:
+        return _NO_FILES_MESSAGE
+    return None
+
+
+def _add_tracked_updates(repo: Repo) -> str:
+    """Stage only modifications and deletions (git add -u).
+
+    Reports the delta between before/after snapshots, not the total
+    staged set, so a pre-existing staged file isn't counted.
+    """
+    staged_before = _get_staged_file_set(repo)
+    repo.git.add("-u")
+    staged_after = _get_staged_file_set(repo)
+    newly_staged = staged_after - staged_before
+    return f"✅ Added {len(newly_staged)} file(s) to staging area (tracked updates)"
+
+
+def _add_patterns(repo: Repo, patterns: list[str]) -> str:
+    """Stage files matching glob patterns, reporting the delta staged."""
+    # Validate patterns for safety (no command injection)
+    for pattern in patterns:
+        if any(char in pattern for char in _DANGEROUS_PATTERN_CHARS):
+            return f"❌ Invalid characters detected in pattern: {pattern}"
+
+    # Report the delta, not the total staged set (which would report
+    # success/failure based on stale state from an earlier staging call).
+    try:
+        staged_before = _get_staged_file_set(repo)
+        repo.git.add(*patterns)
+        staged_after = _get_staged_file_set(repo)
+        newly_staged = sorted(staged_after - staged_before)
+        if newly_staged:
+            return (
+                f"✅ Added {len(newly_staged)} file(s) to staging area: "
+                f"{_format_file_list(newly_staged)} "
+                f"(matching {', '.join(patterns)})"
+            )
+        return f"⚠️ No files matched patterns: {', '.join(patterns)}"
+    except GitCommandError as e:
+        return f"❌ Pattern matching failed: {clean_git_error_text(e.stderr, 'stderr')}"
+
+
+def _parse_porcelain_paths(status_output: str) -> set:
+    """Extract file paths from `git status --porcelain` output."""
+    status_files = set()
+    for status_line in status_output.split("\n"):
+        if status_line.strip() and len(status_line) >= 3:
+            # Porcelain format: XY filename (where X is staged, Y is working tree)
+            status_files.add(status_line[3:].strip())
+    return status_files
+
+
+def _add_files(repo: Repo, files: list[str]) -> str:
+    """Stage explicit file paths after validating they exist or are in git status."""
+    status_files = _parse_porcelain_paths(repo.git.status("--porcelain"))
+    missing_files = [
+        file for file in files if not _file_exists_or_in_git(repo, file, status_files)
+    ]
+    if missing_files:
+        return f"❌ Files not found: {', '.join(missing_files)}"
+
+    # Snapshot the index before/after the add and report the actual
+    # difference. Pathspecs like "." or a directory never equal a staged
+    # filename, so comparing literal input strings always under-reports.
+    staged_before = _get_staged_file_set(repo)
+    repo.git.add(*files)
+    staged_after = _get_staged_file_set(repo)
+    newly_staged = sorted(staged_after - staged_before)
+
+    if newly_staged:
+        return f"✅ Added {len(newly_staged)} file(s) to staging area: {_format_file_list(newly_staged)}"
+    return "⚠️ No changes detected in specified files"
 
 
 def _get_staged_file_set(repo: Repo) -> set:
@@ -251,98 +264,122 @@ def git_reset(
 ) -> str:
     """Reset repository with advanced options (--soft, --mixed, --hard)"""
     try:
-        # Validate reset mode
-        valid_modes = ["soft", "mixed", "hard"]
-        if mode and mode not in valid_modes:
-            return (
-                f"❌ Invalid reset mode '{mode}'. Valid modes: {', '.join(valid_modes)}"
-            )
+        invalid_mode = _invalid_reset_mode_message(mode)
+        if invalid_mode:
+            return invalid_mode
 
-        # Build git reset command
-        reset_args = []
-
-        # Add mode flag if specified
-        if mode:
-            reset_args.append(f"--{mode}")
-
-        # Add target if specified
         if target:
             # Validate target exists
             try:
                 repo.git.rev_parse(target)
             except GitCommandError:
                 return f"❌ Target '{target}' does not exist"
-            reset_args.append(target)
 
-        # Add files if specified
-        if files:
-            # Validate files exist
-            for file in files:
-                if not os.path.exists(os.path.join(repo.working_dir, file)):
-                    return f"❌ File '{file}' does not exist"
-            reset_args.extend(files)
+        missing_file = _missing_reset_file_message(repo, files)
+        if missing_file:
+            return missing_file
 
-        # Special handling for file-specific reset
-        if files and not mode and not target:
-            # Default to mixed reset for files
-            reset_args.insert(0, "HEAD")
-
-        # Get status before reset for informative message
-        status_before = ""
-        if mode in ["mixed", "hard"] or not mode:
-            try:
-                staged_files = [
-                    item.a_path for item in repo.index.diff("HEAD") if item.a_path
-                ]
-                if staged_files:
-                    status_before = f"staged files: {', '.join(staged_files[:5])}"
-                    if len(staged_files) > 5:
-                        status_before += f" (and {len(staged_files) - 5} more)"
-            except Exception:
-                pass
-
-        if mode == "hard":
-            try:
-                modified_files = [
-                    item.a_path for item in repo.index.diff(None) if item.a_path
-                ]
-                if modified_files:
-                    mod_status = f"modified files: {', '.join(modified_files[:5])}"
-                    if len(modified_files) > 5:
-                        mod_status += f" (and {len(modified_files) - 5} more)"
-                    status_before = (
-                        f"{status_before}, {mod_status}"
-                        if status_before
-                        else mod_status
-                    )
-            except Exception:
-                pass
-
-        # Execute reset
-        if reset_args:
-            repo.git.reset(*reset_args)
-        else:
-            repo.git.reset()
-
-        # Build success message
-        if files:
-            return f"✅ Reset {len(files)} file(s): {', '.join(files)}"
-        elif mode == "soft":
-            return f"✅ Soft reset to {target if target else 'HEAD'} - keeping changes in index"
-        elif mode == "mixed" or not mode:
-            target_msg = f" to {target}" if target else ""
-            return f"✅ Mixed reset{target_msg} - {status_before if status_before else 'no staged changes'}"
-        elif mode == "hard":
-            target_msg = f" to {target}" if target else ""
-            return f"✅ Hard reset{target_msg} - {status_before if status_before else 'no changes'} discarded"
-        else:
-            # Fallback return (should not reach here)
-            return "✅ Reset completed"
+        reset_args = _build_reset_args(mode, target, files)
+        status_before = _reset_status_before(repo, mode)
+        repo.git.reset(*reset_args)
+        return _reset_success_message(mode, target, files, status_before)
 
     except GitCommandError as e:
         return f"❌ Reset failed: {clean_git_error_text(e.stderr, 'stderr')}"
     except Exception as e:
         return f"❌ Reset error: {str(e)}"
+
+
+_VALID_RESET_MODES = ["soft", "mixed", "hard"]
+
+
+def _invalid_reset_mode_message(mode: str | None) -> str | None:
+    """Return an error message when *mode* is set but not a valid reset mode."""
+    if mode and mode not in _VALID_RESET_MODES:
+        return f"❌ Invalid reset mode '{mode}'. Valid modes: {', '.join(_VALID_RESET_MODES)}"
+    return None
+
+
+def _missing_reset_file_message(repo: Repo, files: list[str] | None) -> str | None:
+    """Return an error message for the first *files* entry missing on disk."""
+    for file in files or []:
+        if not os.path.exists(os.path.join(repo.working_dir, file)):
+            return f"❌ File '{file}' does not exist"
+    return None
+
+
+def _build_reset_args(
+    mode: str | None, target: str | None, files: list[str] | None
+) -> list[str]:
+    """Assemble the argv for `git reset` from already-validated inputs."""
+    reset_args = []
+    if mode:
+        reset_args.append(f"--{mode}")
+    if target:
+        reset_args.append(target)
+    if files:
+        reset_args.extend(files)
+    # File-specific reset with no mode/target defaults to a mixed reset of HEAD
+    if files and not mode and not target:
+        reset_args.insert(0, "HEAD")
+    return reset_args
+
+
+def _summarize_paths(label: str, paths: list[str]) -> str:
+    """Render "<label>: a, b, ..." capped at five names, empty if no paths."""
+    if not paths:
+        return ""
+    summary = f"{label}: {', '.join(paths[:5])}"
+    if len(paths) > 5:
+        summary += f" (and {len(paths) - 5} more)"
+    return summary
+
+
+def _reset_status_before(repo: Repo, mode: str | None) -> str:
+    """Describe the staged/modified files a reset is about to affect."""
+    status_before = ""
+    if mode in ["mixed", "hard"] or not mode:
+        try:
+            staged_files = [
+                item.a_path for item in repo.index.diff("HEAD") if item.a_path
+            ]
+            status_before = _summarize_paths("staged files", staged_files)
+        except Exception:
+            pass
+
+    if mode == "hard":
+        try:
+            modified_files = [
+                item.a_path for item in repo.index.diff(None) if item.a_path
+            ]
+            mod_status = _summarize_paths("modified files", modified_files)
+            if mod_status:
+                status_before = (
+                    f"{status_before}, {mod_status}" if status_before else mod_status
+                )
+        except Exception:
+            pass
+    return status_before
+
+
+def _reset_success_message(
+    mode: str | None,
+    target: str | None,
+    files: list[str] | None,
+    status_before: str,
+) -> str:
+    """Build the success message for a completed reset."""
+    if files:
+        return f"✅ Reset {len(files)} file(s): {', '.join(files)}"
+    if mode == "soft":
+        return f"✅ Soft reset to {target if target else 'HEAD'} - keeping changes in index"
+    target_msg = f" to {target}" if target else ""
+    if mode == "mixed" or not mode:
+        return f"✅ Mixed reset{target_msg} - {status_before if status_before else 'no staged changes'}"
+    if mode == "hard":
+        return f"✅ Hard reset{target_msg} - {status_before if status_before else 'no changes'} discarded"
+    # Fallback return (should not reach here)
+    return "✅ Reset completed"
 
 
 def git_update_index(repo: Repo, files: list[str], chmod: str) -> str:

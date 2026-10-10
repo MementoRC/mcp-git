@@ -123,6 +123,80 @@ def git_commit(
         return f"❌ Commit error: {str(e)}\n🔒 Verify repository security configuration"
 
 
+def _log_format_args(
+    oneline: bool, format_str: str | None, show_signature: bool
+) -> list[str]:
+    """Formatting options; oneline beats format_str beats show_signature."""
+    if oneline:
+        return ["--oneline"]
+    if format_str:
+        return ["--pretty=format:" + format_str]
+    if show_signature:
+        return ["--pretty=format:" + SIGNATURE_LOG_FORMAT]
+    return []
+
+
+def _log_filter_args(
+    since: str | None, until: str | None, author: str | None, grep: str | None
+) -> list[str]:
+    """Date, author and message filters."""
+    args: list[str] = []
+    for flag, value in (
+        ("--since", since),
+        ("--until", until),
+        ("--author", author),
+        ("--grep", grep),
+    ):
+        if value:
+            args.extend([flag, value])
+    return args
+
+
+def _log_pickaxe_args(
+    search_content: str | None,
+    search_content_regex: str | None,
+    search_content_all: bool,
+) -> list[str]:
+    """Pickaxe content search arguments.
+
+    Passed as a single argv token (f"-S{value}" / f"-G{value}") rather than
+    two separate tokens so a search string starting with a dash (e.g. "-x")
+    lands inside the token instead of being parsed as its own flag.
+
+    search_content/search_content_regex are NOT run through
+    validate_ref/DANGEROUS_CHARS: unlike a ref, search content legitimately
+    contains shell metacharacters ($ ( ) | ; &) - searching a codebase for
+    "$(" or "a|b" is exactly the intended use case. These args go to
+    repo.git.log(*args) via GitPython, which execs git directly and never
+    invokes a shell, so there is no injection path to guard against here.
+    """
+    args: list[str] = []
+    if search_content:
+        args.append(f"-S{search_content}")
+    elif search_content_regex:
+        args.append(f"-G{search_content_regex}")
+    if search_content_all and (search_content or search_content_regex):
+        args.append("--pickaxe-all")
+    return args
+
+
+def _log_tail_args(
+    merges: bool | None, reverse: bool, files: list[str] | None
+) -> list[str]:
+    """Merge filter, ordering, and file paths (which must come after --)."""
+    args: list[str] = []
+    if merges is True:
+        args.append("--merges")
+    elif merges is False:
+        args.append("--no-merges")
+    if reverse:
+        args.append("--reverse")
+    if files:
+        args.append("--")
+        args.extend(files)
+    return args
+
+
 def git_log(
     repo: Repo,
     max_count: int = 10,
@@ -174,75 +248,19 @@ def git_log(
         return "❌ Specify only one of search_content (-S) or search_content_regex (-G)"
 
     try:
-        args = []
-
-        # Add branch if specified
+        args: list[str] = []
         if branch:
             args.append(branch)
-
-        # Add count limit
         if max_count is not None and max_count > 0:
             args.extend(["-n", str(max_count)])
-
-        # Add formatting options
-        if oneline:
-            args.append("--oneline")
-        elif format_str:  # Use format_str
-            args.extend(["--pretty=format:" + format_str])
-        elif show_signature:
-            args.extend(["--pretty=format:" + SIGNATURE_LOG_FORMAT])
-
+        args.extend(_log_format_args(oneline, format_str, show_signature))
         if graph:
             args.append("--graph")
-
-        # Add date filters
-        if since:
-            args.extend(["--since", since])
-        if until:
-            args.extend(["--until", until])
-
-        # Add author filter
-        if author:
-            args.extend(["--author", author])
-
-        # Add message search
-        if grep:
-            args.extend(["--grep", grep])
-
-        # Add pickaxe content search. Passed as a single argv token
-        # (f"-S{value}" / f"-G{value}") rather than two separate tokens so a
-        # search string starting with a dash (e.g. "-x") lands inside the
-        # token instead of being parsed as its own flag.
-        #
-        # search_content/search_content_regex are NOT run through
-        # validate_ref/DANGEROUS_CHARS: unlike a ref, search content
-        # legitimately contains shell metacharacters ($ ( ) | ; &) -
-        # searching a codebase for "$(" or "a|b" is exactly the intended
-        # use case. These args go to repo.git.log(*args) via GitPython,
-        # which execs git directly and never invokes a shell, so there is
-        # no injection path to guard against here.
-        if search_content:
-            args.append(f"-S{search_content}")
-        elif search_content_regex:
-            args.append(f"-G{search_content_regex}")
-
-        if search_content_all and (search_content or search_content_regex):
-            args.append("--pickaxe-all")
-
-        # Add merge commit filter
-        if merges is True:
-            args.append("--merges")
-        elif merges is False:
-            args.append("--no-merges")
-
-        # Add reverse order
-        if reverse:
-            args.append("--reverse")
-
-        # Add file paths if specified (must come after --)
-        if files:
-            args.append("--")
-            args.extend(files)
+        args.extend(_log_filter_args(since, until, author, grep))
+        args.extend(
+            _log_pickaxe_args(search_content, search_content_regex, search_content_all)
+        )
+        args.extend(_log_tail_args(merges, reverse, files))
 
         # Get commit log
         log_output = repo.git.log(*args)
@@ -319,6 +337,65 @@ def git_blame(
         return f"❌ Blame error: {str(e)}"
 
 
+# %H = new (post-move) full SHA, %gD = reflog selector (HEAD@{0}),
+# %gs = reflog subject (e.g. "checkout: moving from main to feature")
+# Note: %gP gives a reflog selector (HEAD@{N}), not a commit SHA,
+# so old_sha is derived from the next entry's new_sha instead.
+_REFLOG_SEP = "\x00"
+# %x00 makes git emit the NUL; a raw NUL in argv is rejected by the OS.
+_REFLOG_FORMAT = "%H%x00%gD%x00%gs"
+
+
+def _reflog_args(ref: str, max_count: int | None, all_refs: bool) -> list[str]:
+    """Build `git reflog show` arguments."""
+    args = ["show", f"--format={_REFLOG_FORMAT}", "--no-abbrev", "--no-patch"]
+
+    # max_count <= 0 (or None) means no limit; only positive values constrain.
+    if max_count is not None and max_count > 0:
+        args.extend(["-n", str(max_count)])
+
+    if all_refs:
+        args.append("--all")
+    else:
+        args.append(ref)
+    return args
+
+
+def _reflog_action(subject: str) -> str:
+    """Derive action from subject: verb before ':', keeping any
+    parenthetical qualifier that immediately follows the verb.
+
+    Examples:
+      "checkout: moving from A to B"    -> "checkout"
+      "merge origin/main: Fast-forward" -> "merge"
+      "commit (amend): fixup msg"        -> "commit (amend)"
+      "rebase (start): checkout main"    -> "rebase (start)"
+      "commit (initial import): msg"     -> "commit (initial import)"
+    """
+    pre_colon = subject.split(":", 1)[0].strip() if subject else ""
+    m = re.match(r"^(\w[\w-]*(?:\s+\([^)]*\))?)", pre_colon)
+    if m:
+        return m.group(1)
+    return pre_colon.split()[0] if pre_colon.split() else "unknown"
+
+
+def _parse_reflog_line(line: str) -> dict | None:
+    """Parse one reflog output line; None for blank or malformed lines."""
+    line = line.strip()
+    if not line:
+        return None
+    parts = line.split(_REFLOG_SEP)
+    if len(parts) < 3:
+        return None
+    new_sha, label, subject = parts[0], parts[1], parts[2]
+    return {
+        "new_sha": new_sha,
+        "label": label,
+        "action": _reflog_action(subject),
+        "message": subject,
+    }
+
+
 def git_reflog(
     repo: Repo,
     ref: str = "HEAD",
@@ -350,64 +427,16 @@ def git_reflog(
         is therefore omitted entirely when all=True.
     """
     try:
-        # %H = new (post-move) full SHA, %gD = reflog selector (HEAD@{0}),
-        # %gs = reflog subject (e.g. "checkout: moving from main to feature")
-        # Note: %gP gives a reflog selector (HEAD@{N}), not a commit SHA,
-        # so old_sha is derived from the next entry's new_sha instead.
-        sep = "\x00"
-        # %x00 makes git emit the NUL; a raw NUL in argv is rejected by the OS.
-        fmt = "%H%x00%gD%x00%gs"
-
-        args = ["show", f"--format={fmt}", "--no-abbrev", "--no-patch"]
-
-        # max_count <= 0 (or None) means no limit; only positive values constrain.
-        if max_count is not None and max_count > 0:
-            args.extend(["-n", str(max_count)])
-
-        if all:  # noqa: A002
-            args.append("--all")
-        else:
-            args.append(ref)
-
-        raw_output = repo.git.reflog(*args)
+        raw_output = repo.git.reflog(*_reflog_args(ref, max_count, all))
 
         if not raw_output.strip():
             return []
 
         entries = []
         for line in raw_output.splitlines():
-            line = line.strip()
-            if not line:
-                continue
-            parts = line.split(sep)
-            if len(parts) < 3:
-                continue
-            new_sha, label, subject = parts[0], parts[1], parts[2]
-
-            # Derive action from subject: verb before ':', keeping any
-            # parenthetical qualifier that immediately follows the verb.
-            # Examples:
-            #   "checkout: moving from A to B"    -> "checkout"
-            #   "merge origin/main: Fast-forward" -> "merge"
-            #   "commit (amend): fixup msg"        -> "commit (amend)"
-            #   "rebase (start): checkout main"    -> "rebase (start)"
-            #   "commit (initial import): msg"     -> "commit (initial import)"
-            pre_colon = subject.split(":", 1)[0].strip() if subject else ""
-            m = re.match(r"^(\w[\w-]*(?:\s+\([^)]*\))?)", pre_colon)
-            action = (
-                m.group(1)
-                if m
-                else (pre_colon.split()[0] if pre_colon.split() else "unknown")
-            )
-
-            entries.append(
-                {
-                    "new_sha": new_sha,
-                    "label": label,
-                    "action": action,
-                    "message": subject,
-                }
-            )
+            entry = _parse_reflog_line(line)
+            if entry is not None:
+                entries.append(entry)
 
         # old_sha for entry[i] = entry[i+1].new_sha (reflog is newest-first).
         # Only valid for single-ref reflogs; under all=True entries from different

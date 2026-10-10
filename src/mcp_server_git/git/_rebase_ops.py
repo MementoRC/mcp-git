@@ -17,6 +17,56 @@ __all__ = [
 ]
 
 
+def _validate_rebase_params(
+    onto: str | None, fork_point: str | None, branch: str | None
+) -> str | None:
+    """Return an error message for invalid rebase ref parameters, else None."""
+    dangerous_chars = [";", "|", "&", "`", "$", "(", ")"]
+    for param_name, param_value in [
+        ("onto", onto),
+        ("fork_point", fork_point),
+        ("branch", branch),
+    ]:
+        if param_value and any(char in param_value for char in dangerous_chars):
+            return f"❌ Invalid characters detected in {param_name}: '{param_value}'"
+
+    if onto and not fork_point:
+        return "❌ --onto requires fork_point (the old base to rebase from)"
+    if fork_point and not onto:
+        return "❌ fork_point requires --onto (the new base to rebase onto)"
+    return None
+
+
+def _branch_exists(repo: Repo, name: str) -> bool:
+    """Check local branches and remote refs (full and short names) for name."""
+    all_branches = [b.name for b in repo.branches]
+    try:
+        if repo.remotes:
+            for remote in repo.remotes:
+                all_branches.extend([ref.name for ref in remote.refs])
+                all_branches.extend([ref.name.split("/")[-1] for ref in remote.refs])
+    except Exception:
+        pass
+    return name in all_branches
+
+
+def _build_rebase_args(
+    target_branch: str,
+    onto: str | None,
+    fork_point: str | None,
+    branch: str | None,
+) -> list[str | None]:
+    """Build the argument list for `git rebase`."""
+    if onto:
+        args: list[str | None] = ["--onto", onto, fork_point]
+        if branch:
+            args.append(branch)
+        return args
+    if branch:
+        return [target_branch, branch]
+    return [target_branch]
+
+
 def git_rebase(
     repo: Repo,
     target_branch: str,
@@ -36,52 +86,18 @@ def git_rebase(
                    onto="new-base", fork_point="old-base")
     """
     try:
-        # Validate ref parameters for shell injection
-        dangerous_chars = [";", "|", "&", "`", "$", "(", ")"]
-        for param_name, param_value in [
-            ("onto", onto),
-            ("fork_point", fork_point),
-            ("branch", branch),
-        ]:
-            if param_value and any(char in param_value for char in dangerous_chars):
-                return (
-                    f"❌ Invalid characters detected in {param_name}: '{param_value}'"
-                )
-
-        # Validate onto/fork_point pairing
-        if onto and not fork_point:
-            return "❌ --onto requires fork_point (the old base to rebase from)"
-        if fork_point and not onto:
-            return "❌ fork_point requires --onto (the new base to rebase onto)"
+        invalid = _validate_rebase_params(onto, fork_point, branch)
+        if invalid:
+            return invalid
 
         # Get current branch for success message
         current_branch = repo.active_branch.name
 
         # Check if target branch exists (only when not using --onto)
-        if not onto:
-            all_branches = [b.name for b in repo.branches]
-            try:
-                if repo.remotes:
-                    for remote in repo.remotes:
-                        all_branches.extend([ref.name for ref in remote.refs])
-                        all_branches.extend(
-                            [ref.name.split("/")[-1] for ref in remote.refs]
-                        )
-            except Exception:
-                pass
-            if target_branch not in all_branches:
-                return f"❌ Target branch '{target_branch}' not found"
+        if not onto and not _branch_exists(repo, target_branch):
+            return f"❌ Target branch '{target_branch}' not found"
 
-        # Build rebase command args
-        if onto:
-            args = ["--onto", onto, fork_point]
-            if branch:
-                args.append(branch)
-        elif branch:
-            args = [target_branch, branch]
-        else:
-            args = [target_branch]
-
+        args = _build_rebase_args(target_branch, onto, fork_point, branch)
         result = repo.git.rebase(*args)
 
         rebase_branch = branch or current_branch
@@ -200,6 +216,30 @@ def git_abort(repo: Repo, operation: str) -> str:
         return f"❌ Abort error: {str(e)}"
 
 
+def _describe_continue_failure(
+    result: subprocess.CompletedProcess[str], operation: str
+) -> str:
+    """Translate a failed `git <operation> --continue` into a helpful message."""
+    # Failed - return stderr which contains the error message
+    error_output = result.stderr.strip()
+    if not error_output:
+        error_output = result.stdout.strip()
+
+    # Provide helpful error messages based on common scenarios
+    if (
+        "No rebase in progress" in error_output
+        or "no merge in progress" in error_output
+        or "no cherry-pick in progress" in error_output
+    ):
+        return f"❌ No {operation} in progress to continue"
+    elif "conflicts" in error_output.lower():
+        return f"❌ Unresolved conflicts remain. Resolve conflicts before continuing {operation}"
+    elif "nothing to commit" in error_output.lower():
+        return f"❌ No changes to commit. Add changes before continuing {operation}"
+    else:
+        return f"❌ Continue {operation} failed: {error_output}"
+
+
 def git_continue(repo: Repo, operation: str) -> str:
     """Continue operations after resolving conflicts
 
@@ -214,18 +254,8 @@ def git_continue(repo: Repo, operation: str) -> str:
 
         # Use subprocess for all continue operations to ensure reliable execution
         # This avoids GitPython's interactive operation handling issues
-        cmd = ["git"]
-
-        if operation == "rebase":
-            cmd.extend(["rebase", "--continue"])
-        elif operation == "merge":
-            cmd.extend(["merge", "--continue"])
-        elif operation == "cherry-pick":
-            cmd.extend(["cherry-pick", "--continue"])
-
-        # Execute git command directly via subprocess
         result = subprocess.run(
-            cmd,
+            ["git", operation, "--continue"],
             cwd=repo.working_dir,
             capture_output=True,
             text=True,
@@ -239,25 +269,7 @@ def git_continue(repo: Repo, operation: str) -> str:
             if output:
                 success_msg += f"\n{output}"
             return success_msg
-        else:
-            # Failed - return stderr which contains the error message
-            error_output = result.stderr.strip()
-            if not error_output:
-                error_output = result.stdout.strip()
-
-            # Provide helpful error messages based on common scenarios
-            if (
-                "No rebase in progress" in error_output
-                or "no merge in progress" in error_output
-                or "no cherry-pick in progress" in error_output
-            ):
-                return f"❌ No {operation} in progress to continue"
-            elif "conflicts" in error_output.lower():
-                return f"❌ Unresolved conflicts remain. Resolve conflicts before continuing {operation}"
-            elif "nothing to commit" in error_output.lower():
-                return f"❌ No changes to commit. Add changes before continuing {operation}"
-            else:
-                return f"❌ Continue {operation} failed: {error_output}"
+        return _describe_continue_failure(result, operation)
 
     except subprocess.TimeoutExpired:
         return f"❌ {operation} continue operation timed out after 60 seconds"

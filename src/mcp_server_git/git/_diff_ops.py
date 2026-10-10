@@ -296,69 +296,18 @@ def git_diff(
         return f"❌ Parameter validation failed: {validation_msg}"
 
     # If there's a warning, include it in the output
-    validation_warning = validation_msg if validation_msg and is_valid else None
+    validation_warning = validation_msg or None
     try:
-        # Build git diff arguments
-        diff_args = []
-
-        # Determine what we're diffing
-        diff_description = ""
-
-        if commit_range:
-            # Use commit range syntax like "HEAD~1..HEAD"
-            diff_args.append(commit_range)
-            diff_description = f"commit range {commit_range}"
-        elif base_commit and target_commit:
-            # Compare two specific commits
-            diff_args.extend([base_commit, target_commit])
-            diff_description = f"{base_commit}...{target_commit}"
-        elif target:
-            # Compare against target branch/commit (original behavior)
-            diff_args.append(target)
-            diff_description = f"against {target}"
-        else:
-            # Default to comparing working tree against HEAD
-            diff_args.append("HEAD")
-            diff_description = "against HEAD"
-
-        # Add options based on parameters
-        if name_only:
-            diff_args.append("--name-only")
-        elif stat_only:
-            diff_args.append("--stat")
-
-        # Add specific paths if provided
-        if paths:
-            diff_args.extend(["--"] + paths)
+        diff_args, diff_description = _resolve_diff_target(
+            target, commit_range, base_commit, target_commit
+        )
+        diff_args.extend(_diff_option_args(name_only, stat_only, paths))
 
         # Execute git diff with arguments
         diff_output = repo.git.diff(*diff_args)
 
-        # Handle name-only output
-        if name_only:
-            result = (
-                f"Changed files {diff_description}:\n{diff_output}"
-                if diff_output.strip()
-                else f"No changes {diff_description}"
-            )
-            if validation_warning:
-                result = f"⚠️ {validation_warning}\n\n{result}"
-            return result
-
-        # Handle stat-only output
-        if stat_only:
-            result = (
-                f"Diff {diff_description} summary:\n{diff_output}"
-                if diff_output.strip()
-                else f"No differences {diff_description}"
-            )
-            if validation_warning:
-                result = f"⚠️ {validation_warning}\n\n{result}"
-            return result
-
-        # Apply size limiting for full diff output
-        result = _apply_diff_size_limiting(
-            diff_output, f"diff {diff_description}", stat_only, max_lines
+        result = _format_diff_result(
+            diff_output, diff_description, name_only, stat_only, max_lines
         )
         if validation_warning:
             result = f"⚠️ {validation_warning}\n\n{result}"
@@ -370,6 +319,66 @@ def git_diff(
         return f"❌ Diff error: {str(e)}"
 
 
+def _resolve_diff_target(
+    target: str | None,
+    commit_range: str | None,
+    base_commit: str | None,
+    target_commit: str | None,
+) -> tuple[list[str], str]:
+    """Return (leading git diff args, human description) for the diff target."""
+    if commit_range:
+        # Use commit range syntax like "HEAD~1..HEAD"
+        return [commit_range], f"commit range {commit_range}"
+    if base_commit and target_commit:
+        # Compare two specific commits
+        return [base_commit, target_commit], f"{base_commit}...{target_commit}"
+    if target:
+        # Compare against target branch/commit (original behavior)
+        return [target], f"against {target}"
+    # Default to comparing working tree against HEAD
+    return ["HEAD"], "against HEAD"
+
+
+def _diff_option_args(
+    name_only: bool, stat_only: bool, paths: list[str] | None
+) -> list[str]:
+    """Return option and path args for git diff (name_only wins over stat_only)."""
+    args: list[str] = []
+    if name_only:
+        args.append("--name-only")
+    elif stat_only:
+        args.append("--stat")
+    if paths:
+        args.extend(["--"] + paths)
+    return args
+
+
+def _format_diff_result(
+    diff_output: str,
+    diff_description: str,
+    name_only: bool,
+    stat_only: bool,
+    max_lines: int | None,
+) -> str:
+    """Format raw git diff output according to the requested output mode."""
+    has_output = bool(diff_output.strip())
+    if name_only:
+        return (
+            f"Changed files {diff_description}:\n{diff_output}"
+            if has_output
+            else f"No changes {diff_description}"
+        )
+    if stat_only:
+        return (
+            f"Diff {diff_description} summary:\n{diff_output}"
+            if has_output
+            else f"No differences {diff_description}"
+        )
+    return _apply_diff_size_limiting(
+        diff_output, f"diff {diff_description}", stat_only, max_lines
+    )
+
+
 def git_diff_branches(
     repo: Repo,
     base_branch: str,
@@ -379,29 +388,7 @@ def git_diff_branches(
 ) -> str:
     """Show differences between two branches with size limiting options"""
     try:
-        # Verify branches exist - support both short names and full remote refs
-        # Special refs like HEAD are always valid
-        special_refs = ["HEAD", "FETCH_HEAD", "ORIG_HEAD", "MERGE_HEAD"]
-
-        local_branches = [branch.name for branch in repo.branches]
-
-        # Add remote branches if remotes exist (with error handling)
-        try:
-            remote_refs = repo.remote().refs
-            # Include both full remote ref names (e.g., 'origin/development')
-            # and short names (e.g., 'development') for compatibility
-            remote_branch_names = [ref.name for ref in remote_refs]
-            remote_branch_short_names = [ref.name.split("/")[-1] for ref in remote_refs]
-            # Use set to avoid duplicates
-            all_branches = set(
-                local_branches
-                + remote_branch_names
-                + remote_branch_short_names
-                + special_refs
-            )
-        except Exception:
-            # Ignore remote access errors (e.g., no remotes configured)
-            all_branches = set(local_branches + special_refs)
+        all_branches = _collect_known_refs(repo)
 
         if base_branch not in all_branches:
             return f"❌ Base branch '{base_branch}' not found"
@@ -424,27 +411,60 @@ def git_diff_branches(
         if not diff_output.strip():
             return f"No differences between {base_branch} and {compare_branch}"
 
-        # Apply line limit if specified
-        if max_lines and max_lines > 0:
-            lines = diff_output.split("\n")
-            if len(lines) > max_lines:
-                truncated_output = "\n".join(lines[:max_lines])
-                truncated_output += (
-                    f"\n\n... [Truncated: showing {max_lines} of {len(lines)} lines]"
-                )
-                truncated_output += "\nUse --stat flag for summary or increase max_lines for more content"
-                return truncated_output
-
-        # Check if output is extremely large and warn
-        if len(diff_output) > 50000:  # 50KB threshold
-            lines_count = len(diff_output.split("\n"))
-            warning = f"⚠️  Large diff detected ({lines_count} lines, ~{len(diff_output) // 1000}KB)\n"
-            warning += "Consider using stat_only=true for summary or max_lines parameter to limit output\n\n"
-            return warning + diff_output
-
-        return diff_output
+        return _limit_branch_diff(diff_output, max_lines)
 
     except GitCommandError as e:
         return f"❌ Diff failed: {clean_git_error_text(e.stderr, 'stderr')}"
     except Exception as e:
         return f"❌ Diff error: {str(e)}"
+
+
+def _collect_known_refs(repo: Repo) -> set[str]:
+    """Collect local, remote (full and short) and special ref names."""
+    # Special refs like HEAD are always valid
+    special_refs = ["HEAD", "FETCH_HEAD", "ORIG_HEAD", "MERGE_HEAD"]
+
+    local_branches = [branch.name for branch in repo.branches]
+
+    # Add remote branches if remotes exist (with error handling)
+    try:
+        remote_refs = repo.remote().refs
+        # Include both full remote ref names (e.g., 'origin/development')
+        # and short names (e.g., 'development') for compatibility
+        remote_branch_names = [ref.name for ref in remote_refs]
+        remote_branch_short_names = [ref.name.split("/")[-1] for ref in remote_refs]
+        # Use set to avoid duplicates
+        return set(
+            local_branches
+            + remote_branch_names
+            + remote_branch_short_names
+            + special_refs
+        )
+    except Exception:
+        # Ignore remote access errors (e.g., no remotes configured)
+        return set(local_branches + special_refs)
+
+
+def _limit_branch_diff(diff_output: str, max_lines: int | None) -> str:
+    """Apply line-limit truncation or large-diff warning to a branch diff."""
+    # Apply line limit if specified
+    if max_lines and max_lines > 0:
+        lines = diff_output.split("\n")
+        if len(lines) > max_lines:
+            truncated_output = "\n".join(lines[:max_lines])
+            truncated_output += (
+                f"\n\n... [Truncated: showing {max_lines} of {len(lines)} lines]"
+            )
+            truncated_output += (
+                "\nUse --stat flag for summary or increase max_lines for more content"
+            )
+            return truncated_output
+
+    # Check if output is extremely large and warn
+    if len(diff_output) > 50000:  # 50KB threshold
+        lines_count = len(diff_output.split("\n"))
+        warning = f"⚠️  Large diff detected ({lines_count} lines, ~{len(diff_output) // 1000}KB)\n"
+        warning += "Consider using stat_only=true for summary or max_lines parameter to limit output\n\n"
+        return warning + diff_output
+
+    return diff_output
