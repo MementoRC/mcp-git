@@ -89,6 +89,8 @@ class TestGitReflogBasic:
 
         args = mock_repo.git.reflog.call_args[0]
         assert "HEAD" in args
+        assert "--format=%H%x00%gD%x00%gs" in args
+        assert not any("\x00" in a for a in args)
 
     def test_git_reflog_custom_ref_passed(self):
         """Should pass custom ref when specified."""

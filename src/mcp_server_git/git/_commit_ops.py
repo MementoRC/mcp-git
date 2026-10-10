@@ -355,7 +355,8 @@ def git_reflog(
         # Note: %gP gives a reflog selector (HEAD@{N}), not a commit SHA,
         # so old_sha is derived from the next entry's new_sha instead.
         sep = "\x00"
-        fmt = f"%H{sep}%gD{sep}%gs"
+        # %x00 makes git emit the NUL; a raw NUL in argv is rejected by the OS.
+        fmt = "%H%x00%gD%x00%gs"
 
         args = ["show", f"--format={fmt}", "--no-abbrev", "--no-patch"]
 
