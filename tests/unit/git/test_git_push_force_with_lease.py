@@ -2,7 +2,7 @@
 Unit tests for git_push force-with-lease options (issue #161).
 
 Verifies mutual-exclusion guards, flag construction, and plain-force
-regression. The implementation in _remote_ops.py is the source of truth.
+regression. The implementation in _push_ops.py is the source of truth.
 """
 
 from unittest.mock import MagicMock

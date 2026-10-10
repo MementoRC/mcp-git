@@ -43,6 +43,7 @@ from ._error_rendering_ast import (
 
 _REQUIRED_MODULES = {
     "_remote_ops.py",
+    "_push_ops.py",
     "_staging_ops.py",
     "_commit_ops.py",
     "_diff_ops.py",

@@ -2,7 +2,7 @@
 Unit tests for git_push delete and refspec options (issue #173).
 
 Verifies mutual-exclusion guards and flag construction for remote branch
-deletion and raw refspec forms. The implementation in _remote_ops.py is
+deletion and raw refspec forms. The implementation in _push_ops.py is
 the source of truth.
 """
 

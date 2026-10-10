@@ -6,7 +6,7 @@ only ``--dry-run``, silently discarding ``force`` / ``force_with_lease`` /
 ``force_if_includes``. The non-fast-forward rejection message then advised
 setting the very flags the caller had already set.
 
-The implementation in _remote_ops.py is the source of truth.
+The implementation in _push_ops.py is the source of truth.
 """
 
 from unittest.mock import MagicMock
