@@ -11,6 +11,7 @@ import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -537,7 +538,7 @@ class ClientDetector:
         ]
 
     def detect_client_type(
-        self, user_agent: str = "", request_metadata: dict = None
+        self, user_agent: str = "", request_metadata: dict[str, Any] | None = None
     ) -> ClientType:
         """
         Detect client type based on available metadata.
