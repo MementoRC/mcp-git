@@ -6,20 +6,19 @@ more modules are migrated.
 """
 
 import ast
-import importlib.util
 from pathlib import Path
 
 import pytest
 
-MIGRATED_MODULES = ("mcp_server_git.git._stash_ops",)
+from mcp_server_git.git import _stash_ops
+
+MIGRATED_MODULES = (_stash_ops,)
 
 _MARK = "❌"
 
 
-def _bare_failure_returns(module_name: str) -> list[int]:
-    spec = importlib.util.find_spec(module_name)
-    assert spec is not None and spec.origin is not None
-    tree = ast.parse(Path(spec.origin).read_text(encoding="utf-8"))
+def _bare_failure_returns(module_obj) -> list[int]:
+    tree = ast.parse(Path(module_obj.__file__).read_text(encoding="utf-8"))
     lines: list[int] = []
     for node in ast.walk(tree):
         if not isinstance(node, ast.Return) or node.value is None:
@@ -38,6 +37,6 @@ def _bare_failure_returns(module_name: str) -> list[int]:
     return lines
 
 
-@pytest.mark.parametrize("module_name", MIGRATED_MODULES)
-def test_module_returns_no_bare_failure_string_when_migrated(module_name):
-    assert _bare_failure_returns(module_name) == []
+@pytest.mark.parametrize("module_obj", MIGRATED_MODULES, ids=lambda m: m.__name__)
+def test_module_returns_no_bare_failure_string_when_migrated(module_obj):
+    assert _bare_failure_returns(module_obj) == []
