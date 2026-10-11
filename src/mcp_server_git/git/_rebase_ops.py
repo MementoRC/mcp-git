@@ -1,6 +1,7 @@
 """Rebase, merge, cherry-pick, abort, and continue operations for MCP Git Server."""
 
 import logging
+import os
 import subprocess
 
 from ..utils.git_import import GitCommandError, Repo
@@ -260,6 +261,8 @@ def git_continue(repo: Repo, operation: str) -> str:
             capture_output=True,
             text=True,
             timeout=60,  # 60 second timeout for continue operations
+            # Headless server has no editor; "true" accepts the prepared message as-is
+            env={**os.environ, "GIT_EDITOR": "true"},
         )
 
         if result.returncode == 0:

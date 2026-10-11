@@ -23,21 +23,23 @@ StartLimitBurst=3
 
 [Service]
 Type=simple
-WorkingDirectory=%h/ClaudeCode/Servers/git/worktrees/feat-issues-impl
+WorkingDirectory=%h/ClaudeCode/Servers/git/development
 
 # Environment
 Environment=MCP_GIT_HTTP_PORT=4100
 Environment=LOG_LEVEL=INFO
-Environment=PYTHONPATH=%h/ClaudeCode/Servers/git/worktrees/feat-issues-impl/src
+Environment=PYTHONPATH=%h/ClaudeCode/Servers/git/development/src
 
 # Use pixi to run the server with default repo for MCP client compatibility
 # The --default-repo enables auto-session mode so MCP clients work without explicit session management
-ExecStart=%h/.conda/envs/ClaudeCode/bin/pixi run pixi-git-server-http --default-repo %h/ClaudeCode/Servers/git/worktrees/feat-issues-impl
+ExecStart=%h/.pixi/bin/pixi run pixi-git-server-http --default-repo %h/ClaudeCode/Servers/git/development
 ExecReload=/bin/kill -HUP $MAINPID
 
 # Restart configuration
 Restart=on-failure
 RestartSec=5
+# uvicorn caps graceful shutdown at 5s; don't let systemd wait its 90s default
+TimeoutStopSec=10
 
 # Logging
 StandardOutput=journal
