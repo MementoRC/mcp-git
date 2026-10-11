@@ -11,7 +11,7 @@ Critical for TDD Compliance:
 """
 
 import subprocess
-from unittest.mock import Mock, patch
+from unittest.mock import ANY, Mock, patch
 
 import pytest
 
@@ -45,7 +45,9 @@ class TestGitContinueSubprocessFix:
             capture_output=True,
             text=True,
             timeout=60,
+            env=ANY,
         )
+        assert mock_subprocess.call_args.kwargs["env"]["GIT_EDITOR"] == "true"
 
     @patch("mcp_server_git.git._rebase_ops.subprocess.run")
     def test_git_continue_uses_subprocess_for_merge(self, mock_subprocess):
@@ -71,7 +73,9 @@ class TestGitContinueSubprocessFix:
             capture_output=True,
             text=True,
             timeout=60,
+            env=ANY,
         )
+        assert mock_subprocess.call_args.kwargs["env"]["GIT_EDITOR"] == "true"
 
     @patch("mcp_server_git.git._rebase_ops.subprocess.run")
     def test_git_continue_uses_subprocess_for_cherry_pick(self, mock_subprocess):
@@ -97,7 +101,9 @@ class TestGitContinueSubprocessFix:
             capture_output=True,
             text=True,
             timeout=60,
+            env=ANY,
         )
+        assert mock_subprocess.call_args.kwargs["env"]["GIT_EDITOR"] == "true"
 
     @patch("mcp_server_git.git._rebase_ops.subprocess.run")
     def test_git_continue_handles_no_operation_in_progress(self, mock_subprocess):
