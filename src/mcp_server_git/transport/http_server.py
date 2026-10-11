@@ -40,6 +40,9 @@ logger = logging.getLogger(__name__)
 
 __all__ = ["HTTPGitServer"]
 
+# Open SSE streams never end on their own; cap how long uvicorn waits for them.
+GRACEFUL_SHUTDOWN_TIMEOUT_S = 5
+
 
 # Pydantic models for request/response validation
 
@@ -748,4 +751,5 @@ class HTTPGitServer:
             host=self.host,
             port=self.port,
             log_level="info",
+            timeout_graceful_shutdown=GRACEFUL_SHUTDOWN_TIMEOUT_S,
         )
