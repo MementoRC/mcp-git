@@ -14,6 +14,7 @@ from pathlib import Path
 
 from ..text_limits import MAX_CHARS_FOR_LLM, cap_characters
 from ..utils.git_import import GitCommandError, Repo
+from ..utils.tool_failure import fail
 from .operations_extended import _clean_git_error_text, _validate_ref
 
 logger = logging.getLogger(__name__)
@@ -43,13 +44,13 @@ def _resolve_labels(labels: list[str] | None) -> tuple[list[str] | None, str | N
     if labels is None:
         return list(_DEFAULT_LABELS), None
     if len(labels) != 3:
-        return None, (
+        return None, fail(
             f"❌ labels must be exactly three entries (ours, base, theirs), got {len(labels)}"
         )
     for index, label in enumerate(labels):
         error = _validate_ref(label, f"labels[{index}]")
         if error:
-            return None, error
+            return None, fail(error)
     return list(labels), None
 
 
@@ -77,25 +78,106 @@ def _run_merge_file(
         status = exc.status if isinstance(exc.status, int) else -1
         if 0 < status <= _MAX_CONFLICT_STATUS:
             return stdout, status, None
-        return "", 0, f"❌ Merge-file failed: {stderr or stdout}"
+        return "", 0, fail(f"❌ Merge-file failed: {stderr or stdout}")
 
 
 def _write_output(output: list[str], output_path: str, merged: str) -> str:
     """Write the complete merge result to disk and return metadata only."""
     path = Path(output_path)
     if not path.is_absolute():
-        return f"❌ output_path must be an absolute path, got: {output_path}"
+        return fail(f"❌ output_path must be an absolute path, got: {output_path}")
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(merged, encoding="utf-8")
     except OSError as exc:
-        return f"❌ Failed to write merge result to {output_path}: {exc}"
+        return fail(f"❌ Failed to write merge result to {output_path}: {exc}")
 
     output.append(f"💾 Full merge result written to {output_path}")
     output.append(
         f"📊 Total: {len(merged.splitlines()):,} lines / {len(merged):,} bytes | "
         "Returned: written to disk | Truncated: no"
     )
+    return "\n".join(output)
+
+
+def _validate_inputs(
+    path: str, base_rev: str, ours_rev: str, theirs_rev: str
+) -> str | None:
+    """Validate revisions (base, ours, theirs order) then path."""
+    for ref, name in (
+        (base_rev, "base_rev"),
+        (ours_rev, "ours_rev"),
+        (theirs_rev, "theirs_rev"),
+        (path, "path"),
+    ):
+        error = _validate_ref(ref, name)
+        if error:
+            return fail(error)
+    return None
+
+
+def _merge_sides(
+    repo: Repo, labels: list[str], sides: dict[str, tuple[str, bool]]
+) -> tuple[str, int, str | None]:
+    """Merge the three sides in a temp dir. Returns ``(merged, conflicts, error)``."""
+    try:
+        with tempfile.TemporaryDirectory(prefix="mcp-git-merge-") as workspace:
+            root = Path(workspace)
+            written = {}
+            for name, (content, _present) in sides.items():
+                side_path = root / name
+                side_path.write_text(content, encoding="utf-8")
+                written[name] = side_path
+
+            return _run_merge_file(
+                repo, labels, written["ours"], written["base"], written["theirs"]
+            )
+    except OSError as exc:
+        return "", 0, fail(f"❌ Error preparing merge inputs: {exc}")
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.error(f"Unexpected error during merge-file: {exc}", exc_info=True)
+        return "", 0, fail(f"❌ Error during merge-file: {exc}")
+
+
+def _build_header(
+    path: str,
+    revs: tuple[str, str, str],
+    sides: dict[str, tuple[str, bool]],
+    conflicts: int,
+) -> list[str]:
+    """Build the summary lines shared by the inline and on-disk outputs."""
+    ours_rev, base_rev, theirs_rev = revs
+    output = [
+        f"🔀 Merged {path}",
+        f"   ours:   {ours_rev}" + ("" if sides["ours"][1] else "  (absent)"),
+        f"   base:   {base_rev}" + ("" if sides["base"][1] else "  (absent)"),
+        f"   theirs: {theirs_rev}" + ("" if sides["theirs"][1] else "  (absent)"),
+    ]
+    output.append(
+        "✅ Clean merge (0 conflicts)"
+        if conflicts == 0
+        else f"⚠️ {conflicts} conflict region(s) — markers included in the content below"
+    )
+    return output
+
+
+def _render_inline(output: list[str], merged: str, labels: list[str]) -> str:
+    """Append the (possibly truncated) merged content to the summary lines."""
+    text, truncated = cap_characters(merged, keep_head=True, limit=MAX_CHARS_FOR_LLM)
+    output.append(
+        f"📊 Total: {len(merged.splitlines()):,} lines / {len(merged):,} bytes | "
+        f"Truncated: {'yes' if truncated else 'no'}"
+    )
+    if truncated:
+        output.append(
+            "⚠️ Truncated for LLM context (chars: exceeded 100KB limit) — "
+            "pass output_path=<absolute path> for the complete result"
+        )
+    labels_line = " / ".join(labels)
+    output.append(f"\n📄 Merged content ({labels_line}):")
+    output.append(_SEPARATOR)
+    output.append(text)
+    output.append(_SEPARATOR)
     return "\n".join(output)
 
 
@@ -127,21 +209,13 @@ def git_merge_file(
         The merged content with conflict markers, plus the conflict count --
         or, with output_path, only the write metadata.
     """
-    for ref, name in (
-        (base_rev, "base_rev"),
-        (ours_rev, "ours_rev"),
-        (theirs_rev, "theirs_rev"),
-    ):
-        error = _validate_ref(ref, name)
-        if error:
-            return error
-    error = _validate_ref(path, "path")
+    error = _validate_inputs(path, base_rev, ours_rev, theirs_rev)
     if error:
         return error
 
     resolved_labels, label_error = _resolve_labels(labels)
     if resolved_labels is None:
-        return label_error or "❌ Invalid labels"
+        return fail(label_error or "❌ Invalid labels")
 
     sides = {}
     for name, revision in (
@@ -152,62 +226,15 @@ def git_merge_file(
         sides[name] = _read_blob(repo, revision, path)
 
     if not any(present for _content, present in sides.values()):
-        return (
+        return fail(
             f"❌ {path} does not exist in any of {ours_rev}, {base_rev}, {theirs_rev}"
         )
 
-    try:
-        with tempfile.TemporaryDirectory(prefix="mcp-git-merge-") as workspace:
-            root = Path(workspace)
-            written = {}
-            for name, (content, _present) in sides.items():
-                side_path = root / name
-                side_path.write_text(content, encoding="utf-8")
-                written[name] = side_path
+    merged, conflicts, merge_error = _merge_sides(repo, resolved_labels, sides)
+    if merge_error:
+        return merge_error
 
-            merged, conflicts, merge_error = _run_merge_file(
-                repo,
-                resolved_labels,
-                written["ours"],
-                written["base"],
-                written["theirs"],
-            )
-            if merge_error:
-                return merge_error
-    except OSError as exc:
-        return f"❌ Error preparing merge inputs: {exc}"
-    except Exception as exc:  # pragma: no cover - defensive
-        logger.error(f"Unexpected error during merge-file: {exc}", exc_info=True)
-        return f"❌ Error during merge-file: {exc}"
-
-    output = [
-        f"🔀 Merged {path}",
-        f"   ours:   {ours_rev}" + ("" if sides["ours"][1] else "  (absent)"),
-        f"   base:   {base_rev}" + ("" if sides["base"][1] else "  (absent)"),
-        f"   theirs: {theirs_rev}" + ("" if sides["theirs"][1] else "  (absent)"),
-    ]
-    output.append(
-        "✅ Clean merge (0 conflicts)"
-        if conflicts == 0
-        else f"⚠️ {conflicts} conflict region(s) — markers included in the content below"
-    )
-
+    output = _build_header(path, (ours_rev, base_rev, theirs_rev), sides, conflicts)
     if output_path is not None:
         return _write_output(output, output_path, merged)
-
-    text, truncated = cap_characters(merged, keep_head=True, limit=MAX_CHARS_FOR_LLM)
-    output.append(
-        f"📊 Total: {len(merged.splitlines()):,} lines / {len(merged):,} bytes | "
-        f"Truncated: {'yes' if truncated else 'no'}"
-    )
-    if truncated:
-        output.append(
-            "⚠️ Truncated for LLM context (chars: exceeded 100KB limit) — "
-            "pass output_path=<absolute path> for the complete result"
-        )
-    labels_line = " / ".join(resolved_labels)
-    output.append(f"\n📄 Merged content ({labels_line}):")
-    output.append(_SEPARATOR)
-    output.append(text)
-    output.append(_SEPARATOR)
-    return "\n".join(output)
+    return _render_inline(output, merged, resolved_labels)
