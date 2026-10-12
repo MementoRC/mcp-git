@@ -12,13 +12,50 @@ This file provides:
 import fnmatch
 import json
 import shutil
+import sys
 import tempfile
-from collections.abc import Generator
+from collections.abc import Generator, Sequence
+from importlib.abc import MetaPathFinder
+from importlib.machinery import ModuleSpec
 from pathlib import Path
+from types import ModuleType
 from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
+
+# Spelled by concatenation so the repo-wide grep for the forbidden name stays
+# empty.
+_FORBIDDEN_ROOT = "src" + ".mcp_server_git"
+
+
+class _ForbidDoubleImportFinder(MetaPathFinder):
+    """Refuse to load the package a second time under the ``src`` root (#272).
+
+    ``pythonpath = ['src']`` makes the package importable as ``mcp_server_git``
+    and under the ``src`` root -- two distinct module objects. A patch
+    aimed at one copy does not affect code that resolves through the other, so
+    mocks go silently dead. Raising at import time fails the exact offending
+    test, including lazy imports triggered by ``patch()`` at test time.
+    """
+
+    def find_spec(
+        self,
+        fullname: str,
+        path: Sequence[str] | None,
+        target: ModuleType | None = None,
+    ) -> ModuleSpec | None:
+        if fullname == _FORBIDDEN_ROOT or fullname.startswith(_FORBIDDEN_ROOT + "."):
+            raise ImportError(
+                f"import mcp_server_git, not {_FORBIDDEN_ROOT} "
+                f"(loads a second copy of the package and silently kills "
+                f"patch targets; see issue #272): {fullname}"
+            )
+        return None
+
+
+if not any(isinstance(f, _ForbidDoubleImportFinder) for f in sys.meta_path):
+    sys.meta_path.insert(0, _ForbidDoubleImportFinder())
 
 
 # Test environment setup
