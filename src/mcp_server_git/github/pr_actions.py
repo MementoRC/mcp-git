@@ -7,33 +7,10 @@ from typing import Any
 
 from mcp_server_git.github.client import GraphQLError, github_client_context
 
+from ._pr_format import format_issue_comment, format_review_comment
+from ._pr_graphql import _CONVERT_TO_DRAFT_MUTATION, _MARK_READY_MUTATION
+
 logger = logging.getLogger(__name__)
-
-_BOT_TEMPLATE_MARKER = "${{"
-
-_MARK_READY_MUTATION = """
-mutation($id: ID!) {
-  markPullRequestReadyForReview(input: {pullRequestId: $id}) {
-    pullRequest {
-      number
-      isDraft
-      url
-    }
-  }
-}
-"""
-
-_CONVERT_TO_DRAFT_MUTATION = """
-mutation($id: ID!) {
-  convertPullRequestToDraft(input: {pullRequestId: $id}) {
-    pullRequest {
-      number
-      isDraft
-      url
-    }
-  }
-}
-"""
 
 
 async def _fetch_pr_node_id(
@@ -141,21 +118,30 @@ async def github_convert_pr_to_draft(
     )
 
 
-def _select_rendered_body(comment: dict[str, Any]) -> str:
-    """Pick the most useful body field from a GitHub comment object.
+def _build_update_payload(
+    title: str | None, body: str | None, state: str | None, base: str | None
+) -> tuple[dict[str, Any], str | None]:
+    """Build the PATCH payload; returns ``(payload, error_message)``.
 
-    GitHub renders bot template placeholders (e.g. ``${{ metadata.patch }}``)
-    server-side only when the response includes ``body_html`` / ``body_text``
-    (requested via ``application/vnd.github.full+json``). When the markdown
-    ``body`` contains template syntax we fall back to the rendered ``body_text``;
-    otherwise we keep the markdown ``body`` to preserve links and formatting.
+    ``error_message`` is a ready-to-return string for an invalid state or an
+    empty update, in which case no request should be sent.
     """
-    body = (comment.get("body") or "").strip()
-    if _BOT_TEMPLATE_MARKER in body:
-        body_text = (comment.get("body_text") or "").strip()
-        if body_text:
-            return body_text
-    return body
+    payload: dict[str, Any] = {}
+    if title is not None:
+        payload["title"] = title
+    if body is not None:
+        payload["body"] = body
+    if state is not None:
+        if state not in ["open", "closed"]:
+            return payload, "❌ State must be 'open' or 'closed'"
+        payload["state"] = state
+    if base is not None:
+        payload["base"] = base
+    if not payload:
+        return payload, (
+            "⚠️ No update parameters provided. Please specify title, body, state, or base."
+        )
+    return payload, None
 
 
 async def github_update_pr(
@@ -172,20 +158,9 @@ async def github_update_pr(
 
     try:
         async with github_client_context() as client:
-            payload: dict[str, Any] = {}
-            if title is not None:
-                payload["title"] = title
-            if body is not None:
-                payload["body"] = body
-            if state is not None:
-                if state not in ["open", "closed"]:
-                    return "❌ State must be 'open' or 'closed'"
-                payload["state"] = state
-            if base is not None:
-                payload["base"] = base
-
-            if not payload:
-                return "⚠️ No update parameters provided. Please specify title, body, state, or base."
+            payload, payload_error = _build_update_payload(title, body, state, base)
+            if payload_error is not None:
+                return payload_error
 
             response = await client.patch(
                 f"/repos/{repo_owner}/{repo_name}/pulls/{pr_number}", json=payload
@@ -380,12 +355,7 @@ async def github_get_pr_comments(
 
         lines = [f"Comments on PR #{pr_number} ({len(comments)} total):\n"]
         for c in comments:
-            author = c.get("user", {}).get("login", "unknown")
-            created = c.get("created_at", "")
-            body = _select_rendered_body(c)
-            comment_id = c.get("id", "")
-            lines.append(f"  #{comment_id} by {author} ({created}):")
-            lines.append(f"    {body}\n")
+            lines.extend(format_issue_comment(c))
 
         return "\n".join(lines)
 
@@ -428,25 +398,7 @@ async def github_get_pr_reviews(repo_owner: str, repo_name: str, pr_number: int)
 
         lines = [f"Review comments on PR #{pr_number} ({len(comments)} total):\n"]
         for c in comments:
-            author = c.get("user", {}).get("login", "unknown")
-            created = c.get("created_at", "")
-            body = _select_rendered_body(c)
-            path = c.get("path", "")
-            line = c.get("line") or c.get("original_line", "")
-            comment_id = c.get("id", "")
-            in_reply_to = c.get("in_reply_to_id", "")
-            reply_info = f" (reply to #{in_reply_to})" if in_reply_to else ""
-            diff_hunk = (c.get("diff_hunk") or "").strip()
-
-            lines.append(f"  #{comment_id} by {author} ({created}){reply_info}:")
-            lines.append(f"    File: {path}:{line}")
-            lines.append(f"    {body}")
-            if diff_hunk:
-                lines.append("    Diff hunk:")
-                lines.append("    ```diff")
-                lines.append(diff_hunk)
-                lines.append("    ```")
-            lines.append("")
+            lines.extend(format_review_comment(c))
 
         return "\n".join(lines)
 

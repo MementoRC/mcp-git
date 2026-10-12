@@ -8,50 +8,19 @@ from mcp_server_git.github.check_markers import check_marker
 from mcp_server_git.github.client import github_client_context
 from mcp_server_git.github.patches import PatchMemoryManager
 
+from ._pr_format import (
+    annotation_lines,
+    failing_run_header,
+    format_check_run,
+    format_files_section,
+    format_pr_summary,
+    format_reviews_section,
+    merged_line,
+    pr_state_marker,
+)
 from .pr_actions import *  # noqa: F401,F403
 
 logger = logging.getLogger(__name__)
-
-
-def _merged_line(pr_data: dict) -> str | None:
-    """Render merged-ness for a closed PR; None while it is still open.
-
-    GitHub's ``state`` is only ever "open" or "closed", so whether a PR was
-    merged has to come from ``merged`` / ``merged_at`` (issue #239). For an
-    open PR the question is premature, so nothing is rendered.
-    """
-    if pr_data.get("state") != "closed":
-        return None
-    if not (pr_data.get("merged") or pr_data.get("merged_at")):
-        return "Merged: no"
-    parts: list[str] = []
-    if pr_data.get("merged_at"):
-        parts.append(str(pr_data["merged_at"]))
-    login = (pr_data.get("merged_by") or {}).get("login")
-    if login:
-        parts.append(f"by {login}")
-    sha = pr_data.get("merge_commit_sha")
-    if sha:
-        parts.append(str(sha)[:7])
-    detail = f" ({', '.join(parts)})" if parts else ""
-    return f"Merged: yes{detail}"
-
-
-def _pr_state_marker(pr: dict) -> str:
-    """Per-PR marker distinguishing merged from closed-but-unmerged (#239).
-
-    The list endpoint carries ``merged_at`` but no ``merged`` bool, and REST
-    never reports ``state == "merged"`` — so the old three-key state map could
-    never emit its purple marker and every closed PR rendered red.
-    """
-    state = pr.get("state")
-    if state == "open":
-        return "🟢"
-    if pr.get("merged") or pr.get("merged_at"):
-        return "🟣"
-    if state == "closed":
-        return "🔴"
-    return "❓"
 
 
 async def _fetch_head_sha(
@@ -65,49 +34,6 @@ async def _fetch_head_sha(
     return pr_data["head"]["sha"], None
 
 
-def _format_check_run(run: dict) -> list[str]:
-    """Render one check run as output lines, ending with a blank line."""
-    lines = [
-        f"{check_marker(run)} {run['name']}",
-        f"   Status: {run['status']}",
-    ]
-    if run.get("conclusion"):
-        lines.append(f"   Conclusion: {run['conclusion']}")
-    lines.append(f"   Started: {run.get('started_at', 'N/A')}")
-    if run.get("completed_at"):
-        lines.append(f"   Completed: {run['completed_at']}")
-    if run.get("html_url"):
-        lines.append(f"   URL: {run['html_url']}")
-    lines.append("")
-    return lines
-
-
-def _failing_run_header(run: dict) -> list[str]:
-    """Name, conclusion and timing lines for a failing check run."""
-    return [
-        f"❌ {run['name']}",
-        f"   Conclusion: {run['conclusion']}",
-        f"   Started: {run.get('started_at', 'N/A')}",
-        f"   Completed: {run.get('completed_at', 'N/A')}",
-    ]
-
-
-def _annotation_lines(annotations: list[dict]) -> list[str]:
-    """Render up to the first five annotations; empty when there are none."""
-    if not annotations:
-        return []
-    lines = ["   Annotations:"]
-    for annotation in annotations[:5]:
-        lines.append(
-            f"     • {annotation.get('title', 'Error')}: {annotation.get('message', 'No message')}"
-        )
-        if annotation.get("path"):
-            lines.append(
-                f"       File: {annotation['path']} (line {annotation.get('start_line', 'unknown')})"
-            )
-    return lines
-
-
 async def _fetch_annotation_lines(
     client, repo_owner: str, repo_name: str, run: dict
 ) -> list[str]:
@@ -118,7 +44,7 @@ async def _fetch_annotation_lines(
         )
         if response.status != 200:
             return []
-        return _annotation_lines(await response.json())
+        return annotation_lines(await response.json())
     except (ConnectionError, ValueError) as annotation_error:
         # Log specific annotation errors but continue processing
         logger.warning(
@@ -176,7 +102,7 @@ async def github_get_pr_checks(
             output = [f"Check runs for PR #{pr_number} (commit {head_sha[:8]}):\n"]
 
             for run in check_runs:
-                output.extend(_format_check_run(run))
+                output.extend(format_check_run(run))
 
             return "\n".join(output)
 
@@ -235,7 +161,7 @@ async def github_get_failing_jobs(
             output = [f"Failing jobs for PR #{pr_number}:\n"]
 
             for run in failing_runs:
-                output.extend(_failing_run_header(run))
+                output.extend(failing_run_header(run))
 
                 # Get annotations if requested
                 if include_annotations and run.get("id"):
@@ -267,6 +193,20 @@ async def github_get_failing_jobs(
         return f"❌ Error getting failing jobs: {str(e)}"
 
 
+async def _fetch_section(
+    client, pulls: str, label: str, pr_number: int, formatter
+) -> list[str]:
+    """Fetch ``{pulls}/{label}`` for an optional section; failures become a notice."""
+    try:
+        response = await client.get(f"{pulls}/{label}")
+        if response.status != 200:
+            return []
+        return formatter(await response.json())
+    except (ConnectionError, ValueError) as section_error:
+        logger.warning(f"Failed to get {label} for PR #{pr_number}: {section_error}")
+        return [f"\n⚠️ Could not retrieve {label} information"]
+
+
 async def github_get_pr_details(
     repo_owner: str,
     repo_name: str,
@@ -286,74 +226,16 @@ async def github_get_pr_details(
 
             pr_data = await pr_response.json()
 
-            output = [f"Pull Request #{pr_number}:\n"]
-            output.append(f"Title: {pr_data.get('title', 'N/A')}")
-            output.append(f"State: {pr_data.get('state', 'N/A')}")
-            merged_line = _merged_line(pr_data)
-            if merged_line:
-                output.append(merged_line)
-            output.append(f"Author: {pr_data.get('user', {}).get('login', 'N/A')}")
-            output.append(f"Base: {pr_data.get('base', {}).get('ref', 'N/A')}")
-            output.append(f"Head: {pr_data.get('head', {}).get('ref', 'N/A')}")
-            output.append(f"Created: {pr_data.get('created_at', 'N/A')}")
-            output.append(f"Updated: {pr_data.get('updated_at', 'N/A')}")
-
-            if pr_data.get("body"):
-                output.append(
-                    f"\nDescription:\n{pr_data['body'][:500]}{'...' if len(pr_data['body']) > 500 else ''}"
-                )
-
-            if pr_data.get("html_url"):
-                output.append(f"\nURL: {pr_data['html_url']}")
-
-            # Get files if requested
-            if include_files:
-                try:
-                    files_response = await client.get(
-                        f"/repos/{repo_owner}/{repo_name}/pulls/{pr_number}/files"
+            output = format_pr_summary(pr_number, pr_data)
+            pulls = f"/repos/{repo_owner}/{repo_name}/pulls/{pr_number}"
+            for wanted, label, formatter in (
+                (include_files, "files", format_files_section),
+                (include_reviews, "reviews", format_reviews_section),
+            ):
+                if wanted:
+                    output.extend(
+                        await _fetch_section(client, pulls, label, pr_number, formatter)
                     )
-                    if files_response.status == 200:
-                        files_data = await files_response.json()
-                        if files_data:
-                            output.append(f"\nFiles ({len(files_data)}):")
-                            for file in files_data[:10]:  # Limit to first 10
-                                output.append(
-                                    f"  {file['status'][0].upper()} {file['filename']} (+{file['additions']}, -{file['deletions']})"
-                                )
-                            if len(files_data) > 10:
-                                output.append(
-                                    f"  ... and {len(files_data) - 10} more files"
-                                )
-                except (ConnectionError, ValueError) as files_error:
-                    logger.warning(
-                        f"Failed to get files for PR #{pr_number}: {files_error}"
-                    )
-                    output.append("\n⚠️ Could not retrieve files information")
-
-            # Get reviews if requested
-            if include_reviews:
-                try:
-                    reviews_response = await client.get(
-                        f"/repos/{repo_owner}/{repo_name}/pulls/{pr_number}/reviews"
-                    )
-                    if reviews_response.status == 200:
-                        reviews_data = await reviews_response.json()
-                        if reviews_data:
-                            output.append(f"\nReviews ({len(reviews_data)}):")
-                            for review in reviews_data[-5:]:  # Show last 5
-                                state_emoji = {
-                                    "APPROVED": "✅",
-                                    "CHANGES_REQUESTED": "❌",
-                                    "COMMENTED": "💬",
-                                }.get(review.get("state"), "❓")
-                                output.append(
-                                    f"  {state_emoji} {review.get('user', {}).get('login', 'N/A')}: {review.get('state', 'N/A')}"
-                                )
-                except (ConnectionError, ValueError) as reviews_error:
-                    logger.warning(
-                        f"Failed to get reviews for PR #{pr_number}: {reviews_error}"
-                    )
-                    output.append("\n⚠️ Could not retrieve reviews information")
 
             return "\n".join(output)
 
@@ -436,7 +318,7 @@ async def github_list_pull_requests(
             output = [f"{state.title()} Pull Requests for {repo_owner}/{repo_name}:\n"]
 
             for pr in prs:
-                state_emoji = _pr_state_marker(pr)
+                state_emoji = pr_state_marker(pr)
                 output.append(f"{state_emoji} #{pr['number']}: {pr['title']}")
                 output.append(f"   Author: {pr.get('user', {}).get('login', 'N/A')}")
                 base_ref = pr.get("base", {}).get("ref", "N/A")
@@ -477,11 +359,11 @@ async def github_get_pr_status(repo_owner: str, repo_name: str, pr_number: int) 
 
             output = [f"Status for PR #{pr_number}:\n"]
             output.append(f"State: {pr_data.get('state', 'N/A')}")
-            merged_line = _merged_line(pr_data)
-            if merged_line:
+            merged = merged_line(pr_data)
+            if merged:
                 # Closed: report whether it merged. "Mergeable"/"Merge State"
                 # answer "can this merge now", which is noise once closed.
-                output.append(merged_line)
+                output.append(merged)
             else:
                 output.append(f"Mergeable: {pr_data.get('mergeable', 'N/A')}")
                 output.append(f"Merge State: {pr_data.get('mergeable_state', 'N/A')}")
