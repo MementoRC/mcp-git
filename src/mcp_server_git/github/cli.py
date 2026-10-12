@@ -84,6 +84,25 @@ def gh_create_pr(
         return f"❌ Create PR error: {str(e)}"
 
 
+def _build_edit_pr_args(
+    pr_number: int,
+    text_flags: list[tuple[str, str | None]],
+    list_flags: list[tuple[str, list[str] | None]],
+) -> list[str]:
+    """Build ``gh pr edit`` argv; unset/empty options add no flag.
+
+    List values are comma-joined into a single flag argument.
+    """
+    args = ["pr", "edit", str(pr_number)]
+    for flag, text in text_flags:
+        if text:
+            args.extend([flag, text])
+    for flag, values in list_flags:
+        if values:
+            args.extend([flag, ",".join(values)])
+    return args
+
+
 def gh_edit_pr(
     repo_path: str,
     pr_number: int,
@@ -105,34 +124,18 @@ def gh_edit_pr(
 
     try:
         # Build command
-        args = ["pr", "edit", str(pr_number)]
-
-        if title:
-            args.extend(["--title", title])
-
-        if body:
-            args.extend(["--body", body])
-
-        if base:
-            args.extend(["--base", base])
-
-        if add_assignee:
-            args.extend(["--add-assignee", ",".join(add_assignee)])
-
-        if remove_assignee:
-            args.extend(["--remove-assignee", ",".join(remove_assignee)])
-
-        if add_label:
-            args.extend(["--add-label", ",".join(add_label)])
-
-        if remove_label:
-            args.extend(["--remove-label", ",".join(remove_label)])
-
-        if add_reviewer:
-            args.extend(["--add-reviewer", ",".join(add_reviewer)])
-
-        if remove_reviewer:
-            args.extend(["--remove-reviewer", ",".join(remove_reviewer)])
+        args = _build_edit_pr_args(
+            pr_number,
+            [("--title", title), ("--body", body), ("--base", base)],
+            [
+                ("--add-assignee", add_assignee),
+                ("--remove-assignee", remove_assignee),
+                ("--add-label", add_label),
+                ("--remove-label", remove_label),
+                ("--add-reviewer", add_reviewer),
+                ("--remove-reviewer", remove_reviewer),
+            ],
+        )
 
         # Run command
         _stdout, stderr, returncode = _run_gh_command(args, repo_path)

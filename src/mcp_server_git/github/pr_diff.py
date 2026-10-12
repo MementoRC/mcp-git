@@ -15,6 +15,7 @@ import logging
 
 from mcp_server_git.github.client import github_client_context
 from mcp_server_git.github.diff_sections import (
+    DiffSection,
     filter_sections,
     render_sections,
     split_sections,
@@ -94,6 +95,96 @@ def _oversize_gate(diff_bytes: int, file_count: int) -> list[str]:
     ]
 
 
+async def _fetch_diff_text(
+    client, repo_owner: str, repo_name: str, pr_number: int, as_patch: bool
+) -> tuple[str, str]:
+    """Fetch the raw diff; returns ``(diff_text, notice)``.
+
+    A non-empty ``notice`` is a line to show instead of any diff content (an
+    HTTP error or the empty-diff message), and ``diff_text`` is then empty.
+    """
+    response = await client.get(
+        f"/repos/{repo_owner}/{repo_name}/pulls/{pr_number}",
+        accept=_PATCH_ACCEPT if as_patch else _DIFF_ACCEPT,
+    )
+    error = _check_pr_response(response, pr_number, repo_owner, repo_name)
+    if error is not None:
+        return "", error
+    diff_text = await response.text()
+    if not diff_text.strip():
+        return "", "\n📭 Diff is empty (no file changes)"
+    return diff_text, ""
+
+
+def _apply_file_filter(
+    output: list[str], sections: list[DiffSection], file_filter: str
+) -> str:
+    """Report the filter outcome in *output* and return the kept diff.
+
+    Returns an empty string when no file matched.
+    """
+    kept = filter_sections(sections, file_filter)
+    output.append(
+        f"🔎 file_filter {file_filter!r}: {len(kept)} of {len(sections)} file(s)"
+    )
+    if not kept:
+        output.append(f"🔍 No files matched {file_filter!r}")
+        return ""
+    return render_sections(kept)
+
+
+def _render_selection(
+    output: list[str],
+    diff_text: str,
+    file_count: int,
+    *,
+    file_filter: str | None,
+    full_diff: bool,
+    grep: str | None,
+    context_lines: int,
+    ignore_case: bool,
+    head_lines: int | None,
+    tail_lines: int | None,
+    start_line: int | None,
+    end_line: int | None,
+) -> str:
+    """Apply the oversize gate or window/grep selection and join the response."""
+    windowed = any(
+        selector is not None
+        for selector in (head_lines, tail_lines, start_line, end_line)
+    )
+    asked_for_less = (
+        windowed or grep is not None or file_filter is not None or full_diff
+    )
+    if not asked_for_less and len(diff_text) > _PR_DIFF_MAX_CHARS_FOR_LLM:
+        output.extend(_oversize_gate(len(diff_text), file_count))
+        return "\n".join(output)
+
+    try:
+        output.extend(
+            build_log_response_lines(
+                diff_text,
+                tail_lines=tail_lines,
+                full_log=not windowed,
+                head_lines=head_lines,
+                start_line=start_line,
+                end_line=end_line,
+                grep=grep,
+                context_lines=context_lines,
+                ignore_case=ignore_case,
+                size_limit=_PR_DIFF_MAX_SIZE_BYTES,
+                char_limit=_PR_DIFF_MAX_CHARS_FOR_LLM,
+                separator_length=_PR_DIFF_SEPARATOR_LENGTH,
+                body_label="Diff",
+                clamp_noun="diff",
+            )
+        )
+    except LogSelectionError as exc:
+        return f"❌ {exc}"
+
+    return "\n".join(output)
+
+
 async def github_get_pr_diff(
     repo_owner: str,
     repo_name: str,
@@ -162,75 +253,39 @@ async def github_get_pr_diff(
             pr_data = await pr_response.json()
             output = _build_pr_header(repo_owner, repo_name, pr_number, pr_data)
 
-            diff_response = await client.get(
-                f"/repos/{repo_owner}/{repo_name}/pulls/{pr_number}",
-                accept=_PATCH_ACCEPT if as_patch else _DIFF_ACCEPT,
+            diff_text, notice = await _fetch_diff_text(
+                client, repo_owner, repo_name, pr_number, as_patch
             )
-            diff_error = _check_pr_response(
-                diff_response, pr_number, repo_owner, repo_name
-            )
-            if diff_error is not None:
-                output.append(diff_error)
-                return "\n".join(output)
-
-            diff_text = await diff_response.text()
-            if not diff_text.strip():
-                output.append("\n📭 Diff is empty (no file changes)")
+            if notice:
+                output.append(notice)
                 return "\n".join(output)
 
             _preamble, sections = split_sections(diff_text)
             file_count = len(sections)
-
             if file_filter is not None:
-                kept = filter_sections(sections, file_filter)
-                output.append(
-                    f"🔎 file_filter {file_filter!r}: "
-                    f"{len(kept)} of {file_count} file(s)"
-                )
-                if not kept:
-                    output.append(f"🔍 No files matched {file_filter!r}")
+                diff_text = _apply_file_filter(output, sections, file_filter)
+                if not diff_text:
                     return "\n".join(output)
-                diff_text = render_sections(kept)
 
             if output_path is not None:
                 return write_full_log_response(
                     output, output_path, diff_text, noun="diff"
                 )
 
-            windowed = any(
-                selector is not None
-                for selector in (head_lines, tail_lines, start_line, end_line)
+            return _render_selection(
+                output,
+                diff_text,
+                file_count,
+                file_filter=file_filter,
+                full_diff=full_diff,
+                grep=grep,
+                context_lines=context_lines,
+                ignore_case=ignore_case,
+                head_lines=head_lines,
+                tail_lines=tail_lines,
+                start_line=start_line,
+                end_line=end_line,
             )
-            asked_for_less = (
-                windowed or grep is not None or file_filter is not None or full_diff
-            )
-            if not asked_for_less and len(diff_text) > _PR_DIFF_MAX_CHARS_FOR_LLM:
-                output.extend(_oversize_gate(len(diff_text), file_count))
-                return "\n".join(output)
-
-            try:
-                output.extend(
-                    build_log_response_lines(
-                        diff_text,
-                        tail_lines=tail_lines,
-                        full_log=not windowed,
-                        head_lines=head_lines,
-                        start_line=start_line,
-                        end_line=end_line,
-                        grep=grep,
-                        context_lines=context_lines,
-                        ignore_case=ignore_case,
-                        size_limit=_PR_DIFF_MAX_SIZE_BYTES,
-                        char_limit=_PR_DIFF_MAX_CHARS_FOR_LLM,
-                        separator_length=_PR_DIFF_SEPARATOR_LENGTH,
-                        body_label="Diff",
-                        clamp_noun="diff",
-                    )
-                )
-            except LogSelectionError as exc:
-                return f"❌ {exc}"
-
-            return "\n".join(output)
 
     except ValueError as auth_error:
         logger.error(f"Authentication error getting PR diff: {auth_error}")
