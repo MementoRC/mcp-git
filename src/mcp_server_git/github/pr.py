@@ -54,6 +54,84 @@ def _pr_state_marker(pr: dict) -> str:
     return "❓"
 
 
+async def _fetch_head_sha(
+    client, repo_owner: str, repo_name: str, pr_number: int
+) -> tuple[str, None] | tuple[None, str]:
+    """Fetch a PR's head SHA; returns (sha, None) or (None, error message)."""
+    pr_response = await client.get(f"/repos/{repo_owner}/{repo_name}/pulls/{pr_number}")
+    if pr_response.status != 200:
+        return None, f"❌ Failed to get PR #{pr_number}: {pr_response.status}"
+    pr_data = await pr_response.json()
+    return pr_data["head"]["sha"], None
+
+
+def _format_check_run(run: dict) -> list[str]:
+    """Render one check run as output lines, ending with a blank line."""
+    lines = [
+        f"{check_marker(run)} {run['name']}",
+        f"   Status: {run['status']}",
+    ]
+    if run.get("conclusion"):
+        lines.append(f"   Conclusion: {run['conclusion']}")
+    lines.append(f"   Started: {run.get('started_at', 'N/A')}")
+    if run.get("completed_at"):
+        lines.append(f"   Completed: {run['completed_at']}")
+    if run.get("html_url"):
+        lines.append(f"   URL: {run['html_url']}")
+    lines.append("")
+    return lines
+
+
+def _failing_run_header(run: dict) -> list[str]:
+    """Name, conclusion and timing lines for a failing check run."""
+    return [
+        f"❌ {run['name']}",
+        f"   Conclusion: {run['conclusion']}",
+        f"   Started: {run.get('started_at', 'N/A')}",
+        f"   Completed: {run.get('completed_at', 'N/A')}",
+    ]
+
+
+def _annotation_lines(annotations: list[dict]) -> list[str]:
+    """Render up to the first five annotations; empty when there are none."""
+    if not annotations:
+        return []
+    lines = ["   Annotations:"]
+    for annotation in annotations[:5]:
+        lines.append(
+            f"     • {annotation.get('title', 'Error')}: {annotation.get('message', 'No message')}"
+        )
+        if annotation.get("path"):
+            lines.append(
+                f"       File: {annotation['path']} (line {annotation.get('start_line', 'unknown')})"
+            )
+    return lines
+
+
+async def _fetch_annotation_lines(
+    client, repo_owner: str, repo_name: str, run: dict
+) -> list[str]:
+    """Fetch and render a check run's annotations; failures are non-fatal."""
+    try:
+        response = await client.get(
+            f"/repos/{repo_owner}/{repo_name}/check-runs/{run['id']}/annotations"
+        )
+        if response.status != 200:
+            return []
+        return _annotation_lines(await response.json())
+    except (ConnectionError, ValueError) as annotation_error:
+        # Log specific annotation errors but continue processing
+        logger.warning(
+            f"Failed to get annotations for run {run.get('id')}: {annotation_error}"
+        )
+    except Exception as annotation_error:
+        # Annotations might not be available - log but continue
+        logger.debug(
+            f"Annotations unavailable for run {run.get('id')}: {annotation_error}"
+        )
+    return []
+
+
 async def github_get_pr_checks(
     repo_owner: str,
     repo_name: str,
@@ -65,14 +143,10 @@ async def github_get_pr_checks(
     try:
         async with github_client_context() as client:
             # First get the PR to get the head SHA
-            pr_response = await client.get(
-                f"/repos/{repo_owner}/{repo_name}/pulls/{pr_number}"
-            )
-            if pr_response.status != 200:
-                return f"❌ Failed to get PR #{pr_number}: {pr_response.status}"
-
-            pr_data = await pr_response.json()
-            head_sha = pr_data["head"]["sha"]
+            head = await _fetch_head_sha(client, repo_owner, repo_name, pr_number)
+            if head[0] is None:
+                return head[1]
+            head_sha = head[0]
 
             # Get check runs for the head commit
             params = {}
@@ -102,18 +176,7 @@ async def github_get_pr_checks(
             output = [f"Check runs for PR #{pr_number} (commit {head_sha[:8]}):\n"]
 
             for run in check_runs:
-                status_emoji = check_marker(run)
-
-                output.append(f"{status_emoji} {run['name']}")
-                output.append(f"   Status: {run['status']}")
-                if run.get("conclusion"):
-                    output.append(f"   Conclusion: {run['conclusion']}")
-                output.append(f"   Started: {run.get('started_at', 'N/A')}")
-                if run.get("completed_at"):
-                    output.append(f"   Completed: {run['completed_at']}")
-                if run.get("html_url"):
-                    output.append(f"   URL: {run['html_url']}")
-                output.append("")
+                output.extend(_format_check_run(run))
 
             return "\n".join(output)
 
@@ -145,14 +208,10 @@ async def github_get_failing_jobs(
     try:
         async with github_client_context() as client:
             # Get PR details
-            pr_response = await client.get(
-                f"/repos/{repo_owner}/{repo_name}/pulls/{pr_number}"
-            )
-            if pr_response.status != 200:
-                return f"❌ Failed to get PR #{pr_number}: {pr_response.status}"
-
-            pr_data = await pr_response.json()
-            head_sha = pr_data["head"]["sha"]
+            head = await _fetch_head_sha(client, repo_owner, repo_name, pr_number)
+            if head[0] is None:
+                return head[1]
+            head_sha = head[0]
 
             # Get check runs and filter for failures
             checks_response = await client.get(
@@ -176,41 +235,15 @@ async def github_get_failing_jobs(
             output = [f"Failing jobs for PR #{pr_number}:\n"]
 
             for run in failing_runs:
-                output.append(f"❌ {run['name']}")
-                output.append(f"   Conclusion: {run['conclusion']}")
-                output.append(f"   Started: {run.get('started_at', 'N/A')}")
-                output.append(f"   Completed: {run.get('completed_at', 'N/A')}")
+                output.extend(_failing_run_header(run))
 
                 # Get annotations if requested
                 if include_annotations and run.get("id"):
-                    try:
-                        annotations_response = await client.get(
-                            f"/repos/{repo_owner}/{repo_name}/check-runs/{run['id']}/annotations"
+                    output.extend(
+                        await _fetch_annotation_lines(
+                            client, repo_owner, repo_name, run
                         )
-                        if annotations_response.status == 200:
-                            annotations_data = await annotations_response.json()
-                            if annotations_data:
-                                output.append("   Annotations:")
-                                for annotation in annotations_data[
-                                    :5
-                                ]:  # Limit to first 5
-                                    output.append(
-                                        f"     • {annotation.get('title', 'Error')}: {annotation.get('message', 'No message')}"
-                                    )
-                                    if annotation.get("path"):
-                                        output.append(
-                                            f"       File: {annotation['path']} (line {annotation.get('start_line', 'unknown')})"
-                                        )
-                    except (ConnectionError, ValueError) as annotation_error:
-                        # Log specific annotation errors but continue processing
-                        logger.warning(
-                            f"Failed to get annotations for run {run.get('id')}: {annotation_error}"
-                        )
-                    except Exception as annotation_error:
-                        # Annotations might not be available - log but continue
-                        logger.debug(
-                            f"Annotations unavailable for run {run.get('id')}: {annotation_error}"
-                        )
+                    )
 
                 # Get logs if requested (simplified)
                 if include_logs and run.get("html_url"):

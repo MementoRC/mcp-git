@@ -24,6 +24,142 @@ _JOB_LOGS_MAX_CHARS_FOR_LLM = 100 * 1024  # 100 KB soft limit (~25k tokens)
 _JOB_LOGS_SEPARATOR_LENGTH = 60
 
 
+async def _resolve_latest_run_id(
+    client, repo_owner: str, repo_name: str
+) -> tuple[int, None] | tuple[None, str]:
+    """Find the latest run's ID; returns (run_id, None) or (None, error)."""
+    logger.debug("No run_id provided, fetching latest workflow run...")
+    response = await client.get(
+        f"/repos/{repo_owner}/{repo_name}/actions/runs",
+        params={"per_page": 1},
+    )
+
+    if response.status != 200:
+        error_text = await response.text()
+        return (
+            None,
+            f"Failed to get latest workflow run: {response.status} - {error_text}",
+        )
+
+    data = await response.json()
+    workflow_runs = data.get("workflow_runs", [])
+
+    if not workflow_runs:
+        return None, f"No workflow runs found for {repo_owner}/{repo_name}"
+
+    # Safely extract run_id
+    run_id = workflow_runs[0].get("id")
+    if run_id is None:
+        return None, "Latest workflow run has no ID"
+
+    logger.info(f"Using latest workflow run ID: {run_id}")
+    return run_id, None
+
+
+def _timeout_result(
+    repo_owner: str,
+    repo_name: str,
+    run_id: int,
+    elapsed_time: float,
+    timeout_minutes: int,
+    poll_count: int,
+) -> str:
+    """JSON payload returned when the run did not finish in time."""
+    timeout_result = {
+        "status": "timeout",
+        "run_id": run_id,
+        "run_url": f"https://github.com/{repo_owner}/{repo_name}/actions/runs/{run_id}",
+        "elapsed_seconds": elapsed_time,
+        "message": f"Workflow run did not complete within {timeout_minutes} minutes. Consider increasing timeout_minutes for very long-running workflows (max: 350 minutes).",
+        "polls_performed": poll_count,
+    }
+    return json.dumps(timeout_result, indent=2)
+
+
+def _duration_seconds(run_data: dict) -> float:
+    """Run duration in seconds; 0 when timestamps are missing or unparseable."""
+    created_at = run_data.get("created_at")
+    updated_at = run_data.get("updated_at")
+    if not (created_at and updated_at):
+        return 0
+    try:
+        start_dt = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
+        end_dt = datetime.fromisoformat(updated_at.replace("Z", "+00:00"))
+        return (end_dt - start_dt).total_seconds()
+    except Exception as e:
+        logger.debug(f"Could not calculate duration: {e}")
+        return 0
+
+
+def _completed_result(run_data: dict, run_id: int) -> dict:
+    """Basic result dict for a run that has completed."""
+    run_conclusion = run_data.get("conclusion")
+    return {
+        "status": "success" if run_conclusion == "success" else "failure",
+        "conclusion": run_conclusion,
+        "run_id": run_id,
+        "run_url": run_data.get("html_url"),
+        "duration_seconds": _duration_seconds(run_data),
+        "workflow_name": run_data.get("name"),
+        "head_branch": run_data.get("head_branch"),
+        "head_sha": run_data.get("head_sha", "")[:8],
+    }
+
+
+def _collect_failed_jobs(jobs: list[dict]) -> list[dict]:
+    """Summaries of completed, non-successful jobs, with their failed steps."""
+    failed_jobs = []
+    for job in jobs:
+        if job.get("status") != "completed" or job.get("conclusion") == "success":
+            continue
+        failed_job_info = {
+            "name": job.get("name"),
+            "conclusion": job.get("conclusion"),
+            "html_url": job.get("html_url"),
+        }
+        failed_steps = [
+            step["name"]
+            for step in job.get("steps", [])
+            if step.get("conclusion") == "failure"
+        ]
+        if failed_steps:
+            failed_job_info["failed_steps"] = failed_steps
+        failed_jobs.append(failed_job_info)
+    return failed_jobs
+
+
+async def _attach_failure_details(
+    client, result: dict, repo_owner: str, repo_name: str, run_id: int
+) -> None:
+    """Add failed_jobs (and a logs_note) to ``result`` for a failed run."""
+    logger.debug("Fetching failed jobs...")
+    jobs_response = await client.get(
+        f"/repos/{repo_owner}/{repo_name}/actions/runs/{run_id}/jobs"
+    )
+    if jobs_response.status != 200:
+        return
+
+    jobs_data = await jobs_response.json()
+    jobs_list = jobs_data.get("jobs", [])
+    failed_jobs = _collect_failed_jobs(jobs_list)
+    result["failed_jobs"] = failed_jobs
+
+    # GitHub's REST API has no direct log text access; point at the first job.
+    if failed_jobs and jobs_list and jobs_list[0].get("id"):
+        logger.debug("Fetching failure logs summary...")
+        result["logs_note"] = f"View detailed logs at: {jobs_list[0].get('html_url')}"
+
+
+async def _completed_json(
+    client, run_data: dict, repo_owner: str, repo_name: str, run_id: int
+) -> str:
+    """JSON result for a completed run, with failure details if it failed."""
+    result = _completed_result(run_data, run_id)
+    if run_data.get("conclusion") != "success":
+        await _attach_failure_details(client, result, repo_owner, repo_name, run_id)
+    return json.dumps(result, indent=2)
+
+
 async def github_await_workflow_completion(
     repo_owner: str,
     repo_name: str,
@@ -62,28 +198,10 @@ async def github_await_workflow_completion(
         async with github_client_context() as client:
             # If no run_id provided, get the latest run
             if run_id is None:
-                logger.debug("No run_id provided, fetching latest workflow run...")
-                response = await client.get(
-                    f"/repos/{repo_owner}/{repo_name}/actions/runs",
-                    params={"per_page": 1},
-                )
-
-                if response.status != 200:
-                    error_text = await response.text()
-                    return f"Failed to get latest workflow run: {response.status} - {error_text}"
-
-                data = await response.json()
-                workflow_runs = data.get("workflow_runs", [])
-
-                if not workflow_runs:
-                    return f"No workflow runs found for {repo_owner}/{repo_name}"
-
-                # Safely extract run_id
-                run_id = workflow_runs[0].get("id")
-                if run_id is None:
-                    return "Latest workflow run has no ID"
-
-                logger.info(f"Using latest workflow run ID: {run_id}")
+                latest = await _resolve_latest_run_id(client, repo_owner, repo_name)
+                if latest[0] is None:
+                    return latest[1]
+                run_id = latest[0]
 
             # Start polling
             start_time = time.time()
@@ -107,15 +225,14 @@ async def github_await_workflow_completion(
                     logger.warning(
                         f"Timeout reached after {elapsed_time:.1f}s ({poll_count} polls)"
                     )
-                    timeout_result = {
-                        "status": "timeout",
-                        "run_id": run_id,
-                        "run_url": f"https://github.com/{repo_owner}/{repo_name}/actions/runs/{run_id}",
-                        "elapsed_seconds": elapsed_time,
-                        "message": f"Workflow run did not complete within {timeout_minutes} minutes. Consider increasing timeout_minutes for very long-running workflows (max: 350 minutes).",
-                        "polls_performed": poll_count,
-                    }
-                    return json.dumps(timeout_result, indent=2)
+                    return _timeout_result(
+                        repo_owner,
+                        repo_name,
+                        run_id,
+                        elapsed_time,
+                        timeout_minutes,
+                        poll_count,
+                    )
 
                 # Get workflow run status
                 logger.debug(f"Poll #{poll_count}: Fetching run status...")
@@ -141,92 +258,9 @@ async def github_await_workflow_completion(
                         f"Workflow run completed with conclusion: {run_conclusion}"
                     )
 
-                    # Calculate duration
-                    created_at = run_data.get("created_at")
-                    updated_at = run_data.get("updated_at")
-                    duration_seconds = 0
-
-                    if created_at and updated_at:
-                        try:
-                            start_dt = datetime.fromisoformat(
-                                created_at.replace("Z", "+00:00")
-                            )
-                            end_dt = datetime.fromisoformat(
-                                updated_at.replace("Z", "+00:00")
-                            )
-                            duration_seconds = (end_dt - start_dt).total_seconds()
-                        except Exception as e:
-                            logger.debug(f"Could not calculate duration: {e}")
-
-                    # Prepare basic response
-                    result = {
-                        "status": "success"
-                        if run_conclusion == "success"
-                        else "failure",
-                        "conclusion": run_conclusion,
-                        "run_id": run_id,
-                        "run_url": run_data.get("html_url"),
-                        "duration_seconds": duration_seconds,
-                        "workflow_name": run_data.get("name"),
-                        "head_branch": run_data.get("head_branch"),
-                        "head_sha": run_data.get("head_sha", "")[:8],
-                    }
-
-                    # If run failed, get failed jobs and logs
-                    if run_conclusion != "success":
-                        logger.debug("Fetching failed jobs...")
-                        jobs_response = await client.get(
-                            f"/repos/{repo_owner}/{repo_name}/actions/runs/{run_id}/jobs"
-                        )
-
-                        if jobs_response.status == 200:
-                            jobs_data = await jobs_response.json()
-                            failed_jobs = []
-
-                            for job in jobs_data.get("jobs", []):
-                                if (
-                                    job.get("status") == "completed"
-                                    and job.get("conclusion") != "success"
-                                ):
-                                    failed_job_info = {
-                                        "name": job.get("name"),
-                                        "conclusion": job.get("conclusion"),
-                                        "html_url": job.get("html_url"),
-                                    }
-
-                                    # Get failed steps
-                                    failed_steps = [
-                                        step["name"]
-                                        for step in job.get("steps", [])
-                                        if step.get("conclusion") == "failure"
-                                    ]
-                                    if failed_steps:
-                                        failed_job_info["failed_steps"] = failed_steps
-
-                                    failed_jobs.append(failed_job_info)
-
-                            result["failed_jobs"] = failed_jobs
-
-                            # Try to get logs summary (truncated)
-                            jobs_list = jobs_data.get("jobs", [])
-                            if failed_jobs and len(jobs_list) > 0:
-                                logger.debug("Fetching failure logs summary...")
-                                # Get logs for first job in the list
-                                first_job = jobs_list[0]
-                                if first_job.get("id"):
-                                    try:
-                                        # Note: GitHub API doesn't provide direct log text access via REST API
-                                        # We'll include a note about where to find logs
-                                        result["logs_note"] = (
-                                            f"View detailed logs at: {first_job.get('html_url')}"
-                                        )
-                                    except Exception as log_error:
-                                        logger.debug(
-                                            f"Could not fetch logs: {log_error}"
-                                        )
-
-                    # Return JSON result
-                    return json.dumps(result, indent=2)
+                    return await _completed_json(
+                        client, run_data, repo_owner, repo_name, run_id
+                    )
 
                 # Not complete yet, wait before next poll
                 logger.debug(
