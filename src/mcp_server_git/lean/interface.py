@@ -21,6 +21,7 @@ from typing import Any, cast
 from fastmcp import FastMCP
 
 from mcp_server_git.config import config_manager
+from mcp_server_git.utils.tool_failure import ToolFailure
 
 from ._envelope import build_tool_envelope
 from ._error_hints import add_valid_parameters_hint
@@ -28,6 +29,23 @@ from .response_offloader import ResponseOffloader
 from .token_limiter import MCPTokenLimiter
 
 logger = logging.getLogger(__name__)
+
+
+def _restore_failure(original: Any, processed: Any) -> Any:
+    """Re-mark *processed* as a failure when *original* was a ToolFailure.
+
+    Offloading and token limiting may replace the result with a plain str or
+    a dict, which would drop the failure type and report false success.
+    """
+    if not isinstance(original, ToolFailure):
+        return processed
+    if isinstance(processed, str):
+        return ToolFailure(processed)
+    if isinstance(processed, dict):
+        processed["success"] = False
+        if not processed.get("error"):
+            processed["error"] = processed.get("summary") or str(original)[:500]
+    return processed
 
 
 class ToolDefinition:
@@ -234,6 +252,24 @@ class GitLeanInterface:
                     f"Code's working directory. Use absolute path instead."
                 )
 
+    def _process_result(self, result: Any, tool_name: str) -> Any:
+        """Offload or token-limit *result*, preserving ToolFailure status."""
+        processed = result
+        offloaded = False
+        if self.response_offloader and self.response_offloader.should_offload(
+            result, tool_name
+        ):
+            try:
+                processed = self.response_offloader.offload(result, tool_name)
+                offloaded = True
+            except Exception:
+                logger.warning(
+                    f"Offload failed for {tool_name}, falling back to truncation"
+                )
+        if not offloaded:
+            processed = self.token_limiter.limit_response(result, tool_name)
+        return _restore_failure(result, processed)
+
     def _wrap_tool(self, tool_func: Callable, tool_name: str) -> Callable:
         """Wrap tool function with response offloading, token limiting, and error handling."""
         is_async = inspect.iscoroutinefunction(tool_func)
@@ -244,17 +280,7 @@ class GitLeanInterface:
             async def async_wrapper(*args, **kwargs):
                 try:
                     result = await tool_func(*args, **kwargs)
-                    if (
-                        self.response_offloader
-                        and self.response_offloader.should_offload(result, tool_name)
-                    ):
-                        try:
-                            return self.response_offloader.offload(result, tool_name)
-                        except Exception:
-                            logger.warning(
-                                f"Offload failed for {tool_name}, falling back to truncation"
-                            )
-                    return self.token_limiter.limit_response(result, tool_name)
+                    return self._process_result(result, tool_name)
                 except Exception as e:
                     logger.error(f"Error in {tool_name}: {e}")
                     return {"error": str(e), "tool": tool_name, "success": False}
@@ -266,17 +292,7 @@ class GitLeanInterface:
             def sync_wrapper(*args, **kwargs):
                 try:
                     result = tool_func(*args, **kwargs)
-                    if (
-                        self.response_offloader
-                        and self.response_offloader.should_offload(result, tool_name)
-                    ):
-                        try:
-                            return self.response_offloader.offload(result, tool_name)
-                        except Exception:
-                            logger.warning(
-                                f"Offload failed for {tool_name}, falling back to truncation"
-                            )
-                    return self.token_limiter.limit_response(result, tool_name)
+                    return self._process_result(result, tool_name)
                 except Exception as e:
                     logger.error(f"Error in {tool_name}: {e}")
                     return {"error": str(e), "tool": tool_name, "success": False}

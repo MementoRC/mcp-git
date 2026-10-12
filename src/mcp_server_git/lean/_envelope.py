@@ -13,6 +13,7 @@ construction rule so the two transports cannot diverge a fourth time.
 
 from typing import Any
 
+from ..utils.tool_failure import ToolFailure
 from ._error_hints import add_valid_parameters_hint
 
 
@@ -42,6 +43,8 @@ def _is_error_result(result: Any) -> bool:
     Returns:
         True if the result matches the ``_wrap_tool`` error shape.
     """
+    if isinstance(result, ToolFailure):
+        return True
     if not isinstance(result, dict):
         return False
     if "error" not in result:
@@ -87,17 +90,22 @@ def build_tool_envelope(
         error-shaped.
     """
     if _is_error_result(result):
+        if isinstance(result, ToolFailure):
+            # Explicit opt-in failure: plain str keeps JSON/consumers identical.
+            error: Any = str(result)
+            payload: Any = str(result)
+        else:
+            error = result.get("error")
+            payload = result
         envelope: dict[str, Any] = {
             "tool": tool_name,
             "status": "error",
-            "error": result.get("error"),
-            "result": result,
+            "error": error,
+            "result": payload,
         }
         if execution_mode is not None:
             envelope["execution_mode"] = execution_mode
-        return add_valid_parameters_hint(
-            envelope, str(result.get("error") or ""), schema
-        )
+        return add_valid_parameters_hint(envelope, str(error or ""), schema)
 
     envelope = {
         "tool": tool_name,

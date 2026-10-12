@@ -6,6 +6,7 @@ import re
 import subprocess
 
 from ..utils.git_import import Repo
+from ..utils.tool_failure import fail
 
 logger = logging.getLogger(__name__)
 
@@ -46,16 +47,18 @@ def git_stash_list(repo: Repo) -> str:
     """List all stashes"""
     try:
         if repo.working_dir is None:
-            return "❌ Stash operation requires a non-bare repository"
+            return fail("❌ Stash operation requires a non-bare repository")
         result = _run_git(["stash", "list"], cwd=repo.working_dir)
         if result.returncode != 0:
-            return f"❌ Stash list failed: {result.stderr.strip() or result.stdout.strip()}"
+            return fail(
+                f"❌ Stash list failed: {result.stderr.strip() or result.stdout.strip()}"
+            )
         output = result.stdout.strip()
         if not output:
             return "No stashes found"
         return f"Stash list:\n{output}"
     except Exception as e:
-        return f"❌ Stash list error: {str(e)}"
+        return fail(f"❌ Stash list error: {str(e)}")
 
 
 def git_stash_push(
@@ -68,7 +71,7 @@ def git_stash_push(
     """
     try:
         if repo.working_dir is None:
-            return "❌ Stash operation requires a non-bare repository"
+            return fail("❌ Stash operation requires a non-bare repository")
         args = ["stash", "push"]
         if include_untracked:
             args.append("--include-untracked")
@@ -85,25 +88,27 @@ def git_stash_push(
             return "ℹ️ No local changes to stash"
 
         error = result.stderr.strip() or result.stdout.strip()
-        return f"❌ Stash push failed: {error}"
+        return fail(f"❌ Stash push failed: {error}")
     except Exception as e:
-        return f"❌ Stash push error: {str(e)}"
+        return fail(f"❌ Stash push error: {str(e)}")
 
 
 def git_stash_pop(repo: Repo, stash_id: str | None = None) -> str:
     """Apply and remove a stash"""
     try:
         if repo.working_dir is None:
-            return "❌ Stash operation requires a non-bare repository"
+            return fail("❌ Stash operation requires a non-bare repository")
         if stash_id and not _STASH_ID_RE.match(stash_id):
-            return f"❌ Invalid stash ID: {stash_id!r} (expected format: stash@{{N}})"
+            return fail(
+                f"❌ Invalid stash ID: {stash_id!r} (expected format: stash@{{N}})"
+            )
         args = ["stash", "pop"]
         if stash_id:
             args.append(stash_id)
 
         result = _run_git(args, cwd=repo.working_dir)
         if result.returncode != 0:
-            return (
+            return fail(
                 f"❌ Stash pop failed: {result.stderr.strip() or result.stdout.strip()}"
             )
 
@@ -111,26 +116,30 @@ def git_stash_pop(repo: Repo, stash_id: str | None = None) -> str:
             return f"✅ Successfully popped stash {stash_id}"
         return "✅ Successfully popped latest stash"
     except Exception as e:
-        return f"❌ Stash pop error: {str(e)}"
+        return fail(f"❌ Stash pop error: {str(e)}")
 
 
 def git_stash_drop(repo: Repo, stash_id: str | None = None) -> str:
     """Remove a stash without applying it"""
     try:
         if repo.working_dir is None:
-            return "❌ Stash operation requires a non-bare repository"
+            return fail("❌ Stash operation requires a non-bare repository")
         if stash_id and not _STASH_ID_RE.match(stash_id):
-            return f"❌ Invalid stash ID: {stash_id!r} (expected format: stash@{{N}})"
+            return fail(
+                f"❌ Invalid stash ID: {stash_id!r} (expected format: stash@{{N}})"
+            )
         args = ["stash", "drop"]
         if stash_id:
             args.append(stash_id)
 
         result = _run_git(args, cwd=repo.working_dir)
         if result.returncode != 0:
-            return f"❌ Stash drop failed: {result.stderr.strip() or result.stdout.strip()}"
+            return fail(
+                f"❌ Stash drop failed: {result.stderr.strip() or result.stdout.strip()}"
+            )
 
         if stash_id:
             return f"✅ Successfully dropped stash {stash_id}"
         return "✅ Successfully dropped latest stash"
     except Exception as e:
-        return f"❌ Stash drop error: {str(e)}"
+        return fail(f"❌ Stash drop error: {str(e)}")
