@@ -4,12 +4,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from src.mcp_server_git.azure.api import (
+from mcp_server_git.azure.api import (
     azure_get_build_logs,
     azure_get_build_status,
     azure_get_failing_jobs,
 )
-from src.mcp_server_git.azure.client import AzureClient
+from mcp_server_git.azure.client import AzureClient
 
 
 class TestAzureGetBuildStatus:
@@ -45,7 +45,7 @@ class TestAzureGetBuildStatus:
         )
         mock_client.get = AsyncMock(return_value=mock_response)
 
-        with patch("src.mcp_server_git.azure.api.azure_client_context") as mock_context:
+        with patch("mcp_server_git.azure.api.azure_client_context") as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
             result = await azure_get_build_status(project="myproject", build_id=123)
@@ -75,7 +75,7 @@ class TestAzureGetBuildStatus:
         )
         mock_client.get = AsyncMock(return_value=mock_response)
 
-        with patch("src.mcp_server_git.azure.api.azure_client_context") as mock_context:
+        with patch("mcp_server_git.azure.api.azure_client_context") as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
             result = await azure_get_build_status(project="myproject", build_id=124)
@@ -93,7 +93,7 @@ class TestAzureGetBuildStatus:
         mock_response.text = AsyncMock(return_value="Build not found")
         mock_client.get = AsyncMock(return_value=mock_response)
 
-        with patch("src.mcp_server_git.azure.api.azure_client_context") as mock_context:
+        with patch("mcp_server_git.azure.api.azure_client_context") as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
             result = await azure_get_build_status(project="myproject", build_id=999)
@@ -132,7 +132,7 @@ class TestAzureGetBuildLogs:
         )
         mock_client.get = AsyncMock(return_value=mock_response)
 
-        with patch("src.mcp_server_git.azure.api.azure_client_context") as mock_context:
+        with patch("mcp_server_git.azure.api.azure_client_context") as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
             result = await azure_get_build_logs(project="myproject", build_id=123)
@@ -157,7 +157,7 @@ class TestAzureGetBuildLogs:
         )
         mock_client.get = AsyncMock(return_value=mock_response)
 
-        with patch("src.mcp_server_git.azure.api.azure_client_context") as mock_context:
+        with patch("mcp_server_git.azure.api.azure_client_context") as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
             result = await azure_get_build_logs(
@@ -182,7 +182,7 @@ class TestAzureGetBuildLogs:
         mock_response.json = AsyncMock(return_value={"value": log_lines})
         mock_client.get = AsyncMock(return_value=mock_response)
 
-        with patch("src.mcp_server_git.azure.api.azure_client_context") as mock_context:
+        with patch("mcp_server_git.azure.api.azure_client_context") as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
             result = await azure_get_build_logs(
@@ -213,7 +213,7 @@ class TestAzureGetBuildLogs:
         )
         mock_client.get = AsyncMock(return_value=mock_response)
 
-        with patch("src.mcp_server_git.azure.api.azure_client_context") as mock_context:
+        with patch("mcp_server_git.azure.api.azure_client_context") as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
             result = await azure_get_build_logs(
@@ -272,7 +272,7 @@ class TestAzureGetBuildLogs:
 
         mock_client.get = AsyncMock(side_effect=mock_get)
 
-        with patch("src.mcp_server_git.azure.api.azure_client_context") as mock_context:
+        with patch("mcp_server_git.azure.api.azure_client_context") as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
             result = await azure_get_build_logs(project="myproject", build_id=123)
@@ -316,7 +316,7 @@ class TestAzureGetBuildLogs:
 
         mock_client.get = AsyncMock(side_effect=mock_get)
 
-        with patch("src.mcp_server_git.azure.api.azure_client_context") as mock_context:
+        with patch("mcp_server_git.azure.api.azure_client_context") as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
             result = await azure_get_build_logs(project="myproject", build_id=123)
@@ -335,7 +335,7 @@ class TestAzureGetBuildLogs:
         mock_response.json = AsyncMock(return_value={"value": lines})
         mock_client.get = AsyncMock(return_value=mock_response)
 
-        with patch("src.mcp_server_git.azure.api.azure_client_context") as mock_context:
+        with patch("mcp_server_git.azure.api.azure_client_context") as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
             result = await azure_get_build_logs(
@@ -361,7 +361,7 @@ class TestAzureGetBuildLogs:
 
         output_path = tmp_path / "azure_log.txt"
 
-        with patch("src.mcp_server_git.azure.api.azure_client_context") as mock_context:
+        with patch("mcp_server_git.azure.api.azure_client_context") as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
             result = await azure_get_build_logs(
@@ -436,7 +436,7 @@ class TestAzureGetFailingJobs:
 
         mock_client.get = AsyncMock(side_effect=mock_get)
 
-        with patch("src.mcp_server_git.azure.api.azure_client_context") as mock_context:
+        with patch("mcp_server_git.azure.api.azure_client_context") as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
             result = await azure_get_failing_jobs(
@@ -488,7 +488,7 @@ class TestAzureGetFailingJobs:
 
         mock_client.get = AsyncMock(side_effect=mock_get)
 
-        with patch("src.mcp_server_git.azure.api.azure_client_context") as mock_context:
+        with patch("mcp_server_git.azure.api.azure_client_context") as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
             result = await azure_get_failing_jobs(
@@ -576,11 +576,11 @@ class TestAzureClientAnonymousMode:
 
     def test_get_azure_client_defaults_to_conda_forge_org(self):
         """get_azure_client() must default org to conda-forge when env var is unset."""
-        from src.mcp_server_git.azure.client import get_azure_client
+        from mcp_server_git.azure.client import get_azure_client
 
         with (
-            patch("src.mcp_server_git.azure.client.os.getenv") as mock_getenv,
-            patch("src.mcp_server_git.azure.client.aiohttp.ClientSession"),
+            patch("mcp_server_git.azure.client.os.getenv") as mock_getenv,
+            patch("mcp_server_git.azure.client.aiohttp.ClientSession"),
         ):
             # Simulate both env vars being absent
             mock_getenv.side_effect = lambda key, *args: None
@@ -593,11 +593,11 @@ class TestAzureClientAnonymousMode:
 
     def test_get_azure_client_anonymous_when_token_empty_string(self):
         """An empty AZURE_DEVOPS_TOKEN must be treated as absent (anonymous mode)."""
-        from src.mcp_server_git.azure.client import get_azure_client
+        from mcp_server_git.azure.client import get_azure_client
 
         with (
-            patch("src.mcp_server_git.azure.client.os.getenv") as mock_getenv,
-            patch("src.mcp_server_git.azure.client.aiohttp.ClientSession"),
+            patch("mcp_server_git.azure.client.os.getenv") as mock_getenv,
+            patch("mcp_server_git.azure.client.aiohttp.ClientSession"),
         ):
 
             def _env(key, *args):

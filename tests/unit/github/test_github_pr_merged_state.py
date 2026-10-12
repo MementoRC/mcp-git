@@ -15,13 +15,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from src.mcp_server_git.github.pr import (
+from mcp_server_git.github.pr import (
     github_get_pr_details,
     github_get_pr_status,
     github_list_pull_requests,
 )
 
-PATCH_TARGET = "src.mcp_server_git.github.pr.github_client_context"
+PATCH_TARGET = "mcp_server_git.github.pr.github_client_context"
 
 MERGED_AT = "2026-09-17T22:14:05Z"
 

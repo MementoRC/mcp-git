@@ -12,7 +12,7 @@ class TestGitInit:
 
     def test_git_init_on_empty_directory(self):
         """Test that git_init works on a directory without .git"""
-        from src.mcp_server_git.git.operations import git_init
+        from mcp_server_git.git.operations import git_init
 
         # Create a temporary directory without .git
         test_dir = Path(tempfile.mkdtemp())
@@ -34,8 +34,8 @@ class TestGitInit:
 
     def test_git_init_creates_usable_repository(self):
         """Test that git_init creates a repository that can be used"""
-        from src.mcp_server_git.git.operations import git_init
-        from src.mcp_server_git.utils.git_import import Repo
+        from mcp_server_git.git.operations import git_init
+        from mcp_server_git.utils.git_import import Repo
 
         test_dir = Path(tempfile.mkdtemp())
 
@@ -53,7 +53,7 @@ class TestGitInit:
 
     def test_git_init_on_nested_directory(self):
         """Test that git_init works on a nested directory that doesn't exist yet"""
-        from src.mcp_server_git.git.operations import git_init
+        from mcp_server_git.git.operations import git_init
 
         base_dir = Path(tempfile.mkdtemp())
         nested_dir = base_dir / "level1" / "level2" / "level3"
@@ -74,7 +74,7 @@ class TestGitInit:
 
     def test_git_init_on_existing_repository(self):
         """Test that git_init on an existing repository doesn't fail catastrophically"""
-        from src.mcp_server_git.git.operations import git_init
+        from mcp_server_git.git.operations import git_init
 
         test_dir = Path(tempfile.mkdtemp())
 

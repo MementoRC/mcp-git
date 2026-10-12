@@ -12,8 +12,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from src.mcp_server_git.github.api import github_get_job_logs
-from src.mcp_server_git.github.models import GitHubGetJobLogs
+from mcp_server_git.github.api import github_get_job_logs
+from mcp_server_git.github.models import GitHubGetJobLogs
 
 
 class TestGitHubGetJobLogs:
@@ -51,7 +51,7 @@ class TestGitHubGetJobLogs:
         mock_client.get = AsyncMock(side_effect=[mock_job_response, mock_logs_response])
 
         with patch(
-            "src.mcp_server_git.github.ci_logs.github_client_context"
+            "mcp_server_git.github.ci_logs.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             mock_context.return_value.__aexit__ = AsyncMock(return_value=None)
@@ -89,7 +89,7 @@ class TestGitHubGetJobLogs:
         mock_client.get = AsyncMock(side_effect=[mock_job_response, mock_logs_response])
 
         with patch(
-            "src.mcp_server_git.github.ci_logs.github_client_context"
+            "mcp_server_git.github.ci_logs.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             mock_context.return_value.__aexit__ = AsyncMock(return_value=None)
@@ -113,7 +113,7 @@ class TestGitHubGetJobLogs:
         mock_client.get = AsyncMock(return_value=mock_response)
 
         with patch(
-            "src.mcp_server_git.github.ci_logs.github_client_context"
+            "mcp_server_git.github.ci_logs.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             mock_context.return_value.__aexit__ = AsyncMock(return_value=None)
@@ -145,7 +145,7 @@ class TestGitHubGetJobLogs:
         mock_client.get = AsyncMock(side_effect=[mock_job_response, mock_logs_response])
 
         with patch(
-            "src.mcp_server_git.github.ci_logs.github_client_context"
+            "mcp_server_git.github.ci_logs.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             mock_context.return_value.__aexit__ = AsyncMock(return_value=None)
@@ -177,7 +177,7 @@ class TestGitHubGetJobLogs:
         mock_client.get = AsyncMock(side_effect=[mock_job_response, mock_logs_response])
 
         with patch(
-            "src.mcp_server_git.github.ci_logs.github_client_context"
+            "mcp_server_git.github.ci_logs.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             mock_context.return_value.__aexit__ = AsyncMock(return_value=None)
@@ -198,7 +198,7 @@ class TestGitHubGetJobLogs:
         mock_client.get = AsyncMock(return_value=mock_response)
 
         with patch(
-            "src.mcp_server_git.github.ci_logs.github_client_context"
+            "mcp_server_git.github.ci_logs.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             mock_context.return_value.__aexit__ = AsyncMock(return_value=None)
@@ -219,7 +219,7 @@ class TestGitHubGetJobLogs:
         mock_client.get = AsyncMock(return_value=mock_response)
 
         with patch(
-            "src.mcp_server_git.github.ci_logs.github_client_context"
+            "mcp_server_git.github.ci_logs.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             mock_context.return_value.__aexit__ = AsyncMock(return_value=None)
@@ -250,7 +250,7 @@ class TestGitHubGetJobLogs:
         mock_client.get = AsyncMock(side_effect=[mock_job_response, mock_logs_response])
 
         with patch(
-            "src.mcp_server_git.github.ci_logs.github_client_context"
+            "mcp_server_git.github.ci_logs.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             mock_context.return_value.__aexit__ = AsyncMock(return_value=None)
@@ -284,7 +284,7 @@ class TestGitHubGetJobLogs:
         mock_client.get = AsyncMock(side_effect=[mock_job_response, mock_logs_response])
 
         with patch(
-            "src.mcp_server_git.github.ci_logs.github_client_context"
+            "mcp_server_git.github.ci_logs.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             mock_context.return_value.__aexit__ = AsyncMock(return_value=None)
@@ -321,7 +321,7 @@ class TestGitHubGetJobLogs:
         mock_client.get = AsyncMock(side_effect=[mock_job_response, mock_logs_response])
 
         with patch(
-            "src.mcp_server_git.github.ci_logs.github_client_context"
+            "mcp_server_git.github.ci_logs.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             mock_context.return_value.__aexit__ = AsyncMock(return_value=None)
@@ -358,7 +358,7 @@ class TestGitHubGetJobLogs:
         mock_client.get = AsyncMock(side_effect=[mock_job_response, mock_logs_response])
 
         with patch(
-            "src.mcp_server_git.github.ci_logs.github_client_context"
+            "mcp_server_git.github.ci_logs.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             mock_context.return_value.__aexit__ = AsyncMock(return_value=None)
@@ -395,7 +395,7 @@ class TestGitHubGetJobLogs:
         mock_client.get = AsyncMock(side_effect=[mock_job_response, mock_logs_response])
 
         with patch(
-            "src.mcp_server_git.github.ci_logs.github_client_context"
+            "mcp_server_git.github.ci_logs.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             mock_context.return_value.__aexit__ = AsyncMock(return_value=None)
@@ -436,7 +436,7 @@ class TestGitHubGetJobLogs:
         mock_client = self._mock_job_logs_client(log_lines)
 
         with patch(
-            "src.mcp_server_git.github.ci_logs.github_client_context"
+            "mcp_server_git.github.ci_logs.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             mock_context.return_value.__aexit__ = AsyncMock(return_value=None)
@@ -455,7 +455,7 @@ class TestGitHubGetJobLogs:
         mock_client = self._mock_job_logs_client(log_lines)
 
         with patch(
-            "src.mcp_server_git.github.ci_logs.github_client_context"
+            "mcp_server_git.github.ci_logs.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             mock_context.return_value.__aexit__ = AsyncMock(return_value=None)
@@ -478,7 +478,7 @@ class TestGitHubGetJobLogs:
         mock_client = self._mock_job_logs_client(log_lines)
 
         with patch(
-            "src.mcp_server_git.github.ci_logs.github_client_context"
+            "mcp_server_git.github.ci_logs.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             mock_context.return_value.__aexit__ = AsyncMock(return_value=None)
@@ -495,7 +495,7 @@ class TestGitHubGetJobLogs:
         mock_client = self._mock_job_logs_client(log_lines)
 
         with patch(
-            "src.mcp_server_git.github.ci_logs.github_client_context"
+            "mcp_server_git.github.ci_logs.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             mock_context.return_value.__aexit__ = AsyncMock(return_value=None)
@@ -516,7 +516,7 @@ class TestGitHubGetJobLogs:
         mock_client = self._mock_job_logs_client(log_lines)
 
         with patch(
-            "src.mcp_server_git.github.ci_logs.github_client_context"
+            "mcp_server_git.github.ci_logs.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             mock_context.return_value.__aexit__ = AsyncMock(return_value=None)
@@ -537,7 +537,7 @@ class TestGitHubGetJobLogs:
         mock_client = self._mock_job_logs_client(log_lines)
 
         with patch(
-            "src.mcp_server_git.github.ci_logs.github_client_context"
+            "mcp_server_git.github.ci_logs.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             mock_context.return_value.__aexit__ = AsyncMock(return_value=None)
@@ -555,7 +555,7 @@ class TestGitHubGetJobLogs:
         mock_client = self._mock_job_logs_client(log_lines)
 
         with patch(
-            "src.mcp_server_git.github.ci_logs.github_client_context"
+            "mcp_server_git.github.ci_logs.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             mock_context.return_value.__aexit__ = AsyncMock(return_value=None)
@@ -571,7 +571,7 @@ class TestGitHubGetJobLogs:
         mock_client = self._mock_job_logs_client(log_lines)
 
         with patch(
-            "src.mcp_server_git.github.ci_logs.github_client_context"
+            "mcp_server_git.github.ci_logs.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             mock_context.return_value.__aexit__ = AsyncMock(return_value=None)
@@ -588,7 +588,7 @@ class TestGitHubGetJobLogs:
         mock_client = self._mock_job_logs_client(log_lines)
 
         with patch(
-            "src.mcp_server_git.github.ci_logs.github_client_context"
+            "mcp_server_git.github.ci_logs.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             mock_context.return_value.__aexit__ = AsyncMock(return_value=None)

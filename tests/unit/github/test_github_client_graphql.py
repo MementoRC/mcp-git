@@ -18,7 +18,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from src.mcp_server_git.github.client import GitHubClient, GraphQLError
+from mcp_server_git.github.client import GitHubClient, GraphQLError
 
 _VALID_TOKEN = "ghp_" + "a" * 36
 

@@ -14,7 +14,7 @@ tests/unit/lean/test_registry_git_param_map.py
 
 from typing import Any
 
-from src.mcp_server_git.lean.registry_github import _register_github_tools
+from mcp_server_git.lean.registry_github import _register_github_tools
 
 
 class _StubInterface:

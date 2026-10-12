@@ -10,15 +10,15 @@ from unittest.mock import patch
 
 import pytest
 
-from src.mcp_server_git.github.cli import gh_edit_pr
-from src.mcp_server_git.github.pr import github_get_pr_details
-from src.mcp_server_git.github.pr_actions import github_update_pr
-from src.mcp_server_git.github.pr_diff import github_get_pr_diff
+from mcp_server_git.github.cli import gh_edit_pr
+from mcp_server_git.github.pr import github_get_pr_details
+from mcp_server_git.github.pr_actions import github_update_pr
+from mcp_server_git.github.pr_diff import github_get_pr_diff
 
-PR_CTX = "src.mcp_server_git.github.pr.github_client_context"
-ACT_CTX = "src.mcp_server_git.github.pr_actions.github_client_context"
-DIFF_CTX = "src.mcp_server_git.github.pr_diff.github_client_context"
-GH_RUN = "src.mcp_server_git.github.cli._run_gh_command"
+PR_CTX = "mcp_server_git.github.pr.github_client_context"
+ACT_CTX = "mcp_server_git.github.pr_actions.github_client_context"
+DIFF_CTX = "mcp_server_git.github.pr_diff.github_client_context"
+GH_RUN = "mcp_server_git.github.cli._run_gh_command"
 
 
 class FakeResponse:

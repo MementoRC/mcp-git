@@ -9,11 +9,11 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from src.mcp_server_git.utils.content_optimization import (
+from mcp_server_git.utils.content_optimization import (
     ContentOptimizer,
     ResponseFormatter,
 )
-from src.mcp_server_git.utils.token_management import (
+from mcp_server_git.utils.token_management import (
     ClientDetector,
     ClientType,
     ContentType,

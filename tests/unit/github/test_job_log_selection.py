@@ -9,7 +9,7 @@ import re
 
 import pytest
 
-from src.mcp_server_git.github.job_log_selection import (
+from mcp_server_git.github.job_log_selection import (
     LogSelectionError,
     build_log_response_lines,
     cap_characters,

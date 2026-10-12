@@ -11,7 +11,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from src.mcp_server_git.github.api import github_get_content, github_resolve_ref
+from mcp_server_git.github.api import github_get_content, github_resolve_ref
 
 
 class TestGitHubGetContent:
@@ -37,7 +37,7 @@ class TestGitHubGetContent:
         mock_client.get = AsyncMock(return_value=mock_response)
 
         with patch(
-            "src.mcp_server_git.github.contents.github_client_context"
+            "mcp_server_git.github.contents.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -62,7 +62,7 @@ class TestGitHubGetContent:
         mock_client.get = AsyncMock(return_value=mock_response)
 
         with patch(
-            "src.mcp_server_git.github.contents.github_client_context"
+            "mcp_server_git.github.contents.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -93,7 +93,7 @@ class TestGitHubGetContent:
         mock_client.get = AsyncMock(return_value=mock_response)
 
         with patch(
-            "src.mcp_server_git.github.contents.github_client_context"
+            "mcp_server_git.github.contents.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -126,7 +126,7 @@ class TestGitHubGetContent:
         mock_client.get = AsyncMock(return_value=mock_response)
 
         with patch(
-            "src.mcp_server_git.github.contents.github_client_context"
+            "mcp_server_git.github.contents.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -168,7 +168,7 @@ class TestGitHubResolveRef:
         mock_client.get = AsyncMock(return_value=mock_response)
 
         with patch(
-            "src.mcp_server_git.github.contents.github_client_context"
+            "mcp_server_git.github.contents.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -192,7 +192,7 @@ class TestGitHubResolveRef:
         mock_client.get = AsyncMock(return_value=mock_response)
 
         with patch(
-            "src.mcp_server_git.github.contents.github_client_context"
+            "mcp_server_git.github.contents.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -215,7 +215,7 @@ class TestGitHubResolveRef:
         mock_client.get = AsyncMock(return_value=mock_response)
 
         with patch(
-            "src.mcp_server_git.github.contents.github_client_context"
+            "mcp_server_git.github.contents.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 

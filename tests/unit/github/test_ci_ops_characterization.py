@@ -12,18 +12,18 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from src.mcp_server_git.github.ci_logs import github_await_workflow_completion
-from src.mcp_server_git.github.pr import (
+from mcp_server_git.github.ci_logs import github_await_workflow_completion
+from mcp_server_git.github.pr import (
     github_get_failing_jobs,
     github_get_pr_checks,
 )
-from src.mcp_server_git.github.workflows import github_list_workflow_runs
+from mcp_server_git.github.workflows import github_list_workflow_runs
 
-WF_CTX = "src.mcp_server_git.github.workflows.github_client_context"
-CI_CTX = "src.mcp_server_git.github.ci_logs.github_client_context"
-PR_CTX = "src.mcp_server_git.github.pr.github_client_context"
-CI_TIME = "src.mcp_server_git.github.ci_logs.time"
-CI_ASYNCIO = "src.mcp_server_git.github.ci_logs.asyncio"
+WF_CTX = "mcp_server_git.github.workflows.github_client_context"
+CI_CTX = "mcp_server_git.github.ci_logs.github_client_context"
+PR_CTX = "mcp_server_git.github.pr.github_client_context"
+CI_TIME = "mcp_server_git.github.ci_logs.time"
+CI_ASYNCIO = "mcp_server_git.github.ci_logs.asyncio"
 
 
 class FakeResponse:

@@ -11,7 +11,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from src.mcp_server_git.github.api import (
+from mcp_server_git.github.api import (
     github_disable_required_signatures,
     github_enable_required_signatures,
     github_get_required_signatures,
@@ -38,7 +38,7 @@ class TestGithubRequiredSignatures:
         mock_client.get = AsyncMock(return_value=mock_response)
 
         with patch(
-            "src.mcp_server_git.github.security.github_client_context"
+            "mcp_server_git.github.security.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -64,7 +64,7 @@ class TestGithubRequiredSignatures:
         mock_client.get = AsyncMock(return_value=mock_response)
 
         with patch(
-            "src.mcp_server_git.github.security.github_client_context"
+            "mcp_server_git.github.security.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -89,7 +89,7 @@ class TestGithubRequiredSignatures:
         mock_client.get = AsyncMock(return_value=mock_response)
 
         with patch(
-            "src.mcp_server_git.github.security.github_client_context"
+            "mcp_server_git.github.security.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -118,7 +118,7 @@ class TestGithubRequiredSignatures:
         mock_client.put = AsyncMock(return_value=mock_response)
 
         with patch(
-            "src.mcp_server_git.github.security.github_client_context"
+            "mcp_server_git.github.security.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -144,7 +144,7 @@ class TestGithubRequiredSignatures:
         mock_client.put = AsyncMock(return_value=mock_response)
 
         with patch(
-            "src.mcp_server_git.github.security.github_client_context"
+            "mcp_server_git.github.security.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -173,7 +173,7 @@ class TestGithubRequiredSignatures:
         mock_client.delete = AsyncMock(return_value=mock_response)
 
         with patch(
-            "src.mcp_server_git.github.security.github_client_context"
+            "mcp_server_git.github.security.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -199,7 +199,7 @@ class TestGithubRequiredSignatures:
         mock_client.delete = AsyncMock(return_value=mock_response)
 
         with patch(
-            "src.mcp_server_git.github.security.github_client_context"
+            "mcp_server_git.github.security.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 

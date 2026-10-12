@@ -14,8 +14,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from pydantic import ValidationError
 
-from src.mcp_server_git.github.api import github_create_repo
-from src.mcp_server_git.github.models import GitHubCreateRepo
+from mcp_server_git.github.api import github_create_repo
+from mcp_server_git.github.models import GitHubCreateRepo
 
 
 class TestGitHubCreateRepoModel:
@@ -139,9 +139,7 @@ class TestGitHubCreateRepoPersonal:
         )
         mock_client.post = AsyncMock(return_value=mock_response)
 
-        with patch(
-            "src.mcp_server_git.github.repos.github_client_context"
-        ) as mock_context:
+        with patch("mcp_server_git.github.repos.github_client_context") as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
             result = await github_create_repo(name="my-repo")
@@ -181,9 +179,7 @@ class TestGitHubCreateRepoPersonal:
         )
         mock_client.post = AsyncMock(return_value=mock_response)
 
-        with patch(
-            "src.mcp_server_git.github.repos.github_client_context"
-        ) as mock_context:
+        with patch("mcp_server_git.github.repos.github_client_context") as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
             result = await github_create_repo(name="private-repo", private=True)
@@ -209,9 +205,7 @@ class TestGitHubCreateRepoPersonal:
         )
         mock_client.post = AsyncMock(return_value=mock_response)
 
-        with patch(
-            "src.mcp_server_git.github.repos.github_client_context"
-        ) as mock_context:
+        with patch("mcp_server_git.github.repos.github_client_context") as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
             result = await github_create_repo(name="initialized-repo", auto_init=True)
@@ -240,9 +234,7 @@ class TestGitHubCreateRepoOrganization:
         )
         mock_client.post = AsyncMock(return_value=mock_response)
 
-        with patch(
-            "src.mcp_server_git.github.repos.github_client_context"
-        ) as mock_context:
+        with patch("mcp_server_git.github.repos.github_client_context") as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
             result = await github_create_repo(
@@ -267,9 +259,7 @@ class TestGitHubCreateRepoOrganization:
         mock_response.status = 404
         mock_client.post = AsyncMock(return_value=mock_response)
 
-        with patch(
-            "src.mcp_server_git.github.repos.github_client_context"
-        ) as mock_context:
+        with patch("mcp_server_git.github.repos.github_client_context") as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
             result = await github_create_repo(name="repo", org="nonexistent-org")
@@ -297,9 +287,7 @@ class TestGitHubCreateRepoErrors:
         )
         mock_client.post = AsyncMock(return_value=mock_response)
 
-        with patch(
-            "src.mcp_server_git.github.repos.github_client_context"
-        ) as mock_context:
+        with patch("mcp_server_git.github.repos.github_client_context") as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
             result = await github_create_repo(name="existing-repo")
@@ -316,9 +304,7 @@ class TestGitHubCreateRepoErrors:
         mock_response.status = 403
         mock_client.post = AsyncMock(return_value=mock_response)
 
-        with patch(
-            "src.mcp_server_git.github.repos.github_client_context"
-        ) as mock_context:
+        with patch("mcp_server_git.github.repos.github_client_context") as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
             result = await github_create_repo(name="repo")
@@ -341,9 +327,7 @@ class TestGitHubCreateRepoErrors:
         )
         mock_client.post = AsyncMock(return_value=mock_response)
 
-        with patch(
-            "src.mcp_server_git.github.repos.github_client_context"
-        ) as mock_context:
+        with patch("mcp_server_git.github.repos.github_client_context") as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
             result = await github_create_repo(name="repo")
@@ -354,9 +338,7 @@ class TestGitHubCreateRepoErrors:
     @pytest.mark.asyncio
     async def test_authentication_error(self):
         """Test error when authentication fails."""
-        with patch(
-            "src.mcp_server_git.github.repos.github_client_context"
-        ) as mock_context:
+        with patch("mcp_server_git.github.repos.github_client_context") as mock_context:
             mock_context.return_value.__aenter__.side_effect = ValueError(
                 "GitHub token not configured"
             )
@@ -369,9 +351,7 @@ class TestGitHubCreateRepoErrors:
     @pytest.mark.asyncio
     async def test_connection_error(self):
         """Test error when network connection fails."""
-        with patch(
-            "src.mcp_server_git.github.repos.github_client_context"
-        ) as mock_context:
+        with patch("mcp_server_git.github.repos.github_client_context") as mock_context:
             mock_context.return_value.__aenter__.side_effect = ConnectionError(
                 "Network unreachable"
             )
@@ -384,9 +364,7 @@ class TestGitHubCreateRepoErrors:
     @pytest.mark.asyncio
     async def test_unexpected_error(self):
         """Test handling of unexpected errors."""
-        with patch(
-            "src.mcp_server_git.github.repos.github_client_context"
-        ) as mock_context:
+        with patch("mcp_server_git.github.repos.github_client_context") as mock_context:
             mock_context.return_value.__aenter__.side_effect = RuntimeError(
                 "Unexpected failure"
             )
@@ -406,9 +384,7 @@ class TestGitHubCreateRepoErrors:
         mock_response.text = AsyncMock(return_value="Internal Server Error")
         mock_client.post = AsyncMock(return_value=mock_response)
 
-        with patch(
-            "src.mcp_server_git.github.repos.github_client_context"
-        ) as mock_context:
+        with patch("mcp_server_git.github.repos.github_client_context") as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
             result = await github_create_repo(name="repo")
@@ -438,9 +414,7 @@ class TestGitHubCreateRepoOptions:
         )
         mock_client.post = AsyncMock(return_value=mock_response)
 
-        with patch(
-            "src.mcp_server_git.github.repos.github_client_context"
-        ) as mock_context:
+        with patch("mcp_server_git.github.repos.github_client_context") as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
             await github_create_repo(
@@ -469,9 +443,7 @@ class TestGitHubCreateRepoOptions:
         )
         mock_client.post = AsyncMock(return_value=mock_response)
 
-        with patch(
-            "src.mcp_server_git.github.repos.github_client_context"
-        ) as mock_context:
+        with patch("mcp_server_git.github.repos.github_client_context") as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
             await github_create_repo(
@@ -500,9 +472,7 @@ class TestGitHubCreateRepoOptions:
         )
         mock_client.post = AsyncMock(return_value=mock_response)
 
-        with patch(
-            "src.mcp_server_git.github.repos.github_client_context"
-        ) as mock_context:
+        with patch("mcp_server_git.github.repos.github_client_context") as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
             await github_create_repo(
