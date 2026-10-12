@@ -8,6 +8,7 @@ import os
 import re
 
 from ..utils.git_import import GitCommandError, Repo
+from ..utils.tool_failure import fail
 from ._ref_validation import DANGEROUS_CHARS
 from ._ref_validation import validate_ref as _validate_ref
 from .error_text import clean_git_error_text
@@ -46,12 +47,12 @@ def git_restore(
 ) -> str:
     """Restore working tree files or unstage files."""
     if not files:
-        return "❌ No files specified to restore"
+        return fail("❌ No files specified to restore")
 
     if source:
         error = _validate_ref(source, "source")
         if error:
-            return error
+            return fail(error)
 
     try:
         args = []
@@ -70,9 +71,9 @@ def git_restore(
 
     except GitCommandError as e:
         stderr = _clean_git_error_text(e.stderr, "stderr")
-        return f"❌ Restore failed: {stderr}"
+        return fail(f"❌ Restore failed: {stderr}")
     except Exception as e:
-        return f"❌ Error during restore: {str(e)}"
+        return fail(f"❌ Error during restore: {str(e)}")
 
 
 def git_branch_update(
@@ -85,17 +86,17 @@ def git_branch_update(
     """Force-update a branch ref or delete a branch."""
     error = _validate_ref(branch_name, "branch_name")
     if error:
-        return error
+        return fail(error)
 
     if target and delete:
-        return "❌ Cannot specify both target and delete"
+        return fail("❌ Cannot specify both target and delete")
     if not target and not delete:
-        return "❌ Must specify either target (force-update) or delete"
+        return fail("❌ Must specify either target (force-update) or delete")
 
     if target:
         error = _validate_ref(target, "target")
         if error:
-            return error
+            return fail(error)
 
     try:
         if delete:
@@ -108,9 +109,9 @@ def git_branch_update(
 
     except GitCommandError as e:
         stderr = _clean_git_error_text(e.stderr, "stderr")
-        return f"❌ Branch update failed: {stderr}"
+        return fail(f"❌ Branch update failed: {stderr}")
     except Exception as e:
-        return f"❌ Error updating branch: {str(e)}"
+        return fail(f"❌ Error updating branch: {str(e)}")
 
 
 def git_branch_delete(
@@ -125,6 +126,41 @@ def git_branch_delete(
     return git_branch_update(repo, branch_name, delete=True, force=force)
 
 
+def _apply_porcelain_attr(current: dict, line: str) -> None:
+    """Record one non-'worktree' porcelain line on the current entry."""
+    if line.startswith("HEAD "):
+        current["head"] = line[5:13]  # Short SHA (8 chars)
+    elif line.startswith("branch "):
+        current["branch"] = line[7:].replace("refs/heads/", "")
+    elif line == "bare":
+        current["bare"] = True
+    elif line == "detached":
+        current["detached"] = True
+
+
+def _parse_worktree_porcelain(output: str) -> list[dict]:
+    """Parse `git worktree list --porcelain` output into entry dicts."""
+    worktrees: list[dict] = []
+    current: dict = {}
+    for line in output.split("\n"):
+        if line.startswith("worktree "):
+            if current:
+                worktrees.append(current)
+            current = {"path": line[9:]}
+        else:
+            _apply_porcelain_attr(current, line)
+
+    if current:
+        worktrees.append(current)
+    return worktrees
+
+
+def _format_worktree_line(wt: dict) -> str:
+    branch = wt.get("branch", "detached" if wt.get("detached") else "bare")
+    head = wt.get("head", "???")
+    return f"  {wt['path']} [{branch}] ({head})"
+
+
 def git_worktree_list(repo: Repo) -> str:
     """List all worktrees in the repository."""
     try:
@@ -133,38 +169,16 @@ def git_worktree_list(repo: Repo) -> str:
         if not output.strip():
             return "No worktrees found"
 
-        worktrees = []
-        current = {}
-        for line in output.split("\n"):
-            if line.startswith("worktree "):
-                if current:
-                    worktrees.append(current)
-                current = {"path": line[9:]}
-            elif line.startswith("HEAD "):
-                current["head"] = line[5:13]  # Short SHA (8 chars)
-            elif line.startswith("branch "):
-                current["branch"] = line[7:].replace("refs/heads/", "")
-            elif line == "bare":
-                current["bare"] = True
-            elif line == "detached":
-                current["detached"] = True
-
-        if current:
-            worktrees.append(current)
-
+        worktrees = _parse_worktree_porcelain(output)
         lines = [f"Worktrees ({len(worktrees)}):"]
-        for wt in worktrees:
-            branch = wt.get("branch", "detached" if wt.get("detached") else "bare")
-            head = wt.get("head", "???")
-            lines.append(f"  {wt['path']} [{branch}] ({head})")
-
+        lines.extend(_format_worktree_line(wt) for wt in worktrees)
         return "\n".join(lines)
 
     except GitCommandError as e:
         stderr = _clean_git_error_text(e.stderr, "stderr")
-        return f"❌ Failed to list worktrees: {stderr}"
+        return fail(f"❌ Failed to list worktrees: {stderr}")
     except Exception as e:
-        return f"❌ Error listing worktrees: {str(e)}"
+        return fail(f"❌ Error listing worktrees: {str(e)}")
 
 
 def git_worktree_remove(
@@ -174,7 +188,7 @@ def git_worktree_remove(
 ) -> str:
     """Remove a worktree."""
     if DANGEROUS_CHARS.search(worktree_path):
-        return f"❌ Invalid characters in worktree path: '{worktree_path}'"
+        return fail(f"❌ Invalid characters in worktree path: '{worktree_path}'")
 
     try:
         args = ["remove"]
@@ -187,9 +201,69 @@ def git_worktree_remove(
 
     except GitCommandError as e:
         stderr = _clean_git_error_text(e.stderr, "stderr")
-        return f"❌ Failed to remove worktree: {stderr}"
+        return fail(f"❌ Failed to remove worktree: {stderr}")
     except Exception as e:
-        return f"❌ Error removing worktree: {str(e)}"
+        return fail(f"❌ Error removing worktree: {str(e)}")
+
+
+def _validate_worktree_add(
+    worktree_path: str,
+    branch: str | None,
+    new_branch: str | None,
+    commit_ish: str | None,
+) -> str | None:
+    """Return a failure for invalid git_worktree_add inputs, else None."""
+    if DANGEROUS_CHARS.search(worktree_path):
+        return fail(f"❌ Invalid characters in worktree path: '{worktree_path}'")
+    for label, value in (
+        ("branch", branch),
+        ("new_branch", new_branch),
+        ("commit_ish", commit_ish),
+    ):
+        if value and DANGEROUS_CHARS.search(value):
+            return fail(f"❌ Invalid characters in {label}: '{value}'")
+
+    if commit_ish and branch and not new_branch:
+        return fail(
+            "❌ commit_ish and branch are mutually exclusive unless new_branch "
+            "is set: 'branch' checks out an existing branch, 'commit_ish' "
+            "creates a detached worktree."
+        )
+    return None
+
+
+def _build_worktree_add_args(
+    worktree_path: str,
+    new_branch: str | None,
+    start_point: str | None,
+    force: bool,
+) -> list[str]:
+    args = ["add"]
+    if force:
+        args.append("--force")
+    if new_branch:
+        args.append("-B" if force else "-b")
+        args.append(new_branch)
+    args.append(worktree_path)
+    if start_point:
+        args.append(start_point)
+    return args
+
+
+def _describe_worktree_add(
+    branch: str | None,
+    new_branch: str | None,
+    commit_ish: str | None,
+    start_point: str | None,
+) -> str:
+    if new_branch:
+        suffix = f" (new branch {new_branch}"
+        return suffix + (f" from {start_point})" if start_point else ")")
+    if branch:
+        return f" (branch {branch})"
+    if commit_ish:
+        return f" (detached HEAD at {commit_ish})"
+    return " (detached HEAD)"
 
 
 def git_worktree_add(
@@ -210,53 +284,24 @@ def git_worktree_add(
     - new_branch + branch: legacy form of the above (commit_ish wins if both)
     - commit_ish only: detached HEAD at that commit-ish
     """
-    if DANGEROUS_CHARS.search(worktree_path):
-        return f"❌ Invalid characters in worktree path: '{worktree_path}'"
-    if branch and DANGEROUS_CHARS.search(branch):
-        return f"❌ Invalid characters in branch: '{branch}'"
-    if new_branch and DANGEROUS_CHARS.search(new_branch):
-        return f"❌ Invalid characters in new_branch: '{new_branch}'"
-    if commit_ish and DANGEROUS_CHARS.search(commit_ish):
-        return f"❌ Invalid characters in commit_ish: '{commit_ish}'"
-
-    if commit_ish and branch and not new_branch:
-        return (
-            "❌ commit_ish and branch are mutually exclusive unless new_branch "
-            "is set: 'branch' checks out an existing branch, 'commit_ish' "
-            "creates a detached worktree."
-        )
+    error = _validate_worktree_add(worktree_path, branch, new_branch, commit_ish)
+    if error:
+        return error
 
     try:
         start_point = commit_ish if commit_ish is not None else branch
-
-        args = ["add"]
-        if force:
-            args.append("--force")
-        if new_branch:
-            args.append("-B" if force else "-b")
-            args.append(new_branch)
-        args.append(worktree_path)
-        if start_point:
-            args.append(start_point)
+        args = _build_worktree_add_args(worktree_path, new_branch, start_point, force)
 
         repo.git.worktree(*args)
 
-        if new_branch:
-            suffix = f" (new branch {new_branch}"
-            suffix += f" from {start_point})" if start_point else ")"
-        elif branch:
-            suffix = f" (branch {branch})"
-        elif commit_ish:
-            suffix = f" (detached HEAD at {commit_ish})"
-        else:
-            suffix = " (detached HEAD)"
+        suffix = _describe_worktree_add(branch, new_branch, commit_ish, start_point)
         return f"✅ Worktree added at {worktree_path}{suffix}"
 
     except GitCommandError as e:
         stderr = _clean_git_error_text(e.stderr, "stderr")
-        return f"❌ Failed to add worktree: {stderr}"
+        return fail(f"❌ Failed to add worktree: {stderr}")
     except Exception as e:
-        return f"❌ Error adding worktree: {str(e)}"
+        return fail(f"❌ Error adding worktree: {str(e)}")
 
 
 def git_merge_tree(
@@ -273,10 +318,10 @@ def git_merge_tree(
     """
     error = _validate_ref(branch1, "branch1")
     if error:
-        return error
+        return fail(error)
     error = _validate_ref(branch2, "branch2")
     if error:
-        return error
+        return fail(error)
 
     try:
         output = repo.git.merge_tree("--write-tree", branch1, branch2)
@@ -305,14 +350,62 @@ def git_merge_tree(
             lines.extend(render_conflict_paths(result))
             return "\n".join(lines)
 
-        return f"❌ Merge-tree failed: {stderr or stdout}"
+        return fail(f"❌ Merge-tree failed: {stderr or stdout}")
 
     except Exception as e:
-        return f"❌ Error during merge-tree: {str(e)}"
+        return fail(f"❌ Error during merge-tree: {str(e)}")
 
 
 # Dangerous-path blocklist for git_rm: reject wildcards, directories, bare '.'
 _UNSAFE_PATH = re.compile(r"[*?\[\]{}]")
+
+
+def _validate_rm_path(file: str) -> tuple[str, str | None]:
+    """Normalize `file`; return (normalized_path, failure_or_None)."""
+    if not file or not file.strip():
+        return file, fail("❌ No file specified")
+
+    file = file.strip()
+
+    # Check trailing slash before normpath strips it
+    if file.endswith("/"):
+        return file, fail(
+            "❌ Directory removal not supported. Specify an explicit file path."
+        )
+
+    # Normalize path to collapse ./, ../, and redundant separators
+    file = os.path.normpath(file)
+
+    # Block current/parent dir (also catches paths that normalize to . or ..)
+    if file in (".", ".."):
+        return file, fail(
+            "❌ Refusing to remove '.' or '..'. Specify an explicit file path."
+        )
+
+    # Block absolute paths to prevent accidental system file removal
+    if os.path.isabs(file):
+        return file, fail(
+            "❌ Absolute paths not allowed. Use a path relative to the repository root."
+        )
+
+    if _UNSAFE_PATH.search(file):
+        return file, fail(
+            "❌ Wildcards/globs not allowed. Specify an explicit file path."
+        )
+
+    if DANGEROUS_CHARS.search(file):
+        return file, fail(f"❌ Invalid characters detected in file path: '{file}'")
+    return file, None
+
+
+def _describe_rm_error(file: str, stderr: str) -> str:
+    if "did not match any files" in stderr:
+        return fail(f"❌ File not found: '{file}' is not tracked by git")
+    if "has local modifications" in stderr or "has changes staged" in stderr:
+        return fail(
+            f"❌ File '{file}' has uncommitted changes. Stage or stash first, or use force."
+        )
+    return fail(f"❌ git rm failed: {stderr}")
 
 
 def git_rm(
@@ -331,33 +424,9 @@ def git_rm(
         git_rm(repo, "old_module.py", cached=True)  # untrack, keep on disk
         git_rm(repo, "old_module.py", dry_run=True)  # preview only
     """
-    if not file or not file.strip():
-        return "❌ No file specified"
-
-    file = file.strip()
-
-    # Check trailing slash before normpath strips it
-    if file.endswith("/"):
-        return "❌ Directory removal not supported. Specify an explicit file path."
-
-    # Normalize path to collapse ./, ../, and redundant separators
-    file = os.path.normpath(file)
-
-    # Block current/parent dir (also catches paths that normalize to . or ..)
-    if file in (".", ".."):
-        return "❌ Refusing to remove '.' or '..'. Specify an explicit file path."
-
-    # Block absolute paths to prevent accidental system file removal
-    if os.path.isabs(file):
-        return (
-            "❌ Absolute paths not allowed. Use a path relative to the repository root."
-        )
-
-    if _UNSAFE_PATH.search(file):
-        return "❌ Wildcards/globs not allowed. Specify an explicit file path."
-
-    if DANGEROUS_CHARS.search(file):
-        return f"❌ Invalid characters detected in file path: '{file}'"
+    file, error = _validate_rm_path(file)
+    if error:
+        return error
 
     try:
         args = []
@@ -378,10 +447,6 @@ def git_rm(
 
     except GitCommandError as e:
         stderr = _clean_git_error_text(e.stderr, "stderr")
-        if "did not match any files" in stderr:
-            return f"❌ File not found: '{file}' is not tracked by git"
-        if "has local modifications" in stderr or "has changes staged" in stderr:
-            return f"❌ File '{file}' has uncommitted changes. Stage or stash first, or use force."
-        return f"❌ git rm failed: {stderr}"
+        return _describe_rm_error(file, stderr)
     except Exception as e:
-        return f"❌ Error during git rm: {str(e)}"
+        return fail(f"❌ Error during git rm: {str(e)}")

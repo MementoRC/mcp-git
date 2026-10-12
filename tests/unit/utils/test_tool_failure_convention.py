@@ -10,9 +10,9 @@ from pathlib import Path
 
 import pytest
 
-from mcp_server_git.git import _stash_ops
+from mcp_server_git.git import _stash_ops, _tag_ops, merge_ops, operations_extended
 
-MIGRATED_MODULES = (_stash_ops,)
+MIGRATED_MODULES = (_stash_ops, _tag_ops, merge_ops, operations_extended)
 
 _MARK = "❌"
 
