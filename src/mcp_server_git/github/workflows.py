@@ -3,12 +3,25 @@
 from __future__ import annotations
 
 import logging
+from collections import Counter
+from datetime import datetime
 
 from mcp_server_git.github.client import github_client_context
 
 from .ci_logs import *  # noqa: F401,F403
 
 logger = logging.getLogger(__name__)
+
+_RUN_STATUSES = ("queued", "in_progress", "completed")
+_RUN_CONCLUSIONS = (
+    "success",
+    "failure",
+    "neutral",
+    "cancelled",
+    "timed_out",
+    "action_required",
+    "stale",
+)
 
 
 async def github_get_workflow_run(
@@ -77,6 +90,196 @@ async def github_get_workflow_run(
         return f"❌ Error getting workflow run: {str(e)}"
 
 
+def _build_run_params(
+    per_page: int,
+    page: int,
+    actor: str | None,
+    branch: str | None,
+    event: str | None,
+    status: str | None,
+    conclusion: str | None,
+    created: str | None,
+    exclude_pull_requests: bool,
+    check_suite_id: int | None,
+    head_sha: str | None,
+) -> dict[str, str | int | bool]:
+    """Build the query parameters, dropping falsy and invalid filters."""
+    params: dict[str, str | int | bool] = {
+        "per_page": min(max(per_page, 1), 100),  # Enforce GitHub API limits
+        "page": max(page, 1),
+    }
+    candidates: dict[str, str | int | None] = {
+        "actor": actor,
+        "branch": branch,
+        "event": event,
+        "status": status if status in _RUN_STATUSES else None,
+        "conclusion": conclusion if conclusion in _RUN_CONCLUSIONS else None,
+        "created": created,
+        "exclude_pull_requests": "true" if exclude_pull_requests else None,
+        "check_suite_id": check_suite_id,
+        "head_sha": head_sha,
+    }
+    params.update({key: value for key, value in candidates.items() if value})
+    return params
+
+
+def _runs_endpoint(repo_owner: str, repo_name: str, workflow_id: str | None) -> str:
+    """Workflow-specific or repository-wide runs endpoint."""
+    if workflow_id:
+        logger.debug(f"📡 Fetching workflow-specific runs: {workflow_id}")
+        return f"/repos/{repo_owner}/{repo_name}/actions/workflows/{workflow_id}/runs"
+    logger.debug("📡 Fetching all repository workflow runs")
+    return f"/repos/{repo_owner}/{repo_name}/actions/runs"
+
+
+async def _check_runs_response(
+    response, workflow_id: str | None, repo_owner: str, repo_name: str
+) -> str | None:
+    """Translate a bad runs-list HTTP response into a user-facing error."""
+    if response.status == 401:
+        response_text = await response.text()
+        logger.error(f"🔒 GitHub API authentication failed (401): {response_text}")
+        return "❌ GitHub API authentication failed: Verify your GITHUB_TOKEN has Actions read permissions"
+    if response.status == 404:
+        if workflow_id:
+            return f"❌ Workflow '{workflow_id}' not found in {repo_owner}/{repo_name}. Check workflow file name or ID."
+        return (
+            f"❌ Repository {repo_owner}/{repo_name} not found or Actions not enabled"
+        )
+    if response.status != 200:
+        response_text = await response.text()
+        logger.error(f"❌ GitHub API error {response.status}: {response_text}")
+        return f"❌ Failed to list workflow runs: {response.status} - {response_text}"
+    return None
+
+
+def _no_runs_message(repo_owner: str, repo_name: str, params: dict) -> str:
+    """Message for an empty result, naming any filters that were applied."""
+    filter_desc = (
+        f" (filtered by: {', '.join(f'{k}={v}' for k, v in params.items() if k not in ['per_page', 'page'])})"
+        if len(params) > 2
+        else ""
+    )
+    return f"No workflow runs found for {repo_owner}/{repo_name}{filter_desc}"
+
+
+def _runs_header(
+    repo_owner: str,
+    repo_name: str,
+    workflow_id: str | None,
+    actor: str | None,
+    branch: str | None,
+    event: str | None,
+    status: str | None,
+    conclusion: str | None,
+) -> str:
+    """Header line naming the repository and the filters the caller passed."""
+    labelled = (
+        ("workflow", workflow_id),
+        ("actor", actor),
+        ("branch", branch),
+        ("event", event),
+        ("status", status),
+        ("conclusion", conclusion),
+    )
+    filter_info = [f"{label}: {value}" for label, value in labelled if value]
+    header = f"Workflow Runs for {repo_owner}/{repo_name}"
+    if filter_info:
+        header += f" ({', '.join(filter_info)})"
+    return f"{header}:\n"
+
+
+def _status_summary_line(runs: list[dict]) -> str | None:
+    """Per-status counts, only worth showing when more than one status exists."""
+    status_counts = Counter(run.get("status", "unknown") for run in runs)
+    if len(status_counts) <= 1:
+        return None
+    summary = ", ".join(f"{status}: {count}" for status, count in status_counts.items())
+    return f"Status summary: {summary}\n"
+
+
+def _run_duration(run: dict) -> str | None:
+    """Duration of a completed run, or None when absent or unparseable."""
+    if not (
+        run.get("status") == "completed"
+        and run.get("created_at")
+        and run.get("updated_at")
+    ):
+        return None
+    try:
+        start = datetime.fromisoformat(run["created_at"].replace("Z", "+00:00"))
+        end = datetime.fromisoformat(run["updated_at"].replace("Z", "+00:00"))
+        return str(end - start)
+    except Exception:
+        return None  # Skip duration calculation if parsing fails
+
+
+def _format_run(run: dict) -> list[str]:
+    """Render one workflow run as output lines, ending with a blank line."""
+    status_emoji = {
+        "completed": "✅" if run.get("conclusion") == "success" else "❌",
+        "in_progress": "🔄",
+        "queued": "⏳",
+        "requested": "📋",
+        "waiting": "⏸️",
+    }.get(run.get("status") or "", "❓")
+
+    status_text = run.get("status", "unknown")
+    if run.get("conclusion"):
+        status_text += f" ({run['conclusion']})"
+
+    lines = [
+        f"{status_emoji} {run.get('name', 'Unknown Workflow')} #{run.get('run_number', '?')}",
+        f"   ID: {run.get('id', 'N/A')}",
+        f"   Status: {status_text}",
+        f"   Branch: {run.get('head_branch', 'N/A')}",
+        f"   Commit: {run.get('head_sha', 'N/A')[:8]}...",
+        f"   Actor: {run.get('actor', {}).get('login', 'N/A')}",
+        f"   Event: {run.get('event', 'N/A')}",
+    ]
+
+    created_at = run.get("created_at", "N/A")
+    updated_at = run.get("updated_at", "N/A")
+    if created_at != "N/A":
+        lines.append(f"   Started: {created_at}")
+    if updated_at != "N/A" and updated_at != created_at:
+        lines.append(f"   Updated: {updated_at}")
+
+    duration = _run_duration(run)
+    if duration is not None:
+        lines.append(f"   Duration: {duration}")
+    if run.get("html_url"):
+        lines.append(f"   URL: {run['html_url']}")
+
+    lines.append("")
+    return lines
+
+
+def _runs_overview_lines(runs: list[dict], total_count: int, page: int) -> list[str]:
+    """Paging notice and status summary shown above the run list."""
+    lines = []
+    if total_count > len(runs):
+        lines.append(f"Showing {len(runs)} of {total_count} total runs (page {page})\n")
+    summary = _status_summary_line(runs)
+    if summary is not None:
+        lines.append(summary)
+    return lines
+
+
+def _pagination_footer(
+    runs: list[dict], total_count: int, page: int, per_page: int
+) -> list[str]:
+    """Footer pointing at further pages; empty when everything is shown.
+
+    Preserved quirk: ``max_page`` uses the raw ``per_page`` argument, not the
+    value clamped to 1-100 that was sent to the API.
+    """
+    if total_count <= len(runs):
+        return []
+    max_page = (total_count + per_page - 1) // per_page
+    return [f"📄 Page {page} of {max_page} (use page parameter to see more)"]
+
+
 async def github_list_workflow_runs(
     repo_owner: str,
     repo_name: str,
@@ -121,193 +324,55 @@ async def github_list_workflow_runs(
 
     try:
         async with github_client_context() as client:
-            # Build query parameters with validation
-            params: dict[str, str | int | bool] = {
-                "per_page": min(max(per_page, 1), 100),  # Enforce GitHub API limits
-                "page": max(page, 1),
-            }
-
-            # Add optional filters
-            if actor:
-                params["actor"] = actor
-            if branch:
-                params["branch"] = branch
-            if event:
-                params["event"] = event
-            if status and status in ["queued", "in_progress", "completed"]:
-                params["status"] = status
-            if conclusion and conclusion in [
-                "success",
-                "failure",
-                "neutral",
-                "cancelled",
-                "timed_out",
-                "action_required",
-                "stale",
-            ]:
-                params["conclusion"] = conclusion
-            if created:
-                params["created"] = created
-            if exclude_pull_requests:
-                params["exclude_pull_requests"] = "true"
-            if check_suite_id:
-                params["check_suite_id"] = check_suite_id
-            if head_sha:
-                params["head_sha"] = head_sha
-
-            # Determine API endpoint - workflow-specific or repository-wide
-            if workflow_id:
-                # Get runs for specific workflow
-                endpoint = f"/repos/{repo_owner}/{repo_name}/actions/workflows/{workflow_id}/runs"
-                logger.debug(f"📡 Fetching workflow-specific runs: {workflow_id}")
-            else:
-                # Get all workflow runs for repository
-                endpoint = f"/repos/{repo_owner}/{repo_name}/actions/runs"
-                logger.debug("📡 Fetching all repository workflow runs")
-
+            params = _build_run_params(
+                per_page,
+                page,
+                actor,
+                branch,
+                event,
+                status,
+                conclusion,
+                created,
+                exclude_pull_requests,
+                check_suite_id,
+                head_sha,
+            )
+            endpoint = _runs_endpoint(repo_owner, repo_name, workflow_id)
             logger.debug(f"📡 Making API call to {endpoint} with params: {params}")
 
             response = await client.get(endpoint, params=params)
-
             logger.debug(f"📨 GitHub API response status: {response.status}")
 
-            if response.status == 401:
-                response_text = await response.text()
-                logger.error(
-                    f"🔒 GitHub API authentication failed (401): {response_text}"
-                )
-                return "❌ GitHub API authentication failed: Verify your GITHUB_TOKEN has Actions read permissions"
-            elif response.status == 404:
-                if workflow_id:
-                    return f"❌ Workflow '{workflow_id}' not found in {repo_owner}/{repo_name}. Check workflow file name or ID."
-                else:
-                    return f"❌ Repository {repo_owner}/{repo_name} not found or Actions not enabled"
-            elif response.status != 200:
-                response_text = await response.text()
-                logger.error(f"❌ GitHub API error {response.status}: {response_text}")
-                return f"❌ Failed to list workflow runs: {response.status} - {response_text}"
+            error = await _check_runs_response(
+                response, workflow_id, repo_owner, repo_name
+            )
+            if error is not None:
+                return error
 
             data = await response.json()
             workflow_runs = data.get("workflow_runs", [])
-
             if not workflow_runs:
-                filter_desc = (
-                    f" (filtered by: {', '.join(f'{k}={v}' for k, v in params.items() if k not in ['per_page', 'page'])})"
-                    if len(params) > 2
-                    else ""
-                )
-                return (
-                    f"No workflow runs found for {repo_owner}/{repo_name}{filter_desc}"
-                )
+                return _no_runs_message(repo_owner, repo_name, params)
 
-            # Build formatted output
-            filter_info = []
-            if workflow_id:
-                filter_info.append(f"workflow: {workflow_id}")
-            if actor:
-                filter_info.append(f"actor: {actor}")
-            if branch:
-                filter_info.append(f"branch: {branch}")
-            if event:
-                filter_info.append(f"event: {event}")
-            if status:
-                filter_info.append(f"status: {status}")
-            if conclusion:
-                filter_info.append(f"conclusion: {conclusion}")
-
-            header = f"Workflow Runs for {repo_owner}/{repo_name}"
-            if filter_info:
-                header += f" ({', '.join(filter_info)})"
-
-            output = [f"{header}:\n"]
-
-            # Add summary statistics
             total_count = data.get("total_count", len(workflow_runs))
-            if total_count > len(workflow_runs):
-                output.append(
-                    f"Showing {len(workflow_runs)} of {total_count} total runs (page {page})\n"
+            output = [
+                _runs_header(
+                    repo_owner,
+                    repo_name,
+                    workflow_id,
+                    actor,
+                    branch,
+                    event,
+                    status,
+                    conclusion,
                 )
-
-            # Group runs by status for quick overview
-            status_counts = {}
+            ]
+            output.extend(_runs_overview_lines(workflow_runs, total_count, page))
             for run in workflow_runs:
-                run_status = run.get("status", "unknown")
-                status_counts[run_status] = status_counts.get(run_status, 0) + 1
-
-            if len(status_counts) > 1:
-                status_summary = ", ".join(
-                    [f"{status}: {count}" for status, count in status_counts.items()]
-                )
-                output.append(f"Status summary: {status_summary}\n")
-
-            # Format individual workflow runs
-            for run in workflow_runs:
-                # Status and conclusion emojis
-                status_emoji = {
-                    "completed": "✅" if run.get("conclusion") == "success" else "❌",
-                    "in_progress": "🔄",
-                    "queued": "⏳",
-                    "requested": "📋",
-                    "waiting": "⏸️",
-                }.get(run.get("status"), "❓")
-
-                # Enhanced status display
-                status_text = run.get("status", "unknown")
-                if run.get("conclusion"):
-                    status_text += f" ({run['conclusion']})"
-
-                # Workflow name and run number
-                workflow_name = run.get("name", "Unknown Workflow")
-                run_number = run.get("run_number", "?")
-
-                output.append(f"{status_emoji} {workflow_name} #{run_number}")
-                output.append(f"   ID: {run.get('id', 'N/A')}")
-                output.append(f"   Status: {status_text}")
-                output.append(f"   Branch: {run.get('head_branch', 'N/A')}")
-                output.append(f"   Commit: {run.get('head_sha', 'N/A')[:8]}...")
-                output.append(f"   Actor: {run.get('actor', {}).get('login', 'N/A')}")
-                output.append(f"   Event: {run.get('event', 'N/A')}")
-
-                # Timing information
-                created_at = run.get("created_at", "N/A")
-                updated_at = run.get("updated_at", "N/A")
-                if created_at != "N/A":
-                    output.append(f"   Started: {created_at}")
-                if updated_at != "N/A" and updated_at != created_at:
-                    output.append(f"   Updated: {updated_at}")
-
-                # Duration calculation for completed runs
-                if (
-                    run.get("status") == "completed"
-                    and run.get("created_at")
-                    and run.get("updated_at")
-                ):
-                    try:
-                        from datetime import datetime
-
-                        start = datetime.fromisoformat(
-                            run["created_at"].replace("Z", "+00:00")
-                        )
-                        end = datetime.fromisoformat(
-                            run["updated_at"].replace("Z", "+00:00")
-                        )
-                        duration = end - start
-                        output.append(f"   Duration: {duration}")
-                    except Exception:
-                        pass  # Skip duration calculation if parsing fails
-
-                # Links for further investigation
-                if run.get("html_url"):
-                    output.append(f"   URL: {run['html_url']}")
-
-                output.append("")
-
-            # Add pagination info if applicable
-            if total_count > len(workflow_runs):
-                max_page = (total_count + per_page - 1) // per_page
-                output.append(
-                    f"📄 Page {page} of {max_page} (use page parameter to see more)"
-                )
+                output.extend(_format_run(run))
+            output.extend(
+                _pagination_footer(workflow_runs, total_count, page, per_page)
+            )
 
             return "\n".join(output)
 
