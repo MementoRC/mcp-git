@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from mcp_server_git.github._issue_format import format_search_results
 from mcp_server_git.github.client import github_client_context
 from mcp_server_git.github.issues import github_create_issue, github_update_issue
 
@@ -57,51 +58,9 @@ async def github_search_issues(
             if not issues:
                 return f"No issues found matching query: {query}"
 
-            output = [f"Search Results for '{query}' in {repo_owner}/{repo_name}:\n"]
-            output.append(f"Found {total_count} total issues (showing page {page})\n")
-
-            for issue in issues:
-                # Skip pull requests
-                if issue.get("pull_request"):
-                    continue
-
-                state_emoji = {"open": "🟢", "closed": "🔴"}.get(
-                    issue.get("state"), "❓"
-                )
-                output.append(f"{state_emoji} #{issue['number']}: {issue['title']}")
-                output.append(f"   Author: {issue.get('user', {}).get('login', 'N/A')}")
-
-                # Show labels
-                if issue.get("labels"):
-                    label_names = [label["name"] for label in issue["labels"]]
-                    output.append(f"   Labels: {', '.join(label_names)}")
-
-                # Show assignees
-                if issue.get("assignees"):
-                    assignee_names = [
-                        assignee["login"] for assignee in issue["assignees"]
-                    ]
-                    output.append(f"   Assignees: {', '.join(assignee_names)}")
-
-                # Show milestone
-                if issue.get("milestone"):
-                    output.append(f"   Milestone: {issue['milestone']['title']}")
-
-                output.append(f"   Created: {issue.get('created_at', 'N/A')}")
-                output.append(
-                    f"   Score: {issue.get('score', 'N/A')}"
-                )  # Search relevance score
-                output.append("")
-
-            # Add pagination info
-            max_results = min(1000, total_count)  # GitHub limits search to 1000 results
-            if total_count > len(issues):
-                max_page = (max_results + per_page - 1) // per_page
-                output.append(
-                    f"📄 Page {page} of {max_page} (max {max_results} results from GitHub)"
-                )
-
-            return "\n".join(output)
+            return format_search_results(
+                query, repo_owner, repo_name, page, per_page, issues, total_count
+            )
 
     except ValueError as auth_error:
         logger.error(f"Authentication error searching issues: {auth_error}")

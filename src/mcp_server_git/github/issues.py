@@ -5,9 +5,67 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from mcp_server_git.github._issue_format import (
+    format_issue_detail,
+    format_issue_list,
+)
 from mcp_server_git.github.client import github_client_context
 
 logger = logging.getLogger(__name__)
+
+
+def _list_params(
+    state: str,
+    labels: list[str] | None,
+    assignee: str | None,
+    creator: str | None,
+    mentioned: str | None,
+    milestone: str | None,
+    sort: str,
+    direction: str,
+    since: str | None,
+    per_page: int,
+    page: int,
+) -> dict[str, Any]:
+    """Build list_issues query params; falsy optional filters are dropped."""
+    params: dict[str, Any] = {
+        "state": state,
+        "sort": sort,
+        "direction": direction,
+        "per_page": per_page,
+        "page": page,
+    }
+    if labels:
+        params["labels"] = ",".join(labels)
+    optional = {
+        "assignee": assignee,
+        "creator": creator,
+        "mentioned": mentioned,
+        "milestone": milestone,
+        "since": since,
+    }
+    params.update({key: value for key, value in optional.items() if value})
+    return params
+
+
+def _update_payload(
+    title: str | None,
+    body: str | None,
+    state: str | None,
+    labels: list[str] | None,
+    assignees: list[str] | None,
+    milestone: int | None,
+) -> dict[str, Any]:
+    """Build the update payload from every field that is not None."""
+    fields = {
+        "title": title,
+        "body": body,
+        "state": state,
+        "labels": labels,
+        "assignees": assignees,
+        "milestone": milestone,
+    }
+    return {key: value for key, value in fields.items() if value is not None}
 
 
 async def github_create_issue(
@@ -77,26 +135,19 @@ async def github_list_issues(
 
     try:
         async with github_client_context() as client:
-            params = {
-                "state": state,
-                "sort": sort,
-                "direction": direction,
-                "per_page": per_page,
-                "page": page,
-            }
-
-            if labels:
-                params["labels"] = ",".join(labels)
-            if assignee:
-                params["assignee"] = assignee
-            if creator:
-                params["creator"] = creator
-            if mentioned:
-                params["mentioned"] = mentioned
-            if milestone:
-                params["milestone"] = milestone
-            if since:
-                params["since"] = since
+            params = _list_params(
+                state,
+                labels,
+                assignee,
+                creator,
+                mentioned,
+                milestone,
+                sort,
+                direction,
+                since,
+                per_page,
+                page,
+            )
 
             response = await client.get(
                 f"/repos/{repo_owner}/{repo_name}/issues", params=params
@@ -111,35 +162,7 @@ async def github_list_issues(
             if not issues:
                 return f"No {state} issues found"
 
-            output = [f"{state.title()} Issues for {repo_owner}/{repo_name}:\n"]
-
-            for issue in issues:
-                # Skip pull requests (they appear in issues API but have 'pull_request' key)
-                if issue.get("pull_request"):
-                    continue
-
-                state_emoji = {"open": "🟢", "closed": "🔴"}.get(
-                    issue.get("state"), "❓"
-                )
-                output.append(f"{state_emoji} #{issue['number']}: {issue['title']}")
-                output.append(f"   Author: {issue.get('user', {}).get('login', 'N/A')}")
-
-                # Show labels if any
-                if issue.get("labels"):
-                    label_names = [label["name"] for label in issue["labels"]]
-                    output.append(f"   Labels: {', '.join(label_names)}")
-
-                # Show assignees if any
-                if issue.get("assignees"):
-                    assignee_names = [
-                        assignee["login"] for assignee in issue["assignees"]
-                    ]
-                    output.append(f"   Assignees: {', '.join(assignee_names)}")
-
-                output.append(f"   Created: {issue.get('created_at', 'N/A')}")
-                output.append("")
-
-            return "\n".join(output)
+            return format_issue_list(state, repo_owner, repo_name, issues)
 
     except ValueError as auth_error:
         logger.error(f"Authentication error listing issues: {auth_error}")
@@ -194,56 +217,7 @@ async def github_get_issue(
             if issue.get("pull_request"):
                 return f"❌ #{issue_number} is a pull request, not an issue"
 
-            # Format the issue details
-            state_emoji = {"open": "🟢", "closed": "🔴"}.get(issue.get("state"), "❓")
-
-            output = [
-                f"Issue #{issue['number']}: {issue['title']}",
-                f"State: {state_emoji} {issue.get('state', 'unknown')}",
-                f"Author: {(issue.get('user') or {}).get('login', 'N/A')}",
-                f"Created: {issue.get('created_at', 'N/A')}",
-                f"Updated: {issue.get('updated_at', 'N/A')}",
-            ]
-
-            # Add closed_at if closed
-            if issue.get("closed_at"):
-                output.append(f"Closed: {issue['closed_at']}")
-
-            # Add labels
-            if issue.get("labels"):
-                label_names = [label["name"] for label in issue["labels"]]
-                output.append(f"Labels: {', '.join(label_names)}")
-
-            # Add assignees
-            if issue.get("assignees"):
-                assignee_names = [a["login"] for a in issue["assignees"]]
-                output.append(f"Assignees: {', '.join(assignee_names)}")
-
-            # Add milestone
-            if issue.get("milestone"):
-                output.append(f"Milestone: {issue['milestone'].get('title', 'N/A')}")
-
-            # Add comments count
-            output.append(f"Comments: {issue.get('comments', 0)}")
-
-            # Add URL
-            output.append(f"URL: {issue.get('html_url', 'N/A')}")
-
-            # Add body (full by default; truncated only on explicit request)
-            body = issue.get("body") or "(No description provided)"
-            output.append("")
-            output.append("Description:")
-            output.append("-" * 40)
-            if max_body_chars and max_body_chars > 0 and len(body) > max_body_chars:
-                output.append(
-                    body[:max_body_chars]
-                    + f"\n\n... (truncated: showing {max_body_chars} "
-                    f"of {len(body)} chars)"
-                )
-            else:
-                output.append(body)
-
-            return "\n".join(output)
+            return format_issue_detail(issue, max_body_chars)
 
     except ValueError as auth_error:
         logger.error(f"Authentication error getting issue: {auth_error}")
@@ -272,21 +246,9 @@ async def github_update_issue(
 
     try:
         async with github_client_context() as client:
-            payload: dict[str, Any] = {}
-            if title is not None:
-                payload["title"] = title
-            if body is not None:
-                payload["body"] = body
-            if state is not None:
-                if state not in ["open", "closed"]:
-                    return "❌ State must be 'open' or 'closed'"
-                payload["state"] = state
-            if labels is not None:
-                payload["labels"] = labels
-            if assignees is not None:
-                payload["assignees"] = assignees
-            if milestone is not None:
-                payload["milestone"] = milestone
+            if state is not None and state not in ["open", "closed"]:
+                return "❌ State must be 'open' or 'closed'"
+            payload = _update_payload(title, body, state, labels, assignees, milestone)
 
             if not payload:
                 return "⚠️ No update parameters provided. Please specify title, body, state, labels, assignees, or milestone."
