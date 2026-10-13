@@ -5,9 +5,58 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from mcp_server_git.github import _release_format as _fmt
 from mcp_server_git.github.client import github_client_context
 
 logger = logging.getLogger(__name__)
+
+
+def _create_payload(
+    tag_name: str,
+    name: str | None,
+    body: str | None,
+    draft: bool,
+    prerelease: bool,
+    target_commitish: str | None,
+    generate_release_notes: bool,
+) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "tag_name": tag_name,
+        "draft": draft,
+        "prerelease": prerelease,
+    }
+    if name:
+        payload["name"] = name
+    if body:
+        payload["body"] = body
+    if target_commitish:
+        payload["target_commitish"] = target_commitish
+    if generate_release_notes:
+        payload["generate_release_notes"] = generate_release_notes
+    return payload
+
+
+async def _create_error(response: Any, repo_owner: str, repo_name: str) -> str | None:
+    if response.status == 404:
+        return f"❌ Repository {repo_owner}/{repo_name} not found"
+    if response.status == 422:
+        error_data = await response.json()
+        error_msg = error_data.get("message", "Validation failed")
+        return f"❌ Failed to create release: {error_msg}"
+    if response.status not in (200, 201):
+        error_text = await response.text()
+        return f"❌ Failed to create release: {response.status} - {error_text}"
+    return None
+
+
+def _create_success(
+    tag_name: str, draft: bool, prerelease: bool, release: dict[str, Any]
+) -> str:
+    release_url = release.get("html_url", "")
+    release_id = release.get("id", "")
+    status = _fmt.flag_labels(draft, prerelease)
+    status_str = f" ({', '.join(status)})" if status else ""
+    return f"✅ Release {tag_name} created successfully{status_str}\n🔗 URL: {release_url}\n📋 Release ID: {release_id}"
 
 
 async def github_create_release(
@@ -38,48 +87,27 @@ async def github_create_release(
 
     try:
         async with github_client_context() as client:
-            payload: dict[str, Any] = {
-                "tag_name": tag_name,
-                "draft": draft,
-                "prerelease": prerelease,
-            }
-
-            if name:
-                payload["name"] = name
-            if body:
-                payload["body"] = body
-            if target_commitish:
-                payload["target_commitish"] = target_commitish
-            if generate_release_notes:
-                payload["generate_release_notes"] = generate_release_notes
+            payload = _create_payload(
+                tag_name,
+                name,
+                body,
+                draft,
+                prerelease,
+                target_commitish,
+                generate_release_notes,
+            )
 
             response = await client.post(
                 f"/repos/{repo_owner}/{repo_name}/releases",
                 json=payload,
             )
 
-            if response.status == 404:
-                return f"❌ Repository {repo_owner}/{repo_name} not found"
-            if response.status == 422:
-                error_data = await response.json()
-                error_msg = error_data.get("message", "Validation failed")
-                return f"❌ Failed to create release: {error_msg}"
-            if response.status not in (200, 201):
-                error_text = await response.text()
-                return f"❌ Failed to create release: {response.status} - {error_text}"
+            error = await _create_error(response, repo_owner, repo_name)
+            if error:
+                return error
 
             release = await response.json()
-            release_url = release.get("html_url", "")
-            release_id = release.get("id", "")
-
-            status = []
-            if draft:
-                status.append("draft")
-            if prerelease:
-                status.append("pre-release")
-            status_str = f" ({', '.join(status)})" if status else ""
-
-            return f"✅ Release {tag_name} created successfully{status_str}\n🔗 URL: {release_url}\n📋 Release ID: {release_id}"
+            return _create_success(tag_name, draft, prerelease, release)
 
     except ValueError as auth_error:
         logger.error(f"Authentication error creating release: {auth_error}")
@@ -90,6 +118,22 @@ async def github_create_release(
     except Exception as e:
         logger.error(f"Unexpected error creating release: {e}", exc_info=True)
         return f"❌ Error creating release: {str(e)}"
+
+
+def _identifier_error(release_id: int | None, tag: str | None) -> str | None:
+    if not release_id and not tag:
+        return "❌ Either release_id or tag must be provided"
+    if release_id and tag:
+        return "❌ Only one of release_id or tag can be provided"
+    return None
+
+
+def _release_endpoint(
+    repo_owner: str, repo_name: str, release_id: int | None, tag: str | None
+) -> str:
+    if release_id:
+        return f"/repos/{repo_owner}/{repo_name}/releases/{release_id}"
+    return f"/repos/{repo_owner}/{repo_name}/releases/tags/{tag}"
 
 
 async def github_get_release(
@@ -106,22 +150,18 @@ async def github_get_release(
         release_id: Release ID (mutually exclusive with tag)
         tag: Tag name (mutually exclusive with release_id)
     """
-    if not release_id and not tag:
-        return "❌ Either release_id or tag must be provided"
-    if release_id and tag:
-        return "❌ Only one of release_id or tag can be provided"
+    identifier_error = _identifier_error(release_id, tag)
+    if identifier_error:
+        return identifier_error
 
     identifier = f"ID: {release_id}" if release_id else f"tag: {tag}"
     logger.debug(f"🔍 Getting release for {repo_owner}/{repo_name} ({identifier})")
 
     try:
         async with github_client_context() as client:
-            if release_id:
-                endpoint = f"/repos/{repo_owner}/{repo_name}/releases/{release_id}"
-            else:
-                endpoint = f"/repos/{repo_owner}/{repo_name}/releases/tags/{tag}"
-
-            response = await client.get(endpoint)
+            response = await client.get(
+                _release_endpoint(repo_owner, repo_name, release_id, tag)
+            )
 
             if response.status == 404:
                 identifier = f"ID {release_id}" if release_id else f"tag '{tag}'"
@@ -131,44 +171,7 @@ async def github_get_release(
                 return f"❌ Failed to get release: {response.status} - {error_text}"
 
             release = await response.json()
-
-            output = [f"Release Information for {repo_owner}/{repo_name}:\n"]
-            output.append(f"📦 Tag: {release.get('tag_name')}")
-            output.append(f"📋 Name: {release.get('name') or '(none)'}")
-
-            status = []
-            if release.get("draft"):
-                status.append("draft")
-            if release.get("prerelease"):
-                status.append("pre-release")
-            if status:
-                output.append(f"🏷️  Status: {', '.join(status)}")
-
-            output.append(f"🔗 URL: {release.get('html_url')}")
-            output.append(f"📅 Created: {release.get('created_at')}")
-            output.append(
-                f"📅 Published: {release.get('published_at') or 'Not published'}"
-            )
-
-            author = release.get("author", {})
-            if author:
-                output.append(f"👤 Author: {author.get('login')}")
-
-            body = release.get("body")
-            if body:
-                output.append(f"\n📝 Description:\n{body}")
-
-            assets = release.get("assets", [])
-            if assets:
-                output.append(f"\n📎 Assets ({len(assets)}):")
-                for asset in assets:
-                    output.append(
-                        f"   • {asset.get('name')} ({asset.get('size')} bytes)"
-                    )
-            else:
-                output.append("\n📎 Assets: None")
-
-            return "\n".join(output)
+            return _fmt.format_release_details(repo_owner, repo_name, release)
 
     except ValueError as auth_error:
         logger.error(f"Authentication error getting release: {auth_error}")
@@ -215,31 +218,9 @@ async def github_list_releases(
             if not releases:
                 return f"No releases found for {repo_owner}/{repo_name}"
 
-            output = [f"Releases for {repo_owner}/{repo_name}:\n"]
-
-            for release in releases:
-                tag = release.get("tag_name")
-                name = release.get("name") or tag
-                created = release.get("created_at", "")[:10]  # Just the date
-
-                status = []
-                if release.get("draft"):
-                    status.append("draft")
-                if release.get("prerelease"):
-                    status.append("pre-release")
-                status_str = f" [{', '.join(status)}]" if status else ""
-
-                output.append(f"📦 {tag}: {name}{status_str}")
-                output.append(f"   📅 Created: {created}")
-                output.append(f"   🔗 {release.get('html_url')}")
-                output.append("")
-
-            # Add pagination info
-            link_header = response.headers.get("Link", "")
-            if "next" in link_header or page > 1:
-                output.append(f"📄 Page {page} (use page parameter to see more)")
-
-            return "\n".join(output)
+            return _fmt.format_release_list(
+                repo_owner, repo_name, releases, response.headers, page
+            )
 
     except ValueError as auth_error:
         logger.error(f"Authentication error listing releases: {auth_error}")
@@ -250,6 +231,26 @@ async def github_list_releases(
     except Exception as e:
         logger.error(f"Unexpected error listing releases: {e}", exc_info=True)
         return f"❌ Error listing releases: {str(e)}"
+
+
+def _update_payload(
+    tag_name: str | None,
+    name: str | None,
+    body: str | None,
+    draft: bool | None,
+    prerelease: bool | None,
+    target_commitish: str | None,
+) -> dict[str, Any]:
+    """Build a payload containing only the fields that are not None."""
+    fields = {
+        "tag_name": tag_name,
+        "name": name,
+        "body": body,
+        "draft": draft,
+        "prerelease": prerelease,
+        "target_commitish": target_commitish,
+    }
+    return {key: value for key, value in fields.items() if value is not None}
 
 
 async def github_update_release(
@@ -280,20 +281,9 @@ async def github_update_release(
 
     try:
         async with github_client_context() as client:
-            # Build payload with only provided fields
-            payload: dict[str, Any] = {}
-            if tag_name is not None:
-                payload["tag_name"] = tag_name
-            if name is not None:
-                payload["name"] = name
-            if body is not None:
-                payload["body"] = body
-            if draft is not None:
-                payload["draft"] = draft
-            if prerelease is not None:
-                payload["prerelease"] = prerelease
-            if target_commitish is not None:
-                payload["target_commitish"] = target_commitish
+            payload = _update_payload(
+                tag_name, name, body, draft, prerelease, target_commitish
+            )
 
             if not payload:
                 return "❌ No fields provided to update"
