@@ -300,9 +300,16 @@ async def test_get_release_returns_error_when_neither_identifier_given():
 
 
 @pytest.mark.asyncio
-async def test_get_release_returns_error_when_release_id_zero_and_no_tag():
-    result, _ = await _get(release_id=0)
-    assert result == "❌ Either release_id or tag must be provided"
+async def test_get_release_uses_id_endpoint_when_release_id_zero():
+    _, client = await _get([ok({})], release_id=0)
+    assert client.calls == [("get", "/repos/o/r/releases/0", {})]
+
+
+@pytest.mark.asyncio
+async def test_get_release_returns_error_when_release_id_zero_and_tag_given():
+    result, client = await _get(release_id=0, tag="v1")
+    assert result == "❌ Only one of release_id or tag can be provided"
+    assert client.calls == []
 
 
 @pytest.mark.asyncio
@@ -428,20 +435,32 @@ async def test_get_release_prints_none_login_when_author_lacks_login():
 
 
 @pytest.mark.asyncio
-async def test_get_release_does_not_truncate_body_when_long():
-    body = "x" * 5000
+async def test_get_release_truncates_body_with_ellipsis_when_over_500():
+    result, _ = await _get([ok({"body": "x" * 501})], release_id=1)
+    assert f"\n📝 Description:\n{'x' * 500}..." in result
+    assert "x" * 501 not in result
+
+
+@pytest.mark.asyncio
+async def test_get_release_keeps_body_whole_when_exactly_500():
+    body = "x" * 500
     result, _ = await _get([ok({"body": body})], release_id=1)
-    assert f"\n📝 Description:\n{body}" in result
+    assert f"\n📝 Description:\n{body}\n" in result
+    assert "..." not in result
 
 
 # -------------------------------------------------------------------- list
 
 
 @pytest.mark.asyncio
-async def test_list_releases_passes_pagination_params_unclamped():
-    _, client = await _list([ok([])], per_page=500, page=3)
-    assert client.calls == [
-        ("get", "/repos/o/r/releases", {"params": {"per_page": 500, "page": 3}})
+async def test_list_releases_clamps_pagination_params_when_out_of_range():
+    _, high = await _list([ok([])], per_page=500, page=3)
+    _, low = await _list([ok([])], per_page=0, page=0)
+    assert high.calls == [
+        ("get", "/repos/o/r/releases", {"params": {"per_page": 100, "page": 3}})
+    ]
+    assert low.calls == [
+        ("get", "/repos/o/r/releases", {"params": {"per_page": 1, "page": 1}})
     ]
 
 
@@ -769,15 +788,17 @@ async def test_upload_release_asset_accepts_200_when_upload_ok(asset_file):
 
 
 @pytest.mark.asyncio
-async def test_list_release_assets_passes_pagination_params_unclamped():
-    _, client = await _assets([ok([])], per_page=500, page=4)
-    assert client.calls == [
+async def test_list_release_assets_clamps_pagination_params_when_out_of_range():
+    _, high = await _assets([ok([])], per_page=500, page=4)
+    _, low = await _assets([ok([])], per_page=-1, page=-4)
+    assert high.calls == [
         (
             "get",
             "/repos/o/r/releases/5/assets",
-            {"params": {"per_page": 500, "page": 4}},
+            {"params": {"per_page": 100, "page": 4}},
         )
     ]
+    assert low.calls[0][2]["params"] == {"per_page": 1, "page": 1}
 
 
 @pytest.mark.asyncio

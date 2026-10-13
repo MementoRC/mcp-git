@@ -6,6 +6,7 @@ import logging
 from collections import Counter
 from datetime import datetime
 
+from mcp_server_git.github._paging import clamp_paging, invalid_choice
 from mcp_server_git.github._payload import login_of
 from mcp_server_git.github.client import github_client_context
 
@@ -104,17 +105,15 @@ def _build_run_params(
     check_suite_id: int | None,
     head_sha: str | None,
 ) -> dict[str, str | int | bool]:
-    """Build the query parameters, dropping falsy and invalid filters."""
-    params: dict[str, str | int | bool] = {
-        "per_page": min(max(per_page, 1), 100),  # Enforce GitHub API limits
-        "page": max(page, 1),
-    }
+    """Build the query parameters (paging clamped), dropping falsy filters."""
+    per_page, page = clamp_paging(per_page, page)
+    params: dict[str, str | int | bool] = {"per_page": per_page, "page": page}
     candidates: dict[str, str | int | None] = {
         "actor": actor,
         "branch": branch,
         "event": event,
-        "status": status if status in _RUN_STATUSES else None,
-        "conclusion": conclusion if conclusion in _RUN_CONCLUSIONS else None,
+        "status": status,
+        "conclusion": conclusion,
         "created": created,
         "exclude_pull_requests": "true" if exclude_pull_requests else None,
         "check_suite_id": check_suite_id,
@@ -272,8 +271,7 @@ def _pagination_footer(
 ) -> list[str]:
     """Footer pointing at further pages; empty when everything is shown.
 
-    Preserved quirk: ``max_page`` uses the raw ``per_page`` argument, not the
-    value clamped to 1-100 that was sent to the API.
+    ``per_page`` must be the clamped value that was sent to the API.
     """
     if total_count <= len(runs):
         return []
@@ -323,6 +321,12 @@ async def github_list_workflow_runs(
     """
     logger.debug(f"🔍 Listing workflow runs for {repo_owner}/{repo_name}")
 
+    filter_error = invalid_choice("status", status, _RUN_STATUSES) or invalid_choice(
+        "conclusion", conclusion, _RUN_CONCLUSIONS
+    )
+    if filter_error:
+        return filter_error
+
     try:
         async with github_client_context() as client:
             params = _build_run_params(
@@ -338,6 +342,7 @@ async def github_list_workflow_runs(
                 check_suite_id,
                 head_sha,
             )
+            page = int(params["page"])
             endpoint = _runs_endpoint(repo_owner, repo_name, workflow_id)
             logger.debug(f"📡 Making API call to {endpoint} with params: {params}")
 
@@ -372,7 +377,9 @@ async def github_list_workflow_runs(
             for run in workflow_runs:
                 output.extend(_format_run(run))
             output.extend(
-                _pagination_footer(workflow_runs, total_count, page, per_page)
+                _pagination_footer(
+                    workflow_runs, total_count, page, int(params["per_page"])
+                )
             )
 
             return "\n".join(output)

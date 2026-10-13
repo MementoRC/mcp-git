@@ -9,9 +9,24 @@ from mcp_server_git.github._issue_format import (
     format_issue_detail,
     format_issue_list,
 )
+from mcp_server_git.github._paging import clamp_paging, invalid_choice
 from mcp_server_git.github.client import github_client_context
 
 logger = logging.getLogger(__name__)
+
+
+_LIST_STATES = ("open", "closed", "all")
+_LIST_SORTS = ("created", "updated", "comments")
+_LIST_DIRECTIONS = ("asc", "desc")
+
+
+def _list_choice_error(state: str, sort: str, direction: str) -> str | None:
+    """First invalid state/sort/direction message, or None when all are valid."""
+    return (
+        invalid_choice("state", state, _LIST_STATES)
+        or invalid_choice("sort", sort, _LIST_SORTS)
+        or invalid_choice("direction", direction, _LIST_DIRECTIONS)
+    )
 
 
 def _list_params(
@@ -132,6 +147,11 @@ async def github_list_issues(
 ) -> str:
     """List issues for a repository."""
     logger.debug(f"🔍 Listing issues for {repo_owner}/{repo_name}")
+
+    choice_error = _list_choice_error(state, sort, direction)
+    if choice_error:
+        return choice_error
+    per_page, page = clamp_paging(per_page, page)
 
     try:
         async with github_client_context() as client:
