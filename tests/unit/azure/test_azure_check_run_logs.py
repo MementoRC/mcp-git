@@ -12,7 +12,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from src.mcp_server_git.azure.check_run_logs import azure_get_logs_for_check_run
+from mcp_server_git.azure.check_run_logs import azure_get_logs_for_check_run
 
 _PROJECT_GUID = "29b95f83-9057-4ac8-8624-9b1f6ce6b52f"
 _BUILD_ID = 1588986
@@ -124,10 +124,10 @@ class TestAzureGetLogsForCheckRun:
 
         with (
             patch(
-                "src.mcp_server_git.azure.check_run_logs.github_client_context"
+                "mcp_server_git.azure.check_run_logs.github_client_context"
             ) as mock_gh,
             patch(
-                "src.mcp_server_git.azure.check_run_logs.azure_client_context"
+                "mcp_server_git.azure.check_run_logs.azure_client_context"
             ) as mock_az,
         ):
             mock_gh.return_value.__aenter__.return_value = gh_client
@@ -153,10 +153,10 @@ class TestAzureGetLogsForCheckRun:
 
         with (
             patch(
-                "src.mcp_server_git.azure.check_run_logs.github_client_context"
+                "mcp_server_git.azure.check_run_logs.github_client_context"
             ) as mock_gh,
             patch(
-                "src.mcp_server_git.azure.check_run_logs.azure_client_context"
+                "mcp_server_git.azure.check_run_logs.azure_client_context"
             ) as mock_az,
         ):
             mock_gh.return_value.__aenter__.return_value = gh_client
@@ -184,10 +184,10 @@ class TestAzureGetLogsForCheckRun:
 
         with (
             patch(
-                "src.mcp_server_git.azure.check_run_logs.github_client_context"
+                "mcp_server_git.azure.check_run_logs.github_client_context"
             ) as mock_gh,
             patch(
-                "src.mcp_server_git.azure.check_run_logs.azure_client_context"
+                "mcp_server_git.azure.check_run_logs.azure_client_context"
             ) as mock_az,
         ):
             mock_gh.return_value.__aenter__.return_value = gh_client
@@ -221,10 +221,10 @@ class TestAzureGetLogsForCheckRun:
 
         with (
             patch(
-                "src.mcp_server_git.azure.check_run_logs.github_client_context"
+                "mcp_server_git.azure.check_run_logs.github_client_context"
             ) as mock_gh,
             patch(
-                "src.mcp_server_git.azure.check_run_logs.azure_client_context"
+                "mcp_server_git.azure.check_run_logs.azure_client_context"
             ) as mock_az,
         ):
             mock_gh.return_value.__aenter__.return_value = gh_client
@@ -251,10 +251,10 @@ class TestAzureGetLogsForCheckRun:
 
         with (
             patch(
-                "src.mcp_server_git.azure.check_run_logs.github_client_context"
+                "mcp_server_git.azure.check_run_logs.github_client_context"
             ) as mock_gh,
             patch(
-                "src.mcp_server_git.azure.check_run_logs.azure_client_context"
+                "mcp_server_git.azure.check_run_logs.azure_client_context"
             ) as mock_az,
         ):
             mock_gh.return_value.__aenter__.return_value = gh_client
@@ -281,10 +281,10 @@ class TestAzureGetLogsForCheckRun:
 
         with (
             patch(
-                "src.mcp_server_git.azure.check_run_logs.github_client_context"
+                "mcp_server_git.azure.check_run_logs.github_client_context"
             ) as mock_gh,
             patch(
-                "src.mcp_server_git.azure.check_run_logs.azure_client_context"
+                "mcp_server_git.azure.check_run_logs.azure_client_context"
             ) as mock_az,
         ):
             mock_gh.return_value.__aenter__.return_value = gh_client
@@ -311,10 +311,10 @@ class TestAzureGetLogsForCheckRun:
 
         with (
             patch(
-                "src.mcp_server_git.azure.check_run_logs.github_client_context"
+                "mcp_server_git.azure.check_run_logs.github_client_context"
             ) as mock_gh,
             patch(
-                "src.mcp_server_git.azure.check_run_logs.azure_client_context"
+                "mcp_server_git.azure.check_run_logs.azure_client_context"
             ) as mock_az,
         ):
             mock_gh.return_value.__aenter__.return_value = gh_client
@@ -334,10 +334,10 @@ class TestAzureGetLogsForCheckRun:
         output_path = tmp_path / "check_run.log"
         with (
             patch(
-                "src.mcp_server_git.azure.check_run_logs.github_client_context"
+                "mcp_server_git.azure.check_run_logs.github_client_context"
             ) as mock_gh,
             patch(
-                "src.mcp_server_git.azure.check_run_logs.azure_client_context"
+                "mcp_server_git.azure.check_run_logs.azure_client_context"
             ) as mock_az,
         ):
             mock_gh.return_value.__aenter__.return_value = gh_client2
@@ -363,10 +363,10 @@ class TestAzureGetLogsForCheckRun:
 
         with (
             patch(
-                "src.mcp_server_git.azure.check_run_logs.github_client_context"
+                "mcp_server_git.azure.check_run_logs.github_client_context"
             ) as mock_gh,
             patch(
-                "src.mcp_server_git.azure.check_run_logs.azure_client_context"
+                "mcp_server_git.azure.check_run_logs.azure_client_context"
             ) as mock_az,
         ):
             mock_gh.return_value.__aenter__.return_value = gh_client
@@ -389,10 +389,10 @@ class TestAzureGetLogsForCheckRun:
 
         with (
             patch(
-                "src.mcp_server_git.azure.check_run_logs.github_client_context"
+                "mcp_server_git.azure.check_run_logs.github_client_context"
             ) as mock_gh,
             patch(
-                "src.mcp_server_git.azure.check_run_logs.azure_client_context"
+                "mcp_server_git.azure.check_run_logs.azure_client_context"
             ) as mock_az,
         ):
             mock_gh.return_value.__aenter__.return_value = gh_client

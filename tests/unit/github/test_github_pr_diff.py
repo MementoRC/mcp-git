@@ -16,8 +16,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from src.mcp_server_git.github.api import github_get_pr_diff
-from src.mcp_server_git.github.diff_sections import (
+from mcp_server_git.github.api import github_get_pr_diff
+from mcp_server_git.github.diff_sections import (
     filter_sections,
     parse_header_path,
     render_sections,
@@ -113,7 +113,7 @@ class TestGitHubGetPRDiff:
         mock_client = _mock_pr_client(_sample_diff())
 
         with patch(
-            "src.mcp_server_git.github.pr_diff.github_client_context"
+            "mcp_server_git.github.pr_diff.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             mock_context.return_value.__aexit__ = AsyncMock(return_value=None)
@@ -132,7 +132,7 @@ class TestGitHubGetPRDiff:
         mock_client = _mock_pr_client(_sample_diff())
 
         with patch(
-            "src.mcp_server_git.github.pr_diff.github_client_context"
+            "mcp_server_git.github.pr_diff.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             mock_context.return_value.__aexit__ = AsyncMock(return_value=None)
@@ -152,7 +152,7 @@ class TestGitHubGetPRDiff:
         mock_client = _mock_pr_client(_sample_diff())
 
         with patch(
-            "src.mcp_server_git.github.pr_diff.github_client_context"
+            "mcp_server_git.github.pr_diff.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             mock_context.return_value.__aexit__ = AsyncMock(return_value=None)
@@ -170,7 +170,7 @@ class TestGitHubGetPRDiff:
         mock_client = _mock_pr_client(_sample_diff())
 
         with patch(
-            "src.mcp_server_git.github.pr_diff.github_client_context"
+            "mcp_server_git.github.pr_diff.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             mock_context.return_value.__aexit__ = AsyncMock(return_value=None)
@@ -190,7 +190,7 @@ class TestGitHubGetPRDiff:
         mock_client = _mock_pr_client(diff_text)
 
         with patch(
-            "src.mcp_server_git.github.pr_diff.github_client_context"
+            "mcp_server_git.github.pr_diff.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             mock_context.return_value.__aexit__ = AsyncMock(return_value=None)
@@ -210,7 +210,7 @@ class TestGitHubGetPRDiff:
         mock_client = _mock_pr_client(_sample_diff())
 
         with patch(
-            "src.mcp_server_git.github.pr_diff.github_client_context"
+            "mcp_server_git.github.pr_diff.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             mock_context.return_value.__aexit__ = AsyncMock(return_value=None)
@@ -229,7 +229,7 @@ class TestGitHubGetPRDiff:
         mock_client = _mock_pr_client(_oversized_diff())
 
         with patch(
-            "src.mcp_server_git.github.pr_diff.github_client_context"
+            "mcp_server_git.github.pr_diff.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             mock_context.return_value.__aexit__ = AsyncMock(return_value=None)
@@ -246,7 +246,7 @@ class TestGitHubGetPRDiff:
         mock_client = _mock_pr_client(_oversized_diff())
 
         with patch(
-            "src.mcp_server_git.github.pr_diff.github_client_context"
+            "mcp_server_git.github.pr_diff.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             mock_context.return_value.__aexit__ = AsyncMock(return_value=None)
@@ -262,7 +262,7 @@ class TestGitHubGetPRDiff:
         mock_client = _mock_pr_client(None, pr_status=404)
 
         with patch(
-            "src.mcp_server_git.github.pr_diff.github_client_context"
+            "mcp_server_git.github.pr_diff.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             mock_context.return_value.__aexit__ = AsyncMock(return_value=None)
@@ -277,7 +277,7 @@ class TestGitHubGetPRDiff:
         mock_client = _mock_pr_client("")
 
         with patch(
-            "src.mcp_server_git.github.pr_diff.github_client_context"
+            "mcp_server_git.github.pr_diff.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             mock_context.return_value.__aexit__ = AsyncMock(return_value=None)
@@ -292,7 +292,7 @@ class TestGitHubGetPRDiff:
         mock_client = _mock_pr_client(_sample_diff())
 
         with patch(
-            "src.mcp_server_git.github.pr_diff.github_client_context"
+            "mcp_server_git.github.pr_diff.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             mock_context.return_value.__aexit__ = AsyncMock(return_value=None)
@@ -312,7 +312,7 @@ class TestGitHubGetPRDiff:
         mock_client = _mock_pr_client(_sample_diff())
 
         with patch(
-            "src.mcp_server_git.github.pr_diff.github_client_context"
+            "mcp_server_git.github.pr_diff.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             mock_context.return_value.__aexit__ = AsyncMock(return_value=None)

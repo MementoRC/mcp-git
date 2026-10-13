@@ -54,10 +54,10 @@ DECLARED_MISMATCH = "declared-mismatch"
 # mapped to (declared_namespace, reason).
 _UNANCHORED_MODULES: dict[str, tuple[str, str]] = {
     "integration/conftest.py": (
-        SRC,
-        "fixtures-only module with no import of package code; the suites "
-        "beneath it (github/, azure/) are src-namespaced, and a conftest "
-        "getting this wrong would silently unpatch every test under it",
+        BARE,
+        "fixtures-only module with no import of package code; the whole "
+        "tree is bare-namespaced (#272), and a conftest getting this wrong "
+        "would silently unpatch every test under it",
     ),
 }
 
@@ -66,7 +66,7 @@ def namespace_of(dotted: str) -> str | None:
     """Namespace of a dotted module path as written in an ``import``.
 
     A bare package name with no trailing component still anchors a file, so
-    ``mcp_server_git`` and ``src.mcp_server_git`` both count here.
+    The bare and the ``src``-prefixed package names both count here.
     """
     if dotted == f"{_SRC_ROOT}.{_PKG}" or dotted.startswith(SRC_PREFIX):
         return SRC

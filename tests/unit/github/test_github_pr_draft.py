@@ -19,13 +19,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from src.mcp_server_git.github.client import GraphQLError
-from src.mcp_server_git.github.pr_actions import (
+from mcp_server_git.github.client import GraphQLError
+from mcp_server_git.github.pr_actions import (
     github_convert_pr_to_draft,
     github_mark_pr_ready,
 )
 
-PATCH_TARGET = "src.mcp_server_git.github.pr_actions.github_client_context"
+PATCH_TARGET = "mcp_server_git.github.pr_actions.github_client_context"
 
 _NODE_ID = "PR_kwDOAbC123xyz"
 

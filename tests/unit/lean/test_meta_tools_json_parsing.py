@@ -21,7 +21,7 @@ import json
 
 import pytest
 
-from src.mcp_server_git.lean.meta_tools import _sanitize_json_string
+from mcp_server_git.lean.meta_tools import _sanitize_json_string
 
 # ---------------------------------------------------------------------------
 # Tests for _sanitize_json_string helper

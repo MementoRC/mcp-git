@@ -32,10 +32,10 @@ async def mock_server(monkeypatch):
     # Patch out actual GitHub and git calls
     with (
         patch(
-            "src.mcp_server_git.github.client.GitHubClient", autospec=True
+            "mcp_server_git.github.client.GitHubClient", autospec=True
         ) as mock_gh_client,
         patch(
-            "src.mcp_server_git.git.security.enforce_secure_git_config",
+            "mcp_server_git.git.security.enforce_secure_git_config",
             return_value="OK",
         ),
     ):

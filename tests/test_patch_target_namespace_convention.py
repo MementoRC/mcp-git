@@ -1,7 +1,7 @@
 """Enumerating structural guard for the test patch-target namespace convention.
 
 ``pyproject.toml`` sets ``pythonpath = ['src']``, so both
-``src.mcp_server_git.X`` and ``mcp_server_git.X`` import successfully -- as
+the ``src``-prefixed and bare package names import successfully -- as
 TWO DISTINCT module objects, each with its own attributes. A test that
 imports a function from one namespace while patching a target string in the
 other patches a module that is not the one under test: the patch silently
@@ -65,6 +65,10 @@ _MIN_MODULES_PER_NAMESPACE = 4
 
 _SYNTHETIC_PATH = "unit/synthetic/test_thing.py"
 
+# The forbidden namespace (issue #272), assembled so this file's source never
+# spells it literally: the synthetic fixtures below need it as data.
+_SRC_NS = "src" + ".mcp_server_git"
+
 _CONSISTENT_SOURCE = """
 from mcp_server_git.git.operations import git_status
 
@@ -73,39 +77,39 @@ def test_status():
         git_status()
 """
 
-_MISMATCHED_SOURCE = """
+_MISMATCHED_SOURCE = f"""
 from mcp_server_git.git.operations import git_status
 
 def test_status():
-    with patch("src.mcp_server_git.git.operations._run"):
+    with patch("{_SRC_NS}.git.operations._run"):
         git_status()
 """
 
-_MIXED_TARGETS_SOURCE = """
+_MIXED_TARGETS_SOURCE = f"""
 from mcp_server_git.git.operations import git_status
 
-PATCH_TARGET = "src.mcp_server_git.git.operations._run"
+PATCH_TARGET = "{_SRC_NS}.git.operations._run"
 
 def test_status():
     with patch("mcp_server_git.git.operations._other"):
         git_status()
 """
 
-_MIXED_IMPORTS_SOURCE = """
+_MIXED_IMPORTS_SOURCE = f"""
 from mcp_server_git.git.operations import git_status
-from src.mcp_server_git.github.client import GitHubClient
+from {_SRC_NS}.github.client import GitHubClient
 
 def test_status():
     with patch("mcp_server_git.git.operations._run"):
         git_status()
 """
 
-_UNANCHORED_SOURCE = """
+_UNANCHORED_SOURCE = f"""
 import pytest
 
 @pytest.fixture
 def patched_run():
-    with patch("src.mcp_server_git.git.operations._run") as run:
+    with patch("{_SRC_NS}.git.operations._run") as run:
         yield run
 """
 
@@ -132,8 +136,8 @@ class TestPatchTargetNamespaceConvention:
             raise AssertionError(
                 "Test module(s) name a package module through a namespace "
                 "that does not match how the file imports it. Because "
-                "`pythonpath = ['src']` makes `src.mcp_server_git` and "
-                "`mcp_server_git` two distinct module objects, such a "
+                "`pythonpath = ['src']` makes the src-prefixed and bare "
+                "package names two distinct module objects, such a "
                 "`patch()` patches a module that is not under test: it does "
                 "nothing, the real collaborator runs, and the test still "
                 f"passes (issue #249).\n{details}\n\n"
@@ -205,14 +209,15 @@ class TestPatchTargetNamespaceConvention:
             namespace: sum(
                 1 for module in with_targets if namespace in module.target_namespaces
             )
-            for namespace in (SRC, BARE)
+            for namespace in (BARE,)
         }
+        # Since #272 the tree is bare-only; the src arm is proven by the
+        # synthetic fixtures below instead.
         assert all(
             count >= _MIN_MODULES_PER_NAMESPACE for count in per_namespace.values()
         ), (
-            f"expected both conventions to still be observed in tests/, got "
-            f"{per_namespace}; a prefix matcher that recognises only one "
-            "namespace would look green here"
+            f"expected the bare convention to still be observed in tests/, "
+            f"got {per_namespace}"
         )
 
 

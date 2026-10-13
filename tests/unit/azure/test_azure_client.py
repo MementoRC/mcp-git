@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from aiohttp import BasicAuth
 
-from src.mcp_server_git.azure.client import AzureClient, get_azure_client
+from mcp_server_git.azure.client import AzureClient, get_azure_client
 
 
 class TestAzureClient:
@@ -64,7 +64,7 @@ class TestAzureClient:
     @patch.dict(
         os.environ, {"AZURE_DEVOPS_TOKEN": "a" * 52, "AZURE_DEVOPS_ORG": "testorg"}
     )
-    @patch("src.mcp_server_git.azure.client.aiohttp.ClientSession")
+    @patch("mcp_server_git.azure.client.aiohttp.ClientSession")
     def test_get_azure_client_success(self, mock_session):
         """Test getting Azure client with valid environment variables."""
         client = get_azure_client()
@@ -74,7 +74,7 @@ class TestAzureClient:
         assert len(client.token) == 52
 
     @patch.dict(os.environ, {}, clear=True)
-    @patch("src.mcp_server_git.azure.client.aiohttp.ClientSession")
+    @patch("mcp_server_git.azure.client.aiohttp.ClientSession")
     def test_get_azure_client_no_token(self, mock_session):
         """Without a token, return an anonymous client defaulting to conda-forge."""
         client = get_azure_client()
@@ -85,7 +85,7 @@ class TestAzureClient:
         assert client.organization == "conda-forge"
 
     @patch.dict(os.environ, {"AZURE_DEVOPS_TOKEN": "a" * 52}, clear=True)
-    @patch("src.mcp_server_git.azure.client.aiohttp.ClientSession")
+    @patch("mcp_server_git.azure.client.aiohttp.ClientSession")
     def test_get_azure_client_no_org(self, mock_session):
         """Without AZURE_DEVOPS_ORG, the client falls back to conda-forge."""
         client = get_azure_client()
@@ -97,7 +97,7 @@ class TestAzureClient:
     @patch.dict(
         os.environ, {"AZURE_DEVOPS_TOKEN": "invalid", "AZURE_DEVOPS_ORG": "testorg"}
     )
-    @patch("src.mcp_server_git.azure.client.aiohttp.ClientSession")
+    @patch("mcp_server_git.azure.client.aiohttp.ClientSession")
     def test_get_azure_client_invalid_token(self, mock_session):
         """An invalid token format still yields a client; the API call surfaces the error."""
         client = get_azure_client()

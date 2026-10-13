@@ -10,15 +10,15 @@ from unittest.mock import patch
 
 import pytest
 
-from src.mcp_server_git.github.issue_search import github_search_issues
-from src.mcp_server_git.github.issues import (
+from mcp_server_git.github.issue_search import github_search_issues
+from mcp_server_git.github.issues import (
     github_get_issue,
     github_list_issues,
     github_update_issue,
 )
 
-ISS_CTX = "src.mcp_server_git.github.issues.github_client_context"
-SEARCH_CTX = "src.mcp_server_git.github.issue_search.github_client_context"
+ISS_CTX = "mcp_server_git.github.issues.github_client_context"
+SEARCH_CTX = "mcp_server_git.github.issue_search.github_client_context"
 
 
 class FakeResponse:
@@ -91,12 +91,9 @@ async def _get(responses=(), exc=None, **kwargs):
 
 
 async def _update(responses=(), exc=None, **kwargs):
-    # Quirk: issue_search imports ``mcp_server_git.github.issues`` (no ``src.``
-    # prefix) and issues.py star-imports issue_search, so the name exported as
-    # ``github_update_issue`` may come from that twin module. Patch whichever
-    # module actually owns the function.
-    ctx = f"{github_update_issue.__module__}.github_client_context"
-    return await _run(github_update_issue, ctx, ("o", "r", 7), responses, exc, **kwargs)
+    return await _run(
+        github_update_issue, ISS_CTX, ("o", "r", 7), responses, exc, **kwargs
+    )
 
 
 async def _search(responses=(), exc=None, **kwargs):

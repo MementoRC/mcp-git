@@ -19,10 +19,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from src.mcp_server_git.github.check_markers import check_marker
-from src.mcp_server_git.github.pr import github_get_pr_checks, github_get_pr_status
+from mcp_server_git.github.check_markers import check_marker
+from mcp_server_git.github.pr import github_get_pr_checks, github_get_pr_status
 
-PATCH_TARGET = "src.mcp_server_git.github.pr.github_client_context"
+PATCH_TARGET = "mcp_server_git.github.pr.github_client_context"
 
 
 def _pr_json(**overrides) -> dict:

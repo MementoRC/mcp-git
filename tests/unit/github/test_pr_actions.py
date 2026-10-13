@@ -12,7 +12,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from src.mcp_server_git.github.pr_actions import (
+from mcp_server_git.github.pr_actions import (
     github_get_pr_comments,
     github_get_pr_reviews,
 )
@@ -37,7 +37,7 @@ async def _client_ctx(client):
 
 def _patch_client(client):
     return patch(
-        "src.mcp_server_git.github.pr_actions.github_client_context",
+        "mcp_server_git.github.pr_actions.github_client_context",
         return_value=_client_ctx(client),
     )
 

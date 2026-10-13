@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from src.mcp_server_git.utils.git_import import Repo
+from mcp_server_git.utils.git_import import Repo
 
 
 def _make_source_repo(
@@ -54,7 +54,7 @@ class TestGitClone:
 
     def test_clone_happy_path(self):
         """Clone a local source repo into a fresh empty target and verify success."""
-        from src.mcp_server_git.git.operations import git_clone
+        from mcp_server_git.git.operations import git_clone
 
         src = self._tmpdir()
         src_repo = _make_source_repo(src)
@@ -73,7 +73,7 @@ class TestGitClone:
 
     def test_clone_with_branch(self):
         """Clone with branch= and verify active branch in cloned repo."""
-        from src.mcp_server_git.git.operations import git_clone
+        from mcp_server_git.git.operations import git_clone
 
         src = self._tmpdir()
         _make_source_repo(src, num_commits=1, branch="feature-x")
@@ -89,7 +89,7 @@ class TestGitClone:
 
     def test_clone_with_depth(self):
         """Clone with depth=1 from a 3-commit repo and verify shallow history."""
-        from src.mcp_server_git.git.operations import git_clone
+        from mcp_server_git.git.operations import git_clone
 
         src = self._tmpdir()
         _make_source_repo(src, num_commits=3)
@@ -106,7 +106,7 @@ class TestGitClone:
 
     def test_clone_single_branch_flag(self):
         """Clone with single_branch=True succeeds."""
-        from src.mcp_server_git.git.operations import git_clone
+        from mcp_server_git.git.operations import git_clone
 
         src = self._tmpdir()
         _make_source_repo(src)
@@ -123,7 +123,7 @@ class TestGitClone:
 
     def test_clone_rejects_existing_nonempty_target(self):
         """Raise ValueError when target directory already contains files."""
-        from src.mcp_server_git.git.operations import git_clone
+        from mcp_server_git.git.operations import git_clone
 
         src = self._tmpdir()
         _make_source_repo(src)
@@ -137,7 +137,7 @@ class TestGitClone:
 
     def test_clone_rejects_missing_parent(self):
         """Raise ValueError when the parent of target_path does not exist."""
-        from src.mcp_server_git.git.operations import git_clone
+        from mcp_server_git.git.operations import git_clone
 
         src = self._tmpdir()
         _make_source_repo(src)
@@ -153,7 +153,7 @@ class TestGitClone:
 
     def test_clone_bad_url_returns_error_message(self):
         """Return a '❌' string when repo_url does not point to a valid repo."""
-        from src.mcp_server_git.git.operations import git_clone
+        from mcp_server_git.git.operations import git_clone
 
         target = self._tmpdir() / "cloned"
 

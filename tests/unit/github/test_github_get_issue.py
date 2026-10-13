@@ -14,7 +14,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from src.mcp_server_git.github.api import github_get_issue
+from mcp_server_git.github.api import github_get_issue
 
 
 def _issue_response(body: str, number: int = 77) -> AsyncMock:
@@ -80,7 +80,7 @@ class TestGitHubGetIssue:
         mock_client.get = AsyncMock(return_value=mock_response)
 
         with patch(
-            "src.mcp_server_git.github.issues.github_client_context"
+            "mcp_server_git.github.issues.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -134,7 +134,7 @@ class TestGitHubGetIssue:
         mock_client.get = AsyncMock(return_value=mock_response)
 
         with patch(
-            "src.mcp_server_git.github.issues.github_client_context"
+            "mcp_server_git.github.issues.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -158,7 +158,7 @@ class TestGitHubGetIssue:
         mock_client.get = AsyncMock(return_value=mock_response)
 
         with patch(
-            "src.mcp_server_git.github.issues.github_client_context"
+            "mcp_server_git.github.issues.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -203,7 +203,7 @@ class TestGitHubGetIssue:
         mock_client.get = AsyncMock(return_value=mock_response)
 
         with patch(
-            "src.mcp_server_git.github.issues.github_client_context"
+            "mcp_server_git.github.issues.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -221,7 +221,7 @@ class TestGitHubGetIssue:
     async def test_authentication_error(self):
         """Test that authentication errors are handled properly."""
         with patch(
-            "src.mcp_server_git.github.issues.github_client_context"
+            "mcp_server_git.github.issues.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.side_effect = ValueError(
                 "GitHub token not configured"
@@ -240,7 +240,7 @@ class TestGitHubGetIssue:
     async def test_connection_error(self):
         """Test that connection errors are handled gracefully."""
         with patch(
-            "src.mcp_server_git.github.issues.github_client_context"
+            "mcp_server_git.github.issues.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.side_effect = ConnectionError(
                 "Network timeout"
@@ -286,7 +286,7 @@ class TestGitHubGetIssue:
         mock_client.get = AsyncMock(return_value=mock_response)
 
         with patch(
-            "src.mcp_server_git.github.issues.github_client_context"
+            "mcp_server_git.github.issues.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -332,7 +332,7 @@ class TestGitHubGetIssue:
         mock_client.get = AsyncMock(return_value=mock_response)
 
         with patch(
-            "src.mcp_server_git.github.issues.github_client_context"
+            "mcp_server_git.github.issues.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -375,7 +375,7 @@ class TestGitHubGetIssue:
         mock_client.get = AsyncMock(return_value=mock_response)
 
         with patch(
-            "src.mcp_server_git.github.issues.github_client_context"
+            "mcp_server_git.github.issues.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -398,7 +398,7 @@ class TestGitHubGetIssue:
         mock_client.get = AsyncMock(return_value=mock_response)
 
         with patch(
-            "src.mcp_server_git.github.issues.github_client_context"
+            "mcp_server_git.github.issues.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -416,7 +416,7 @@ class TestGitHubGetIssue:
     async def test_unexpected_error_handling(self):
         """Test that unexpected errors are caught and reported."""
         with patch(
-            "src.mcp_server_git.github.issues.github_client_context"
+            "mcp_server_git.github.issues.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.side_effect = RuntimeError(
                 "Unexpected database error"
@@ -459,7 +459,7 @@ class TestGitHubGetIssue:
         mock_client.get = AsyncMock(return_value=mock_response)
 
         with patch(
-            "src.mcp_server_git.github.issues.github_client_context"
+            "mcp_server_git.github.issues.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -486,7 +486,7 @@ class TestGitHubGetIssue:
         mock_client.get = AsyncMock(return_value=_issue_response(long_body))
 
         with patch(
-            "src.mcp_server_git.github.issues.github_client_context"
+            "mcp_server_git.github.issues.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -511,7 +511,7 @@ class TestGitHubGetIssue:
         mock_client.get = AsyncMock(return_value=_issue_response(short_body))
 
         with patch(
-            "src.mcp_server_git.github.issues.github_client_context"
+            "mcp_server_git.github.issues.github_client_context"
         ) as mock_context:
             mock_context.return_value.__aenter__.return_value = mock_client
 
@@ -537,7 +537,7 @@ class TestGitHubGetIssue:
             mock_client.get = AsyncMock(return_value=_issue_response(long_body))
 
             with patch(
-                "src.mcp_server_git.github.issues.github_client_context"
+                "mcp_server_git.github.issues.github_client_context"
             ) as mock_context:
                 mock_context.return_value.__aenter__.return_value = mock_client
 

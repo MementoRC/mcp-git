@@ -6,13 +6,13 @@ from pathlib import Path
 
 import pytest
 
-from src.mcp_server_git.git._stash_ops import (
+from mcp_server_git.git._stash_ops import (
     git_stash_drop,
     git_stash_list,
     git_stash_pop,
     git_stash_push,
 )
-from src.mcp_server_git.utils.git_import import Repo
+from mcp_server_git.utils.git_import import Repo
 
 
 def _make_repo(path: Path) -> Repo:
@@ -64,7 +64,7 @@ class TestGitStashPush:
         mock_result.stderr = ""
 
         with patch(
-            "src.mcp_server_git.git._stash_ops.subprocess.run", return_value=mock_result
+            "mcp_server_git.git._stash_ops.subprocess.run", return_value=mock_result
         ):
             result = git_stash_push(self.repo)
 
@@ -81,7 +81,7 @@ class TestGitStashPush:
         mock_result.stderr = "No local changes to save"
 
         with patch(
-            "src.mcp_server_git.git._stash_ops.subprocess.run", return_value=mock_result
+            "mcp_server_git.git._stash_ops.subprocess.run", return_value=mock_result
         ):
             result = git_stash_push(self.repo)
 

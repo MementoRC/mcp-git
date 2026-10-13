@@ -12,7 +12,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from src.mcp_server_git.github.api import (
+from mcp_server_git.github.api import (
     github_get_branch_rules,
     github_get_code_scanning_default_setup,
     github_get_ruleset,
@@ -25,7 +25,7 @@ from src.mcp_server_git.github.api import (
 _OWNER = "myorg"
 _REPO = "myrepo"
 
-_PATCH_CTX = "src.mcp_server_git.github.scanning.github_client_context"
+_PATCH_CTX = "mcp_server_git.github.scanning.github_client_context"
 
 
 def _mock_client(method: str, status: int, json_body=None, text_body: str = ""):
