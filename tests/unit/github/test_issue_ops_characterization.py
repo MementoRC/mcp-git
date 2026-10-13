@@ -270,14 +270,10 @@ class TestListIssuesOutput:
         ]
 
     @pytest.mark.asyncio
-    async def test_list_issues_returns_error_when_user_is_null(self):
-        # Quirk: issue.get('user', {}) returns None for an explicit null user,
-        # so .get('login') raises AttributeError -> generic handler.
+    async def test_list_issues_shows_na_author_when_user_is_null(self):
         issue = {"number": 1, "title": "T", "user": None}
         result, _ = await _list([ok([issue])])
-        assert result == (
-            "❌ Error listing issues: 'NoneType' object has no attribute 'get'"
-        )
+        assert "   Author: N/A" in result.split("\n")
 
 
 class TestListIssuesErrors:
@@ -684,19 +680,16 @@ class TestSearchIssues:
         assert result.endswith("   Score: N/A\n")
 
     @pytest.mark.asyncio
-    async def test_search_issues_returns_error_when_user_is_null(self):
+    async def test_search_issues_shows_na_author_when_user_is_null(self):
         items = [{"number": 1, "title": "T", "user": None}]
         result, _ = await _search([ok(_search_payload(items))])
-        assert result == (
-            "❌ Error searching issues: 'NoneType' object has no attribute 'get'"
-        )
+        assert "   Author: N/A" in result.split("\n")
 
     @pytest.mark.asyncio
-    async def test_search_issues_returns_error_when_milestone_has_no_title(self):
-        # Quirk: milestone['title'] (not .get) raises KeyError -> generic handler.
+    async def test_search_issues_shows_na_milestone_when_title_missing(self):
         items = [{"number": 1, "title": "T", "milestone": {"number": 1}}]
         result, _ = await _search([ok(_search_payload(items))])
-        assert result == "❌ Error searching issues: 'title'"
+        assert "   Milestone: N/A" in result.split("\n")
 
     @pytest.mark.asyncio
     async def test_search_issues_returns_auth_message_when_value_error(self):

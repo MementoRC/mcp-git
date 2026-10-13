@@ -6,6 +6,7 @@ import logging
 from collections import Counter
 from datetime import datetime
 
+from mcp_server_git.github._payload import login_of
 from mcp_server_git.github.client import github_client_context
 
 from .ci_logs import *  # noqa: F401,F403
@@ -234,7 +235,7 @@ def _format_run(run: dict) -> list[str]:
         f"   Status: {status_text}",
         f"   Branch: {run.get('head_branch', 'N/A')}",
         f"   Commit: {run.get('head_sha', 'N/A')[:8]}...",
-        f"   Actor: {run.get('actor', {}).get('login', 'N/A')}",
+        f"   Actor: {login_of(run, 'actor')}",
         f"   Event: {run.get('event', 'N/A')}",
     ]
 

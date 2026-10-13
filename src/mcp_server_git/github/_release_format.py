@@ -5,6 +5,8 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
+from mcp_server_git.github._payload import obj_of
+
 PAGE_FOOTER = "📄 Page {page} (use page parameter to see more)"
 
 
@@ -40,7 +42,8 @@ def _release_header_lines(release: dict[str, Any]) -> list[str]:
     return lines
 
 
-def _release_asset_lines(assets: list[dict[str, Any]]) -> list[str]:
+def _release_asset_lines(raw_assets: list[dict[str, Any] | None]) -> list[str]:
+    assets = [asset for asset in raw_assets or [] if asset]
     if not assets:
         return ["\n📎 Assets: None"]
     lines = [f"\n📎 Assets ({len(assets)}):"]
@@ -56,7 +59,7 @@ def format_release_details(
     output = [f"Release Information for {repo_owner}/{repo_name}:\n"]
     output.extend(_release_header_lines(release))
 
-    author = release.get("author", {})
+    author = obj_of(release, "author")
     if author:
         output.append(f"👤 Author: {author.get('login')}")
 
@@ -72,7 +75,8 @@ def format_release_entry(release: dict[str, Any]) -> list[str]:
     """Format one release block for ``github_list_releases``."""
     tag = release.get("tag_name")
     name = release.get("name") or tag
-    created = release.get("created_at", "")[:10]  # Just the date
+    raw_created = release.get("created_at", "")
+    created = "N/A" if raw_created is None else raw_created[:10]  # Just the date
 
     status = flag_labels(release.get("draft"), release.get("prerelease"))
     status_str = f" [{', '.join(status)}]" if status else ""
@@ -100,8 +104,10 @@ def format_release_list(
     return "\n".join(output)
 
 
-def format_asset_size(size: int) -> str:
-    """Format a byte count as B / KB / MB."""
+def format_asset_size(size: int | None) -> str:
+    """Format a byte count as B / KB / MB ('N/A' when GitHub sent null)."""
+    if size is None:
+        return "N/A"
     if size < 1024:
         return f"{size} B"
     if size < 1024 * 1024:

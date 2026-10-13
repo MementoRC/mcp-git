@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 
+from mcp_server_git.github._payload import login_of, obj_of
 from mcp_server_git.github.check_markers import check_marker
 from mcp_server_git.github.client import github_client_context
 from mcp_server_git.github.patches import PatchMemoryManager
@@ -320,9 +321,9 @@ async def github_list_pull_requests(
             for pr in prs:
                 state_emoji = pr_state_marker(pr)
                 output.append(f"{state_emoji} #{pr['number']}: {pr['title']}")
-                output.append(f"   Author: {pr.get('user', {}).get('login', 'N/A')}")
-                base_ref = pr.get("base", {}).get("ref", "N/A")
-                head_ref = pr.get("head", {}).get("ref", "N/A")
+                output.append(f"   Author: {login_of(pr)}")
+                base_ref = obj_of(pr, "base").get("ref", "N/A")
+                head_ref = obj_of(pr, "head").get("ref", "N/A")
                 output.append(f"   Base: {base_ref} ← Head: {head_ref}")
                 output.append(f"   Created: {pr.get('created_at', 'N/A')}")
                 output.append("")

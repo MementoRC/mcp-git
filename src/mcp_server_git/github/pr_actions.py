@@ -173,7 +173,8 @@ async def github_update_pr(
             result = await response.json()
             logger.info(f"✅ Successfully updated PR #{pr_number}")
             return (
-                f"✅ Successfully updated PR #{result['number']}: {result['html_url']}"
+                f"✅ Successfully updated PR #{result.get('number', pr_number)}: "
+                f"{result['html_url']}"
             )
 
     except ValueError as auth_error:

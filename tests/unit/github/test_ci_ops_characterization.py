@@ -339,6 +339,11 @@ class TestListWorkflowRunsFormatting:
         ]
 
     @pytest.mark.asyncio
+    async def test_list_runs_shows_na_actor_when_actor_is_null(self):
+        lines = (await _list(_wf_client(runs=[_run(actor=None)]))).split("\n")
+        assert "   Actor: N/A" in lines
+
+    @pytest.mark.asyncio
     async def test_list_runs_uses_cross_emoji_when_completed_not_success(self):
         run = _run(conclusion="failure")
         lines = (await _list(_wf_client(runs=[run]))).split("\n")

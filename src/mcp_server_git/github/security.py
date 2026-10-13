@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 
+from mcp_server_git.github._payload import obj_of
 from mcp_server_git.github.client import github_client_context
 
 logger = logging.getLogger(__name__)
@@ -452,20 +453,20 @@ async def github_get_security_analysis(
                     )
 
                     # Check for security policy
-                    security_policy = repo_data.get("security_and_analysis", {})
+                    security_policy = obj_of(repo_data, "security_and_analysis")
                     if security_policy:
                         output.append("\n🔐 Security & Analysis Features:")
 
                         # Secret scanning
-                        secret_scanning = security_policy.get("secret_scanning", {})
+                        secret_scanning = obj_of(security_policy, "secret_scanning")
                         if secret_scanning.get("status") == "enabled":
                             output.append("   ✅ Secret Scanning: ENABLED")
                         else:
                             output.append("   ❌ Secret Scanning: DISABLED")
 
                         # Secret scanning push protection
-                        push_protection = security_policy.get(
-                            "secret_scanning_push_protection", {}
+                        push_protection = obj_of(
+                            security_policy, "secret_scanning_push_protection"
                         )
                         if push_protection.get("status") == "enabled":
                             output.append(
@@ -477,8 +478,8 @@ async def github_get_security_analysis(
                             )
 
                         # Dependabot security updates
-                        dependabot = security_policy.get(
-                            "dependabot_security_updates", {}
+                        dependabot = obj_of(
+                            security_policy, "dependabot_security_updates"
                         )
                         if dependabot.get("status") == "enabled":
                             output.append("   ✅ Dependabot Security Updates: ENABLED")
