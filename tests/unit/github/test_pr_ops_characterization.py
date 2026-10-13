@@ -230,11 +230,18 @@ class TestGetPrDetailsFiles:
         assert result == "❌ Error getting PR details: boom"
 
     @pytest.mark.asyncio
-    async def test_get_pr_details_returns_keyerror_text_when_file_missing_field(self):
-        # Quirk: a file lacking additions/deletions escapes the inner handler.
+    async def test_get_pr_details_counts_zero_when_file_lacks_additions_and_deletions(
+        self,
+    ):
         files = [{"status": "added", "filename": "a"}]
         result, _ = await _details([ok({}), ok(files)], include_files=True)
-        assert result == "❌ Error getting PR details: 'additions'"
+        assert result.split("\n")[-1] == "  A a (+0, -0)"
+
+    @pytest.mark.asyncio
+    async def test_get_pr_details_shows_na_when_file_lacks_status_and_filename(self):
+        files = [{"additions": 2, "deletions": None}]
+        result, _ = await _details([ok({}), ok(files)], include_files=True)
+        assert result.split("\n")[-1] == "  N N/A (+2, -0)"
 
 
 class TestGetPrDetailsReviews:
@@ -318,12 +325,21 @@ class TestGetPrDetailsErrors:
         assert result == "❌ Error getting PR details: boom"
 
     @pytest.mark.asyncio
-    async def test_get_pr_details_returns_attribute_error_text_when_user_is_null(self):
-        # Quirk: .get("user", {}) does not guard against an explicit null.
+    async def test_get_pr_details_shows_na_author_when_user_is_null(self):
         result, _ = await _details([ok({"user": None})])
-        assert result == (
-            "❌ Error getting PR details: 'NoneType' object has no attribute 'get'"
-        )
+        assert "Author: N/A" in result.split("\n")
+
+    @pytest.mark.asyncio
+    async def test_get_pr_details_shows_na_refs_when_base_and_head_are_null(self):
+        result, _ = await _details([ok({"base": None, "head": None})])
+        assert "Base: N/A" in result.split("\n")
+        assert "Head: N/A" in result.split("\n")
+
+    @pytest.mark.asyncio
+    async def test_get_pr_details_shows_na_reviewer_when_review_user_is_null(self):
+        reviews = [{"state": "APPROVED", "user": None}]
+        result, _ = await _details([ok({}), ok(reviews)], include_reviews=True)
+        assert result.split("\n")[-1] == "  ✅ N/A: APPROVED"
 
 
 # --------------------------------------------------------------------------
@@ -401,9 +417,11 @@ class TestUpdatePr:
         assert result == "❌ Error updating PR: boom"
 
     @pytest.mark.asyncio
-    async def test_update_pr_returns_keyerror_text_when_response_lacks_number(self):
-        result, _ = await _update([ok({})], title="T")
-        assert result == "❌ Error updating PR: 'number'"
+    async def test_update_pr_falls_back_to_argument_number_when_response_lacks_number(
+        self,
+    ):
+        result, _ = await _update([ok({"html_url": "U"})], title="T")
+        assert result == "✅ Successfully updated PR #7: U"
 
 
 # --------------------------------------------------------------------------

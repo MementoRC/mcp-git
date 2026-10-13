@@ -11,6 +11,7 @@ Both work on private repos with the server's existing GITHUB_TOKEN.
 import base64
 import logging
 
+from ._payload import obj_of
 from .client import github_client_context
 
 logger = logging.getLogger(__name__)
@@ -145,8 +146,8 @@ async def github_resolve_ref(
 
             data = await response.json()
             sha = data.get("sha")
-            commit = data.get("commit", {})
-            author = commit.get("author", {})
+            commit = obj_of(data, "commit")
+            author = obj_of(commit, "author")
             message = (commit.get("message") or "").split("\n", 1)[0]
 
             output = [

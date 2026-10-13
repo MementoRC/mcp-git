@@ -415,6 +415,13 @@ async def test_get_release_skips_author_and_assets_when_null():
 
 
 @pytest.mark.asyncio
+async def test_get_release_skips_null_items_when_assets_contain_null():
+    assets = [None, {"name": "a.zip", "size": 10}]
+    result, _ = await _get([ok({"assets": assets})], release_id=1)
+    assert result.endswith("📎 Assets (1):\n   • a.zip (10 bytes)")
+
+
+@pytest.mark.asyncio
 async def test_get_release_prints_none_login_when_author_lacks_login():
     result, _ = await _get([ok({"author": {"id": 1}})], release_id=1)
     assert "👤 Author: None" in result.split("\n")
@@ -515,10 +522,9 @@ async def test_list_releases_omits_page_footer_when_single_page():
 
 
 @pytest.mark.asyncio
-async def test_list_releases_reports_error_when_created_at_is_null():
-    # Preserved quirk: null created_at crashes the formatter (tracked in #273).
+async def test_list_releases_shows_na_created_when_created_at_is_null():
     result, _ = await _list([ok([{"tag_name": "v", "created_at": None}])])
-    assert result == "❌ Error listing releases: 'NoneType' object is not subscriptable"
+    assert "   📅 Created: N/A" in result.split("\n")
 
 
 # ------------------------------------------------------------------ update
@@ -855,10 +861,6 @@ async def test_list_release_assets_omits_page_footer_when_single_page():
 
 
 @pytest.mark.asyncio
-async def test_list_release_assets_reports_error_when_size_is_null():
-    # Preserved quirk: null size crashes the size formatter (tracked in #273).
+async def test_list_release_assets_shows_na_size_when_size_is_null():
     result, _ = await _assets([ok([{"name": "a", "size": None}])])
-    assert result == (
-        "❌ Error listing assets: '<' not supported between instances of "
-        "'NoneType' and 'int'"
-    )
+    assert "   Size: N/A" in result.split("\n")

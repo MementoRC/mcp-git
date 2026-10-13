@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from mcp_server_git.github._payload import login_of
+
 _STATE_MARKERS = {"open": "🟢", "closed": "🔴"}
 
 
@@ -27,7 +29,7 @@ def _summary_head_lines(issue: dict[str, Any]) -> list[str]:
     marker = state_marker(issue.get("state"))
     return [
         f"{marker} #{issue['number']}: {issue['title']}",
-        f"   Author: {issue.get('user', {}).get('login', 'N/A')}",
+        f"   Author: {login_of(issue)}",
     ]
 
 
@@ -50,7 +52,7 @@ def _search_issue_lines(issue: dict[str, Any]) -> list[str]:
     lines = _summary_head_lines(issue)
     lines.extend(_label_assignee_lines(issue, "   "))
     if issue.get("milestone"):
-        lines.append(f"   Milestone: {issue['milestone']['title']}")
+        lines.append(f"   Milestone: {issue['milestone'].get('title', 'N/A')}")
     lines.append(f"   Created: {issue.get('created_at', 'N/A')}")
     lines.append(f"   Score: {issue.get('score', 'N/A')}")
     lines.append("")
@@ -114,7 +116,7 @@ def format_issue_detail(issue: dict[str, Any], max_body_chars: int | None) -> st
     output = [
         f"Issue #{issue['number']}: {issue['title']}",
         f"State: {marker} {issue.get('state', 'unknown')}",
-        f"Author: {(issue.get('user') or {}).get('login', 'N/A')}",
+        f"Author: {login_of(issue)}",
         f"Created: {issue.get('created_at', 'N/A')}",
         f"Updated: {issue.get('updated_at', 'N/A')}",
     ]

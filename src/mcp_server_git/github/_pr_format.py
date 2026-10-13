@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from mcp_server_git.github._payload import login_of, obj_of
 from mcp_server_git.github.check_markers import check_marker
 
 _BOT_TEMPLATE_MARKER = "${{"
@@ -114,9 +115,9 @@ def format_pr_summary(pr_number: int, pr_data: dict) -> list[str]:
     merged = merged_line(pr_data)
     if merged:
         output.append(merged)
-    output.append(f"Author: {pr_data.get('user', {}).get('login', 'N/A')}")
-    output.append(f"Base: {pr_data.get('base', {}).get('ref', 'N/A')}")
-    output.append(f"Head: {pr_data.get('head', {}).get('ref', 'N/A')}")
+    output.append(f"Author: {login_of(pr_data)}")
+    output.append(f"Base: {obj_of(pr_data, 'base').get('ref', 'N/A')}")
+    output.append(f"Head: {obj_of(pr_data, 'head').get('ref', 'N/A')}")
     output.append(f"Created: {pr_data.get('created_at', 'N/A')}")
     output.append(f"Updated: {pr_data.get('updated_at', 'N/A')}")
 
@@ -135,8 +136,10 @@ def format_files_section(files_data: list[dict]) -> list[str]:
         return []
     lines = [f"\nFiles ({len(files_data)}):"]
     for file in files_data[:_MAX_FILES_SHOWN]:
+        status = file.get("status") or "N/A"
         lines.append(
-            f"  {file['status'][0].upper()} {file['filename']} (+{file['additions']}, -{file['deletions']})"
+            f"  {status[0].upper()} {file.get('filename') or 'N/A'} "
+            f"(+{file.get('additions') or 0}, -{file.get('deletions') or 0})"
         )
     if len(files_data) > _MAX_FILES_SHOWN:
         lines.append(f"  ... and {len(files_data) - _MAX_FILES_SHOWN} more files")
@@ -150,9 +153,7 @@ def format_reviews_section(reviews_data: list[dict]) -> list[str]:
     lines = [f"\nReviews ({len(reviews_data)}):"]
     for review in reviews_data[-_MAX_REVIEWS_SHOWN:]:
         marker = _REVIEW_MARKERS.get(review.get("state"), "❓")
-        lines.append(
-            f"  {marker} {review.get('user', {}).get('login', 'N/A')}: {review.get('state', 'N/A')}"
-        )
+        lines.append(f"  {marker} {login_of(review)}: {review.get('state', 'N/A')}")
     return lines
 
 
@@ -175,7 +176,7 @@ def select_rendered_body(comment: dict[str, Any]) -> str:
 
 def format_issue_comment(comment: dict[str, Any]) -> list[str]:
     """Render one top-level PR conversation comment."""
-    author = comment.get("user", {}).get("login", "unknown")
+    author = login_of(comment, default="unknown")
     created = comment.get("created_at", "")
     body = select_rendered_body(comment)
     comment_id = comment.get("id", "")
@@ -184,7 +185,7 @@ def format_issue_comment(comment: dict[str, Any]) -> list[str]:
 
 def format_review_comment(comment: dict[str, Any]) -> list[str]:
     """Render one inline review comment, ending with a blank line."""
-    author = comment.get("user", {}).get("login", "unknown")
+    author = login_of(comment, default="unknown")
     created = comment.get("created_at", "")
     body = select_rendered_body(comment)
     path = comment.get("path", "")

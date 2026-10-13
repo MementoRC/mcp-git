@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from mcp_server_git.github._payload import obj_of
 from mcp_server_git.github.client import github_client_context
 
 logger = logging.getLogger(__name__)
@@ -276,19 +277,19 @@ async def github_get_branch_protection(
             # Other settings
             output.append("\n📋 Other Settings:")
             output.append(
-                f"   Required Linear History: {'✅' if data.get('required_linear_history', {}).get('enabled') else '❌'}"
+                f"   Required Linear History: {'✅' if obj_of(data, 'required_linear_history').get('enabled') else '❌'}"
             )
             output.append(
-                f"   Allow Force Pushes: {'✅' if data.get('allow_force_pushes', {}).get('enabled') else '❌'}"
+                f"   Allow Force Pushes: {'✅' if obj_of(data, 'allow_force_pushes').get('enabled') else '❌'}"
             )
             output.append(
-                f"   Allow Deletions: {'✅' if data.get('allow_deletions', {}).get('enabled') else '❌'}"
+                f"   Allow Deletions: {'✅' if obj_of(data, 'allow_deletions').get('enabled') else '❌'}"
             )
             output.append(
-                f"   Required Conversation Resolution: {'✅' if data.get('required_conversation_resolution', {}).get('enabled') else '❌'}"
+                f"   Required Conversation Resolution: {'✅' if obj_of(data, 'required_conversation_resolution').get('enabled') else '❌'}"
             )
             output.append(
-                f"   Lock Branch: {'✅' if data.get('lock_branch', {}).get('enabled') else '❌'}"
+                f"   Lock Branch: {'✅' if obj_of(data, 'lock_branch').get('enabled') else '❌'}"
             )
 
             return "\n".join(output)
