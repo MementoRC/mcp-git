@@ -5,6 +5,7 @@ import re
 from pathlib import Path
 
 from ..utils.git_import import GitCommandError, Repo
+from ..utils.tool_failure import fail
 from .error_text import clean_git_error_text
 
 logger = logging.getLogger(__name__)
@@ -96,11 +97,11 @@ def git_config_get(
             value = repo.git.config(key, **scope_kwargs)
         return f"{key} = {value}"
     except ValueError as e:
-        return f"❌ {e}"
+        return fail(f"❌ {e}")
     except GitCommandError as e:
-        return f"❌ Config get failed: {clean_git_error_text(e.stderr, 'stderr')}"
+        return fail(f"❌ Config get failed: {clean_git_error_text(e.stderr, 'stderr')}")
     except Exception as e:
-        return f"❌ Config get error: {str(e)}"
+        return fail(f"❌ Config get error: {str(e)}")
 
 
 def git_config_set(
@@ -134,11 +135,11 @@ def git_config_set(
         file_info = f" in {file}" if file else ""
         return f"✅ Config set{scope_info}{file_info}: {key} = {value}"
     except ValueError as e:
-        return f"❌ {e}"
+        return fail(f"❌ {e}")
     except GitCommandError as e:
-        return f"❌ Config set failed: {clean_git_error_text(e.stderr, 'stderr')}"
+        return fail(f"❌ Config set failed: {clean_git_error_text(e.stderr, 'stderr')}")
     except Exception as e:
-        return f"❌ Config set error: {str(e)}"
+        return fail(f"❌ Config set error: {str(e)}")
 
 
 def git_config_list(
@@ -168,8 +169,10 @@ def git_config_list(
         source = file if file else (scope or "local")
         return f"Git config [{source}]:\n{output}"
     except ValueError as e:
-        return f"❌ {e}"
+        return fail(f"❌ {e}")
     except GitCommandError as e:
-        return f"❌ Config list failed: {clean_git_error_text(e.stderr, 'stderr')}"
+        return fail(
+            f"❌ Config list failed: {clean_git_error_text(e.stderr, 'stderr')}"
+        )
     except Exception as e:
-        return f"❌ Config list error: {str(e)}"
+        return fail(f"❌ Config list error: {str(e)}")

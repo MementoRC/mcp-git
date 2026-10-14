@@ -8,6 +8,7 @@ from typing import Any
 
 # Safe git import that handles ClaudeCode redirector conflicts
 from ..utils.git_import import Repo
+from ..utils.tool_failure import fail
 
 logger = logging.getLogger(__name__)
 
@@ -62,19 +63,25 @@ _IDENTITY_SPECS: tuple[tuple[str, tuple[str, ...], str], ...] = (
     (
         "name",
         ("GIT_AUTHOR_NAME", "GIT_COMMITTER_NAME"),
-        "❌ No user name configured. Set GIT_AUTHOR_NAME env var or git config user.name",
+        fail(
+            "❌ No user name configured. Set GIT_AUTHOR_NAME env var or git config user.name"
+        ),
     ),
     (
         "email",
         ("GIT_AUTHOR_EMAIL", "GIT_COMMITTER_EMAIL"),
-        "❌ No user email configured. Set GIT_AUTHOR_EMAIL env var or git config user.email",
+        fail(
+            "❌ No user email configured. Set GIT_AUTHOR_EMAIL env var or git config user.email"
+        ),
     ),
 )
 
-_ERR_NO_KEYS_FOUND = (
+_ERR_NO_KEYS_FOUND = fail(
     "❌ No GPG keys found. Generate a GPG key or set GPG_SIGNING_KEY env var"
 )
-_ERR_NO_KEYS_AVAILABLE = "❌ No GPG keys available. Install GPG and generate a key"
+_ERR_NO_KEYS_AVAILABLE = fail(
+    "❌ No GPG keys available. Install GPG and generate a key"
+)
 
 
 def _read_config(repo: Repo, section: str, key: str, default: Any) -> Any:
@@ -202,7 +209,9 @@ def _autodetect_signing_key(
         changes_made.append(f"Auto-detected and set GPG signing key: {key_id}")
     except Exception as e:
         if strict_mode:
-            return f"❌ Could not detect GPG keys: {e}. Set GPG_SIGNING_KEY env var"
+            return fail(
+                f"❌ Could not detect GPG keys: {e}. Set GPG_SIGNING_KEY env var"
+            )
     return None
 
 
@@ -222,7 +231,7 @@ def _write_config(config_writer: Any) -> str | None:
         config_writer.write()
         config_writer.release()
     except Exception as e:
-        return f"❌ Could not write git configuration: {e}"
+        return fail(f"❌ Could not write git configuration: {e}")
     return None
 
 
@@ -269,4 +278,4 @@ def enforce_secure_git_config(repo: Repo, strict_mode: bool = True) -> str:
         return _format_changes(changes_made)
 
     except Exception as e:
-        return f"❌ Security enforcement failed: {e}"
+        return fail(f"❌ Security enforcement failed: {e}")

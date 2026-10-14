@@ -7,11 +7,13 @@ needed the same dangerous-character guard, mirroring the precedent set by
 
 import re
 
+from ..utils.tool_failure import fail
+
 DANGEROUS_CHARS = re.compile(r"[;&|`$()]")
 
 
 def validate_ref(ref: str, param_name: str) -> str | None:
     """Validate a git ref for dangerous characters. Returns error string or None."""
     if DANGEROUS_CHARS.search(ref):
-        return f"❌ Invalid characters detected in {param_name}: '{ref}'"
+        return fail(f"❌ Invalid characters detected in {param_name}: '{ref}'")
     return None

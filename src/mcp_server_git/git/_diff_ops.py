@@ -4,6 +4,7 @@ import logging
 import re
 
 from ..utils.git_import import GitCommandError, Repo
+from ..utils.tool_failure import fail
 from .error_text import clean_git_error_text
 
 logger = logging.getLogger(__name__)
@@ -192,9 +193,11 @@ def git_diff_unstaged(
         )
 
     except GitCommandError as e:
-        return f"❌ Diff unstaged failed: {clean_git_error_text(e.stderr, 'stderr')}"
+        return fail(
+            f"❌ Diff unstaged failed: {clean_git_error_text(e.stderr, 'stderr')}"
+        )
     except Exception as e:
-        return f"❌ Diff unstaged error: {str(e)}"
+        return fail(f"❌ Diff unstaged error: {str(e)}")
 
 
 def git_diff_staged(
@@ -244,9 +247,11 @@ def git_diff_staged(
         )
 
     except GitCommandError as e:
-        return f"❌ Diff staged failed: {clean_git_error_text(e.stderr, 'stderr')}"
+        return fail(
+            f"❌ Diff staged failed: {clean_git_error_text(e.stderr, 'stderr')}"
+        )
     except Exception as e:
-        return f"❌ Diff staged error: {str(e)}"
+        return fail(f"❌ Diff staged error: {str(e)}")
 
 
 def git_diff(
@@ -293,7 +298,7 @@ def git_diff(
         target_commit=target_commit,
     )
     if not is_valid:
-        return f"❌ Parameter validation failed: {validation_msg}"
+        return fail(f"❌ Parameter validation failed: {validation_msg}")
 
     # If there's a warning, include it in the output
     validation_warning = validation_msg or None
@@ -314,9 +319,9 @@ def git_diff(
         return result
 
     except GitCommandError as e:
-        return f"❌ Diff failed: {clean_git_error_text(e.stderr, 'stderr')}"
+        return fail(f"❌ Diff failed: {clean_git_error_text(e.stderr, 'stderr')}")
     except Exception as e:
-        return f"❌ Diff error: {str(e)}"
+        return fail(f"❌ Diff error: {str(e)}")
 
 
 def _resolve_diff_target(
@@ -391,9 +396,9 @@ def git_diff_branches(
         all_branches = _collect_known_refs(repo)
 
         if base_branch not in all_branches:
-            return f"❌ Base branch '{base_branch}' not found"
+            return fail(f"❌ Base branch '{base_branch}' not found")
         if compare_branch not in all_branches:
-            return f"❌ Compare branch '{compare_branch}' not found"
+            return fail(f"❌ Compare branch '{compare_branch}' not found")
 
         # Build diff command arguments
         diff_range = f"{base_branch}...{compare_branch}"
@@ -414,9 +419,9 @@ def git_diff_branches(
         return _limit_branch_diff(diff_output, max_lines)
 
     except GitCommandError as e:
-        return f"❌ Diff failed: {clean_git_error_text(e.stderr, 'stderr')}"
+        return fail(f"❌ Diff failed: {clean_git_error_text(e.stderr, 'stderr')}")
     except Exception as e:
-        return f"❌ Diff error: {str(e)}"
+        return fail(f"❌ Diff error: {str(e)}")
 
 
 def _collect_known_refs(repo: Repo) -> set[str]:

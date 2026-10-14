@@ -3,6 +3,7 @@
 import logging
 
 from ..utils.git_import import GitCommandError, Repo
+from ..utils.tool_failure import fail
 from .error_text import clean_git_error_text
 
 logger = logging.getLogger(__name__)
@@ -56,9 +57,11 @@ def git_submodule_status(repo: Repo) -> str:
 
         return "\n".join(result_lines)
     except GitCommandError as e:
-        return f"❌ Submodule status failed: {clean_git_error_text(e.stderr, 'stderr')}"
+        return fail(
+            f"❌ Submodule status failed: {clean_git_error_text(e.stderr, 'stderr')}"
+        )
     except Exception as e:
-        return f"❌ Submodule status error: {str(e)}"
+        return fail(f"❌ Submodule status error: {str(e)}")
 
 
 def git_submodule_add(
@@ -81,13 +84,13 @@ def git_submodule_add(
     # Validate URL scheme
     allowed_schemes = ("https://", "http://", "git://", "ssh://", "git@")
     if not any(url.startswith(scheme) for scheme in allowed_schemes):
-        return f"❌ Invalid URL scheme. Allowed: {', '.join(allowed_schemes)}"
+        return fail(f"❌ Invalid URL scheme. Allowed: {', '.join(allowed_schemes)}")
     # Validate no shell injection in path or url
     dangerous_chars = [";", "|", "&", "`", "$", "(", ")"]
     if any(char in path for char in dangerous_chars):
-        return f"❌ Invalid characters in submodule path: {path}"
+        return fail(f"❌ Invalid characters in submodule path: {path}")
     if any(char in url for char in dangerous_chars):
-        return f"❌ Invalid characters in URL: {url}"
+        return fail(f"❌ Invalid characters in URL: {url}")
     try:
         args = ["add"]
         if branch:
@@ -97,9 +100,11 @@ def git_submodule_add(
         branch_info = f" (branch: {branch})" if branch else ""
         return f"✅ Submodule added at '{path}' from {url}{branch_info}"
     except GitCommandError as e:
-        return f"❌ Submodule add failed: {clean_git_error_text(e.stderr, 'stderr')}"
+        return fail(
+            f"❌ Submodule add failed: {clean_git_error_text(e.stderr, 'stderr')}"
+        )
     except Exception as e:
-        return f"❌ Submodule add error: {str(e)}"
+        return fail(f"❌ Submodule add error: {str(e)}")
 
 
 def git_submodule_update(
@@ -143,9 +148,11 @@ def git_submodule_update(
         flag_info = f" [{', '.join(flags)}]" if flags else ""
         return f"✅ Submodules updated{flag_info}: {scope}"
     except GitCommandError as e:
-        return f"❌ Submodule update failed: {clean_git_error_text(e.stderr, 'stderr')}"
+        return fail(
+            f"❌ Submodule update failed: {clean_git_error_text(e.stderr, 'stderr')}"
+        )
     except Exception as e:
-        return f"❌ Submodule update error: {str(e)}"
+        return fail(f"❌ Submodule update error: {str(e)}")
 
 
 def git_submodule_sync(
@@ -169,6 +176,8 @@ def git_submodule_sync(
         recursive_info = " (recursive)" if recursive else ""
         return f"✅ Submodule URLs synced from .gitmodules{recursive_info}"
     except GitCommandError as e:
-        return f"❌ Submodule sync failed: {clean_git_error_text(e.stderr, 'stderr')}"
+        return fail(
+            f"❌ Submodule sync failed: {clean_git_error_text(e.stderr, 'stderr')}"
+        )
     except Exception as e:
-        return f"❌ Submodule sync error: {str(e)}"
+        return fail(f"❌ Submodule sync error: {str(e)}")
