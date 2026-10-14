@@ -279,10 +279,10 @@ class GitHubUpdateIssue(BaseModel):
     @field_validator("milestone")
     @classmethod
     def validate_milestone(cls, v: int | None) -> int | None:
-        """Validate milestone ID is positive (GitHub API expects positive integers)"""
+        """Keep 0 ("clear the milestone") and positive IDs; drop negatives."""
         if v is None:
             return v
-        return v if v > 0 else None
+        return v if v >= 0 else None
 
 
 class GitHubSearchIssues(BaseModel):

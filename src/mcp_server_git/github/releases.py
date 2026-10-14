@@ -7,6 +7,7 @@ from typing import Any
 
 from mcp_server_git.github import _release_format as _fmt
 from mcp_server_git.github._paging import clamp_paging
+from mcp_server_git.github._update_fields import first_required_error
 from mcp_server_git.github.client import github_client_context
 
 logger = logging.getLogger(__name__)
@@ -274,14 +275,23 @@ async def github_update_release(
         repo_owner: Repository owner
         repo_name: Repository name
         release_id: Release ID to update
-        tag_name: New tag name
-        name: New release title
-        body: New release description
-        draft: Update draft status
-        prerelease: Update pre-release status
-        target_commitish: Update target commitish
+        tag_name: New tag name (cannot be empty)
+        name: New release title ("" clears it; GitHub falls back to the tag)
+        body: New release description ("" clears it)
+        draft: Update draft status (False is a value; only None leaves it)
+        prerelease: Update pre-release status (False is a value)
+        target_commitish: Update target commitish (cannot be empty)
+
+    ``None`` leaves a field unchanged. ``tag_name`` and ``target_commitish``
+    cannot be empty and return an error before any request is made.
     """
     logger.debug(f"🚀 Updating release {release_id} for {repo_owner}/{repo_name}")
+
+    required_error = first_required_error(
+        {"tag_name": tag_name, "target_commitish": target_commitish}
+    )
+    if required_error:
+        return required_error
 
     try:
         async with github_client_context() as client:

@@ -493,9 +493,13 @@ class TestUpdateIssue:
         assert client.calls == []
 
     @pytest.mark.asyncio
-    async def test_update_issue_rejects_state_when_empty_string(self):
-        result, _ = await _update(state="")
-        assert result == "❌ State must be 'open' or 'closed'"
+    @pytest.mark.parametrize("field", ["title", "state"])
+    async def test_update_issue_returns_required_error_when_field_empty(self, field):
+        result, client = await _update(**{field: ""})
+        assert result == (
+            f"❌ {field} cannot be empty. Pass None to leave it unchanged."
+        )
+        assert client.calls == []
 
     @pytest.mark.asyncio
     async def test_update_issue_sends_all_fields_when_all_provided(self):
@@ -527,22 +531,25 @@ class TestUpdateIssue:
         ]
 
     @pytest.mark.asyncio
-    async def test_update_issue_sends_falsy_values_when_not_none(self):
+    async def test_update_issue_clears_fields_when_values_empty(self):
         _, client = await _update(
             [ok({"number": 7, "html_url": "h"})],
-            title="",
             body="",
             labels=[],
             assignees=[],
             milestone=0,
         )
         assert client.calls[0][2]["json"] == {
-            "title": "",
             "body": "",
             "labels": [],
             "assignees": [],
-            "milestone": 0,
+            "milestone": None,
         }
+
+    @pytest.mark.asyncio
+    async def test_update_issue_omits_fields_when_values_none(self):
+        _, client = await _update([ok({"number": 7, "html_url": "h"})], title="T")
+        assert client.calls[0][2]["json"] == {"title": "T"}
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize(

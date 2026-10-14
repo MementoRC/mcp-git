@@ -370,7 +370,6 @@ class TestUpdatePr:
             ({"title": "T"}, {"title": "T"}),
             ({"body": "B"}, {"body": "B"}),
             ({"body": ""}, {"body": ""}),
-            ({"title": ""}, {"title": ""}),
             ({"state": "open"}, {"state": "open"}),
             ({"state": "closed"}, {"state": "closed"}),
             ({"base": "dev"}, {"base": "dev"}),
@@ -387,6 +386,20 @@ class TestUpdatePr:
         result, client = await _update([resp], **kwargs)
         assert result == "✅ Successfully updated PR #7: https://x/7"
         assert client.calls == [("patch", "/repos/o/r/pulls/7", {"json": payload})]
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("field", ["title", "state", "base"])
+    async def test_update_pr_returns_required_error_when_field_empty(self, field):
+        result, client = await _update(**{field: ""})
+        assert result == (
+            f"❌ {field} cannot be empty. Pass None to leave it unchanged."
+        )
+        assert client.calls == []
+
+    @pytest.mark.asyncio
+    async def test_update_pr_omits_body_when_body_none(self):
+        _, client = await _update([ok({"number": 7, "html_url": "U"})], title="T")
+        assert client.calls[0][2]["json"] == {"title": "T"}
 
     @pytest.mark.asyncio
     async def test_update_pr_returns_state_error_when_state_invalid(self):
@@ -814,14 +827,25 @@ class TestGhEditPr:
             repo,
         )
 
-    def test_gh_edit_pr_skips_flags_when_values_empty(self, repo):
+    @pytest.mark.parametrize("field", ["title", "base"])
+    def test_gh_edit_pr_returns_required_error_when_field_empty(self, repo, field):
+        with patch(GH_RUN) as run:
+            result = gh_edit_pr(repo, 3, **{field: ""})
+        assert result == (
+            f"❌ {field} cannot be empty. Pass None to leave it unchanged."
+        )
+        run.assert_not_called()
+
+    def test_gh_edit_pr_clears_body_when_body_empty(self, repo):
+        with patch(GH_RUN, return_value=("", "", 0)) as run:
+            gh_edit_pr(repo, 3, body="")
+        run.assert_called_once_with(["pr", "edit", "3", "--body", ""], repo)
+
+    def test_gh_edit_pr_skips_flags_when_list_values_empty(self, repo):
         with patch(GH_RUN, return_value=("", "", 0)) as run:
             gh_edit_pr(
                 repo,
                 3,
-                title="",
-                body="",
-                base="",
                 add_assignee=[],
                 remove_assignee=[],
                 add_label=[],

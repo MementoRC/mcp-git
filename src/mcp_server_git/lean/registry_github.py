@@ -200,7 +200,10 @@ def _register_github_tools(interface: Any, github_service: Any):
         ToolDefinition(
             name="github_update_issue",
             implementation=github_ops.github_update_issue,
-            description="Update an existing GitHub issue",
+            description=(
+                "Update an existing GitHub issue. Omit/None = unchanged; "
+                '"" or [] or milestone 0 = clear; title/state cannot be empty'
+            ),
             schema=GitHubUpdateIssue.model_json_schema(),
             domain="github",
             complexity="focused",
@@ -313,7 +316,10 @@ def _register_github_tools(interface: Any, github_service: Any):
         ToolDefinition(
             name="github_update_pr",
             implementation=github_ops.github_update_pr,
-            description="Update a pull request (title, body, state, or base)",
+            description=(
+                "Update a pull request (title, body, state, or base). Omit/None = "
+                'unchanged; body "" = clear; title/state/base cannot be empty'
+            ),
             schema=GitHubUpdatePR.model_json_schema(),
             domain="github",
             complexity="focused",
@@ -590,7 +596,10 @@ def _register_github_tools(interface: Any, github_service: Any):
         ToolDefinition(
             name="github_update_release",
             implementation=github_ops.github_update_release,
-            description="Update an existing release's properties",
+            description=(
+                "Update an existing release's properties. Omit/None = unchanged; "
+                'name/body "" = clear; tag_name/target_commitish cannot be empty'
+            ),
             schema=GitHubUpdateRelease.model_json_schema(),
             domain="github",
             complexity="focused",
