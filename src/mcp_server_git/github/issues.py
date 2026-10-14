@@ -10,6 +10,7 @@ from mcp_server_git.github._issue_format import (
     format_issue_list,
 )
 from mcp_server_git.github._paging import clamp_paging, invalid_choice
+from mcp_server_git.github._update_fields import first_required_error
 from mcp_server_git.github.client import github_client_context
 
 logger = logging.getLogger(__name__)
@@ -71,16 +72,21 @@ def _update_payload(
     assignees: list[str] | None,
     milestone: int | None,
 ) -> dict[str, Any]:
-    """Build the update payload from every field that is not None."""
+    """Build the update payload from every field that is not None.
+
+    ``milestone=0`` means "clear the milestone" and is sent as JSON ``null``.
+    """
     fields = {
         "title": title,
         "body": body,
         "state": state,
         "labels": labels,
         "assignees": assignees,
-        "milestone": milestone,
     }
-    return {key: value for key, value in fields.items() if value is not None}
+    payload = {key: value for key, value in fields.items() if value is not None}
+    if milestone is not None:
+        payload["milestone"] = milestone or None
+    return payload
 
 
 async def github_create_issue(
@@ -145,7 +151,11 @@ async def github_list_issues(
     per_page: int = 30,
     page: int = 1,
 ) -> str:
-    """List issues for a repository."""
+    """List issues for a repository.
+
+    These are filters, not updates: an empty ``labels``/``assignee``/
+    ``creator``/``mentioned``/``milestone``/``since`` means "no filter".
+    """
     logger.debug(f"🔍 Listing issues for {repo_owner}/{repo_name}")
 
     choice_error = _list_choice_error(state, sort, direction)
@@ -261,8 +271,17 @@ async def github_update_issue(
     assignees: list[str] | None = None,
     milestone: int | None = None,
 ) -> str:
-    """Update a GitHub issue."""
+    """Update a GitHub issue.
+
+    ``None`` leaves a field unchanged. ``body=""``, ``labels=[]``,
+    ``assignees=[]`` and ``milestone=0`` clear the field; ``title`` and
+    ``state`` cannot be empty and return an error before any request is made.
+    """
     logger.debug(f"🚀 Updating issue #{issue_number} in {repo_owner}/{repo_name}")
+
+    required_error = first_required_error({"title": title, "state": state})
+    if required_error:
+        return required_error
 
     try:
         async with github_client_context() as client:

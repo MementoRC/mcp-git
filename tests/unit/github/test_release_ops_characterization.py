@@ -564,24 +564,22 @@ async def test_update_release_sends_only_provided_fields_when_partial():
 
 
 @pytest.mark.asyncio
-async def test_update_release_sends_falsy_values_when_not_none():
-    _, client = await _update(
-        [ok({})],
-        tag_name="",
-        name="",
-        body="",
-        draft=False,
-        prerelease=False,
-        target_commitish="",
-    )
+async def test_update_release_clears_text_and_sends_false_flags_when_empty():
+    _, client = await _update([ok({})], name="", body="", draft=False, prerelease=False)
     assert client.calls[0][2]["json"] == {
-        "tag_name": "",
         "name": "",
         "body": "",
         "draft": False,
         "prerelease": False,
-        "target_commitish": "",
     }
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("field", ["tag_name", "target_commitish"])
+async def test_update_release_returns_required_error_when_field_empty(field):
+    result, client = await _update(**{field: ""})
+    assert result == f"❌ {field} cannot be empty. Pass None to leave it unchanged."
+    assert client.calls == []
 
 
 @pytest.mark.asyncio

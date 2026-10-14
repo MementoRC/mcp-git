@@ -4,6 +4,8 @@ import logging
 import os
 import subprocess
 
+from ._update_fields import first_required_error
+
 logger = logging.getLogger(__name__)
 
 
@@ -89,13 +91,15 @@ def _build_edit_pr_args(
     text_flags: list[tuple[str, str | None]],
     list_flags: list[tuple[str, list[str] | None]],
 ) -> list[str]:
-    """Build ``gh pr edit`` argv; unset/empty options add no flag.
+    """Build ``gh pr edit`` argv.
 
-    List values are comma-joined into a single flag argument.
+    ``None`` text options add no flag; ``""`` is passed through (``--body ""``
+    clears the body). Empty lists mean "no changes" and add no flag. List
+    values are comma-joined into a single flag argument.
     """
     args = ["pr", "edit", str(pr_number)]
     for flag, text in text_flags:
-        if text:
+        if text is not None:
             args.extend([flag, text])
     for flag, values in list_flags:
         if values:
@@ -116,7 +120,17 @@ def gh_edit_pr(
     add_reviewer: list[str] | None = None,
     remove_reviewer: list[str] | None = None,
 ) -> str:
-    """Edit a pull request using GitHub CLI"""
+    """Edit a pull request using GitHub CLI.
+
+    ``None`` leaves a field unchanged. ``body=""`` clears the body; ``title``
+    and ``base`` cannot be empty and return an error without running ``gh``.
+    For the add/remove list options an empty list is the empty set of changes,
+    so it adds no flag.
+    """
+    required_error = first_required_error({"title": title, "base": base})
+    if required_error:
+        return required_error
+
     # Validate repository
     error = _validate_repo_path(repo_path)
     if error:

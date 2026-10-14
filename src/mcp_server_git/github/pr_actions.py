@@ -9,6 +9,7 @@ from mcp_server_git.github.client import GraphQLError, github_client_context
 
 from ._pr_format import format_issue_comment, format_review_comment
 from ._pr_graphql import _CONVERT_TO_DRAFT_MUTATION, _MARK_READY_MUTATION
+from ._update_fields import first_required_error
 
 logger = logging.getLogger(__name__)
 
@@ -123,9 +124,15 @@ def _build_update_payload(
 ) -> tuple[dict[str, Any], str | None]:
     """Build the PATCH payload; returns ``(payload, error_message)``.
 
-    ``error_message`` is a ready-to-return string for an invalid state or an
-    empty update, in which case no request should be sent.
+    ``error_message`` is a ready-to-return string for an empty required field,
+    an invalid state, or an empty update, in which case no request should be
+    sent. ``None`` fields are omitted; ``body=""`` clears the body.
     """
+    required_error = first_required_error(
+        {"title": title, "state": state, "base": base}
+    )
+    if required_error:
+        return {}, required_error
     payload: dict[str, Any] = {}
     if title is not None:
         payload["title"] = title
@@ -153,7 +160,12 @@ async def github_update_pr(
     state: str | None = None,
     base: str | None = None,
 ) -> str:
-    """Update a pull request's title, body, state, or base branch."""
+    """Update a pull request's title, body, state, or base branch.
+
+    ``None`` leaves a field unchanged. ``body=""`` clears the body; ``title``,
+    ``state`` and ``base`` cannot be empty and return an error before any
+    request is made.
+    """
     logger.debug(f"🚀 Updating PR #{pr_number} in {repo_owner}/{repo_name}")
 
     try:
