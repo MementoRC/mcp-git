@@ -9,11 +9,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from mcp_server_git.github._payload import login_of, obj_of
+from mcp_server_git.github._payload import body_preview, login_of, obj_of
 from mcp_server_git.github.check_markers import check_marker
 
 _BOT_TEMPLATE_MARKER = "${{"
-_BODY_PREVIEW_CHARS = 500
 _MAX_FILES_SHOWN = 10
 _MAX_REVIEWS_SHOWN = 5
 _REVIEW_MARKERS: dict[str | None, str] = {
@@ -123,8 +122,7 @@ def format_pr_summary(pr_number: int, pr_data: dict) -> list[str]:
 
     body = pr_data.get("body")
     if body:
-        ellipsis = "..." if len(body) > _BODY_PREVIEW_CHARS else ""
-        output.append(f"\nDescription:\n{body[:_BODY_PREVIEW_CHARS]}{ellipsis}")
+        output.append(f"\nDescription:\n{body_preview(body)}")
     if pr_data.get("html_url"):
         output.append(f"\nURL: {pr_data['html_url']}")
     return output

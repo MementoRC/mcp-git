@@ -178,15 +178,25 @@ class TestListWorkflowRunsEmptyAndParams:
         )
 
     @pytest.mark.asyncio
-    async def test_list_runs_drops_invalid_status_and_conclusion_when_unknown_values(
+    async def test_list_runs_returns_invalid_status_error_when_status_unknown(self):
+        client = _wf_client()
+        result = await _list(client, status="bogus")
+        assert result == (
+            "❌ Invalid status 'bogus'. Must be one of: queued, in_progress, completed"
+        )
+        assert client.calls == []
+
+    @pytest.mark.asyncio
+    async def test_list_runs_returns_invalid_conclusion_error_when_conclusion_unknown(
         self,
     ):
         client = _wf_client()
-        result = await _list(client, status="bogus", conclusion="weird")
-        assert result == "No workflow runs found for o/r"
-        assert client.calls == [
-            ("/repos/o/r/actions/runs", {"params": {"per_page": 30, "page": 1}})
-        ]
+        result = await _list(client, conclusion="weird")
+        assert result == (
+            "❌ Invalid conclusion 'weird'. Must be one of: success, failure, "
+            "neutral, cancelled, timed_out, action_required, stale"
+        )
+        assert client.calls == []
 
     @pytest.mark.asyncio
     async def test_list_runs_builds_all_params_when_every_filter_given(self):
@@ -256,19 +266,19 @@ class TestListWorkflowRunsFormatting:
         ]
 
     @pytest.mark.asyncio
-    async def test_list_runs_header_lists_raw_filters_when_filters_given(self):
+    async def test_list_runs_header_lists_filters_when_filters_given(self):
         result = await _list(
             _wf_client(runs=[_run()]),
             workflow_id="ci.yml",
             actor="bob",
             branch="main",
             event="push",
-            status="bogus",
-            conclusion="weird",
+            status="completed",
+            conclusion="failure",
         )
         assert result.split("\n")[0] == (
             "Workflow Runs for o/r (workflow: ci.yml, actor: bob, "
-            "branch: main, event: push, status: bogus, conclusion: weird):"
+            "branch: main, event: push, status: completed, conclusion: failure):"
         )
 
     @pytest.mark.asyncio
@@ -363,12 +373,19 @@ class TestListWorkflowRunsFormatting:
         assert lines[-1] == "📄 Page 2 of 3 (use page parameter to see more)"
 
     @pytest.mark.asyncio
-    async def test_list_runs_computes_max_page_from_raw_per_page_when_clamped(self):
-        # Quirk preserved: max_page uses the raw per_page (500), not the
-        # clamped value (100) sent to the API.
+    async def test_list_runs_computes_max_page_from_clamped_per_page_when_over_100(
+        self,
+    ):
         result = await _list(_wf_client(runs=[_run()], total=250), per_page=500)
         assert result.split("\n")[-1] == (
-            "📄 Page 1 of 1 (use page parameter to see more)"
+            "📄 Page 1 of 3 (use page parameter to see more)"
+        )
+
+    @pytest.mark.asyncio
+    async def test_list_runs_computes_max_page_from_clamped_per_page_when_zero(self):
+        result = await _list(_wf_client(runs=[_run()], total=5), per_page=0)
+        assert result.split("\n")[-1] == (
+            "📄 Page 1 of 5 (use page parameter to see more)"
         )
 
     @pytest.mark.asyncio

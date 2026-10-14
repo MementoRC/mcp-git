@@ -165,22 +165,49 @@ class TestListIssuesParams:
         assert client.calls[0][2]["params"] == BASE_PARAMS
 
     @pytest.mark.asyncio
-    async def test_list_issues_passes_through_when_invalid_values(self):
-        _, client = await _list(
-            [ok([])],
-            state="bogus",
-            sort="nope",
-            direction="sideways",
-            per_page=500,
-            page=0,
-        )
-        assert client.calls[0][2]["params"] == {
-            "state": "bogus",
-            "sort": "nope",
-            "direction": "sideways",
-            "per_page": 500,
-            "page": 0,
-        }
+    @pytest.mark.parametrize(
+        ("kwargs", "expected"),
+        [
+            (
+                {"state": "bogus"},
+                "❌ Invalid state 'bogus'. Must be one of: open, closed, all",
+            ),
+            (
+                {"sort": "nope"},
+                "❌ Invalid sort 'nope'. Must be one of: created, updated, comments",
+            ),
+            (
+                {"direction": "sideways"},
+                "❌ Invalid direction 'sideways'. Must be one of: asc, desc",
+            ),
+        ],
+    )
+    @pytest.mark.asyncio
+    async def test_list_issues_returns_error_before_request_when_choice_invalid(
+        self, kwargs, expected
+    ):
+        result, client = await _list([ok([])], **kwargs)
+        assert result == expected
+        assert client.calls == []
+
+    @pytest.mark.parametrize("state", ["open", "closed", "all"])
+    @pytest.mark.asyncio
+    async def test_list_issues_accepts_state_when_allowed_value(self, state):
+        _, client = await _list([ok([])], state=state)
+        assert client.calls[0][2]["params"]["state"] == state
+
+    @pytest.mark.asyncio
+    async def test_list_issues_clamps_paging_when_out_of_range(self):
+        _, high = await _list([ok([])], per_page=500, page=0)
+        _, low = await _list([ok([])], per_page=0, page=-4)
+        assert (
+            high.calls[0][2]["params"]["per_page"],
+            high.calls[0][2]["params"]["page"],
+        ) == (100, 1)
+        assert (
+            low.calls[0][2]["params"]["per_page"],
+            low.calls[0][2]["params"]["page"],
+        ) == (1, 1)
 
 
 class TestListIssuesOutput:
@@ -593,6 +620,15 @@ class TestSearchIssues:
         params = client.calls[0][2]["params"]
         assert (params["sort"], params["order"]) == ("updated", "asc")
         assert (params["per_page"], params["page"]) == (5, 3)
+
+    @pytest.mark.asyncio
+    async def test_search_issues_clamps_paging_when_out_of_range(self):
+        _, high = await _search([ok({})], per_page=500, page=0)
+        _, low = await _search([ok({})], per_page=0, page=-2)
+        high_params = high.calls[0][2]["params"]
+        low_params = low.calls[0][2]["params"]
+        assert (high_params["per_page"], high_params["page"]) == (100, 1)
+        assert (low_params["per_page"], low_params["page"]) == (1, 1)
 
     @pytest.mark.asyncio
     async def test_search_issues_returns_status_error_when_not_200(self):

@@ -8,6 +8,14 @@ from __future__ import annotations
 
 from typing import Any
 
+BODY_PREVIEW_CHARS = 500
+
+
+def body_preview(body: str) -> str:
+    """Cut ``body`` to the shared preview length, adding ``...`` when cut."""
+    ellipsis = "..." if len(body) > BODY_PREVIEW_CHARS else ""
+    return f"{body[:BODY_PREVIEW_CHARS]}{ellipsis}"
+
 
 def obj_of(payload: dict[str, Any], key: str) -> dict[str, Any]:
     """Return ``payload[key]`` as a dict; ``{}`` when missing or null."""

@@ -6,6 +6,7 @@ import logging
 from typing import Any
 
 from mcp_server_git.github import _release_format as _fmt
+from mcp_server_git.github._paging import clamp_paging
 from mcp_server_git.github.client import github_client_context
 
 logger = logging.getLogger(__name__)
@@ -121,9 +122,9 @@ async def github_create_release(
 
 
 def _identifier_error(release_id: int | None, tag: str | None) -> str | None:
-    if not release_id and not tag:
+    if release_id is None and not tag:
         return "❌ Either release_id or tag must be provided"
-    if release_id and tag:
+    if release_id is not None and tag:
         return "❌ Only one of release_id or tag can be provided"
     return None
 
@@ -131,7 +132,7 @@ def _identifier_error(release_id: int | None, tag: str | None) -> str | None:
 def _release_endpoint(
     repo_owner: str, repo_name: str, release_id: int | None, tag: str | None
 ) -> str:
-    if release_id:
+    if release_id is not None:
         return f"/repos/{repo_owner}/{repo_name}/releases/{release_id}"
     return f"/repos/{repo_owner}/{repo_name}/releases/tags/{tag}"
 
@@ -154,7 +155,7 @@ async def github_get_release(
     if identifier_error:
         return identifier_error
 
-    identifier = f"ID: {release_id}" if release_id else f"tag: {tag}"
+    identifier = f"ID: {release_id}" if release_id is not None else f"tag: {tag}"
     logger.debug(f"🔍 Getting release for {repo_owner}/{repo_name} ({identifier})")
 
     try:
@@ -164,7 +165,9 @@ async def github_get_release(
             )
 
             if response.status == 404:
-                identifier = f"ID {release_id}" if release_id else f"tag '{tag}'"
+                identifier = (
+                    f"ID {release_id}" if release_id is not None else f"tag '{tag}'"
+                )
                 return f"❌ Release {identifier} not found in {repo_owner}/{repo_name}"
             if response.status != 200:
                 error_text = await response.text()
@@ -199,6 +202,7 @@ async def github_list_releases(
         page: Page number to retrieve
     """
     logger.debug(f"🔍 Listing releases for {repo_owner}/{repo_name}")
+    per_page, page = clamp_paging(per_page, page)
 
     try:
         async with github_client_context() as client:

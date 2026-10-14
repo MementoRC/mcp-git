@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from mcp_server_git.github import _release_format as _fmt
+from mcp_server_git.github._paging import clamp_paging
 from mcp_server_git.github.client import github_client_context
 
 logger = logging.getLogger(__name__)
@@ -158,6 +159,7 @@ async def github_list_release_assets(
     logger.debug(
         f"🔍 Listing assets for release {release_id} in {repo_owner}/{repo_name}"
     )
+    per_page, page = clamp_paging(per_page, page)
 
     try:
         async with github_client_context() as client:

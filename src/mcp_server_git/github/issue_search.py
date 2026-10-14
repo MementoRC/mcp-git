@@ -6,6 +6,7 @@ import logging
 from typing import Any
 
 from mcp_server_git.github._issue_format import format_search_results
+from mcp_server_git.github._paging import clamp_paging
 from mcp_server_git.github.client import github_client_context
 from mcp_server_git.github.issues import github_create_issue, github_update_issue
 
@@ -34,8 +35,8 @@ async def github_search_issues(
 
     try:
         async with github_client_context() as client:
-            # Add repository scope to query
             search_query = f"repo:{repo_owner}/{repo_name} is:issue {query}"
+            per_page, page = clamp_paging(per_page, page)
 
             params = {
                 "q": search_query,

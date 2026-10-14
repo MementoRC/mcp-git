@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
-from mcp_server_git.github._payload import obj_of
+from mcp_server_git.github._payload import body_preview, obj_of
 
 PAGE_FOOTER = "📄 Page {page} (use page parameter to see more)"
 
@@ -65,7 +65,7 @@ def format_release_details(
 
     body = release.get("body")
     if body:
-        output.append(f"\n📝 Description:\n{body}")
+        output.append(f"\n📝 Description:\n{body_preview(body)}")
 
     output.extend(_release_asset_lines(release.get("assets", [])))
     return "\n".join(output)
