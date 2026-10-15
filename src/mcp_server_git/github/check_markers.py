@@ -47,6 +47,12 @@ def bool_marker(ok: object) -> str:
     return "✅" if ok else "❌"
 
 
+def enabled_line(label: str, enabled: object, indent: str = "") -> str:
+    """Status line ``<marker> <label>: ENABLED|DISABLED``."""
+    state = "ENABLED" if enabled else "DISABLED"
+    return f"{indent}{bool_marker(enabled)} {label}: {state}"
+
+
 def check_marker(run: dict) -> str:
     """Render one check run's marker from its status and conclusion.
 

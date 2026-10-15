@@ -5,7 +5,9 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from mcp_server_git.github._failures import http_failure
 from mcp_server_git.github.client import github_client_context
+from mcp_server_git.utils.tool_failure import fail
 
 logger = logging.getLogger(__name__)
 
@@ -59,20 +61,19 @@ async def github_list_rulesets(
             if response.status == 200:
                 return await response.json()
             elif response.status == 404:
-                return f"❌ Repository not found: {repo_owner}/{repo_name}"
+                return fail(f"❌ Repository not found: {repo_owner}/{repo_name}")
             else:
-                error_text = await response.text()
-                return f"❌ Failed to list rulesets: {response.status} - {error_text}"
+                return await http_failure("list rulesets", response)
 
     except ValueError as auth_error:
         logger.error("Authentication error listing rulesets: %s", auth_error)
-        return f"❌ {auth_error}"
+        return fail(f"❌ {auth_error}")
     except ConnectionError as conn_error:
         logger.error("Connection error listing rulesets: %s", conn_error)
-        return f"❌ Network connection failed: {conn_error}"
+        return fail(f"❌ Network connection failed: {conn_error}")
     except Exception as exc:
         logger.error("Unexpected error listing rulesets: %s", exc, exc_info=True)
-        return f"❌ Error listing rulesets: {exc}"
+        return fail(f"❌ Error listing rulesets: {exc}")
 
 
 async def github_get_ruleset(
@@ -92,20 +93,21 @@ async def github_get_ruleset(
             if response.status == 200:
                 return await response.json()
             elif response.status == 404:
-                return f"❌ Ruleset {ruleset_id} not found for {repo_owner}/{repo_name}"
+                return fail(
+                    f"❌ Ruleset {ruleset_id} not found for {repo_owner}/{repo_name}"
+                )
             else:
-                error_text = await response.text()
-                return f"❌ Failed to get ruleset: {response.status} - {error_text}"
+                return await http_failure("get ruleset", response)
 
     except ValueError as auth_error:
         logger.error("Authentication error getting ruleset: %s", auth_error)
-        return f"❌ {auth_error}"
+        return fail(f"❌ {auth_error}")
     except ConnectionError as conn_error:
         logger.error("Connection error getting ruleset: %s", conn_error)
-        return f"❌ Network connection failed: {conn_error}"
+        return fail(f"❌ Network connection failed: {conn_error}")
     except Exception as exc:
         logger.error("Unexpected error getting ruleset: %s", exc, exc_info=True)
-        return f"❌ Error getting ruleset: {exc}"
+        return fail(f"❌ Error getting ruleset: {exc}")
 
 
 async def github_get_branch_rules(
@@ -125,22 +127,21 @@ async def github_get_branch_rules(
             if response.status == 200:
                 return await response.json()
             elif response.status == 404:
-                return f"❌ Branch or repository not found: {repo_owner}/{repo_name}#{branch}"
-            else:
-                error_text = await response.text()
-                return (
-                    f"❌ Failed to get branch rules: {response.status} - {error_text}"
+                return fail(
+                    f"❌ Branch or repository not found: {repo_owner}/{repo_name}#{branch}"
                 )
+            else:
+                return await http_failure("get branch rules", response)
 
     except ValueError as auth_error:
         logger.error("Authentication error getting branch rules: %s", auth_error)
-        return f"❌ {auth_error}"
+        return fail(f"❌ {auth_error}")
     except ConnectionError as conn_error:
         logger.error("Connection error getting branch rules: %s", conn_error)
-        return f"❌ Network connection failed: {conn_error}"
+        return fail(f"❌ Network connection failed: {conn_error}")
     except Exception as exc:
         logger.error("Unexpected error getting branch rules: %s", exc, exc_info=True)
-        return f"❌ Error getting branch rules: {exc}"
+        return fail(f"❌ Error getting branch rules: {exc}")
 
 
 # ---------------------------------------------------------------------------
@@ -191,30 +192,26 @@ async def github_list_code_scanning_alerts(
             if response.status == 200:
                 return await response.json()
             elif response.status == 404:
-                return (
+                return fail(
                     f"❌ Repository not found or code scanning not enabled: "
                     f"{repo_owner}/{repo_name}"
                 )
             else:
-                error_text = await response.text()
-                return (
-                    f"❌ Failed to list code scanning alerts: "
-                    f"{response.status} - {error_text}"
-                )
+                return await http_failure("list code scanning alerts", response)
 
     except ValueError as auth_error:
         logger.error(
             "Authentication error listing code scanning alerts: %s", auth_error
         )
-        return f"❌ {auth_error}"
+        return fail(f"❌ {auth_error}")
     except ConnectionError as conn_error:
         logger.error("Connection error listing code scanning alerts: %s", conn_error)
-        return f"❌ Network connection failed: {conn_error}"
+        return fail(f"❌ Network connection failed: {conn_error}")
     except Exception as exc:
         logger.error(
             "Unexpected error listing code scanning alerts: %s", exc, exc_info=True
         )
-        return f"❌ Error listing code scanning alerts: {exc}"
+        return fail(f"❌ Error listing code scanning alerts: {exc}")
 
 
 async def github_list_code_scanning_analyses(
@@ -249,30 +246,26 @@ async def github_list_code_scanning_analyses(
             if response.status == 200:
                 return await response.json()
             elif response.status == 404:
-                return (
+                return fail(
                     f"❌ Repository not found or code scanning not enabled: "
                     f"{repo_owner}/{repo_name}"
                 )
             else:
-                error_text = await response.text()
-                return (
-                    f"❌ Failed to list code scanning analyses: "
-                    f"{response.status} - {error_text}"
-                )
+                return await http_failure("list code scanning analyses", response)
 
     except ValueError as auth_error:
         logger.error(
             "Authentication error listing code scanning analyses: %s", auth_error
         )
-        return f"❌ {auth_error}"
+        return fail(f"❌ {auth_error}")
     except ConnectionError as conn_error:
         logger.error("Connection error listing code scanning analyses: %s", conn_error)
-        return f"❌ Network connection failed: {conn_error}"
+        return fail(f"❌ Network connection failed: {conn_error}")
     except Exception as exc:
         logger.error(
             "Unexpected error listing code scanning analyses: %s", exc, exc_info=True
         )
-        return f"❌ Error listing code scanning analyses: {exc}"
+        return fail(f"❌ Error listing code scanning analyses: {exc}")
 
 
 async def github_get_code_scanning_default_setup(
@@ -291,34 +284,30 @@ async def github_get_code_scanning_default_setup(
             if response.status == 200:
                 return await response.json()
             elif response.status == 404:
-                return (
+                return fail(
                     f"❌ Repository not found or code scanning not available: "
                     f"{repo_owner}/{repo_name}"
                 )
             else:
-                error_text = await response.text()
-                return (
-                    f"❌ Failed to get code scanning default setup: "
-                    f"{response.status} - {error_text}"
-                )
+                return await http_failure("get code scanning default setup", response)
 
     except ValueError as auth_error:
         logger.error(
             "Authentication error getting code scanning default setup: %s", auth_error
         )
-        return f"❌ {auth_error}"
+        return fail(f"❌ {auth_error}")
     except ConnectionError as conn_error:
         logger.error(
             "Connection error getting code scanning default setup: %s", conn_error
         )
-        return f"❌ Network connection failed: {conn_error}"
+        return fail(f"❌ Network connection failed: {conn_error}")
     except Exception as exc:
         logger.error(
             "Unexpected error getting code scanning default setup: %s",
             exc,
             exc_info=True,
         )
-        return f"❌ Error getting code scanning default setup: {exc}"
+        return fail(f"❌ Error getting code scanning default setup: {exc}")
 
 
 # ---------------------------------------------------------------------------
@@ -356,27 +345,23 @@ async def github_list_secret_scanning_alerts(
             if response.status == 200:
                 return await response.json()
             elif response.status == 404:
-                return (
+                return fail(
                     f"❌ Repository not found or secret scanning not enabled: "
                     f"{repo_owner}/{repo_name}"
                 )
             else:
-                error_text = await response.text()
-                return (
-                    f"❌ Failed to list secret scanning alerts: "
-                    f"{response.status} - {error_text}"
-                )
+                return await http_failure("list secret scanning alerts", response)
 
     except ValueError as auth_error:
         logger.error(
             "Authentication error listing secret scanning alerts: %s", auth_error
         )
-        return f"❌ {auth_error}"
+        return fail(f"❌ {auth_error}")
     except ConnectionError as conn_error:
         logger.error("Connection error listing secret scanning alerts: %s", conn_error)
-        return f"❌ Network connection failed: {conn_error}"
+        return fail(f"❌ Network connection failed: {conn_error}")
     except Exception as exc:
         logger.error(
             "Unexpected error listing secret scanning alerts: %s", exc, exc_info=True
         )
-        return f"❌ Error listing secret scanning alerts: {exc}"
+        return fail(f"❌ Error listing secret scanning alerts: {exc}")

@@ -5,8 +5,11 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from mcp_server_git.github._failures import http_failure
 from mcp_server_git.github._payload import obj_of
+from mcp_server_git.github.check_markers import bool_marker
 from mcp_server_git.github.client import github_client_context
+from mcp_server_git.utils.tool_failure import fail
 
 logger = logging.getLogger(__name__)
 
@@ -25,15 +28,16 @@ async def github_get_actions_permissions(
             )
 
             if response.status == 404:
-                return f"❌ Repository {repo_owner}/{repo_name} not found or Actions not enabled"
+                return fail(
+                    f"❌ Repository {repo_owner}/{repo_name} not found or Actions not enabled"
+                )
             if response.status != 200:
-                error_text = await response.text()
-                return f"❌ Failed to get Actions permissions: {response.status} - {error_text}"
+                return await http_failure("get Actions permissions", response)
 
             data = await response.json()
 
             output = [f"GitHub Actions Permissions for {repo_owner}/{repo_name}:\n"]
-            output.append(f"Enabled: {'✅' if data.get('enabled') else '❌'}")
+            output.append(f"Enabled: {bool_marker(data.get('enabled'))}")
             output.append(f"Allowed Actions: {data.get('allowed_actions', 'N/A')}")
 
             if data.get("selected_actions_url"):
@@ -43,15 +47,15 @@ async def github_get_actions_permissions(
 
     except ValueError as auth_error:
         logger.error(f"Authentication error getting Actions permissions: {auth_error}")
-        return f"❌ {str(auth_error)}"
+        return fail(f"❌ {str(auth_error)}")
     except ConnectionError as conn_error:
         logger.error(f"Connection error getting Actions permissions: {conn_error}")
-        return f"❌ Network connection failed: {str(conn_error)}"
+        return fail(f"❌ Network connection failed: {str(conn_error)}")
     except Exception as e:
         logger.error(
             f"Unexpected error getting Actions permissions: {e}", exc_info=True
         )
-        return f"❌ Error getting Actions permissions: {str(e)}"
+        return fail(f"❌ Error getting Actions permissions: {str(e)}")
 
 
 async def github_update_actions_permissions(
@@ -71,7 +75,7 @@ async def github_update_actions_permissions(
                 payload["enabled"] = enabled
             if allowed_actions is not None:
                 if allowed_actions not in ["all", "local_only", "selected"]:
-                    return (
+                    return fail(
                         "❌ allowed_actions must be 'all', 'local_only', or 'selected'"
                     )
                 payload["allowed_actions"] = allowed_actions
@@ -84,23 +88,22 @@ async def github_update_actions_permissions(
             )
 
             if response.status not in [200, 204]:
-                error_text = await response.text()
-                return f"❌ Failed to update Actions permissions: {response.status} - {error_text}"
+                return await http_failure("update Actions permissions", response)
 
             logger.info("Successfully updated Actions permissions")
             return f"✅ Successfully updated GitHub Actions permissions for {repo_owner}/{repo_name}"
 
     except ValueError as auth_error:
         logger.error(f"Authentication error updating Actions permissions: {auth_error}")
-        return f"❌ {str(auth_error)}"
+        return fail(f"❌ {str(auth_error)}")
     except ConnectionError as conn_error:
         logger.error(f"Connection error updating Actions permissions: {conn_error}")
-        return f"❌ Network connection failed: {str(conn_error)}"
+        return fail(f"❌ Network connection failed: {str(conn_error)}")
     except Exception as e:
         logger.error(
             f"Unexpected error updating Actions permissions: {e}", exc_info=True
         )
-        return f"❌ Error updating Actions permissions: {str(e)}"
+        return fail(f"❌ Error updating Actions permissions: {str(e)}")
 
 
 async def github_get_workflow_permissions(
@@ -117,10 +120,9 @@ async def github_get_workflow_permissions(
             )
 
             if response.status == 404:
-                return f"❌ Repository {repo_owner}/{repo_name} not found"
+                return fail(f"❌ Repository {repo_owner}/{repo_name} not found")
             if response.status != 200:
-                error_text = await response.text()
-                return f"❌ Failed to get workflow permissions: {response.status} - {error_text}"
+                return await http_failure("get workflow permissions", response)
 
             data = await response.json()
 
@@ -129,22 +131,22 @@ async def github_get_workflow_permissions(
                 f"Default Permissions: {data.get('default_workflow_permissions', 'N/A')}"
             )
             output.append(
-                f"Can Approve PR Reviews: {'✅' if data.get('can_approve_pull_request_reviews') else '❌'}"
+                f"Can Approve PR Reviews: {bool_marker(data.get('can_approve_pull_request_reviews'))}"
             )
 
             return "\n".join(output)
 
     except ValueError as auth_error:
         logger.error(f"Authentication error getting workflow permissions: {auth_error}")
-        return f"❌ {str(auth_error)}"
+        return fail(f"❌ {str(auth_error)}")
     except ConnectionError as conn_error:
         logger.error(f"Connection error getting workflow permissions: {conn_error}")
-        return f"❌ Network connection failed: {str(conn_error)}"
+        return fail(f"❌ Network connection failed: {str(conn_error)}")
     except Exception as e:
         logger.error(
             f"Unexpected error getting workflow permissions: {e}", exc_info=True
         )
-        return f"❌ Error getting workflow permissions: {str(e)}"
+        return fail(f"❌ Error getting workflow permissions: {str(e)}")
 
 
 async def github_update_workflow_permissions(
@@ -162,7 +164,9 @@ async def github_update_workflow_permissions(
 
             if default_workflow_permissions is not None:
                 if default_workflow_permissions not in ["read", "write"]:
-                    return "❌ default_workflow_permissions must be 'read' or 'write'"
+                    return fail(
+                        "❌ default_workflow_permissions must be 'read' or 'write'"
+                    )
                 payload["default_workflow_permissions"] = default_workflow_permissions
             if can_approve_pull_request_reviews is not None:
                 payload["can_approve_pull_request_reviews"] = (
@@ -178,8 +182,7 @@ async def github_update_workflow_permissions(
             )
 
             if response.status not in [200, 204]:
-                error_text = await response.text()
-                return f"❌ Failed to update workflow permissions: {response.status} - {error_text}"
+                return await http_failure("update workflow permissions", response)
 
             logger.info("Successfully updated workflow permissions")
             return f"✅ Successfully updated workflow permissions for {repo_owner}/{repo_name}"
@@ -188,15 +191,15 @@ async def github_update_workflow_permissions(
         logger.error(
             f"Authentication error updating workflow permissions: {auth_error}"
         )
-        return f"❌ {str(auth_error)}"
+        return fail(f"❌ {str(auth_error)}")
     except ConnectionError as conn_error:
         logger.error(f"Connection error updating workflow permissions: {conn_error}")
-        return f"❌ Network connection failed: {str(conn_error)}"
+        return fail(f"❌ Network connection failed: {str(conn_error)}")
     except Exception as e:
         logger.error(
             f"Unexpected error updating workflow permissions: {e}", exc_info=True
         )
-        return f"❌ Error updating workflow permissions: {str(e)}"
+        return fail(f"❌ Error updating workflow permissions: {str(e)}")
 
 
 async def github_get_branch_protection(
@@ -214,10 +217,11 @@ async def github_get_branch_protection(
             )
 
             if response.status == 404:
-                return f"❌ Branch protection not found for {branch}. The branch may not exist or have no protection rules."
+                return fail(
+                    f"❌ Branch protection not found for {branch}. The branch may not exist or have no protection rules."
+                )
             if response.status != 200:
-                error_text = await response.text()
-                return f"❌ Failed to get branch protection: {response.status} - {error_text}"
+                return await http_failure("get branch protection", response)
 
             data = await response.json()
 
@@ -227,38 +231,42 @@ async def github_get_branch_protection(
             if data.get("required_status_checks"):
                 checks = data["required_status_checks"]
                 output.append("✅ Required Status Checks:")
-                output.append(f"   Strict: {'✅' if checks.get('strict') else '❌'}")
+                output.append(f"   Strict: {bool_marker(checks.get('strict'))}")
                 contexts = checks.get("contexts", [])
                 if contexts:
                     output.append(f"   Contexts: {', '.join(contexts)}")
                 else:
                     output.append("   Contexts: (none)")
             else:
-                output.append("❌ Required Status Checks: Not configured")
+                output.append(
+                    f"{bool_marker(False)} Required Status Checks: Not configured"
+                )
 
             # Required PR reviews
             if data.get("required_pull_request_reviews"):
                 reviews = data["required_pull_request_reviews"]
                 output.append("\n✅ Required Pull Request Reviews:")
                 output.append(
-                    f"   Dismiss Stale Reviews: {'✅' if reviews.get('dismiss_stale_reviews') else '❌'}"
+                    f"   Dismiss Stale Reviews: {bool_marker(reviews.get('dismiss_stale_reviews'))}"
                 )
                 output.append(
-                    f"   Require Code Owner Reviews: {'✅' if reviews.get('require_code_owner_reviews') else '❌'}"
+                    f"   Require Code Owner Reviews: {bool_marker(reviews.get('require_code_owner_reviews'))}"
                 )
                 output.append(
                     f"   Required Approving Review Count: {reviews.get('required_approving_review_count', 0)}"
                 )
                 output.append(
-                    f"   Require Last Push Approval: {'✅' if reviews.get('require_last_push_approval') else '❌'}"
+                    f"   Require Last Push Approval: {bool_marker(reviews.get('require_last_push_approval'))}"
                 )
             else:
-                output.append("\n❌ Required Pull Request Reviews: Not configured")
+                output.append(
+                    f"\n{bool_marker(False)} Required Pull Request Reviews: Not configured"
+                )
 
             # Enforce admins
             if data.get("enforce_admins"):
                 output.append(
-                    f"\n👮 Enforce Admins: {'✅' if data['enforce_admins'].get('enabled') else '❌'}"
+                    f"\n👮 Enforce Admins: {bool_marker(data['enforce_admins'].get('enabled'))}"
                 )
 
             # Restrictions
@@ -277,32 +285,32 @@ async def github_get_branch_protection(
             # Other settings
             output.append("\n📋 Other Settings:")
             output.append(
-                f"   Required Linear History: {'✅' if obj_of(data, 'required_linear_history').get('enabled') else '❌'}"
+                f"   Required Linear History: {bool_marker(obj_of(data, 'required_linear_history').get('enabled'))}"
             )
             output.append(
-                f"   Allow Force Pushes: {'✅' if obj_of(data, 'allow_force_pushes').get('enabled') else '❌'}"
+                f"   Allow Force Pushes: {bool_marker(obj_of(data, 'allow_force_pushes').get('enabled'))}"
             )
             output.append(
-                f"   Allow Deletions: {'✅' if obj_of(data, 'allow_deletions').get('enabled') else '❌'}"
+                f"   Allow Deletions: {bool_marker(obj_of(data, 'allow_deletions').get('enabled'))}"
             )
             output.append(
-                f"   Required Conversation Resolution: {'✅' if obj_of(data, 'required_conversation_resolution').get('enabled') else '❌'}"
+                f"   Required Conversation Resolution: {bool_marker(obj_of(data, 'required_conversation_resolution').get('enabled'))}"
             )
             output.append(
-                f"   Lock Branch: {'✅' if obj_of(data, 'lock_branch').get('enabled') else '❌'}"
+                f"   Lock Branch: {bool_marker(obj_of(data, 'lock_branch').get('enabled'))}"
             )
 
             return "\n".join(output)
 
     except ValueError as auth_error:
         logger.error(f"Authentication error getting branch protection: {auth_error}")
-        return f"❌ {str(auth_error)}"
+        return fail(f"❌ {str(auth_error)}")
     except ConnectionError as conn_error:
         logger.error(f"Connection error getting branch protection: {conn_error}")
-        return f"❌ Network connection failed: {str(conn_error)}"
+        return fail(f"❌ Network connection failed: {str(conn_error)}")
     except Exception as e:
         logger.error(f"Unexpected error getting branch protection: {e}", exc_info=True)
-        return f"❌ Error getting branch protection: {str(e)}"
+        return fail(f"❌ Error getting branch protection: {str(e)}")
 
 
 async def github_update_branch_protection(
@@ -409,21 +417,20 @@ async def github_update_branch_protection(
             )
 
             if response.status not in [200, 201]:
-                error_text = await response.text()
-                return f"❌ Failed to update branch protection: {response.status} - {error_text}"
+                return await http_failure("update branch protection", response)
 
             logger.info(f"✅ Successfully updated branch protection for {branch}")
             return f"✅ Successfully updated branch protection for {repo_owner}/{repo_name}:{branch}"
 
     except ValueError as auth_error:
         logger.error(f"Authentication error updating branch protection: {auth_error}")
-        return f"❌ {str(auth_error)}"
+        return fail(f"❌ {str(auth_error)}")
     except ConnectionError as conn_error:
         logger.error(f"Connection error updating branch protection: {conn_error}")
-        return f"❌ Network connection failed: {str(conn_error)}"
+        return fail(f"❌ Network connection failed: {str(conn_error)}")
     except Exception as e:
         logger.error(f"Unexpected error updating branch protection: {e}", exc_info=True)
-        return f"❌ Error updating branch protection: {str(e)}"
+        return fail(f"❌ Error updating branch protection: {str(e)}")
 
 
 async def github_delete_branch_protection(
@@ -441,20 +448,19 @@ async def github_delete_branch_protection(
             )
 
             if response.status == 404:
-                return f"❌ Branch protection not found for {branch}"
+                return fail(f"❌ Branch protection not found for {branch}")
             if response.status != 204:
-                error_text = await response.text()
-                return f"❌ Failed to delete branch protection: {response.status} - {error_text}"
+                return await http_failure("delete branch protection", response)
 
             logger.info(f"✅ Successfully deleted branch protection for {branch}")
             return f"✅ Successfully deleted branch protection for {repo_owner}/{repo_name}:{branch}"
 
     except ValueError as auth_error:
         logger.error(f"Authentication error deleting branch protection: {auth_error}")
-        return f"❌ {str(auth_error)}"
+        return fail(f"❌ {str(auth_error)}")
     except ConnectionError as conn_error:
         logger.error(f"Connection error deleting branch protection: {conn_error}")
-        return f"❌ Network connection failed: {str(conn_error)}"
+        return fail(f"❌ Network connection failed: {str(conn_error)}")
     except Exception as e:
         logger.error(f"Unexpected error deleting branch protection: {e}", exc_info=True)
-        return f"❌ Error deleting branch protection: {str(e)}"
+        return fail(f"❌ Error deleting branch protection: {str(e)}")
