@@ -6,7 +6,9 @@ import subprocess
 
 from ..utils.git_import import GitCommandError, Repo
 from ..utils.tool_failure import fail
+from ._commit_runner import CommitTimeoutError, run_commit_process
 from ._gpg import resolve_gpg_key
+from ._lock_retry import READ_ONLY_ENV, retry_after_lock_reap
 from .error_text import clean_git_error_text
 
 logger = logging.getLogger(__name__)
@@ -36,9 +38,8 @@ def git_status(repo: Repo, porcelain: bool = False) -> str:
         Status output string
     """
     if porcelain:
-        return repo.git.status("--porcelain")
-    else:
-        return repo.git.status()
+        return repo.git.status("--porcelain", env=READ_ONLY_ENV)
+    return repo.git.status(env=READ_ONLY_ENV)
 
 
 def git_commit(
@@ -48,6 +49,23 @@ def git_commit(
     gpg_sign: bool = False,
     gpg_key_id: str | None = None,
     allow_empty: bool = False,
+) -> str:
+    """Commit staged changes; retries once if an orphaned index.lock is reaped."""
+    return retry_after_lock_reap(
+        repo,
+        lambda: _git_commit_once(
+            repo, message, amend, gpg_sign, gpg_key_id, allow_empty
+        ),
+    )
+
+
+def _git_commit_once(
+    repo: Repo,
+    message: str,
+    amend: bool,
+    gpg_sign: bool,
+    gpg_key_id: str | None,
+    allow_empty: bool,
 ) -> str:
     """Commit staged changes with optional amend, GPG signing and automatic security enforcement"""
     try:
@@ -78,9 +96,14 @@ def git_commit(
             cmd.append(f"--gpg-sign={force_key_id}")
             cmd.extend(["-m", message])
 
-            result = subprocess.run(
-                cmd, cwd=repo.working_dir, capture_output=True, text=True
-            )
+            try:
+                result = run_commit_process(cmd, repo.working_dir)
+            except CommitTimeoutError as timeout_err:
+                return fail(
+                    f"❌ Commit failed: {timeout_err}\n"
+                    "🔒 The commit process group was terminated "
+                    "(a GPG pinentry or hook may be blocking)"
+                )
             if result.returncode == 0:
                 # Get the commit hash from git log
                 hash_result = subprocess.run(
