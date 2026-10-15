@@ -42,8 +42,16 @@ def interface():
 
 
 @pytest.fixture
-def locked_repo(repo, tmp_path):
-    """Repo with a fresh index.lock (inside the reaper's age threshold)."""
+def locked_repo(repo, tmp_path, monkeypatch):
+    """Repo with a fresh index.lock that is neither waited out nor reaped.
+
+    Holder detection is "unknown", so a young lock is left alone (a dead
+    holder would be waited out and healed, see #292).
+    """
+    for module in ("lock_holders", "lock_reaper"):
+        monkeypatch.setattr(
+            f"mcp_server_git.lean.{module}.has_live_lock_holder", lambda _: None
+        )
     (tmp_path / "new.txt").write_text("x\n")
     (tmp_path / ".git" / "index.lock").write_bytes(b"")
     return repo

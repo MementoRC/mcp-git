@@ -55,13 +55,13 @@ class TestReapStaleIndexLockDirect:
         _age_file(lock, age_seconds=200)
 
         # Act
-        with caplog.at_level(logging.WARNING):
+        with caplog.at_level(logging.INFO):
             reap_stale_index_lock(str(git_dir))
 
         # Assert
         assert not lock.exists()
         assert any("index.lock" in r.message for r in caplog.records)
-        assert any(r.levelno == logging.WARNING for r in caplog.records)
+        assert any(r.levelno == logging.INFO for r in caplog.records)
 
     def test_non_zero_byte_lock_is_never_reaped_regardless_of_age(
         self, tmp_path, monkeypatch

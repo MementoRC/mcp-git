@@ -4,6 +4,7 @@ import logging
 from typing import Any
 
 from ..git import operations as git_ops
+from ..git._lock_retry import run_index_op
 from ..git._tag_ops import git_tag_create, git_tag_delete, git_tag_list
 from ..git.merge_ops import git_merge_file
 from ..git.models import (
@@ -74,7 +75,6 @@ from ..git.operations_extended import (
 )
 from ..utils.git_import import InvalidGitRepositoryError, NoSuchPathError, Repo
 from .interface import ToolDefinition
-from .lock_reaper import reap_stale_index_lock
 
 logger = logging.getLogger(__name__)
 
@@ -123,7 +123,12 @@ def _register_git_tools(interface: Any, git_service: Any):
                     f"repo_path is not a git repository: {repo_path}"
                 ) from err
             if mutates_index:
-                reap_stale_index_lock(repo.git_dir)
+                # Pre-reap + one reap-and-retry on an index.lock conflict (#292).
+                return run_index_op(
+                    repo,
+                    lambda: op_func(repo, **kwargs),
+                    getattr(op_func, "__name__", None),
+                )
             return op_func(repo, **kwargs)
 
         return wrapper
@@ -225,7 +230,7 @@ def _register_git_tools(interface: Any, git_service: Any):
         ),
         ToolDefinition(
             name="git_create_branch",
-            implementation=wrap_repo_op(git_ops.git_create_branch, mutates_index=True),
+            implementation=wrap_repo_op(git_ops.git_create_branch),
             description="Creates a new branch from an optional base branch",
             schema=GitCreateBranch.model_json_schema(),
             domain="git",

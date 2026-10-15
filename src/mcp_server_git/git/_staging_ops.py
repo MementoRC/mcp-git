@@ -6,7 +6,7 @@ from pathlib import Path
 
 from ..utils.git_import import GitCommandError, Repo
 from ..utils.tool_failure import fail
-from ._lock_retry import READ_ONLY_ENV, retry_after_lock_reap
+from ._lock_retry import READ_ONLY_ENV
 from .error_text import clean_git_error_text
 
 logger = logging.getLogger(__name__)
@@ -51,18 +51,6 @@ def git_add(
         When using patterns, overlapping patterns will stage files only once.
         The count reflects unique files staged, not pattern matches.
     """
-    return retry_after_lock_reap(
-        repo, lambda: _git_add_once(repo, files, update_only, patterns)
-    )
-
-
-def _git_add_once(
-    repo: Repo,
-    files: list[str] | None,
-    update_only: bool,
-    patterns: list[str] | None,
-) -> str:
-    """Single attempt of git_add (no lock-conflict retry)."""
     try:
         invalid = _validate_add_options(files, update_only, patterns)
         if invalid:
@@ -194,7 +182,7 @@ def _get_staged_file_set(repo: Repo) -> set:
     nothing to diff against and raises.
     """
     try:
-        staged_output = repo.git.diff("--cached", "--name-only")
+        staged_output = repo.git.diff("--cached", "--name-only", env=READ_ONLY_ENV)
     except GitCommandError:
         staged_output = repo.git.ls_files("--cached")
     return {line.strip() for line in staged_output.split("\n") if line.strip()}

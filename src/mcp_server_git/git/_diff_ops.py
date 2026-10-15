@@ -5,6 +5,7 @@ import re
 
 from ..utils.git_import import GitCommandError, Repo
 from ..utils.tool_failure import fail
+from ._lock_retry import READ_ONLY_ENV
 from .error_text import clean_git_error_text
 
 logger = logging.getLogger(__name__)
@@ -169,7 +170,7 @@ def git_diff_unstaged(
             diff_args.extend(["--"] + paths)
 
         # Execute git diff with arguments
-        diff_output = repo.git.diff(*diff_args)
+        diff_output = repo.git.diff(*diff_args, env=READ_ONLY_ENV)
 
         # Handle name-only output
         if name_only:
@@ -223,7 +224,7 @@ def git_diff_staged(
             diff_args.extend(["--"] + paths)
 
         # Execute git diff with arguments
-        diff_output = repo.git.diff(*diff_args)
+        diff_output = repo.git.diff(*diff_args, env=READ_ONLY_ENV)
 
         # Handle name-only output
         if name_only:
@@ -309,7 +310,7 @@ def git_diff(
         diff_args.extend(_diff_option_args(name_only, stat_only, paths))
 
         # Execute git diff with arguments
-        diff_output = repo.git.diff(*diff_args)
+        diff_output = repo.git.diff(*diff_args, env=READ_ONLY_ENV)
 
         result = _format_diff_result(
             diff_output, diff_description, name_only, stat_only, max_lines

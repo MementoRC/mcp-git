@@ -6,6 +6,7 @@ from typing import Any, Literal
 
 from ..utils.git_import import GitCommandError, Repo
 from ..utils.tool_failure import fail
+from ._lock_retry import run_index_op
 from .error_text import clean_git_error_text
 
 logger = logging.getLogger(__name__)
@@ -16,6 +17,39 @@ __all__ = [
     "git_branch_list",
     "git_merge_base",
 ]
+
+
+def _checkout_new_branch(repo: Repo, head: Any, branch_name: str) -> str:
+    """Switch to a just-created branch through the index.lock reap/retry path.
+
+    Only the checkout is retried (ref creation does not touch the index), so a
+    retry can never fail with "already exists".
+    """
+
+    def attempt() -> str:
+        try:
+            head.checkout()
+        except GitCommandError as e:
+            return fail(
+                f"❌ Branch '{branch_name}' was created but NOT checked out: "
+                f"{clean_git_error_text(e.stderr, 'stderr')}"
+            )
+        return f"✅ Created and switched to branch '{branch_name}'"
+
+    return run_index_op(repo, attempt, "git_create_branch")
+
+
+def _remote_ref_names(repo: Repo) -> list[str]:
+    """Remote refs as full names ('origin/main') and short names ('main')."""
+    names: list[str] = []
+    try:
+        for remote in repo.remotes:
+            names.extend(ref.name for ref in remote.refs)
+            names.extend(ref.name.split("/")[-1] for ref in remote.refs)
+    except Exception:
+        # Ignore remote access errors (e.g., no remotes configured)
+        pass
+    return names
 
 
 def git_create_branch(
@@ -44,21 +78,7 @@ def git_create_branch(
         # Create new branch
         if effective_base:
             # Build list of all valid branch references
-            all_branches = list(existing_branches)
-
-            # Add remote branches if remotes exist
-            try:
-                if repo.remotes:
-                    for remote in repo.remotes:
-                        # Include both full remote ref names (e.g., 'origin/main')
-                        # and short names (e.g., 'main') for compatibility
-                        all_branches.extend([ref.name for ref in remote.refs])
-                        all_branches.extend(
-                            [ref.name.split("/")[-1] for ref in remote.refs]
-                        )
-            except Exception:
-                # Ignore remote access errors (e.g., no remotes configured)
-                pass
+            all_branches = existing_branches + _remote_ref_names(repo)
 
             # Verify base branch exists
             if effective_base not in all_branches:
@@ -69,8 +89,7 @@ def git_create_branch(
             new_head = repo.create_head(branch_name)
 
         if checkout:
-            new_head.checkout()
-            return f"✅ Created and switched to branch '{branch_name}'"
+            return _checkout_new_branch(repo, new_head, branch_name)
         return f"✅ Created branch '{branch_name}' (HEAD unchanged)"
 
     except GitCommandError as e:
