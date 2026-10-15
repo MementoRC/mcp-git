@@ -33,10 +33,6 @@ _PACKAGE_ROOT = Path(mcp_server_git.__file__).resolve().parent
 # Modules still to be migrated in later PRs (#271 parts 3-5). Directory
 # entries end with "/". Each later PR removes its entries here.
 PENDING_PATHS = {
-    # Part 4: github security, permissions, scanning.
-    "github/security.py",
-    "github/permissions.py",
-    "github/scanning.py",
     # Part 5: azure.
     "azure/",
 }
@@ -164,6 +160,6 @@ def test_pending_path_exists_when_listed(entry):
 
 def test_is_pending_matches_exact_file_and_directory_prefix_when_listed():
     assert _is_pending("azure/api.py")
-    assert _is_pending("github/security.py")
+    assert not _is_pending("github/security.py")
     assert not _is_pending("github/pr.py")
     assert not _is_pending("git/_staging_ops.py")

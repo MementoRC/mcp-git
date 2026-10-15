@@ -4,8 +4,11 @@ from __future__ import annotations
 
 import logging
 
+from mcp_server_git.github._failures import http_failure
 from mcp_server_git.github._payload import obj_of
+from mcp_server_git.github.check_markers import bool_marker, enabled_line
 from mcp_server_git.github.client import github_client_context
+from mcp_server_git.utils.tool_failure import fail
 
 logger = logging.getLogger(__name__)
 
@@ -26,24 +29,23 @@ async def github_get_vulnerability_alerts(
             if response.status == 204:
                 return f"✅ Vulnerability alerts (Dependabot) are ENABLED for {repo_owner}/{repo_name}"
             elif response.status == 404:
-                return f"❌ Vulnerability alerts (Dependabot) are DISABLED for {repo_owner}/{repo_name}"
+                return f"{bool_marker(False)} Vulnerability alerts (Dependabot) are DISABLED for {repo_owner}/{repo_name}"
             else:
-                error_text = await response.text()
-                return f"❌ Failed to check vulnerability alerts: {response.status} - {error_text}"
+                return await http_failure("check vulnerability alerts", response)
 
     except ValueError as auth_error:
         logger.error(
             f"Authentication error checking vulnerability alerts: {auth_error}"
         )
-        return f"❌ {str(auth_error)}"
+        return fail(f"❌ {str(auth_error)}")
     except ConnectionError as conn_error:
         logger.error(f"Connection error checking vulnerability alerts: {conn_error}")
-        return f"❌ Network connection failed: {str(conn_error)}"
+        return fail(f"❌ Network connection failed: {str(conn_error)}")
     except Exception as e:
         logger.error(
             f"Unexpected error checking vulnerability alerts: {e}", exc_info=True
         )
-        return f"❌ Error checking vulnerability alerts: {str(e)}"
+        return fail(f"❌ Error checking vulnerability alerts: {str(e)}")
 
 
 async def github_enable_vulnerability_alerts(
@@ -65,22 +67,21 @@ async def github_enable_vulnerability_alerts(
                 )
                 return f"✅ Successfully enabled vulnerability alerts (Dependabot) for {repo_owner}/{repo_name}"
             else:
-                error_text = await response.text()
-                return f"❌ Failed to enable vulnerability alerts: {response.status} - {error_text}"
+                return await http_failure("enable vulnerability alerts", response)
 
     except ValueError as auth_error:
         logger.error(
             f"Authentication error enabling vulnerability alerts: {auth_error}"
         )
-        return f"❌ {str(auth_error)}"
+        return fail(f"❌ {str(auth_error)}")
     except ConnectionError as conn_error:
         logger.error(f"Connection error enabling vulnerability alerts: {conn_error}")
-        return f"❌ Network connection failed: {str(conn_error)}"
+        return fail(f"❌ Network connection failed: {str(conn_error)}")
     except Exception as e:
         logger.error(
             f"Unexpected error enabling vulnerability alerts: {e}", exc_info=True
         )
-        return f"❌ Error enabling vulnerability alerts: {str(e)}"
+        return fail(f"❌ Error enabling vulnerability alerts: {str(e)}")
 
 
 async def github_disable_vulnerability_alerts(
@@ -102,22 +103,21 @@ async def github_disable_vulnerability_alerts(
                 )
                 return f"✅ Successfully disabled vulnerability alerts (Dependabot) for {repo_owner}/{repo_name}"
             else:
-                error_text = await response.text()
-                return f"❌ Failed to disable vulnerability alerts: {response.status} - {error_text}"
+                return await http_failure("disable vulnerability alerts", response)
 
     except ValueError as auth_error:
         logger.error(
             f"Authentication error disabling vulnerability alerts: {auth_error}"
         )
-        return f"❌ {str(auth_error)}"
+        return fail(f"❌ {str(auth_error)}")
     except ConnectionError as conn_error:
         logger.error(f"Connection error disabling vulnerability alerts: {conn_error}")
-        return f"❌ Network connection failed: {str(conn_error)}"
+        return fail(f"❌ Network connection failed: {str(conn_error)}")
     except Exception as e:
         logger.error(
             f"Unexpected error disabling vulnerability alerts: {e}", exc_info=True
         )
-        return f"❌ Error disabling vulnerability alerts: {str(e)}"
+        return fail(f"❌ Error disabling vulnerability alerts: {str(e)}")
 
 
 async def github_get_required_signatures(
@@ -139,24 +139,25 @@ async def github_get_required_signatures(
             if response.status == 200:
                 data = await response.json()
                 enabled = data.get("enabled", False)
-                return f"{'✅' if enabled else '❌'} Required signatures: {'enabled' if enabled else 'disabled'} on {repo_owner}/{repo_name}#{branch}"
+                return f"{bool_marker(enabled)} Required signatures: {'enabled' if enabled else 'disabled'} on {repo_owner}/{repo_name}#{branch}"
             elif response.status == 404:
-                return f"❌ Branch protection or branch not found: {repo_owner}/{repo_name}#{branch}"
+                return fail(
+                    f"❌ Branch protection or branch not found: {repo_owner}/{repo_name}#{branch}"
+                )
             else:
-                error_text = await response.text()
-                return f"❌ Failed to check required signatures: {response.status} - {error_text}"
+                return await http_failure("check required signatures", response)
 
     except ValueError as auth_error:
         logger.error(f"Authentication error checking required signatures: {auth_error}")
-        return f"❌ {str(auth_error)}"
+        return fail(f"❌ {str(auth_error)}")
     except ConnectionError as conn_error:
         logger.error(f"Connection error checking required signatures: {conn_error}")
-        return f"❌ Network connection failed: {str(conn_error)}"
+        return fail(f"❌ Network connection failed: {str(conn_error)}")
     except Exception as e:
         logger.error(
             f"Unexpected error checking required signatures: {e}", exc_info=True
         )
-        return f"❌ Error checking required signatures: {str(e)}"
+        return fail(f"❌ Error checking required signatures: {str(e)}")
 
 
 async def github_enable_required_signatures(
@@ -181,20 +182,19 @@ async def github_enable_required_signatures(
                 )
                 return f"✅ Enabled required signatures on {repo_owner}/{repo_name}#{branch}"
             else:
-                error_text = await response.text()
-                return f"❌ Failed to enable required signatures: {response.status} - {error_text}"
+                return await http_failure("enable required signatures", response)
 
     except ValueError as auth_error:
         logger.error(f"Authentication error enabling required signatures: {auth_error}")
-        return f"❌ {str(auth_error)}"
+        return fail(f"❌ {str(auth_error)}")
     except ConnectionError as conn_error:
         logger.error(f"Connection error enabling required signatures: {conn_error}")
-        return f"❌ Network connection failed: {str(conn_error)}"
+        return fail(f"❌ Network connection failed: {str(conn_error)}")
     except Exception as e:
         logger.error(
             f"Unexpected error enabling required signatures: {e}", exc_info=True
         )
-        return f"❌ Error enabling required signatures: {str(e)}"
+        return fail(f"❌ Error enabling required signatures: {str(e)}")
 
 
 async def github_disable_required_signatures(
@@ -219,22 +219,21 @@ async def github_disable_required_signatures(
                 )
                 return f"✅ Disabled required signatures on {repo_owner}/{repo_name}#{branch}"
             else:
-                error_text = await response.text()
-                return f"❌ Failed to disable required signatures: {response.status} - {error_text}"
+                return await http_failure("disable required signatures", response)
 
     except ValueError as auth_error:
         logger.error(
             f"Authentication error disabling required signatures: {auth_error}"
         )
-        return f"❌ {str(auth_error)}"
+        return fail(f"❌ {str(auth_error)}")
     except ConnectionError as conn_error:
         logger.error(f"Connection error disabling required signatures: {conn_error}")
-        return f"❌ Network connection failed: {str(conn_error)}"
+        return fail(f"❌ Network connection failed: {str(conn_error)}")
     except Exception as e:
         logger.error(
             f"Unexpected error disabling required signatures: {e}", exc_info=True
         )
-        return f"❌ Error disabling required signatures: {str(e)}"
+        return fail(f"❌ Error disabling required signatures: {str(e)}")
 
 
 async def github_get_automated_security_fixes(
@@ -265,28 +264,27 @@ async def github_get_automated_security_fixes(
                 if paused:
                     status_parts.append("(PAUSED)")
 
-                return f"{'✅' if enabled else '❌'} Automated security fixes (Dependabot security updates) are {' '.join(status_parts)} for {repo_owner}/{repo_name}"
+                return f"{bool_marker(enabled)} Automated security fixes (Dependabot security updates) are {' '.join(status_parts)} for {repo_owner}/{repo_name}"
             elif response.status == 404:
-                return f"❌ Automated security fixes feature not available or disabled for {repo_owner}/{repo_name}"
+                return f"{bool_marker(False)} Automated security fixes feature not available or disabled for {repo_owner}/{repo_name}"
             else:
-                error_text = await response.text()
-                return f"❌ Failed to check automated security fixes: {response.status} - {error_text}"
+                return await http_failure("check automated security fixes", response)
 
     except ValueError as auth_error:
         logger.error(
             f"Authentication error checking automated security fixes: {auth_error}"
         )
-        return f"❌ {str(auth_error)}"
+        return fail(f"❌ {str(auth_error)}")
     except ConnectionError as conn_error:
         logger.error(
             f"Connection error checking automated security fixes: {conn_error}"
         )
-        return f"❌ Network connection failed: {str(conn_error)}"
+        return fail(f"❌ Network connection failed: {str(conn_error)}")
     except Exception as e:
         logger.error(
             f"Unexpected error checking automated security fixes: {e}", exc_info=True
         )
-        return f"❌ Error checking automated security fixes: {str(e)}"
+        return fail(f"❌ Error checking automated security fixes: {str(e)}")
 
 
 async def github_enable_automated_security_fixes(
@@ -308,24 +306,23 @@ async def github_enable_automated_security_fixes(
                 )
                 return f"✅ Successfully enabled automated security fixes (Dependabot security updates) for {repo_owner}/{repo_name}"
             else:
-                error_text = await response.text()
-                return f"❌ Failed to enable automated security fixes: {response.status} - {error_text}"
+                return await http_failure("enable automated security fixes", response)
 
     except ValueError as auth_error:
         logger.error(
             f"Authentication error enabling automated security fixes: {auth_error}"
         )
-        return f"❌ {str(auth_error)}"
+        return fail(f"❌ {str(auth_error)}")
     except ConnectionError as conn_error:
         logger.error(
             f"Connection error enabling automated security fixes: {conn_error}"
         )
-        return f"❌ Network connection failed: {str(conn_error)}"
+        return fail(f"❌ Network connection failed: {str(conn_error)}")
     except Exception as e:
         logger.error(
             f"Unexpected error enabling automated security fixes: {e}", exc_info=True
         )
-        return f"❌ Error enabling automated security fixes: {str(e)}"
+        return fail(f"❌ Error enabling automated security fixes: {str(e)}")
 
 
 async def github_disable_automated_security_fixes(
@@ -347,24 +344,23 @@ async def github_disable_automated_security_fixes(
                 )
                 return f"✅ Successfully disabled automated security fixes (Dependabot security updates) for {repo_owner}/{repo_name}"
             else:
-                error_text = await response.text()
-                return f"❌ Failed to disable automated security fixes: {response.status} - {error_text}"
+                return await http_failure("disable automated security fixes", response)
 
     except ValueError as auth_error:
         logger.error(
             f"Authentication error disabling automated security fixes: {auth_error}"
         )
-        return f"❌ {str(auth_error)}"
+        return fail(f"❌ {str(auth_error)}")
     except ConnectionError as conn_error:
         logger.error(
             f"Connection error disabling automated security fixes: {conn_error}"
         )
-        return f"❌ Network connection failed: {str(conn_error)}"
+        return fail(f"❌ Network connection failed: {str(conn_error)}")
     except Exception as e:
         logger.error(
             f"Unexpected error disabling automated security fixes: {e}", exc_info=True
         )
-        return f"❌ Error disabling automated security fixes: {str(e)}"
+        return fail(f"❌ Error disabling automated security fixes: {str(e)}")
 
 
 async def github_get_security_analysis(
@@ -398,7 +394,9 @@ async def github_get_security_analysis(
                 if vuln_response.status == 204:
                     output.append("✅ Vulnerability Alerts (Dependabot): ENABLED")
                 elif vuln_response.status == 404:
-                    output.append("❌ Vulnerability Alerts (Dependabot): DISABLED")
+                    output.append(
+                        enabled_line("Vulnerability Alerts (Dependabot)", False)
+                    )
                 else:
                     output.append(
                         f"⚠️ Vulnerability Alerts: Unable to determine (HTTP {vuln_response.status})"
@@ -422,11 +420,11 @@ async def github_get_security_analysis(
                     if paused:
                         status += " (PAUSED)"
                     output.append(
-                        f"{'✅' if enabled else '❌'} Automated Security Fixes: {status}"
+                        f"{bool_marker(enabled)} Automated Security Fixes: {status}"
                     )
                 else:
                     output.append(
-                        "❌ Automated Security Fixes: DISABLED or unavailable"
+                        f"{bool_marker(False)} Automated Security Fixes: DISABLED or unavailable"
                     )
                 checks_succeeded += 1
             except Exception as e:
@@ -446,10 +444,10 @@ async def github_get_security_analysis(
                         f"   Visibility: {repo_data.get('visibility', 'unknown')}"
                     )
                     output.append(
-                        f"   Private: {'✅' if repo_data.get('private') else '❌'}"
+                        f"   Private: {bool_marker(repo_data.get('private'))}"
                     )
                     output.append(
-                        f"   Archived: {'✅' if repo_data.get('archived') else '❌'}"
+                        f"   Archived: {bool_marker(repo_data.get('archived'))}"
                     )
 
                     # Check for security policy
@@ -457,34 +455,23 @@ async def github_get_security_analysis(
                     if security_policy:
                         output.append("\n🔐 Security & Analysis Features:")
 
-                        # Secret scanning
-                        secret_scanning = obj_of(security_policy, "secret_scanning")
-                        if secret_scanning.get("status") == "enabled":
-                            output.append("   ✅ Secret Scanning: ENABLED")
-                        else:
-                            output.append("   ❌ Secret Scanning: DISABLED")
-
-                        # Secret scanning push protection
-                        push_protection = obj_of(
-                            security_policy, "secret_scanning_push_protection"
-                        )
-                        if push_protection.get("status") == "enabled":
+                        for label, key in (
+                            ("Secret Scanning", "secret_scanning"),
+                            (
+                                "Secret Scanning Push Protection",
+                                "secret_scanning_push_protection",
+                            ),
+                            (
+                                "Dependabot Security Updates",
+                                "dependabot_security_updates",
+                            ),
+                        ):
+                            feature = obj_of(security_policy, key)
                             output.append(
-                                "   ✅ Secret Scanning Push Protection: ENABLED"
+                                enabled_line(
+                                    label, feature.get("status") == "enabled", "   "
+                                )
                             )
-                        else:
-                            output.append(
-                                "   ❌ Secret Scanning Push Protection: DISABLED"
-                            )
-
-                        # Dependabot security updates
-                        dependabot = obj_of(
-                            security_policy, "dependabot_security_updates"
-                        )
-                        if dependabot.get("status") == "enabled":
-                            output.append("   ✅ Dependabot Security Updates: ENABLED")
-                        else:
-                            output.append("   ❌ Dependabot Security Updates: DISABLED")
                 else:
                     output.append(
                         f"\n⚠️ Repository Settings: Unable to fetch (HTTP {repo_response.status})"
@@ -509,10 +496,10 @@ async def github_get_security_analysis(
 
     except ValueError as auth_error:
         logger.error(f"Authentication error getting security analysis: {auth_error}")
-        return f"❌ {str(auth_error)}"
+        return fail(f"❌ {str(auth_error)}")
     except ConnectionError as conn_error:
         logger.error(f"Connection error getting security analysis: {conn_error}")
-        return f"❌ Network connection failed: {str(conn_error)}"
+        return fail(f"❌ Network connection failed: {str(conn_error)}")
     except Exception as e:
         logger.error(f"Unexpected error getting security analysis: {e}", exc_info=True)
-        return f"❌ Error getting security analysis: {str(e)}"
+        return fail(f"❌ Error getting security analysis: {str(e)}")
