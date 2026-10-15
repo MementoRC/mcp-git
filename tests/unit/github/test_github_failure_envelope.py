@@ -10,8 +10,12 @@ import pytest
 
 from mcp_server_git.github.api import (
     github_delete_release,
+    github_get_content,
     github_get_issue,
+    github_get_job_logs,
     github_get_pr_details,
+    github_get_repo_settings,
+    github_list_workflow_runs,
 )
 from mcp_server_git.github.issue_search import github_bulk_update_issues
 from mcp_server_git.lean.interface import GitLeanInterface
@@ -97,6 +101,113 @@ async def test_execute_tool_direct_returns_error_when_issue_is_404(
 
     assert envelope["status"] == "error"
     assert envelope["error"].startswith("❌ Issue #404 not found")
+
+
+@pytest.fixture
+def not_found_client_part3():
+    """Patch ``github_client_context`` in the CI, workflow, contents, repos modules."""
+    response = AsyncMock()
+    response.status = 404
+    response.text = AsyncMock(return_value="Not Found")
+    client = MagicMock()
+    client.get = AsyncMock(return_value=response)
+    patches = [
+        patch(f"mcp_server_git.github.{module}.github_client_context")
+        for module in ("workflows", "ci_logs", "contents", "repos")
+    ]
+    for p in patches:
+        p.start().return_value.__aenter__.return_value = client
+    yield client
+    for p in patches:
+        p.stop()
+
+
+@pytest.mark.asyncio
+async def test_github_list_workflow_runs_returns_tool_failure_when_workflow_not_found(
+    not_found_client_part3,
+):
+    result = await github_list_workflow_runs(
+        "owner", "repo", workflow_id="does-not-exist.yml"
+    )
+
+    assert isinstance(result, ToolFailure)
+    assert result.startswith("❌ Workflow 'does-not-exist.yml' not found in owner/repo")
+
+
+@pytest.mark.asyncio
+async def test_execute_tool_direct_returns_error_when_workflow_not_found(
+    not_found_client_part3, interface
+):
+    envelope = await interface.execute_tool_direct(
+        "github_list_workflow_runs",
+        {
+            "repo_owner": "owner",
+            "repo_name": "repo",
+            "workflow_id": "does-not-exist.yml",
+        },
+    )
+
+    assert envelope["status"] == "error"
+    assert envelope["error"].startswith("❌ Workflow 'does-not-exist.yml' not found")
+
+
+@pytest.mark.asyncio
+async def test_github_get_job_logs_returns_tool_failure_when_job_is_404(
+    not_found_client_part3,
+):
+    result = await github_get_job_logs("owner", "repo", 55)
+
+    assert isinstance(result, ToolFailure)
+    assert result.startswith("❌ Job #55 not found in owner/repo.")
+
+
+@pytest.mark.asyncio
+async def test_github_get_job_logs_returns_tool_failure_when_log_fetch_is_forbidden():
+    job = AsyncMock(status=200)
+    job.json = AsyncMock(return_value={"name": "build"})
+    logs = AsyncMock(status=403)
+    client = MagicMock()
+    client.get = AsyncMock(side_effect=[job, logs])
+    with patch("mcp_server_git.github.ci_logs.github_client_context") as ctx:
+        ctx.return_value.__aenter__.return_value = client
+        result = await github_get_job_logs("owner", "repo", 55)
+
+    assert isinstance(result, ToolFailure)
+    assert result.startswith("Job #55 - build:")
+    assert result.endswith("❌ Access denied for logs. Check repository permissions.")
+
+
+@pytest.mark.asyncio
+async def test_github_get_content_returns_tool_failure_when_path_is_404(
+    not_found_client_part3,
+):
+    result = await github_get_content("owner", "repo", "missing.txt")
+
+    assert isinstance(result, ToolFailure)
+    assert result == "❌ Path 'missing.txt' not found in owner/repo"
+
+
+@pytest.mark.asyncio
+async def test_execute_tool_direct_returns_error_when_content_path_is_404(
+    not_found_client_part3, interface
+):
+    envelope = await interface.execute_tool_direct(
+        "github_get_content",
+        {"repo_owner": "owner", "repo_name": "repo", "path": "missing.txt"},
+    )
+
+    assert envelope["status"] == "error"
+    assert envelope["error"] == "❌ Path 'missing.txt' not found in owner/repo"
+
+
+@pytest.mark.asyncio
+async def test_github_get_repo_settings_returns_tool_failure_when_repo_is_404(
+    not_found_client_part3,
+):
+    result = await github_get_repo_settings("owner", "repo")
+
+    assert isinstance(result, ToolFailure)
+    assert result == "❌ Repository owner/repo not found"
 
 
 def _patch_response(status: int, number: int = 0) -> AsyncMock:

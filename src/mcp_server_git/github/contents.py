@@ -11,6 +11,7 @@ Both work on private repos with the server's existing GITHUB_TOKEN.
 import base64
 import logging
 
+from ..utils.tool_failure import fail
 from ._payload import obj_of
 from .client import github_client_context
 
@@ -50,10 +51,14 @@ async def github_get_content(
 
             if response.status == 404:
                 where = f" at ref '{ref}'" if ref else ""
-                return f"❌ Path '{path}' not found in {repo_owner}/{repo_name}{where}"
+                return fail(
+                    f"❌ Path '{path}' not found in {repo_owner}/{repo_name}{where}"
+                )
             if response.status != 200:
                 error_text = await response.text()
-                return f"❌ Failed to get content: {response.status} - {error_text}"
+                return fail(
+                    f"❌ Failed to get content: {response.status} - {error_text}"
+                )
 
             data = await response.json()
 
@@ -73,7 +78,7 @@ async def github_get_content(
 
             entry_type = data.get("type")
             if entry_type != "file":
-                return (
+                return fail(
                     f"❌ Path '{path}' is a {entry_type}, not a file "
                     f"(sha: {data.get('sha')})"
                 )
@@ -87,10 +92,10 @@ async def github_get_content(
                 try:
                     text = base64.b64decode(raw).decode("utf-8", errors="replace")
                 except Exception as decode_error:  # pragma: no cover - defensive
-                    return f"❌ Failed to decode content: {decode_error}"
+                    return fail(f"❌ Failed to decode content: {decode_error}")
             elif encoding == "none" or not raw:
                 # Files larger than 1MB are not returned by the contents API.
-                return (
+                return fail(
                     f"❌ File '{path}' is too large for the contents API "
                     f"({size} bytes). Use the Git blobs API or a raw download. "
                     f"(sha: {sha})"
@@ -108,13 +113,13 @@ async def github_get_content(
 
     except ValueError as auth_error:
         logger.error(f"Authentication error getting content: {auth_error}")
-        return f"❌ {str(auth_error)}"
+        return fail(f"❌ {str(auth_error)}")
     except ConnectionError as conn_error:
         logger.error(f"Connection error getting content: {conn_error}")
-        return f"❌ Network connection failed: {str(conn_error)}"
+        return fail(f"❌ Network connection failed: {str(conn_error)}")
     except Exception as e:
         logger.error(f"Unexpected error getting content: {e}", exc_info=True)
-        return f"❌ Error getting content: {str(e)}"
+        return fail(f"❌ Error getting content: {str(e)}")
 
 
 async def github_resolve_ref(
@@ -139,10 +144,12 @@ async def github_resolve_ref(
             response = await client.get(endpoint)
 
             if response.status in (404, 422):
-                return f"❌ Ref '{ref}' not found in {repo_owner}/{repo_name}"
+                return fail(f"❌ Ref '{ref}' not found in {repo_owner}/{repo_name}")
             if response.status != 200:
                 error_text = await response.text()
-                return f"❌ Failed to resolve ref: {response.status} - {error_text}"
+                return fail(
+                    f"❌ Failed to resolve ref: {response.status} - {error_text}"
+                )
 
             data = await response.json()
             sha = data.get("sha")
@@ -165,10 +172,10 @@ async def github_resolve_ref(
 
     except ValueError as auth_error:
         logger.error(f"Authentication error resolving ref: {auth_error}")
-        return f"❌ {str(auth_error)}"
+        return fail(f"❌ {str(auth_error)}")
     except ConnectionError as conn_error:
         logger.error(f"Connection error resolving ref: {conn_error}")
-        return f"❌ Network connection failed: {str(conn_error)}"
+        return fail(f"❌ Network connection failed: {str(conn_error)}")
     except Exception as e:
         logger.error(f"Unexpected error resolving ref: {e}", exc_info=True)
-        return f"❌ Error resolving ref: {str(e)}"
+        return fail(f"❌ Error resolving ref: {str(e)}")

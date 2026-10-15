@@ -117,16 +117,10 @@ class TestGithubGetContentViaLeanInterface:
         fails — but on the expected, unrelated missing-credentials path,
         not on path validation, and with no network access required.
 
-        Note on envelope "status" (issue #232): unlike tools whose
-        implementations raise or whose ``_wrap_tool`` catch converts the
-        failure into the ``{"error": ..., "success": False}`` dict shape
-        that ``execute_tool_direct``/``execute_tool`` promote to
-        "status": "error", ``github_get_content`` reports its own domain
-        failures as a plain "❌ ..." string return (see
-        ``github/contents.py``) rather than raising or returning an
-        error-shaped dict. So this call does not exercise the #232
-        dict-envelope defect and its envelope legitimately stays
-        "status": "success" — what this test guards is #206: that the
+        Note on envelope "status" (issues #232, #271): ``github_get_content``
+        reports its domain failures as ``fail("❌ ...")`` (see
+        ``github/contents.py``), so the envelope status is "error" and the
+        message is under ``error``. What this test guards is #206: that the
         *content* of the failure is the credentials message, not a
         path-validation rejection.
         """
@@ -144,6 +138,6 @@ class TestGithubGetContentViaLeanInterface:
 
         rendered = str(result)
         assert "Relative path" not in rendered
-        assert result["status"] == "success"
-        assert "Relative path" not in result["result"]
-        assert "GitHub token not configured" in result["result"]
+        assert result["status"] == "error"
+        assert "Relative path" not in result["error"]
+        assert "GitHub token not configured" in result["error"]

@@ -5,7 +5,9 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from mcp_server_git.github.check_markers import bool_marker as _flag
 from mcp_server_git.github.client import github_client_context
+from mcp_server_git.utils.tool_failure import fail
 
 from .permissions import *  # noqa: F401,F403
 
@@ -24,10 +26,12 @@ async def github_get_repo_settings(
             response = await client.get(f"/repos/{repo_owner}/{repo_name}")
 
             if response.status == 404:
-                return f"❌ Repository {repo_owner}/{repo_name} not found"
+                return fail(f"❌ Repository {repo_owner}/{repo_name} not found")
             if response.status != 200:
                 error_text = await response.text()
-                return f"❌ Failed to get repository settings: {response.status} - {error_text}"
+                return fail(
+                    f"❌ Failed to get repository settings: {response.status} - {error_text}"
+                )
 
             repo = await response.json()
 
@@ -44,41 +48,37 @@ async def github_get_repo_settings(
 
             # Features
             output.append("🔧 Features:")
-            output.append(f"   Issues: {'✅' if repo.get('has_issues') else '❌'}")
-            output.append(f"   Wiki: {'✅' if repo.get('has_wiki') else '❌'}")
-            output.append(f"   Projects: {'✅' if repo.get('has_projects') else '❌'}")
-            output.append(
-                f"   Discussions: {'✅' if repo.get('has_discussions') else '❌'}"
-            )
+            output.append(f"   Issues: {_flag(repo.get('has_issues'))}")
+            output.append(f"   Wiki: {_flag(repo.get('has_wiki'))}")
+            output.append(f"   Projects: {_flag(repo.get('has_projects'))}")
+            output.append(f"   Discussions: {_flag(repo.get('has_discussions'))}")
             output.append("")
 
             # Merge settings
             output.append("🔀 Merge Settings:")
             output.append(
-                f"   Allow Merge Commits: {'✅' if repo.get('allow_merge_commit') else '❌'}"
+                f"   Allow Merge Commits: {_flag(repo.get('allow_merge_commit'))}"
             )
             output.append(
-                f"   Allow Squash Merging: {'✅' if repo.get('allow_squash_merge') else '❌'}"
+                f"   Allow Squash Merging: {_flag(repo.get('allow_squash_merge'))}"
             )
             output.append(
-                f"   Allow Rebase Merging: {'✅' if repo.get('allow_rebase_merge') else '❌'}"
+                f"   Allow Rebase Merging: {_flag(repo.get('allow_rebase_merge'))}"
+            )
+            output.append(f"   Allow Auto-merge: {_flag(repo.get('allow_auto_merge'))}")
+            output.append(
+                f"   Delete Branch on Merge: {_flag(repo.get('delete_branch_on_merge'))}"
             )
             output.append(
-                f"   Allow Auto-merge: {'✅' if repo.get('allow_auto_merge') else '❌'}"
-            )
-            output.append(
-                f"   Delete Branch on Merge: {'✅' if repo.get('delete_branch_on_merge') else '❌'}"
-            )
-            output.append(
-                f"   Allow Update Branch: {'✅' if repo.get('allow_update_branch') else '❌'}"
+                f"   Allow Update Branch: {_flag(repo.get('allow_update_branch'))}"
             )
             output.append("")
 
             # Security
             output.append("🔒 Security:")
-            output.append(f"   Archived: {'✅' if repo.get('archived') else '❌'}")
+            output.append(f"   Archived: {_flag(repo.get('archived'))}")
             output.append(
-                f"   Web Commit Signoff Required: {'✅' if repo.get('web_commit_signoff_required') else '❌'}"
+                f"   Web Commit Signoff Required: {_flag(repo.get('web_commit_signoff_required'))}"
             )
             output.append("")
 
@@ -91,13 +91,13 @@ async def github_get_repo_settings(
 
     except ValueError as auth_error:
         logger.error(f"Authentication error getting repo settings: {auth_error}")
-        return f"❌ {str(auth_error)}"
+        return fail(f"❌ {str(auth_error)}")
     except ConnectionError as conn_error:
         logger.error(f"Connection error getting repo settings: {conn_error}")
-        return f"❌ Network connection failed: {str(conn_error)}"
+        return fail(f"❌ Network connection failed: {str(conn_error)}")
     except Exception as e:
         logger.error(f"Unexpected error getting repo settings: {e}", exc_info=True)
-        return f"❌ Error getting repository settings: {str(e)}"
+        return fail(f"❌ Error getting repository settings: {str(e)}")
 
 
 async def github_update_repo_settings(
@@ -185,7 +185,9 @@ async def github_update_repo_settings(
 
             if response.status != 200:
                 error_text = await response.text()
-                return f"❌ Failed to update repository settings: {response.status} - {error_text}"
+                return fail(
+                    f"❌ Failed to update repository settings: {response.status} - {error_text}"
+                )
 
             result = await response.json()
             updated_fields = list(payload.keys())
@@ -196,13 +198,13 @@ async def github_update_repo_settings(
 
     except ValueError as auth_error:
         logger.error(f"Authentication error updating repo settings: {auth_error}")
-        return f"❌ {str(auth_error)}"
+        return fail(f"❌ {str(auth_error)}")
     except ConnectionError as conn_error:
         logger.error(f"Connection error updating repo settings: {conn_error}")
-        return f"❌ Network connection failed: {str(conn_error)}"
+        return fail(f"❌ Network connection failed: {str(conn_error)}")
     except Exception as e:
         logger.error(f"Unexpected error updating repo settings: {e}", exc_info=True)
-        return f"❌ Error updating repository settings: {str(e)}"
+        return fail(f"❌ Error updating repository settings: {str(e)}")
 
 
 async def github_create_repo(

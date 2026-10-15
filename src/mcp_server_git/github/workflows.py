@@ -8,7 +8,9 @@ from datetime import datetime
 
 from mcp_server_git.github._paging import clamp_paging, invalid_choice
 from mcp_server_git.github._payload import login_of
+from mcp_server_git.github.check_markers import bool_marker
 from mcp_server_git.github.client import github_client_context
+from mcp_server_git.utils.tool_failure import fail
 
 from .ci_logs import *  # noqa: F401,F403
 
@@ -26,6 +28,15 @@ _RUN_CONCLUSIONS = (
 )
 
 
+def _job_status_emoji(job: dict) -> str:
+    """Status glyph for a job line inside a workflow-run report."""
+    return {
+        "completed": bool_marker(job.get("conclusion") == "success"),
+        "in_progress": "🔄",
+        "queued": "⏳",
+    }.get(job["status"], "❓")
+
+
 async def github_get_workflow_run(
     repo_owner: str, repo_name: str, run_id: int, include_logs: bool = False
 ) -> str:
@@ -37,7 +48,9 @@ async def github_get_workflow_run(
                 f"/repos/{repo_owner}/{repo_name}/actions/runs/{run_id}"
             )
             if run_response.status != 200:
-                return f"❌ Failed to get workflow run #{run_id}: {run_response.status}"
+                return fail(
+                    f"❌ Failed to get workflow run #{run_id}: {run_response.status}"
+                )
 
             run_data = await run_response.json()
 
@@ -64,13 +77,7 @@ async def github_get_workflow_run(
                 if jobs:
                     output.append("\nJobs:")
                     for job in jobs:
-                        status_emoji = {
-                            "completed": "✅"
-                            if job.get("conclusion") == "success"
-                            else "❌",
-                            "in_progress": "🔄",
-                            "queued": "⏳",
-                        }.get(job["status"], "❓")
+                        status_emoji = _job_status_emoji(job)
 
                         output.append(f"  {status_emoji} {job['name']}")
                         output.append(f"    Status: {job['status']}")
@@ -81,15 +88,15 @@ async def github_get_workflow_run(
 
     except ValueError as auth_error:
         logger.error(f"Authentication error getting workflow run: {auth_error}")
-        return f"❌ {str(auth_error)}"
+        return fail(f"❌ {str(auth_error)}")
     except ConnectionError as conn_error:
         logger.error(f"Connection error getting workflow run: {conn_error}")
-        return f"❌ Network connection failed: {str(conn_error)}"
+        return fail(f"❌ Network connection failed: {str(conn_error)}")
     except Exception as e:
         logger.error(
             f"Unexpected error getting workflow run #{run_id}: {e}", exc_info=True
         )
-        return f"❌ Error getting workflow run: {str(e)}"
+        return fail(f"❌ Error getting workflow run: {str(e)}")
 
 
 def _build_run_params(
@@ -139,17 +146,23 @@ async def _check_runs_response(
     if response.status == 401:
         response_text = await response.text()
         logger.error(f"🔒 GitHub API authentication failed (401): {response_text}")
-        return "❌ GitHub API authentication failed: Verify your GITHUB_TOKEN has Actions read permissions"
+        return fail(
+            "❌ GitHub API authentication failed: Verify your GITHUB_TOKEN has Actions read permissions"
+        )
     if response.status == 404:
         if workflow_id:
-            return f"❌ Workflow '{workflow_id}' not found in {repo_owner}/{repo_name}. Check workflow file name or ID."
-        return (
+            return fail(
+                f"❌ Workflow '{workflow_id}' not found in {repo_owner}/{repo_name}. Check workflow file name or ID."
+            )
+        return fail(
             f"❌ Repository {repo_owner}/{repo_name} not found or Actions not enabled"
         )
     if response.status != 200:
         response_text = await response.text()
         logger.error(f"❌ GitHub API error {response.status}: {response_text}")
-        return f"❌ Failed to list workflow runs: {response.status} - {response_text}"
+        return fail(
+            f"❌ Failed to list workflow runs: {response.status} - {response_text}"
+        )
     return None
 
 
@@ -217,7 +230,7 @@ def _run_duration(run: dict) -> str | None:
 def _format_run(run: dict) -> list[str]:
     """Render one workflow run as output lines, ending with a blank line."""
     status_emoji = {
-        "completed": "✅" if run.get("conclusion") == "success" else "❌",
+        "completed": bool_marker(run.get("conclusion") == "success"),
         "in_progress": "🔄",
         "queued": "⏳",
         "requested": "📋",
@@ -386,10 +399,10 @@ async def github_list_workflow_runs(
 
     except ValueError as auth_error:
         logger.error(f"Authentication error listing workflow runs: {auth_error}")
-        return f"❌ {str(auth_error)}"
+        return fail(f"❌ {str(auth_error)}")
     except ConnectionError as conn_error:
         logger.error(f"Connection error listing workflow runs: {conn_error}")
-        return f"❌ Network connection failed: {str(conn_error)}"
+        return fail(f"❌ Network connection failed: {str(conn_error)}")
     except Exception as e:
         logger.error(f"Unexpected error listing workflow runs: {e}", exc_info=True)
-        return f"❌ Error listing workflow runs: {str(e)}"
+        return fail(f"❌ Error listing workflow runs: {str(e)}")

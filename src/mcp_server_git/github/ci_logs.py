@@ -14,6 +14,7 @@ from mcp_server_git.github.job_log_selection import (
     build_log_response_lines,
     write_full_log_response,
 )
+from mcp_server_git.utils.tool_failure import ToolFailure, fail
 
 logger = logging.getLogger(__name__)
 
@@ -354,8 +355,7 @@ async def github_get_job_logs(
             )
             logs_error = _check_logs_response(logs_response)
             if logs_error is not None:
-                output.append(logs_error)
-                return "\n".join(output)
+                return _logs_error_result(output, logs_error)
 
             # Get logs as text
             logs_text = await logs_response.text()
@@ -385,19 +385,25 @@ async def github_get_job_logs(
                     )
                 )
             except LogSelectionError as exc:
-                return f"❌ {exc}"
+                return fail(f"❌ {exc}")
 
             return "\n".join(output)
 
     except ValueError as auth_error:
         logger.error(f"Authentication error getting job logs: {auth_error}")
-        return f"❌ {str(auth_error)}"
+        return fail(f"❌ {str(auth_error)}")
     except ConnectionError as conn_error:
         logger.error(f"Connection error getting job logs: {conn_error}")
-        return f"❌ Network connection failed: {str(conn_error)}"
+        return fail(f"❌ Network connection failed: {str(conn_error)}")
     except Exception as e:
         logger.error(f"Unexpected error getting job logs: {e}", exc_info=True)
-        return f"❌ Error getting job logs: {str(e)}"
+        return fail(f"❌ Error getting job logs: {str(e)}")
+
+
+def _logs_error_result(output: list[str], logs_error: str) -> str:
+    """Job header plus the log-fetch message; a failure unless it is a ⚠️ notice."""
+    text = "\n".join([*output, logs_error])
+    return fail(text) if isinstance(logs_error, ToolFailure) else text
 
 
 def _check_job_response(
@@ -405,20 +411,20 @@ def _check_job_response(
 ) -> str | None:
     """Translate a bad job-details HTTP response into a user-facing error."""
     if response.status == 404:
-        return (
+        return fail(
             f"❌ Job #{job_id} not found in {repo_owner}/{repo_name}. "
             "If this is an Azure-backed check run (e.g. conda-forge builds), "
             "use azure_get_logs_for_check_run instead."
         )
     if response.status == 403:
-        return (
+        return fail(
             f"❌ Access denied for job #{job_id}. "
             "Check repository permissions or API rate limits."
         )
     if response.status == 429:
-        return "❌ GitHub API rate limit exceeded. Please wait and try again."
+        return fail("❌ GitHub API rate limit exceeded. Please wait and try again.")
     if response.status != 200:
-        return f"❌ Failed to get job #{job_id}: HTTP {response.status}"
+        return fail(f"❌ Failed to get job #{job_id}: HTTP {response.status}")
     return None
 
 
@@ -442,9 +448,9 @@ def _check_logs_response(response) -> str | None:
     if response.status == 404:
         return "\n⚠️ Logs not available (may have been deleted)"
     if response.status == 403:
-        return "\n❌ Access denied for logs. Check repository permissions."
+        return fail("\n❌ Access denied for logs. Check repository permissions.")
     if response.status == 429:
-        return "\n❌ GitHub API rate limit exceeded for logs."
+        return fail("\n❌ GitHub API rate limit exceeded for logs.")
     if response.status != 200:
-        return f"\n❌ Failed to fetch logs: HTTP {response.status}"
+        return fail(f"\n❌ Failed to fetch logs: HTTP {response.status}")
     return None
