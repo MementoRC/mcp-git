@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from mcp_server_git.github._payload import provided_fields
 from mcp_server_git.github.check_markers import bool_marker as _flag
 from mcp_server_git.github.client import github_client_context
 from mcp_server_git.utils.tool_failure import fail
@@ -130,51 +131,29 @@ async def github_update_repo_settings(
 
     try:
         async with github_client_context() as client:
-            payload: dict[str, Any] = {}
-
-            # Build payload with only provided values
-            if description is not None:
-                payload["description"] = description
-            if homepage is not None:
-                payload["homepage"] = homepage
-            if private is not None:
-                payload["private"] = private
-            if visibility is not None:
-                payload["visibility"] = visibility
-            if default_branch is not None:
-                payload["default_branch"] = default_branch
-            if has_issues is not None:
-                payload["has_issues"] = has_issues
-            if has_projects is not None:
-                payload["has_projects"] = has_projects
-            if has_wiki is not None:
-                payload["has_wiki"] = has_wiki
-            if has_discussions is not None:
-                payload["has_discussions"] = has_discussions
-            if allow_squash_merge is not None:
-                payload["allow_squash_merge"] = allow_squash_merge
-            if allow_merge_commit is not None:
-                payload["allow_merge_commit"] = allow_merge_commit
-            if allow_rebase_merge is not None:
-                payload["allow_rebase_merge"] = allow_rebase_merge
-            if allow_auto_merge is not None:
-                payload["allow_auto_merge"] = allow_auto_merge
-            if delete_branch_on_merge is not None:
-                payload["delete_branch_on_merge"] = delete_branch_on_merge
-            if allow_update_branch is not None:
-                payload["allow_update_branch"] = allow_update_branch
-            if squash_merge_commit_title is not None:
-                payload["squash_merge_commit_title"] = squash_merge_commit_title
-            if squash_merge_commit_message is not None:
-                payload["squash_merge_commit_message"] = squash_merge_commit_message
-            if merge_commit_title is not None:
-                payload["merge_commit_title"] = merge_commit_title
-            if merge_commit_message is not None:
-                payload["merge_commit_message"] = merge_commit_message
-            if archived is not None:
-                payload["archived"] = archived
-            if web_commit_signoff_required is not None:
-                payload["web_commit_signoff_required"] = web_commit_signoff_required
+            payload = provided_fields(
+                description=description,
+                homepage=homepage,
+                private=private,
+                visibility=visibility,
+                default_branch=default_branch,
+                has_issues=has_issues,
+                has_projects=has_projects,
+                has_wiki=has_wiki,
+                has_discussions=has_discussions,
+                allow_squash_merge=allow_squash_merge,
+                allow_merge_commit=allow_merge_commit,
+                allow_rebase_merge=allow_rebase_merge,
+                allow_auto_merge=allow_auto_merge,
+                delete_branch_on_merge=delete_branch_on_merge,
+                allow_update_branch=allow_update_branch,
+                squash_merge_commit_title=squash_merge_commit_title,
+                squash_merge_commit_message=squash_merge_commit_message,
+                merge_commit_title=merge_commit_title,
+                merge_commit_message=merge_commit_message,
+                archived=archived,
+                web_commit_signoff_required=web_commit_signoff_required,
+            )
 
             if not payload:
                 return "⚠️ No update parameters provided"
@@ -205,6 +184,45 @@ async def github_update_repo_settings(
     except Exception as e:
         logger.error(f"Unexpected error updating repo settings: {e}", exc_info=True)
         return fail(f"❌ Error updating repository settings: {str(e)}")
+
+
+def _format_created_repo(result: dict[str, Any], auto_init: bool) -> str:
+    """Render the success message for a freshly created repository."""
+    output = [
+        f"Successfully created repository: {result['full_name']}",
+        "",
+        f"URL: {result['html_url']}",
+        f"Clone (HTTPS): {result['clone_url']}",
+        f"Clone (SSH): {result['ssh_url']}",
+        "Visibility: Private" if result.get("private") else "Visibility: Public",
+    ]
+    if auto_init:
+        output.append("Initialized with README")
+    return "\n".join(output)
+
+
+def _validation_error_message(error_data: dict[str, Any], target: str) -> str:
+    """Render a 422 response: already-exists, or the API's own message."""
+    errors = error_data.get("errors", [])
+    if errors and any(
+        e.get("message", "").startswith("name already exists") for e in errors
+    ):
+        return f"Error: Repository '{target}' already exists"
+    return f"Validation error: {error_data.get('message', 'Unknown error')}"
+
+
+async def _create_repo_error(response: Any, org: str | None, target: str) -> str:
+    """Map a non-201 create-repository response to its error message."""
+    if response.status == 422:
+        return _validation_error_message(await response.json(), target)
+    if response.status == 403:
+        return "Error: Permission denied. Check your token has 'repo' scope."
+    if response.status == 404:
+        if org:
+            return f"Error: Organization '{org}' not found or you don't have access."
+        return f"Error: Not found - {await response.text()}"
+    error_text = await response.text()
+    return f"Error: Failed to create repository: {response.status} - {error_text}"
 
 
 async def github_create_repo(
@@ -244,7 +262,6 @@ async def github_create_repo(
 
     try:
         async with github_client_context() as client:
-            # Build payload with only non-None values
             payload: dict[str, Any] = {
                 "name": name,
                 "private": private,
@@ -252,67 +269,23 @@ async def github_create_repo(
                 "has_issues": has_issues,
                 "has_projects": has_projects,
                 "has_wiki": has_wiki,
+                **provided_fields(
+                    description=description,
+                    gitignore_template=gitignore_template,
+                    license_template=license_template,
+                ),
             }
 
-            if description is not None:
-                payload["description"] = description
-            if gitignore_template is not None:
-                payload["gitignore_template"] = gitignore_template
-            if license_template is not None:
-                payload["license_template"] = license_template
-
             # Use different endpoint for org vs personal repos
-            if org:
-                endpoint = f"/orgs/{org}/repos"
-            else:
-                endpoint = "/user/repos"
-
+            endpoint = f"/orgs/{org}/repos" if org else "/user/repos"
             response = await client.post(endpoint, json=payload)
 
             if response.status == 201:
                 result = await response.json()
                 logger.info(f"Successfully created repository: {result['full_name']}")
+                return _format_created_repo(result, auto_init)
 
-                output = [
-                    f"Successfully created repository: {result['full_name']}",
-                    "",
-                    f"URL: {result['html_url']}",
-                    f"Clone (HTTPS): {result['clone_url']}",
-                    f"Clone (SSH): {result['ssh_url']}",
-                ]
-
-                if result.get("private"):
-                    output.append("Visibility: Private")
-                else:
-                    output.append("Visibility: Public")
-
-                if auto_init:
-                    output.append("Initialized with README")
-
-                return "\n".join(output)
-
-            elif response.status == 422:
-                # Validation error - usually repo already exists
-                error_data = await response.json()
-                errors = error_data.get("errors", [])
-                if errors and any(
-                    e.get("message", "").startswith("name already exists")
-                    for e in errors
-                ):
-                    return f"Error: Repository '{target}' already exists"
-                return f"Validation error: {error_data.get('message', 'Unknown error')}"
-
-            elif response.status == 403:
-                return "Error: Permission denied. Check your token has 'repo' scope."
-
-            elif response.status == 404:
-                if org:
-                    return f"Error: Organization '{org}' not found or you don't have access."
-                return f"Error: Not found - {await response.text()}"
-
-            else:
-                error_text = await response.text()
-                return f"Error: Failed to create repository: {response.status} - {error_text}"
+            return await _create_repo_error(response, org, target)
 
     except ValueError as auth_error:
         logger.error(f"Authentication error creating repo: {auth_error}")

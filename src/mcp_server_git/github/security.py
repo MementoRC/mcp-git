@@ -5,9 +5,9 @@ from __future__ import annotations
 import logging
 
 from mcp_server_git.github._failures import http_failure
-from mcp_server_git.github._payload import obj_of
-from mcp_server_git.github.check_markers import bool_marker, enabled_line
+from mcp_server_git.github.check_markers import bool_marker
 from mcp_server_git.github.client import github_client_context
+from mcp_server_git.github.security_analysis import run_security_checks
 from mcp_server_git.utils.tool_failure import fail
 
 logger = logging.getLogger(__name__)
@@ -381,112 +381,10 @@ async def github_get_security_analysis(
     logger.debug(f"🔍 Getting security analysis for {repo_owner}/{repo_name}")
 
     output = [f"Security Analysis for {repo_owner}/{repo_name}:\n"]
-    checks_succeeded = 0
-    checks_failed = 0
 
     try:
         async with github_client_context() as client:
-            # Check vulnerability alerts
-            try:
-                vuln_response = await client.get(
-                    f"/repos/{repo_owner}/{repo_name}/vulnerability-alerts"
-                )
-                if vuln_response.status == 204:
-                    output.append("✅ Vulnerability Alerts (Dependabot): ENABLED")
-                elif vuln_response.status == 404:
-                    output.append(
-                        enabled_line("Vulnerability Alerts (Dependabot)", False)
-                    )
-                else:
-                    output.append(
-                        f"⚠️ Vulnerability Alerts: Unable to determine (HTTP {vuln_response.status})"
-                    )
-                checks_succeeded += 1
-            except Exception as e:
-                logger.warning(f"Failed to check vulnerability alerts: {e}")
-                output.append(f"⚠️ Vulnerability Alerts: Check failed ({e})")
-                checks_failed += 1
-
-            # Check automated security fixes
-            try:
-                auto_response = await client.get(
-                    f"/repos/{repo_owner}/{repo_name}/automated-security-fixes"
-                )
-                if auto_response.status == 200:
-                    auto_data = await auto_response.json()
-                    enabled = auto_data.get("enabled", False)
-                    paused = auto_data.get("paused", False)
-                    status = "ENABLED" if enabled else "DISABLED"
-                    if paused:
-                        status += " (PAUSED)"
-                    output.append(
-                        f"{bool_marker(enabled)} Automated Security Fixes: {status}"
-                    )
-                else:
-                    output.append(
-                        f"{bool_marker(False)} Automated Security Fixes: DISABLED or unavailable"
-                    )
-                checks_succeeded += 1
-            except Exception as e:
-                logger.warning(f"Failed to check automated security fixes: {e}")
-                output.append(f"⚠️ Automated Security Fixes: Check failed ({e})")
-                checks_failed += 1
-
-            # Get repository settings for additional security info
-            try:
-                repo_response = await client.get(f"/repos/{repo_owner}/{repo_name}")
-                if repo_response.status == 200:
-                    repo_data = await repo_response.json()
-
-                    # Security-related repo settings
-                    output.append("\n📋 Repository Security Settings:")
-                    output.append(
-                        f"   Visibility: {repo_data.get('visibility', 'unknown')}"
-                    )
-                    output.append(
-                        f"   Private: {bool_marker(repo_data.get('private'))}"
-                    )
-                    output.append(
-                        f"   Archived: {bool_marker(repo_data.get('archived'))}"
-                    )
-
-                    # Check for security policy
-                    security_policy = obj_of(repo_data, "security_and_analysis")
-                    if security_policy:
-                        output.append("\n🔐 Security & Analysis Features:")
-
-                        for label, key in (
-                            ("Secret Scanning", "secret_scanning"),
-                            (
-                                "Secret Scanning Push Protection",
-                                "secret_scanning_push_protection",
-                            ),
-                            (
-                                "Dependabot Security Updates",
-                                "dependabot_security_updates",
-                            ),
-                        ):
-                            feature = obj_of(security_policy, key)
-                            output.append(
-                                enabled_line(
-                                    label, feature.get("status") == "enabled", "   "
-                                )
-                            )
-                else:
-                    output.append(
-                        f"\n⚠️ Repository Settings: Unable to fetch (HTTP {repo_response.status})"
-                    )
-                checks_succeeded += 1
-            except Exception as e:
-                logger.warning(f"Failed to get repository settings: {e}")
-                output.append(f"\n⚠️ Repository Settings: Check failed ({e})")
-                checks_failed += 1
-
-            # Add summary if there were any failures
-            if checks_failed > 0:
-                output.append(
-                    f"\n⚠️ Note: {checks_failed} of {checks_succeeded + checks_failed} checks failed"
-                )
+            await run_security_checks(client, repo_owner, repo_name, output)
 
             output.append(
                 f"\n🔗 Security Settings: https://github.com/{repo_owner}/{repo_name}/settings/security_analysis"

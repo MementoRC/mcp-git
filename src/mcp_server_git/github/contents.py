@@ -10,12 +10,72 @@ Both work on private repos with the server's existing GITHUB_TOKEN.
 
 import base64
 import logging
+from typing import Any
 
 from ..utils.tool_failure import fail
 from ._payload import obj_of
 from .client import github_client_context
 
 logger = logging.getLogger(__name__)
+
+
+def _format_directory(
+    repo_owner: str, repo_name: str, path: str, ref: str | None, entries: list[Any]
+) -> str:
+    """Render a directory listing."""
+    output = [
+        f"Directory listing for {repo_owner}/{repo_name}/{path}"
+        + (f" @ {ref}" if ref else "")
+        + f" ({len(entries)} entries):\n"
+    ]
+    for entry in entries:
+        output.append(
+            f"  [{entry.get('type')}] {entry.get('name')} "
+            f"({entry.get('size', 0)} bytes)"
+        )
+    return "\n".join(output)
+
+
+def _decode_content(data: dict[str, Any], path: str) -> tuple[str | None, str | None]:
+    """Return ``(text, None)``, or ``(None, failure_message)`` if unreadable."""
+    encoding = data.get("encoding")
+    raw = data.get("content", "")
+    if encoding == "base64":
+        try:
+            return base64.b64decode(raw).decode("utf-8", errors="replace"), None
+        except Exception as decode_error:  # pragma: no cover - defensive
+            return None, fail(f"❌ Failed to decode content: {decode_error}")
+    if encoding == "none" or not raw:
+        # Files larger than 1MB are not returned by the contents API.
+        return None, fail(
+            f"❌ File '{path}' is too large for the contents API "
+            f"({data.get('size', 0)} bytes). Use the Git blobs API or a raw download. "
+            f"(sha: {data.get('sha')})"
+        )
+    # Unexpected encoding; return the raw payload as-is.
+    return raw, None
+
+
+def _format_file(
+    repo_owner: str, repo_name: str, path: str, ref: str | None, data: dict[str, Any]
+) -> str:
+    """Render a single file's header and decoded text, or a failure."""
+    entry_type = data.get("type")
+    if entry_type != "file":
+        return fail(
+            f"❌ Path '{path}' is a {entry_type}, not a file (sha: {data.get('sha')})"
+        )
+
+    text, failure = _decode_content(data, path)
+    if failure is not None:
+        return failure
+
+    header = (
+        f"Content of {repo_owner}/{repo_name}/{path}"
+        + (f" @ {ref}" if ref else "")
+        + f"\nsha: {data.get('sha')} | size: {data.get('size', 0)} bytes\n"
+    )
+    return header + "\n" + str(text)
 
 
 async def github_get_content(
@@ -64,52 +124,8 @@ async def github_get_content(
 
             # A directory returns a JSON array of entries.
             if isinstance(data, list):
-                output = [
-                    f"Directory listing for {repo_owner}/{repo_name}/{path}"
-                    + (f" @ {ref}" if ref else "")
-                    + f" ({len(data)} entries):\n"
-                ]
-                for entry in data:
-                    output.append(
-                        f"  [{entry.get('type')}] {entry.get('name')} "
-                        f"({entry.get('size', 0)} bytes)"
-                    )
-                return "\n".join(output)
-
-            entry_type = data.get("type")
-            if entry_type != "file":
-                return fail(
-                    f"❌ Path '{path}' is a {entry_type}, not a file "
-                    f"(sha: {data.get('sha')})"
-                )
-
-            sha = data.get("sha")
-            size = data.get("size", 0)
-            encoding = data.get("encoding")
-            raw = data.get("content", "")
-
-            if encoding == "base64":
-                try:
-                    text = base64.b64decode(raw).decode("utf-8", errors="replace")
-                except Exception as decode_error:  # pragma: no cover - defensive
-                    return fail(f"❌ Failed to decode content: {decode_error}")
-            elif encoding == "none" or not raw:
-                # Files larger than 1MB are not returned by the contents API.
-                return fail(
-                    f"❌ File '{path}' is too large for the contents API "
-                    f"({size} bytes). Use the Git blobs API or a raw download. "
-                    f"(sha: {sha})"
-                )
-            else:
-                # Unexpected encoding; return the raw payload as-is.
-                text = raw
-
-            header = (
-                f"Content of {repo_owner}/{repo_name}/{path}"
-                + (f" @ {ref}" if ref else "")
-                + f"\nsha: {sha} | size: {size} bytes\n"
-            )
-            return header + "\n" + text
+                return _format_directory(repo_owner, repo_name, path, ref, data)
+            return _format_file(repo_owner, repo_name, path, ref, data)
 
     except ValueError as auth_error:
         logger.error(f"Authentication error getting content: {auth_error}")
