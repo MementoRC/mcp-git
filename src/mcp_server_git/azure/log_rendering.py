@@ -8,11 +8,13 @@ exactly — are each written once instead of duplicated per tool.
 
 import logging
 
+from ..github._failures import http_failure
 from ..github.job_log_selection import (
     LogSelectionError,
     build_log_response_lines,
     write_full_log_response,
 )
+from ..utils.tool_failure import ToolFailure, fail
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +30,7 @@ FAILURE_RESULTS = {"failed", "canceled", "abandoned"}
 
 async def fetch_timeline(
     client, project: str, build_id: int
-) -> tuple[list[dict], str | None]:
+) -> tuple[list[dict], ToolFailure | None]:
     """Fetch a build's timeline records.
 
     Shared by azure_get_build_logs (for the "<Job> / <Task>" log index),
@@ -41,8 +43,7 @@ async def fetch_timeline(
         f"{project}/_apis/build/builds/{build_id}/timeline?api-version=7.1"
     )
     if response.status != 200:
-        error_text = await response.text()
-        return [], f"❌ Failed to get build timeline: {response.status} - {error_text}"
+        return [], await http_failure("get build timeline", response)
     timeline_data = await response.json()
     return timeline_data.get("records", []), None
 
@@ -134,8 +135,7 @@ async def fetch_and_render_log(
         accept="text/plain",
     )
     if response.status != 200:
-        error_text = await response.text()
-        return f"❌ Failed to get log #{log_id}: {response.status} - {error_text}"
+        return await http_failure(f"get log #{log_id}", response)
 
     logs_text = "\n".join(await read_log_lines(response))
 
@@ -160,6 +160,6 @@ async def fetch_and_render_log(
             )
         )
     except LogSelectionError as exc:
-        return f"❌ {exc}"
+        return fail(f"❌ {exc}")
 
     return "\n".join(header)

@@ -8,6 +8,9 @@ both modules live in log_rendering.py.
 import logging
 from contextlib import asynccontextmanager
 
+from ..github._failures import http_failure
+from ..github.check_markers import CONCLUSION_MARKERS
+from ..utils.tool_failure import fail
 from .client import get_azure_client
 from .log_rendering import (
     FAILURE_RESULTS,
@@ -17,6 +20,13 @@ from .log_rendering import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Timeline record result -> glyph for the failing-jobs report.
+_RESULT_MARKERS = {
+    "failed": CONCLUSION_MARKERS["failure"],
+    "canceled": CONCLUSION_MARKERS["cancelled"],
+    "abandoned": "⚠️",
+}
 
 
 @asynccontextmanager
@@ -66,11 +76,7 @@ async def azure_get_build_status(project: str, build_id: int) -> str:
             )
 
             if response.status != 200:
-                error_text = await response.text()
-                return (
-                    f"❌ Failed to get build #{build_id}: "
-                    f"{response.status} - {error_text}"
-                )
+                return await http_failure(f"get build #{build_id}", response)
 
             build_data = await response.json()
 
@@ -103,12 +109,12 @@ async def azure_get_build_status(project: str, build_id: int) -> str:
 
     except ValueError as auth_error:
         logger.error(f"Authentication error getting build status: {auth_error}")
-        return f"❌ {str(auth_error)}"
+        return fail(f"❌ {str(auth_error)}")
     except Exception as e:
         logger.error(
             f"Error getting build status for build #{build_id}: {e}", exc_info=True
         )
-        return f"❌ Error getting build status: {str(e)}"
+        return fail(f"❌ Error getting build status: {str(e)}")
 
 
 async def azure_get_build_logs(
@@ -166,10 +172,7 @@ async def azure_get_build_logs(
                 )
 
                 if response.status != 200:
-                    error_text = await response.text()
-                    return (
-                        f"❌ Failed to get build logs: {response.status} - {error_text}"
-                    )
+                    return await http_failure("get build logs", response)
 
                 logs_data = await response.json()
                 logs = logs_data.get("value", [])
@@ -206,12 +209,12 @@ async def azure_get_build_logs(
 
     except ValueError as auth_error:
         logger.error(f"Authentication error getting build logs: {auth_error}")
-        return f"❌ {str(auth_error)}"
+        return fail(f"❌ {str(auth_error)}")
     except Exception as e:
         logger.error(
             f"Error getting build logs for build #{build_id}: {e}", exc_info=True
         )
-        return f"❌ Error getting build logs: {str(e)}"
+        return fail(f"❌ Error getting build logs: {str(e)}")
 
 
 async def azure_get_failing_jobs(
@@ -236,11 +239,7 @@ async def azure_get_failing_jobs(
             )
 
             if build_response.status != 200:
-                error_text = await build_response.text()
-                return (
-                    f"❌ Failed to get build #{build_id}: "
-                    f"{build_response.status} - {error_text}"
-                )
+                return await http_failure(f"get build #{build_id}", build_response)
 
             build_data = await build_response.json()
 
@@ -270,9 +269,7 @@ async def azure_get_failing_jobs(
 
             for record in failed_records:
                 record_type = record.get("type", "Unknown")
-                status_emoji = {"failed": "❌", "canceled": "🚫", "abandoned": "⚠️"}.get(
-                    record.get("result", ""), "❓"
-                )
+                status_emoji = _RESULT_MARKERS.get(record.get("result", ""), "❓")
 
                 record_name = record.get("name", "N/A")
                 output.append(f"{status_emoji} {record_type}: {record_name}")
@@ -349,9 +346,9 @@ async def azure_get_failing_jobs(
 
     except ValueError as auth_error:
         logger.error(f"Authentication error getting failing jobs: {auth_error}")
-        return f"❌ {str(auth_error)}"
+        return fail(f"❌ {str(auth_error)}")
     except Exception as e:
         logger.error(
             f"Error getting failing jobs for build #{build_id}: {e}", exc_info=True
         )
-        return f"❌ Error getting failing jobs: {str(e)}"
+        return fail(f"❌ Error getting failing jobs: {str(e)}")

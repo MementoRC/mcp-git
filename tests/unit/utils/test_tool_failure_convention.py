@@ -6,14 +6,15 @@ variable escapes a "no bare ``return "❌..."``" rule, so the guard flags any
 str literal (or f-string) whose leading text is "❌" unless it is an argument
 of ``fail(...)``. The guard discovers every module under
 ``src/mcp_server_git/`` by walking the package, so new modules are covered
-automatically.
+automatically. Every module is checked.
 
 Escape hatches, all explicit:
 
 * Direct arguments of ``logger.x(...)`` / ``logging.x(...)`` are skipped.
 * ``PENDING_PATHS``: relpath prefixes (POSIX, relative to the package root;
-  directories end with "/") not yet migrated. Each later PR of #271 removes
-  its entries, which turns the guard on for those modules.
+  directories end with "/") exempt while a migration is in flight. It is
+  empty now that #271 is complete; the mechanism remains for future
+  migrations.
 * ``ALLOWLIST``: ``(relpath, enclosing function or "<module>")`` -> reason
   for literals that are legitimately not failure results. Entries that no
   longer match a real hit fail the staleness test.
@@ -30,12 +31,9 @@ _MARK = "❌"
 _LOG_OWNERS = {"logger", "logging"}
 _PACKAGE_ROOT = Path(mcp_server_git.__file__).resolve().parent
 
-# Modules still to be migrated in later PRs (#271 parts 3-5). Directory
-# entries end with "/". Each later PR removes its entries here.
-PENDING_PATHS = {
-    # Part 5: azure.
-    "azure/",
-}
+# Modules exempt while a future migration is in flight. Directory entries end
+# with "/". Empty: every module is checked.
+PENDING_PATHS: set[str] = set()
 
 # {(relpath, enclosing function or "<module>"): reason}.
 _EMOJI_REASON = "regex pattern that strips/rewrites ❌ in LLM output, not a result"
@@ -116,8 +114,9 @@ def _relpath(path: Path) -> str:
     return path.relative_to(_PACKAGE_ROOT).as_posix()
 
 
-def _is_pending(relpath: str) -> bool:
-    return any(relpath == p or relpath.startswith(p) for p in PENDING_PATHS)
+def _is_pending(relpath: str, pending: set[str] | None = None) -> bool:
+    entries = PENDING_PATHS if pending is None else pending
+    return any(relpath == p or relpath.startswith(p) for p in entries)
 
 
 _CHECKED_FILES = [p for p in _discovered_files() if not _is_pending(_relpath(p))]
@@ -152,14 +151,23 @@ def test_detector_flags_constant_outside_fail_when_wrapped_or_not():
     assert _mark_hits(logged, "m.py") == []
 
 
-@pytest.mark.parametrize("entry", sorted(PENDING_PATHS))
-def test_pending_path_exists_when_listed(entry):
-    target = _PACKAGE_ROOT / entry
-    assert target.is_dir() if entry.endswith("/") else target.is_file()
+def test_pending_paths_exist_when_listed():
+    missing = [
+        entry
+        for entry in sorted(PENDING_PATHS)
+        if not (
+            (_PACKAGE_ROOT / entry).is_dir()
+            if entry.endswith("/")
+            else (_PACKAGE_ROOT / entry).is_file()
+        )
+    ]
+    assert missing == []
 
 
 def test_is_pending_matches_exact_file_and_directory_prefix_when_listed():
-    assert _is_pending("azure/api.py")
-    assert not _is_pending("github/security.py")
-    assert not _is_pending("github/pr.py")
-    assert not _is_pending("git/_staging_ops.py")
+    pending = {"azure/", "git/_x.py"}
+    assert _is_pending("azure/api.py", pending)
+    assert _is_pending("git/_x.py", pending)
+    assert not _is_pending("git/_x.pyc", {"git/_y.py"})
+    assert not _is_pending("github/security.py", pending)
+    assert not _is_pending("azure/api.py")
