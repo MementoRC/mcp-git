@@ -38,30 +38,57 @@ import os
 import time
 from pathlib import Path
 
+from .lock_holders import has_live_lock_holder
+
 logger = logging.getLogger(__name__)
 
 _DEFAULT_MAX_AGE_SECONDS = 120.0
 _MAX_AGE_ENV_VAR = "MCP_GIT_INDEX_LOCK_MAX_AGE_SECONDS"
+_DEFAULT_ORPHAN_AGE_SECONDS = 15.0
+_ORPHAN_AGE_ENV_VAR = "MCP_GIT_INDEX_LOCK_ORPHAN_AGE_SECONDS"
 
 
-def _max_age_seconds() -> float:
-    raw = os.environ.get(_MAX_AGE_ENV_VAR)
+def _env_seconds(name: str, default: float) -> float:
+    raw = os.environ.get(name)
     if raw is None:
-        return _DEFAULT_MAX_AGE_SECONDS
+        return default
     try:
         return float(raw)
     except ValueError:
         logger.warning(
-            "Invalid %s=%r, falling back to default %.1fs",
-            _MAX_AGE_ENV_VAR,
-            raw,
-            _DEFAULT_MAX_AGE_SECONDS,
+            "Invalid %s=%r, falling back to default %.1fs", name, raw, default
         )
-        return _DEFAULT_MAX_AGE_SECONDS
+        return default
 
 
-def reap_stale_index_lock(git_dir: str) -> None:
+def _max_age_seconds() -> float:
+    return _env_seconds(_MAX_AGE_ENV_VAR, _DEFAULT_MAX_AGE_SECONDS)
+
+
+def _is_reapable(size: int, age_seconds: float, holder: bool | None) -> bool:
+    """Decide whether a lock may be removed.
+
+    With a known holder status: never while held; once orphaned, reap
+    regardless of size after the short orphan threshold. With unknown holder
+    status (no /proc): the conservative zero-byte + long-age rule.
+    """
+    if holder is True:
+        return False
+    if holder is False:
+        return age_seconds >= _env_seconds(
+            _ORPHAN_AGE_ENV_VAR, _DEFAULT_ORPHAN_AGE_SECONDS
+        )
+    return size == 0 and age_seconds >= _max_age_seconds()
+
+
+def reap_stale_index_lock(git_dir: str) -> bool:
     """Remove ``<git_dir>/index.lock`` if it is provably stale.
+
+    Returns True if a lock was removed. When no live process holds the lock
+    (see ``lock_holders``) it is reaped regardless of size once older than
+    ``MCP_GIT_INDEX_LOCK_ORPHAN_AGE_SECONDS`` (default 15s). If holder
+    detection is unavailable the conservative rule described in the module
+    docstring applies unchanged.
 
     ``git_dir`` must already be the RESOLVED git directory (i.e.
     ``Repo.git_dir``, not a bare ``<repo>/.git``) so this works correctly
@@ -80,17 +107,15 @@ def reap_stale_index_lock(git_dir: str) -> None:
     except OSError:
         # No lock present (the common case) or the path is otherwise
         # inaccessible — nothing to reap, let the caller proceed normally.
-        return
-
-    if stat_result.st_size != 0:
-        # A real operation is mid-write. Never touch it.
-        return
+        return False
 
     age_seconds = time.time() - stat_result.st_mtime
-    if age_seconds < _max_age_seconds():
-        # Fresh zero-byte lock — could be a genuinely in-flight operation
-        # that hasn't started writing yet. Leave it alone.
-        return
+    if not _is_reapable(
+        stat_result.st_size, age_seconds, has_live_lock_holder(git_dir)
+    ):
+        # Held by a live process, or too fresh / partially written under the
+        # conservative rule. Never touch it.
+        return False
 
     try:
         lock_path.unlink()
@@ -98,10 +123,12 @@ def reap_stale_index_lock(git_dir: str) -> None:
         # Lost a race with the process that owns the lock, or a
         # permissions issue — let the underlying git error surface
         # normally rather than raising from the reaper.
-        return
+        return False
 
     logger.warning(
-        "Reaped stale zero-byte index.lock at %s (age=%.1fs)",
+        "Reaped stale index.lock at %s (size=%d, age=%.1fs)",
         lock_path,
+        stat_result.st_size,
         age_seconds,
     )
+    return True

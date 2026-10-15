@@ -78,7 +78,9 @@ class TestGitAdd:
         assert "✅ Added 1 file(s) to staging area: deleted_file.py" in result
         mock_repo.git.add.assert_called_once_with(*files)
         # Should call git status to check for deleted files
-        mock_repo.git.status.assert_called_once_with("--porcelain")
+        mock_repo.git.status.assert_called_once_with(
+            "--porcelain", env={"GIT_OPTIONAL_LOCKS": "0"}
+        )
 
     @patch("mcp_server_git.git._staging_ops.Path")
     def test_git_add_rejects_truly_missing_files(self, mock_path_class):

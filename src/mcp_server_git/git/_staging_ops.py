@@ -6,6 +6,7 @@ from pathlib import Path
 
 from ..utils.git_import import GitCommandError, Repo
 from ..utils.tool_failure import fail
+from ._lock_retry import READ_ONLY_ENV, retry_after_lock_reap
 from .error_text import clean_git_error_text
 
 logger = logging.getLogger(__name__)
@@ -50,6 +51,18 @@ def git_add(
         When using patterns, overlapping patterns will stage files only once.
         The count reflects unique files staged, not pattern matches.
     """
+    return retry_after_lock_reap(
+        repo, lambda: _git_add_once(repo, files, update_only, patterns)
+    )
+
+
+def _git_add_once(
+    repo: Repo,
+    files: list[str] | None,
+    update_only: bool,
+    patterns: list[str] | None,
+) -> str:
+    """Single attempt of git_add (no lock-conflict retry)."""
     try:
         invalid = _validate_add_options(files, update_only, patterns)
         if invalid:
@@ -148,7 +161,8 @@ def _parse_porcelain_paths(status_output: str) -> set:
 
 def _add_files(repo: Repo, files: list[str]) -> str:
     """Stage explicit file paths after validating they exist or are in git status."""
-    status_files = _parse_porcelain_paths(repo.git.status("--porcelain"))
+    status_output = repo.git.status("--porcelain", env=READ_ONLY_ENV)
+    status_files = _parse_porcelain_paths(status_output)
     missing_files = [
         file for file in files if not _file_exists_or_in_git(repo, file, status_files)
     ]
