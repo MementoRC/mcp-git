@@ -8,6 +8,7 @@ duplicating the logic.
 import os
 
 from ..utils.git_import import Repo
+from ..utils.tool_failure import fail
 
 
 def resolve_gpg_key(
@@ -34,5 +35,7 @@ def resolve_gpg_key(
     except Exception:
         return (
             None,
-            "❌ Could not determine GPG signing key. Please configure GPG_SIGNING_KEY env var",
+            fail(
+                "❌ Could not determine GPG signing key. Please configure GPG_SIGNING_KEY env var"
+            ),
         )

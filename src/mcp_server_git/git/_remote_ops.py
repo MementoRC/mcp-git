@@ -3,6 +3,7 @@
 from pathlib import Path
 
 from ..utils.git_import import GitCommandError, Repo
+from ..utils.tool_failure import fail
 from ._github_token import _get_github_token_from_cli
 from ._push_ops import git_push
 from .error_text import clean_git_error_text
@@ -30,7 +31,7 @@ def git_pull(repo: Repo, remote: str = "origin", branch: str | None = None) -> s
             try:
                 branch = repo.active_branch.name
             except TypeError:  # Detached HEAD or no commits
-                return "❌ No active branch found and no branch specified"
+                return fail("❌ No active branch found and no branch specified")
 
         # Perform pull
         if branch:
@@ -43,13 +44,15 @@ def git_pull(repo: Repo, remote: str = "origin", branch: str | None = None) -> s
     except GitCommandError as e:
         error_text = clean_git_error_text(e.stderr, "stderr")
         if "Authentication failed" in error_text:
-            return f"❌ Authentication failed. Check credentials for {remote}"
+            return fail(f"❌ Authentication failed. Check credentials for {remote}")
         elif "merge conflict" in error_text.lower():
-            return "❌ Pull failed due to merge conflicts. Resolve conflicts and retry"
+            return fail(
+                "❌ Pull failed due to merge conflicts. Resolve conflicts and retry"
+            )
         else:
-            return f"❌ Pull failed (exit {e.status}): {error_text}"
+            return fail(f"❌ Pull failed (exit {e.status}): {error_text}")
     except Exception as e:
-        return f"❌ Pull error: {str(e)}"
+        return fail(f"❌ Pull error: {str(e)}")
 
 
 def git_remote_list(repo: Repo, verbose: bool = False) -> str:
@@ -60,9 +63,11 @@ def git_remote_list(repo: Repo, verbose: bool = False) -> str:
         else:
             return repo.git.remote()
     except GitCommandError as e:
-        return f"❌ Remote list failed: {clean_git_error_text(e.stderr, 'stderr')}"
+        return fail(
+            f"❌ Remote list failed: {clean_git_error_text(e.stderr, 'stderr')}"
+        )
     except Exception as e:
-        return f"❌ Remote list error: {str(e)}"
+        return fail(f"❌ Remote list error: {str(e)}")
 
 
 def git_remote_add(repo: Repo, name: str, url: str) -> str:
@@ -71,9 +76,9 @@ def git_remote_add(repo: Repo, name: str, url: str) -> str:
         repo.git.remote("add", name, url)
         return f"✅ Successfully added remote '{name}' -> {url}"
     except GitCommandError as e:
-        return f"❌ Remote add failed: {clean_git_error_text(e.stderr, 'stderr')}"
+        return fail(f"❌ Remote add failed: {clean_git_error_text(e.stderr, 'stderr')}")
     except Exception as e:
-        return f"❌ Remote add error: {str(e)}"
+        return fail(f"❌ Remote add error: {str(e)}")
 
 
 def git_remote_remove(repo: Repo, name: str) -> str:
@@ -82,9 +87,11 @@ def git_remote_remove(repo: Repo, name: str) -> str:
         repo.git.remote("remove", name)
         return f"✅ Successfully removed remote '{name}'"
     except GitCommandError as e:
-        return f"❌ Remote remove failed: {clean_git_error_text(e.stderr, 'stderr')}"
+        return fail(
+            f"❌ Remote remove failed: {clean_git_error_text(e.stderr, 'stderr')}"
+        )
     except Exception as e:
-        return f"❌ Remote remove error: {str(e)}"
+        return fail(f"❌ Remote remove error: {str(e)}")
 
 
 def git_remote_rename(repo: Repo, old_name: str, new_name: str) -> str:
@@ -93,9 +100,11 @@ def git_remote_rename(repo: Repo, old_name: str, new_name: str) -> str:
         repo.git.remote("rename", old_name, new_name)
         return f"✅ Successfully renamed remote '{old_name}' to '{new_name}'"
     except GitCommandError as e:
-        return f"❌ Remote rename failed: {clean_git_error_text(e.stderr, 'stderr')}"
+        return fail(
+            f"❌ Remote rename failed: {clean_git_error_text(e.stderr, 'stderr')}"
+        )
     except Exception as e:
-        return f"❌ Remote rename error: {str(e)}"
+        return fail(f"❌ Remote rename error: {str(e)}")
 
 
 def git_remote_set_url(repo: Repo, name: str, url: str) -> str:
@@ -104,9 +113,11 @@ def git_remote_set_url(repo: Repo, name: str, url: str) -> str:
         repo.git.remote("set-url", name, url)
         return f"✅ Successfully set URL for remote '{name}' -> {url}"
     except GitCommandError as e:
-        return f"❌ Remote set-url failed: {clean_git_error_text(e.stderr, 'stderr')}"
+        return fail(
+            f"❌ Remote set-url failed: {clean_git_error_text(e.stderr, 'stderr')}"
+        )
     except Exception as e:
-        return f"❌ Remote set-url error: {str(e)}"
+        return fail(f"❌ Remote set-url error: {str(e)}")
 
 
 def git_remote_get_url(repo: Repo, name: str) -> str:
@@ -115,9 +126,11 @@ def git_remote_get_url(repo: Repo, name: str) -> str:
         url = repo.git.remote("get-url", name)
         return f"Remote '{name}' URL: {url}"
     except GitCommandError as e:
-        return f"❌ Remote get-url failed: {clean_git_error_text(e.stderr, 'stderr')}"
+        return fail(
+            f"❌ Remote get-url failed: {clean_git_error_text(e.stderr, 'stderr')}"
+        )
     except Exception as e:
-        return f"❌ Remote get-url error: {str(e)}"
+        return fail(f"❌ Remote get-url error: {str(e)}")
 
 
 def git_clone(
@@ -154,9 +167,11 @@ def git_clone(
     except ValueError:
         raise
     except GitCommandError as e:
-        return f"❌ Clone failed (exit {e.status}): {clean_git_error_text(e.stderr, 'stderr')}"
+        return fail(
+            f"❌ Clone failed (exit {e.status}): {clean_git_error_text(e.stderr, 'stderr')}"
+        )
     except Exception as e:
-        return f"❌ Clone error: {str(e)}"
+        return fail(f"❌ Clone error: {str(e)}")
 
 
 def git_fetch(
@@ -184,6 +199,6 @@ def git_fetch(
                 " (with prune)" if prune else ""
             )
     except GitCommandError as e:
-        return f"❌ Fetch failed: {clean_git_error_text(e.stderr, 'stderr')}"
+        return fail(f"❌ Fetch failed: {clean_git_error_text(e.stderr, 'stderr')}")
     except Exception as e:
-        return f"❌ Fetch error: {str(e)}"
+        return fail(f"❌ Fetch error: {str(e)}")

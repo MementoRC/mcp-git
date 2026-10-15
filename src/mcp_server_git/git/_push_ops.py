@@ -6,6 +6,7 @@ import subprocess
 from pathlib import Path
 
 from ..utils.git_import import GitCommandError, Repo
+from ..utils.tool_failure import fail
 from ._github_token import _resolve_github_token
 from .error_text import clean_git_error_text
 
@@ -17,10 +18,10 @@ __all__ = ["git_push"]
 
 _DRY_RUN_SUFFIX = " (dry-run; no remote state modified)"
 _AUTH_HELP = (
-    "❌ Authentication failed. Configure GITHUB_TOKEN environment variable "
+    "Authentication failed. Configure GITHUB_TOKEN environment variable "
     "or GitHub CLI authentication (gh auth login)\n"
 )
-_PERMISSION_DENIED = "❌ Permission denied. Check repository access permissions"
+_PERMISSION_DENIED = fail("❌ Permission denied. Check repository access permissions")
 
 
 def _lease_flag(expect: str | None, refname: str | None) -> str:
@@ -43,7 +44,7 @@ def _push_rejected_message(force: bool, force_with_lease: bool) -> str:
     were, repeating them reads as caller error and hides the real cause (#237).
     """
     if force_with_lease:
-        return (
+        return fail(
             "❌ Push rejected (non-fast-forward) even though force_with_lease=True. "
             "The lease was refused because the remote ref moved since your last "
             "fetch. Fetch and re-inspect the remote tip, then retry — passing "
@@ -51,13 +52,13 @@ def _push_rejected_message(force: bool, force_with_lease: bool) -> str:
             "intend to replace."
         )
     if force:
-        return (
+        return fail(
             "❌ Push rejected (non-fast-forward) even though force=True. "
             "The remote refused the forced update; this is usually branch "
             "protection or receive.denyNonFastForwards on the server, not a "
             "local problem."
         )
-    return (
+    return fail(
         "❌ Push rejected (non-fast-forward). "
         "Use force_with_lease=True (safe) or force=True (unconditional)"
     )
@@ -68,12 +69,12 @@ def _validate_force_args(
 ) -> str | None:
     """Validate force-push parameter combinations (issue #161)."""
     if force and force_with_lease:
-        return (
+        return fail(
             "❌ force and force_with_lease are mutually exclusive. "
             "Prefer force_with_lease for safety."
         )
     if force_with_lease_expect is not None and not force_with_lease:
-        return "❌ force_with_lease_expect requires force_with_lease=True"
+        return fail("❌ force_with_lease_expect requires force_with_lease=True")
     return None
 
 
@@ -87,22 +88,24 @@ def _validate_delete_args(
 ) -> str | None:
     """Validate delete combinations (issue #173)."""
     if not branch:
-        return "❌ delete=True requires branch to be set"
+        return fail("❌ delete=True requires branch to be set")
     if force or force_with_lease or force_if_includes:
-        return "❌ delete=True cannot be combined with force/force_with_lease/force_if_includes"
+        return fail(
+            "❌ delete=True cannot be combined with force/force_with_lease/force_if_includes"
+        )
     if set_upstream:
-        return "❌ delete=True cannot be combined with set_upstream"
+        return fail("❌ delete=True cannot be combined with set_upstream")
     if refspec is not None:
-        return "❌ delete=True cannot be combined with refspec"
+        return fail("❌ delete=True cannot be combined with refspec")
     return None
 
 
 def _validate_refspec_args(branch: str | None, set_upstream: bool) -> str | None:
     """Validate refspec combinations (issue #173)."""
     if branch is not None:
-        return "❌ refspec cannot be combined with branch"
+        return fail("❌ refspec cannot be combined with branch")
     if set_upstream:
-        return "❌ refspec cannot be combined with set_upstream"
+        return fail("❌ refspec cannot be combined with set_upstream")
     return None
 
 
@@ -248,8 +251,8 @@ def _system_git_failure(
     if "Authentication failed" in error_output or "401" in error_output:
         repo_env = Path(repo.working_dir) / ".env"
         token_status = "SET" if os.getenv("GITHUB_TOKEN") else "NOT SET"
-        return (
-            f"{_AUTH_HELP}"
+        return fail(
+            f"❌ {_AUTH_HELP}"
             f"🔍 DEBUG: GITHUB_TOKEN: {token_status}, "
             f".env exists: {repo_env.exists()}, "
             f"working_dir: {repo.working_dir}\n"
@@ -259,7 +262,7 @@ def _system_git_failure(
         return _PERMISSION_DENIED
     if "non-fast-forward" in error_output:
         return _push_rejected_message(force, force_with_lease)
-    return f"❌ Push failed: {error_output}"
+    return fail(f"❌ Push failed: {error_output}")
 
 
 def _push_with_system_git(
@@ -294,9 +297,11 @@ def _push_with_system_git(
             return success_msg + "\n🔐 Used system git authentication"
         return _system_git_failure(repo, result.stderr.strip(), force, force_with_lease)
     except subprocess.TimeoutExpired:
-        return "❌ Push operation timed out. Check network connection and repository access"
+        return fail(
+            "❌ Push operation timed out. Check network connection and repository access"
+        )
     except Exception as e:
-        return f"❌ System git push failed: {str(e)}"
+        return fail(f"❌ System git push failed: {str(e)}")
 
 
 def _push_github_https(
@@ -332,7 +337,7 @@ def _push_regular(
         error_text = clean_git_error_text(e.stderr, "stderr")
         if "non-fast-forward" in error_text:
             return _push_rejected_message(force, force_with_lease)
-        return f"❌ Push failed (exit {e.status}): {error_text}"
+        return fail(f"❌ Push failed (exit {e.status}): {error_text}")
 
 
 def _outer_git_error(
@@ -349,8 +354,8 @@ def _outer_git_error(
         token_info = (
             f"length={len(token)}, starts_with={token[:4]}..." if token else "NOT SET"
         )
-        return (
-            f"{_AUTH_HELP}"
+        return fail(
+            f"❌ {_AUTH_HELP}"
             f"🔍 DEBUG [OUTER_EXCEPTION]: GITHUB_TOKEN: {token_info}, "
             f".env exists: {repo_env.exists()}, "
             f"working_dir: {repo.working_dir}\n"
@@ -360,7 +365,7 @@ def _outer_git_error(
         return _PERMISSION_DENIED
     if "non-fast-forward" in error_text:
         return _push_rejected_message(force, force_with_lease)
-    return f"❌ Push failed (exit {status}): {error_text}"
+    return fail(f"❌ Push failed (exit {status}): {error_text}")
 
 
 def git_push(
@@ -437,7 +442,7 @@ def git_push(
             try:
                 branch = repo.active_branch.name
             except TypeError:  # Detached HEAD or no commits
-                return "❌ No active branch found and no branch specified"
+                return fail("❌ No active branch found and no branch specified")
 
         push_args = _build_push_args(
             remote,
@@ -468,4 +473,4 @@ def git_push(
         error_text = clean_git_error_text(e.stderr, "stderr")
         return _outer_git_error(repo, error_text, e.status, force, force_with_lease)
     except Exception as e:
-        return f"❌ Push error: {str(e)}"
+        return fail(f"❌ Push error: {str(e)}")

@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 
 from ..utils.git_import import GitCommandError, Repo
+from ..utils.tool_failure import fail
 from .error_text import clean_git_error_text
 
 logger = logging.getLogger(__name__)
@@ -63,12 +64,12 @@ def git_add(
         return _NO_FILES_MESSAGE
 
     except GitCommandError as e:
-        return f"❌ Git add failed: {clean_git_error_text(e.stderr, 'stderr')}"
+        return fail(f"❌ Git add failed: {clean_git_error_text(e.stderr, 'stderr')}")
     except Exception as e:
-        return f"❌ Git add failed: {str(e)}"
+        return fail(f"❌ Git add failed: {str(e)}")
 
 
-_NO_FILES_MESSAGE = (
+_NO_FILES_MESSAGE = fail(
     "❌ No files specified. Use files, update_only, or patterns parameter."
 )
 _DANGEROUS_PATTERN_CHARS = [";", "|", "&", "`", "$", "(", ")"]
@@ -87,7 +88,9 @@ def _validate_add_options(
         provided_options.append("patterns")
 
     if len(provided_options) > 1:
-        return f"❌ Conflicting parameters: {', '.join(provided_options)}. Use only one method to specify what to add."
+        return fail(
+            f"❌ Conflicting parameters: {', '.join(provided_options)}. Use only one method to specify what to add."
+        )
     if len(provided_options) == 0:
         return _NO_FILES_MESSAGE
     return None
@@ -111,7 +114,7 @@ def _add_patterns(repo: Repo, patterns: list[str]) -> str:
     # Validate patterns for safety (no command injection)
     for pattern in patterns:
         if any(char in pattern for char in _DANGEROUS_PATTERN_CHARS):
-            return f"❌ Invalid characters detected in pattern: {pattern}"
+            return fail(f"❌ Invalid characters detected in pattern: {pattern}")
 
     # Report the delta, not the total staged set (which would report
     # success/failure based on stale state from an earlier staging call).
@@ -128,7 +131,9 @@ def _add_patterns(repo: Repo, patterns: list[str]) -> str:
             )
         return f"⚠️ No files matched patterns: {', '.join(patterns)}"
     except GitCommandError as e:
-        return f"❌ Pattern matching failed: {clean_git_error_text(e.stderr, 'stderr')}"
+        return fail(
+            f"❌ Pattern matching failed: {clean_git_error_text(e.stderr, 'stderr')}"
+        )
 
 
 def _parse_porcelain_paths(status_output: str) -> set:
@@ -148,7 +153,7 @@ def _add_files(repo: Repo, files: list[str]) -> str:
         file for file in files if not _file_exists_or_in_git(repo, file, status_files)
     ]
     if missing_files:
-        return f"❌ Files not found: {', '.join(missing_files)}"
+        return fail(f"❌ Files not found: {', '.join(missing_files)}")
 
     # Snapshot the index before/after the add and report the actual
     # difference. Pathspecs like "." or a directory never equal a staged
@@ -273,7 +278,7 @@ def git_reset(
             try:
                 repo.git.rev_parse(target)
             except GitCommandError:
-                return f"❌ Target '{target}' does not exist"
+                return fail(f"❌ Target '{target}' does not exist")
 
         missing_file = _missing_reset_file_message(repo, files)
         if missing_file:
@@ -285,9 +290,9 @@ def git_reset(
         return _reset_success_message(mode, target, files, status_before)
 
     except GitCommandError as e:
-        return f"❌ Reset failed: {clean_git_error_text(e.stderr, 'stderr')}"
+        return fail(f"❌ Reset failed: {clean_git_error_text(e.stderr, 'stderr')}")
     except Exception as e:
-        return f"❌ Reset error: {str(e)}"
+        return fail(f"❌ Reset error: {str(e)}")
 
 
 _VALID_RESET_MODES = ["soft", "mixed", "hard"]
@@ -296,7 +301,9 @@ _VALID_RESET_MODES = ["soft", "mixed", "hard"]
 def _invalid_reset_mode_message(mode: str | None) -> str | None:
     """Return an error message when *mode* is set but not a valid reset mode."""
     if mode and mode not in _VALID_RESET_MODES:
-        return f"❌ Invalid reset mode '{mode}'. Valid modes: {', '.join(_VALID_RESET_MODES)}"
+        return fail(
+            f"❌ Invalid reset mode '{mode}'. Valid modes: {', '.join(_VALID_RESET_MODES)}"
+        )
     return None
 
 
@@ -304,7 +311,7 @@ def _missing_reset_file_message(repo: Repo, files: list[str] | None) -> str | No
     """Return an error message for the first *files* entry missing on disk."""
     for file in files or []:
         if not os.path.exists(os.path.join(repo.working_dir, file)):
-            return f"❌ File '{file}' does not exist"
+            return fail(f"❌ File '{file}' does not exist")
     return None
 
 
@@ -400,11 +407,13 @@ def git_update_index(repo: Repo, files: list[str], chmod: str) -> str:
     """
     try:
         if not files:
-            return "❌ No files specified. Provide at least one tracked file path."
+            return fail(
+                "❌ No files specified. Provide at least one tracked file path."
+            )
 
         untracked = [f for f in files if not repo.git.ls_files("--", f).strip()]
         if untracked:
-            return (
+            return fail(
                 f"❌ Not tracked by git, stage first with git_add: "
                 f"{_format_file_list(untracked)}"
             )
@@ -419,9 +428,11 @@ def git_update_index(repo: Repo, files: list[str], chmod: str) -> str:
         return f"✅ {action} on {len(files)} file(s): {_format_file_list(files)}"
 
     except GitCommandError as e:
-        return f"❌ git update-index failed: {clean_git_error_text(e.stderr, 'stderr')}"
+        return fail(
+            f"❌ git update-index failed: {clean_git_error_text(e.stderr, 'stderr')}"
+        )
     except Exception as e:
-        return f"❌ git update-index failed: {str(e)}"
+        return fail(f"❌ git update-index failed: {str(e)}")
 
 
 def git_ls_files(
@@ -466,6 +477,8 @@ def git_ls_files(
         return output
 
     except GitCommandError as e:
-        return f"❌ git ls-files failed: {clean_git_error_text(e.stderr, 'stderr')}"
+        return fail(
+            f"❌ git ls-files failed: {clean_git_error_text(e.stderr, 'stderr')}"
+        )
     except Exception as e:
-        return f"❌ git ls-files failed: {str(e)}"
+        return fail(f"❌ git ls-files failed: {str(e)}")

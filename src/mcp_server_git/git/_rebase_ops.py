@@ -5,6 +5,7 @@ import os
 import subprocess
 
 from ..utils.git_import import GitCommandError, Repo
+from ..utils.tool_failure import fail
 from .error_text import clean_git_error_text
 
 logger = logging.getLogger(__name__)
@@ -29,12 +30,14 @@ def _validate_rebase_params(
         ("branch", branch),
     ]:
         if param_value and any(char in param_value for char in dangerous_chars):
-            return f"❌ Invalid characters detected in {param_name}: '{param_value}'"
+            return fail(
+                f"❌ Invalid characters detected in {param_name}: '{param_value}'"
+            )
 
     if onto and not fork_point:
-        return "❌ --onto requires fork_point (the old base to rebase from)"
+        return fail("❌ --onto requires fork_point (the old base to rebase from)")
     if fork_point and not onto:
-        return "❌ fork_point requires --onto (the new base to rebase onto)"
+        return fail("❌ fork_point requires --onto (the new base to rebase onto)")
     return None
 
 
@@ -96,7 +99,7 @@ def git_rebase(
 
         # Check if target branch exists (only when not using --onto)
         if not onto and not _branch_exists(repo, target_branch):
-            return f"❌ Target branch '{target_branch}' not found"
+            return fail(f"❌ Target branch '{target_branch}' not found")
 
         args = _build_rebase_args(target_branch, onto, fork_point, branch)
         result = repo.git.rebase(*args)
@@ -109,11 +112,13 @@ def git_rebase(
     except GitCommandError as e:
         error_text = clean_git_error_text(e.stderr, "stderr")
         if "conflict" in error_text.lower():
-            return "❌ Rebase failed due to conflicts. Resolve conflicts and run 'git rebase --continue'"
+            return fail(
+                "❌ Rebase failed due to conflicts. Resolve conflicts and run 'git rebase --continue'"
+            )
         else:
-            return f"❌ Rebase failed: {error_text}"
+            return fail(f"❌ Rebase failed: {error_text}")
     except Exception as e:
-        return f"❌ Rebase error: {str(e)}"
+        return fail(f"❌ Rebase error: {str(e)}")
 
 
 def git_merge(
@@ -144,7 +149,7 @@ def git_merge(
             # Ignore remote access errors (e.g., no remotes configured)
             pass
         if source_branch not in all_branches:
-            return f"❌ Source branch '{source_branch}' not found"
+            return fail(f"❌ Source branch '{source_branch}' not found")
 
         # Build merge command
         merge_args = [source_branch]
@@ -159,11 +164,13 @@ def git_merge(
     except GitCommandError as e:
         error_text = clean_git_error_text(e.stderr, "stderr")
         if "conflict" in error_text.lower():
-            return "❌ Merge failed due to conflicts. Resolve conflicts and commit"
+            return fail(
+                "❌ Merge failed due to conflicts. Resolve conflicts and commit"
+            )
         else:
-            return f"❌ Merge failed: {error_text}"
+            return fail(f"❌ Merge failed: {error_text}")
     except Exception as e:
-        return f"❌ Merge error: {str(e)}"
+        return fail(f"❌ Merge error: {str(e)}")
 
 
 def git_cherry_pick(repo: Repo, commit_hash: str, no_commit: bool = False) -> str:
@@ -183,13 +190,13 @@ def git_cherry_pick(repo: Repo, commit_hash: str, no_commit: bool = False) -> st
     except GitCommandError as e:
         error_text = clean_git_error_text(e.stderr, "stderr")
         if "conflict" in error_text.lower():
-            return (
+            return fail(
                 "❌ Cherry-pick failed due to conflicts. Resolve conflicts and continue"
             )
         else:
-            return f"❌ Cherry-pick failed: {error_text}"
+            return fail(f"❌ Cherry-pick failed: {error_text}")
     except Exception as e:
-        return f"❌ Cherry-pick error: {str(e)}"
+        return fail(f"❌ Cherry-pick error: {str(e)}")
 
 
 def git_abort(repo: Repo, operation: str) -> str:
@@ -197,7 +204,9 @@ def git_abort(repo: Repo, operation: str) -> str:
     try:
         valid_operations = ["rebase", "merge", "cherry-pick"]
         if operation not in valid_operations:
-            return f"❌ Invalid operation '{operation}'. Valid operations: {', '.join(valid_operations)}"
+            return fail(
+                f"❌ Invalid operation '{operation}'. Valid operations: {', '.join(valid_operations)}"
+            )
 
         # Perform abort using the same pattern as other operations
         if operation == "rebase":
@@ -210,11 +219,11 @@ def git_abort(repo: Repo, operation: str) -> str:
         return f"✅ Successfully aborted {operation}"
 
     except GitCommandError as e:
-        return (
+        return fail(
             f"❌ Abort {operation} failed: {clean_git_error_text(e.stderr, 'stderr')}"
         )
     except Exception as e:
-        return f"❌ Abort error: {str(e)}"
+        return fail(f"❌ Abort error: {str(e)}")
 
 
 def _describe_continue_failure(
@@ -232,13 +241,17 @@ def _describe_continue_failure(
         or "no merge in progress" in error_output
         or "no cherry-pick in progress" in error_output
     ):
-        return f"❌ No {operation} in progress to continue"
+        return fail(f"❌ No {operation} in progress to continue")
     elif "conflicts" in error_output.lower():
-        return f"❌ Unresolved conflicts remain. Resolve conflicts before continuing {operation}"
+        return fail(
+            f"❌ Unresolved conflicts remain. Resolve conflicts before continuing {operation}"
+        )
     elif "nothing to commit" in error_output.lower():
-        return f"❌ No changes to commit. Add changes before continuing {operation}"
+        return fail(
+            f"❌ No changes to commit. Add changes before continuing {operation}"
+        )
     else:
-        return f"❌ Continue {operation} failed: {error_output}"
+        return fail(f"❌ Continue {operation} failed: {error_output}")
 
 
 def git_continue(repo: Repo, operation: str) -> str:
@@ -251,7 +264,9 @@ def git_continue(repo: Repo, operation: str) -> str:
     try:
         valid_operations = ["rebase", "merge", "cherry-pick"]
         if operation not in valid_operations:
-            return f"❌ Invalid operation '{operation}'. Valid operations: {', '.join(valid_operations)}"
+            return fail(
+                f"❌ Invalid operation '{operation}'. Valid operations: {', '.join(valid_operations)}"
+            )
 
         # Use subprocess for all continue operations to ensure reliable execution
         # This avoids GitPython's interactive operation handling issues
@@ -275,8 +290,10 @@ def git_continue(repo: Repo, operation: str) -> str:
         return _describe_continue_failure(result, operation)
 
     except subprocess.TimeoutExpired:
-        return f"❌ {operation} continue operation timed out after 60 seconds"
+        return fail(f"❌ {operation} continue operation timed out after 60 seconds")
     except GitCommandError as e:
-        return f"❌ Continue {operation} failed: {clean_git_error_text(e.stderr, 'stderr')}"
+        return fail(
+            f"❌ Continue {operation} failed: {clean_git_error_text(e.stderr, 'stderr')}"
+        )
     except Exception as e:
-        return f"❌ Continue error: {str(e)}"
+        return fail(f"❌ Continue error: {str(e)}")

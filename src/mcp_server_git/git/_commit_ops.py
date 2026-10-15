@@ -5,6 +5,7 @@ import re
 import subprocess
 
 from ..utils.git_import import GitCommandError, Repo
+from ..utils.tool_failure import fail
 from ._gpg import resolve_gpg_key
 from .error_text import clean_git_error_text
 
@@ -109,18 +110,24 @@ def git_commit(
 
                 return success_msg
             else:
-                return f"❌ Commit failed: {result.stderr}\n🔒 GPG signing was enforced but failed"
+                return fail(
+                    f"❌ Commit failed: {result.stderr}\n🔒 GPG signing was enforced but failed"
+                )
         else:
             # This path should never be reached due to force_gpg=True
-            return "❌ SECURITY VIOLATION: Unsigned commits are not allowed by MCP Git Server"
+            return fail(
+                "❌ SECURITY VIOLATION: Unsigned commits are not allowed by MCP Git Server"
+            )
 
     except GitCommandError as e:
-        return (
+        return fail(
             f"❌ Commit failed: {clean_git_error_text(e.stderr, 'stderr')}\n"
             "🔒 Security enforcement may have prevented insecure operation"
         )
     except Exception as e:
-        return f"❌ Commit error: {str(e)}\n🔒 Verify repository security configuration"
+        return fail(
+            f"❌ Commit error: {str(e)}\n🔒 Verify repository security configuration"
+        )
 
 
 def _log_format_args(
@@ -245,7 +252,9 @@ def git_log(
         Formatted commit log output
     """
     if search_content and search_content_regex:
-        return "❌ Specify only one of search_content (-S) or search_content_regex (-G)"
+        return fail(
+            "❌ Specify only one of search_content (-S) or search_content_regex (-G)"
+        )
 
     try:
         args: list[str] = []
@@ -271,9 +280,9 @@ def git_log(
         return log_output
 
     except GitCommandError as e:
-        return f"❌ Log failed: {clean_git_error_text(e.stderr, 'stderr')}"
+        return fail(f"❌ Log failed: {clean_git_error_text(e.stderr, 'stderr')}")
     except Exception as e:
-        return f"❌ Log error: {str(e)}"
+        return fail(f"❌ Log error: {str(e)}")
 
 
 def git_show(
@@ -310,9 +319,9 @@ def git_show(
         return show_output
 
     except GitCommandError as e:
-        return f"❌ Show failed: {clean_git_error_text(e.stderr, 'stderr')}"
+        return fail(f"❌ Show failed: {clean_git_error_text(e.stderr, 'stderr')}")
     except Exception as e:
-        return f"❌ Show error: {str(e)}"
+        return fail(f"❌ Show error: {str(e)}")
 
 
 def git_blame(
@@ -332,9 +341,9 @@ def git_blame(
         blame_output = repo.git.blame(*args)
         return f"Blame for {file_path}:\n{blame_output}"
     except GitCommandError as e:
-        return f"❌ Blame failed: {clean_git_error_text(e.stderr, 'stderr')}"
+        return fail(f"❌ Blame failed: {clean_git_error_text(e.stderr, 'stderr')}")
     except Exception as e:
-        return f"❌ Blame error: {str(e)}"
+        return fail(f"❌ Blame error: {str(e)}")
 
 
 # %H = new (post-move) full SHA, %gD = reflog selector (HEAD@{0}),
@@ -461,6 +470,6 @@ def git_reflog(
         return entries
 
     except GitCommandError as e:
-        return f"❌ Reflog failed: {clean_git_error_text(e.stderr, 'stderr')}"
+        return fail(f"❌ Reflog failed: {clean_git_error_text(e.stderr, 'stderr')}")
     except Exception as e:
-        return f"❌ Reflog error: {str(e)}"
+        return fail(f"❌ Reflog error: {str(e)}")

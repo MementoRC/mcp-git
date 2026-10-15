@@ -3,6 +3,7 @@
 from pathlib import Path
 
 from ..utils.git_import import Repo
+from ..utils.tool_failure import fail
 
 __all__ = ["git_init"]
 
@@ -19,4 +20,4 @@ def git_init(repo_path: str) -> str:
         return f"✅ Initialized empty Git repository in {repo_path}"
 
     except Exception as e:
-        return f"❌ Init failed: {str(e)}"
+        return fail(f"❌ Init failed: {str(e)}")

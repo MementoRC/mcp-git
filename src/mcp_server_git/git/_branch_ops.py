@@ -5,6 +5,7 @@ import logging
 from typing import Any, Literal
 
 from ..utils.git_import import GitCommandError, Repo
+from ..utils.tool_failure import fail
 from .error_text import clean_git_error_text
 
 logger = logging.getLogger(__name__)
@@ -38,7 +39,7 @@ def git_create_branch(
         # Check if branch already exists
         existing_branches = [branch.name for branch in repo.branches]
         if branch_name in existing_branches:
-            return f"❌ Branch '{branch_name}' already exists"
+            return fail(f"❌ Branch '{branch_name}' already exists")
 
         # Create new branch
         if effective_base:
@@ -61,7 +62,7 @@ def git_create_branch(
 
             # Verify base branch exists
             if effective_base not in all_branches:
-                return f"❌ Base branch '{effective_base}' not found"
+                return fail(f"❌ Base branch '{effective_base}' not found")
 
             new_head = repo.create_head(branch_name, effective_base)
         else:
@@ -73,9 +74,11 @@ def git_create_branch(
         return f"✅ Created branch '{branch_name}' (HEAD unchanged)"
 
     except GitCommandError as e:
-        return f"❌ Branch creation failed: {clean_git_error_text(e.stderr, 'stderr')}"
+        return fail(
+            f"❌ Branch creation failed: {clean_git_error_text(e.stderr, 'stderr')}"
+        )
     except Exception as e:
-        return f"❌ Branch creation error: {str(e)}"
+        return fail(f"❌ Branch creation error: {str(e)}")
 
 
 def git_checkout(repo: Repo, branch_name: str) -> str:
@@ -109,14 +112,16 @@ def git_checkout(repo: Repo, branch_name: str) -> str:
                     repo.git.checkout("-b", branch_name, f"origin/{branch_name}")
                     return f"✅ Created and switched to branch '{branch_name}' (tracking origin/{branch_name})"
                 else:
-                    return f"❌ Branch '{branch_name}' not found locally or on remote"
+                    return fail(
+                        f"❌ Branch '{branch_name}' not found locally or on remote"
+                    )
             except Exception:
-                return f"❌ Branch '{branch_name}' not found"
+                return fail(f"❌ Branch '{branch_name}' not found")
 
     except GitCommandError as e:
-        return f"❌ Checkout failed: {clean_git_error_text(e.stderr, 'stderr')}"
+        return fail(f"❌ Checkout failed: {clean_git_error_text(e.stderr, 'stderr')}")
     except Exception as e:
-        return f"❌ Checkout error: {str(e)}"
+        return fail(f"❌ Checkout error: {str(e)}")
 
 
 def _resolve_branch_type(
@@ -333,11 +338,13 @@ def git_branch_list(
         return _format_branches(records)
 
     except ValueError as e:
-        return f"❌ Branch list error: {str(e)}"
+        return fail(f"❌ Branch list error: {str(e)}")
     except GitCommandError as e:
-        return f"❌ Branch list failed: {clean_git_error_text(e.stderr, 'stderr')}"
+        return fail(
+            f"❌ Branch list failed: {clean_git_error_text(e.stderr, 'stderr')}"
+        )
     except Exception as e:
-        return f"❌ Branch list error: {str(e)}"
+        return fail(f"❌ Branch list error: {str(e)}")
 
 
 def git_merge_base(
@@ -360,7 +367,9 @@ def git_merge_base(
         dangerous_chars = [";", "|", "&", "`", "$", "(", ")"]
         for ref_name, ref_value in [("ref1", ref1), ("ref2", ref2)]:
             if any(char in ref_value for char in dangerous_chars):
-                return f"❌ Invalid characters detected in {ref_name}: {ref_value}"
+                return fail(
+                    f"❌ Invalid characters detected in {ref_name}: {ref_value}"
+                )
 
         # Execute git merge-base
         merge_base_sha = repo.git.merge_base(ref1, ref2)
@@ -377,8 +386,8 @@ def git_merge_base(
             f"Message: {commit.message.strip()}"
         )
     except GitCommandError as e:
-        return (
+        return fail(
             f"❌ Error finding merge-base: {clean_git_error_text(e.stderr, 'stderr')}"
         )
     except Exception as e:
-        return f"❌ Merge-base error: {str(e)}"
+        return fail(f"❌ Merge-base error: {str(e)}")
