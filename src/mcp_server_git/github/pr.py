@@ -9,6 +9,7 @@ from mcp_server_git.github.check_markers import check_marker
 from mcp_server_git.github.client import github_client_context
 from mcp_server_git.github.patches import PatchMemoryManager
 
+from ..utils.tool_failure import fail
 from ._pr_format import (
     annotation_lines,
     failing_run_header,
@@ -30,7 +31,7 @@ async def _fetch_head_sha(
     """Fetch a PR's head SHA; returns (sha, None) or (None, error message)."""
     pr_response = await client.get(f"/repos/{repo_owner}/{repo_name}/pulls/{pr_number}")
     if pr_response.status != 200:
-        return None, f"❌ Failed to get PR #{pr_number}: {pr_response.status}"
+        return None, fail(f"❌ Failed to get PR #{pr_number}: {pr_response.status}")
     pr_data = await pr_response.json()
     return pr_data["head"]["sha"], None
 
@@ -85,7 +86,7 @@ async def github_get_pr_checks(
                 params=params,
             )
             if checks_response.status != 200:
-                return f"❌ Failed to get check runs: {checks_response.status}"
+                return fail(f"❌ Failed to get check runs: {checks_response.status}")
 
             checks_data = await checks_response.json()
 
@@ -110,18 +111,18 @@ async def github_get_pr_checks(
     except ValueError as auth_error:
         # Handle authentication/configuration errors specifically
         logger.error(f"Authentication error getting PR checks: {auth_error}")
-        return f"❌ {str(auth_error)}"
+        return fail(f"❌ {str(auth_error)}")
     except ConnectionError as conn_error:
         # Handle network connectivity issues
         logger.error(f"Connection error getting PR checks: {conn_error}")
-        return f"❌ Network connection failed: {str(conn_error)}"
+        return fail(f"❌ Network connection failed: {str(conn_error)}")
     except Exception as e:
         # Log unexpected errors with full context for debugging
         logger.error(
             f"Unexpected error getting PR checks for PR #{pr_number}: {e}",
             exc_info=True,
         )
-        return f"❌ Error getting PR checks: {str(e)}"
+        return fail(f"❌ Error getting PR checks: {str(e)}")
 
 
 async def github_get_failing_jobs(
@@ -145,7 +146,7 @@ async def github_get_failing_jobs(
                 f"/repos/{repo_owner}/{repo_name}/commits/{head_sha}/check-runs"
             )
             if checks_response.status != 200:
-                return f"❌ Failed to get check runs: {checks_response.status}"
+                return fail(f"❌ Failed to get check runs: {checks_response.status}")
 
             checks_data = await checks_response.json()
 
@@ -182,16 +183,16 @@ async def github_get_failing_jobs(
 
     except ValueError as auth_error:
         logger.error(f"Authentication error getting failing jobs: {auth_error}")
-        return f"❌ {str(auth_error)}"
+        return fail(f"❌ {str(auth_error)}")
     except ConnectionError as conn_error:
         logger.error(f"Connection error getting failing jobs: {conn_error}")
-        return f"❌ Network connection failed: {str(conn_error)}"
+        return fail(f"❌ Network connection failed: {str(conn_error)}")
     except Exception as e:
         logger.error(
             f"Unexpected error getting failing jobs for PR #{pr_number}: {e}",
             exc_info=True,
         )
-        return f"❌ Error getting failing jobs: {str(e)}"
+        return fail(f"❌ Error getting failing jobs: {str(e)}")
 
 
 async def _fetch_section(
@@ -223,7 +224,7 @@ async def github_get_pr_details(
                 f"/repos/{repo_owner}/{repo_name}/pulls/{pr_number}"
             )
             if pr_response.status != 200:
-                return f"❌ Failed to get PR #{pr_number}: {pr_response.status}"
+                return fail(f"❌ Failed to get PR #{pr_number}: {pr_response.status}")
 
             pr_data = await pr_response.json()
 
@@ -242,16 +243,16 @@ async def github_get_pr_details(
 
     except ValueError as auth_error:
         logger.error(f"Authentication error getting PR details: {auth_error}")
-        return f"❌ {str(auth_error)}"
+        return fail(f"❌ {str(auth_error)}")
     except ConnectionError as conn_error:
         logger.error(f"Connection error getting PR details: {conn_error}")
-        return f"❌ Network connection failed: {str(conn_error)}"
+        return fail(f"❌ Network connection failed: {str(conn_error)}")
     except Exception as e:
         logger.error(
             f"Unexpected error getting PR details for PR #{pr_number}: {e}",
             exc_info=True,
         )
-        return f"❌ Error getting PR details: {str(e)}"
+        return fail(f"❌ Error getting PR details: {str(e)}")
 
 
 async def github_list_pull_requests(
@@ -305,11 +306,13 @@ async def github_list_pull_requests(
                 logger.error(
                     f"🔒 GitHub API authentication failed (401): {response_text}"
                 )
-                return f"❌ GitHub API error 401: {response_text}"
+                return fail(f"❌ GitHub API error 401: {response_text}")
             elif response.status != 200:
                 response_text = await response.text()
                 logger.error(f"❌ GitHub API error {response.status}: {response_text}")
-                return f"❌ Failed to list pull requests: {response.status} - {response_text}"
+                return fail(
+                    f"❌ Failed to list pull requests: {response.status} - {response_text}"
+                )
 
             prs = await response.json()
 
@@ -332,16 +335,16 @@ async def github_list_pull_requests(
 
     except ValueError as auth_error:
         logger.error(f"Authentication error listing pull requests: {auth_error}")
-        return f"❌ {str(auth_error)}"
+        return fail(f"❌ {str(auth_error)}")
     except ConnectionError as conn_error:
         logger.error(f"Connection error listing pull requests: {conn_error}")
-        return f"❌ Network connection failed: {str(conn_error)}"
+        return fail(f"❌ Network connection failed: {str(conn_error)}")
     except Exception as e:
         logger.error(
             f"Unexpected error listing pull requests for {repo_owner}/{repo_name}: {e}",
             exc_info=True,
         )
-        return f"❌ Error listing pull requests: {str(e)}"
+        return fail(f"❌ Error listing pull requests: {str(e)}")
 
 
 async def github_get_pr_status(repo_owner: str, repo_name: str, pr_number: int) -> str:
@@ -353,7 +356,7 @@ async def github_get_pr_status(repo_owner: str, repo_name: str, pr_number: int) 
                 f"/repos/{repo_owner}/{repo_name}/pulls/{pr_number}"
             )
             if pr_response.status != 200:
-                return f"❌ Failed to get PR #{pr_number}: {pr_response.status}"
+                return fail(f"❌ Failed to get PR #{pr_number}: {pr_response.status}")
 
             pr_data = await pr_response.json()
             head_sha = pr_data["head"]["sha"]
@@ -393,16 +396,16 @@ async def github_get_pr_status(repo_owner: str, repo_name: str, pr_number: int) 
 
     except ValueError as auth_error:
         logger.error(f"Authentication error getting PR status: {auth_error}")
-        return f"❌ {str(auth_error)}"
+        return fail(f"❌ {str(auth_error)}")
     except ConnectionError as conn_error:
         logger.error(f"Connection error getting PR status: {conn_error}")
-        return f"❌ Network connection failed: {str(conn_error)}"
+        return fail(f"❌ Network connection failed: {str(conn_error)}")
     except Exception as e:
         logger.error(
             f"Unexpected error getting PR status for PR #{pr_number}: {e}",
             exc_info=True,
         )
-        return f"❌ Error getting PR status: {str(e)}"
+        return fail(f"❌ Error getting PR status: {str(e)}")
 
 
 async def github_get_pr_files(
@@ -423,7 +426,7 @@ async def github_get_pr_files(
                 params=params,
             )
             if response.status != 200:
-                return f"❌ Failed to get PR files: {response.status}"
+                return fail(f"❌ Failed to get PR files: {response.status}")
 
             files = await response.json()
 
@@ -484,12 +487,12 @@ async def github_get_pr_files(
 
     except ValueError as auth_error:
         logger.error(f"Authentication error getting PR files: {auth_error}")
-        return f"❌ {str(auth_error)}"
+        return fail(f"❌ {str(auth_error)}")
     except ConnectionError as conn_error:
         logger.error(f"Connection error getting PR files: {conn_error}")
-        return f"❌ Network connection failed: {str(conn_error)}"
+        return fail(f"❌ Network connection failed: {str(conn_error)}")
     except Exception as e:
         logger.error(
             f"Unexpected error getting PR files for PR #{pr_number}: {e}", exc_info=True
         )
-        return f"❌ Error getting PR files: {str(e)}"
+        return fail(f"❌ Error getting PR files: {str(e)}")

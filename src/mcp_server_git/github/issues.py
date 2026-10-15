@@ -12,6 +12,7 @@ from mcp_server_git.github._issue_format import (
 from mcp_server_git.github._paging import clamp_paging, invalid_choice
 from mcp_server_git.github._update_fields import first_required_error
 from mcp_server_git.github.client import github_client_context
+from mcp_server_git.utils.tool_failure import fail
 
 logger = logging.getLogger(__name__)
 
@@ -119,7 +120,9 @@ async def github_create_issue(
 
             if response.status != 201:
                 error_text = await response.text()
-                return f"❌ Failed to create issue: {response.status} - {error_text}"
+                return fail(
+                    f"❌ Failed to create issue: {response.status} - {error_text}"
+                )
 
             result = await response.json()
             logger.info(f"✅ Successfully created issue #{result['number']}")
@@ -127,13 +130,13 @@ async def github_create_issue(
 
     except ValueError as auth_error:
         logger.error(f"Authentication error creating issue: {auth_error}")
-        return f"❌ {str(auth_error)}"
+        return fail(f"❌ {str(auth_error)}")
     except ConnectionError as conn_error:
         logger.error(f"Connection error creating issue: {conn_error}")
-        return f"❌ Network connection failed: {str(conn_error)}"
+        return fail(f"❌ Network connection failed: {str(conn_error)}")
     except Exception as e:
         logger.error(f"Unexpected error creating issue: {e}", exc_info=True)
-        return f"❌ Error creating issue: {str(e)}"
+        return fail(f"❌ Error creating issue: {str(e)}")
 
 
 async def github_list_issues(
@@ -185,7 +188,9 @@ async def github_list_issues(
 
             if response.status != 200:
                 error_text = await response.text()
-                return f"❌ Failed to list issues: {response.status} - {error_text}"
+                return fail(
+                    f"❌ Failed to list issues: {response.status} - {error_text}"
+                )
 
             issues = await response.json()
 
@@ -196,13 +201,13 @@ async def github_list_issues(
 
     except ValueError as auth_error:
         logger.error(f"Authentication error listing issues: {auth_error}")
-        return f"❌ {str(auth_error)}"
+        return fail(f"❌ {str(auth_error)}")
     except ConnectionError as conn_error:
         logger.error(f"Connection error listing issues: {conn_error}")
-        return f"❌ Network connection failed: {str(conn_error)}"
+        return fail(f"❌ Network connection failed: {str(conn_error)}")
     except Exception as e:
         logger.error(f"Unexpected error listing issues: {e}", exc_info=True)
-        return f"❌ Error listing issues: {str(e)}"
+        return fail(f"❌ Error listing issues: {str(e)}")
 
 
 async def github_get_issue(
@@ -235,29 +240,31 @@ async def github_get_issue(
             )
 
             if response.status == 404:
-                return f"❌ Issue #{issue_number} not found in {repo_owner}/{repo_name}. Check issue number and repository access."
+                return fail(
+                    f"❌ Issue #{issue_number} not found in {repo_owner}/{repo_name}. Check issue number and repository access."
+                )
 
             if response.status != 200:
                 error_text = await response.text()
-                return f"❌ Failed to get issue: {response.status} - {error_text}"
+                return fail(f"❌ Failed to get issue: {response.status} - {error_text}")
 
             issue = await response.json()
 
             # Check if this is a pull request (issues API returns PRs too)
             if issue.get("pull_request"):
-                return f"❌ #{issue_number} is a pull request, not an issue"
+                return fail(f"❌ #{issue_number} is a pull request, not an issue")
 
             return format_issue_detail(issue, max_body_chars)
 
     except ValueError as auth_error:
         logger.error(f"Authentication error getting issue: {auth_error}")
-        return f"❌ {str(auth_error)}"
+        return fail(f"❌ {str(auth_error)}")
     except ConnectionError as conn_error:
         logger.error(f"Connection error getting issue: {conn_error}")
-        return f"❌ Network connection failed: {str(conn_error)}"
+        return fail(f"❌ Network connection failed: {str(conn_error)}")
     except Exception as e:
         logger.error(f"Unexpected error getting issue: {e}", exc_info=True)
-        return f"❌ Error getting issue: {str(e)}"
+        return fail(f"❌ Error getting issue: {str(e)}")
 
 
 async def github_update_issue(
@@ -286,7 +293,7 @@ async def github_update_issue(
     try:
         async with github_client_context() as client:
             if state is not None and state not in ["open", "closed"]:
-                return "❌ State must be 'open' or 'closed'"
+                return fail("❌ State must be 'open' or 'closed'")
             payload = _update_payload(title, body, state, labels, assignees, milestone)
 
             if not payload:
@@ -298,7 +305,9 @@ async def github_update_issue(
 
             if response.status != 200:
                 error_text = await response.text()
-                return f"❌ Failed to update issue #{issue_number}: {response.status} - {error_text}"
+                return fail(
+                    f"❌ Failed to update issue #{issue_number}: {response.status} - {error_text}"
+                )
 
             result = await response.json()
             logger.info(f"✅ Successfully updated issue #{issue_number}")
@@ -306,15 +315,15 @@ async def github_update_issue(
 
     except ValueError as auth_error:
         logger.error(f"Authentication error updating issue: {auth_error}")
-        return f"❌ {str(auth_error)}"
+        return fail(f"❌ {str(auth_error)}")
     except ConnectionError as conn_error:
         logger.error(f"Connection error updating issue: {conn_error}")
-        return f"❌ Network connection failed: {str(conn_error)}"
+        return fail(f"❌ Network connection failed: {str(conn_error)}")
     except Exception as e:
         logger.error(
             f"Unexpected error updating issue #{issue_number}: {e}", exc_info=True
         )
-        return f"❌ Error updating issue: {str(e)}"
+        return fail(f"❌ Error updating issue: {str(e)}")
 
 
 from .issue_search import *  # noqa: F401,F403

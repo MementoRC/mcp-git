@@ -17,6 +17,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from ..text_limits import MAX_CHARS_FOR_LLM, cap_characters  # noqa: F401  # re-export
+from ..utils.tool_failure import fail
 
 logger = logging.getLogger(__name__)
 
@@ -282,7 +283,7 @@ def write_full_log_response(
     """
     path = Path(output_path)
     if not path.is_absolute():
-        return f"❌ output_path must be an absolute path, got: {output_path}"
+        return fail(f"❌ output_path must be an absolute path, got: {output_path}")
 
     total_lines = len(logs_text.splitlines())
     total_bytes = len(logs_text)
@@ -290,7 +291,7 @@ def write_full_log_response(
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(logs_text, encoding="utf-8")
     except OSError as exc:
-        return f"❌ Failed to write {noun} to {output_path}: {exc}"
+        return fail(f"❌ Failed to write {noun} to {output_path}: {exc}")
 
     output.append(f"💾 Full {noun} written to {output_path}")
     output.append(

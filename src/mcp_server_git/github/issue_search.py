@@ -9,6 +9,7 @@ from mcp_server_git.github._issue_format import format_search_results
 from mcp_server_git.github._paging import clamp_paging
 from mcp_server_git.github.client import github_client_context
 from mcp_server_git.github.issues import github_create_issue, github_update_issue
+from mcp_server_git.utils.tool_failure import fail
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +51,9 @@ async def github_search_issues(
 
             if response.status != 200:
                 error_text = await response.text()
-                return f"❌ Failed to search issues: {response.status} - {error_text}"
+                return fail(
+                    f"❌ Failed to search issues: {response.status} - {error_text}"
+                )
 
             data = await response.json()
             issues = data.get("items", [])
@@ -65,13 +68,13 @@ async def github_search_issues(
 
     except ValueError as auth_error:
         logger.error(f"Authentication error searching issues: {auth_error}")
-        return f"❌ {str(auth_error)}"
+        return fail(f"❌ {str(auth_error)}")
     except ConnectionError as conn_error:
         logger.error(f"Connection error searching issues: {conn_error}")
-        return f"❌ Network connection failed: {str(conn_error)}"
+        return fail(f"❌ Network connection failed: {str(conn_error)}")
     except Exception as e:
         logger.error(f"Unexpected error searching issues: {e}", exc_info=True)
-        return f"❌ Error searching issues: {str(e)}"
+        return fail(f"❌ Error searching issues: {str(e)}")
 
 
 async def github_create_issue_from_template(
@@ -168,7 +171,9 @@ Let us know what research or attempts you've already made.
         found = templates.get(template_name)
         if not found:
             available = ", ".join(templates.keys()) + ", custom"
-            return f"❌ Unknown template '{template_name}'. Available templates: {available}"
+            return fail(
+                f"❌ Unknown template '{template_name}'. Available templates: {available}"
+            )
         template = found
 
     # Apply template data customizations
@@ -262,4 +267,11 @@ async def github_bulk_update_issues(
     if len(results) > 10:
         summary.append(f"  ... and {len(results) - 10} more results")
 
-    return "\n".join(summary)
+    return _bulk_result("\n".join(summary), successful_updates, failed_updates)
+
+
+def _bulk_result(text: str, successful: int, failed: int) -> str:
+    """Report a bulk update as a failure only when nothing succeeded."""
+    if successful == 0 and failed > 0:
+        return fail(text)
+    return text

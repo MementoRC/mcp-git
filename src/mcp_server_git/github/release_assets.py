@@ -10,6 +10,7 @@ from typing import Any
 from mcp_server_git.github import _release_format as _fmt
 from mcp_server_git.github._paging import clamp_paging
 from mcp_server_git.github.client import github_client_context
+from mcp_server_git.utils.tool_failure import fail
 
 logger = logging.getLogger(__name__)
 
@@ -17,14 +18,14 @@ logger = logging.getLogger(__name__)
 def _load_upload_file(path: Path, file_path: str) -> tuple[bytes, str | None]:
     """Return (content, error); content is empty when error is set."""
     if not path.exists():
-        return b"", f"❌ File not found: {file_path}"
+        return b"", fail(f"❌ File not found: {file_path}")
     if not path.is_file():
-        return b"", f"❌ Path is not a file: {file_path}"
+        return b"", fail(f"❌ Path is not a file: {file_path}")
     try:
         with open(path, "rb") as f:
             return f.read(), None
     except Exception as read_error:
-        return b"", f"❌ Failed to read file {file_path}: {read_error}"
+        return b"", fail(f"❌ Failed to read file {file_path}: {read_error}")
 
 
 def _guess_content_type(asset_name: str) -> str:
@@ -44,15 +45,17 @@ async def _fetch_upload_url(
     )
 
     if response.status == 404:
-        return "", f"❌ Release {release_id} not found in {repo_owner}/{repo_name}"
+        return "", fail(
+            f"❌ Release {release_id} not found in {repo_owner}/{repo_name}"
+        )
     if response.status != 200:
         error_text = await response.text()
-        return "", f"❌ Failed to get release: {response.status} - {error_text}"
+        return "", fail(f"❌ Failed to get release: {response.status} - {error_text}")
 
     release = await response.json()
     upload_url = release.get("upload_url", "")
     if not upload_url:
-        return "", f"❌ Release {release_id} has no upload URL"
+        return "", fail(f"❌ Release {release_id} has no upload URL")
     return upload_url.split("{")[0], None
 
 
@@ -60,10 +63,10 @@ async def _upload_error(response: Any) -> str | None:
     if response.status == 422:
         error_data = await response.json()
         error_msg = error_data.get("message", "Validation failed")
-        return f"❌ Failed to upload asset: {error_msg}"
+        return fail(f"❌ Failed to upload asset: {error_msg}")
     if response.status not in (200, 201):
         error_text = await response.text()
-        return f"❌ Failed to upload asset: {response.status} - {error_text}"
+        return fail(f"❌ Failed to upload asset: {response.status} - {error_text}")
     return None
 
 
@@ -131,13 +134,13 @@ async def github_upload_release_asset(
 
     except ValueError as auth_error:
         logger.error(f"Authentication error uploading asset: {auth_error}")
-        return f"❌ {str(auth_error)}"
+        return fail(f"❌ {str(auth_error)}")
     except ConnectionError as conn_error:
         logger.error(f"Connection error uploading asset: {conn_error}")
-        return f"❌ Network connection failed: {str(conn_error)}"
+        return fail(f"❌ Network connection failed: {str(conn_error)}")
     except Exception as e:
         logger.error(f"Unexpected error uploading asset: {e}", exc_info=True)
-        return f"❌ Error uploading asset: {str(e)}"
+        return fail(f"❌ Error uploading asset: {str(e)}")
 
 
 async def github_list_release_assets(
@@ -169,10 +172,14 @@ async def github_list_release_assets(
             )
 
             if response.status == 404:
-                return f"❌ Release {release_id} not found in {repo_owner}/{repo_name}"
+                return fail(
+                    f"❌ Release {release_id} not found in {repo_owner}/{repo_name}"
+                )
             if response.status != 200:
                 error_text = await response.text()
-                return f"❌ Failed to list assets: {response.status} - {error_text}"
+                return fail(
+                    f"❌ Failed to list assets: {response.status} - {error_text}"
+                )
 
             assets = await response.json()
 
@@ -185,13 +192,13 @@ async def github_list_release_assets(
 
     except ValueError as auth_error:
         logger.error(f"Authentication error listing assets: {auth_error}")
-        return f"❌ {str(auth_error)}"
+        return fail(f"❌ {str(auth_error)}")
     except ConnectionError as conn_error:
         logger.error(f"Connection error listing assets: {conn_error}")
-        return f"❌ Network connection failed: {str(conn_error)}"
+        return fail(f"❌ Network connection failed: {str(conn_error)}")
     except Exception as e:
         logger.error(f"Unexpected error listing assets: {e}", exc_info=True)
-        return f"❌ Error listing assets: {str(e)}"
+        return fail(f"❌ Error listing assets: {str(e)}")
 
 
 async def github_delete_release_asset(
@@ -215,19 +222,23 @@ async def github_delete_release_asset(
             )
 
             if response.status == 404:
-                return f"❌ Asset {asset_id} not found in {repo_owner}/{repo_name}"
+                return fail(
+                    f"❌ Asset {asset_id} not found in {repo_owner}/{repo_name}"
+                )
             if response.status != 204:
                 error_text = await response.text()
-                return f"❌ Failed to delete asset: {response.status} - {error_text}"
+                return fail(
+                    f"❌ Failed to delete asset: {response.status} - {error_text}"
+                )
 
             return f"✅ Asset {asset_id} deleted successfully from {repo_owner}/{repo_name}"
 
     except ValueError as auth_error:
         logger.error(f"Authentication error deleting asset: {auth_error}")
-        return f"❌ {str(auth_error)}"
+        return fail(f"❌ {str(auth_error)}")
     except ConnectionError as conn_error:
         logger.error(f"Connection error deleting asset: {conn_error}")
-        return f"❌ Network connection failed: {str(conn_error)}"
+        return fail(f"❌ Network connection failed: {str(conn_error)}")
     except Exception as e:
         logger.error(f"Unexpected error deleting asset: {e}", exc_info=True)
-        return f"❌ Error deleting asset: {str(e)}"
+        return fail(f"❌ Error deleting asset: {str(e)}")

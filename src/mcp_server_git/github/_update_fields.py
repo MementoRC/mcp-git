@@ -10,12 +10,14 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
+from ..utils.tool_failure import fail
+
 
 def required_text_error(name: str, value: str | None) -> str | None:
     """Return an error message when a required text field is explicitly empty."""
     if value != "":
         return None
-    return f"❌ {name} cannot be empty. Pass None to leave it unchanged."
+    return fail(f"❌ {name} cannot be empty. Pass None to leave it unchanged.")
 
 
 def first_required_error(fields: Mapping[str, str | None]) -> str | None:

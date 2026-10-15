@@ -11,8 +11,9 @@ automatically.
 Escape hatches, all explicit:
 
 * Direct arguments of ``logger.x(...)`` / ``logging.x(...)`` are skipped.
-* ``PENDING_PACKAGES``: subpackages not yet migrated. Each later PR of
-  #271 removes its entry, which turns the guard on for that package.
+* ``PENDING_PATHS``: relpath prefixes (POSIX, relative to the package root;
+  directories end with "/") not yet migrated. Each later PR of #271 removes
+  its entries, which turns the guard on for those modules.
 * ``ALLOWLIST``: ``(relpath, enclosing function or "<module>")`` -> reason
   for literals that are legitimately not failure results. Entries that no
   longer match a real hit fail the staleness test.
@@ -29,14 +30,35 @@ _MARK = "❌"
 _LOG_OWNERS = {"logger", "logging"}
 _PACKAGE_ROOT = Path(mcp_server_git.__file__).resolve().parent
 
-# Top-level subpackages still to be migrated in later PRs (#271 parts 2-5).
-# Each later PR removes its entry here.
-PENDING_PACKAGES = {"github", "azure"}
+# Modules still to be migrated in later PRs (#271 parts 3-5). Directory
+# entries end with "/". Each later PR removes its entries here.
+PENDING_PATHS = {
+    # Part 3: github CI, workflows, contents, repos.
+    "github/ci_logs.py",
+    "github/workflows.py",
+    "github/contents.py",
+    "github/repos.py",
+    # Part 4: github security, permissions, scanning.
+    "github/security.py",
+    "github/permissions.py",
+    "github/scanning.py",
+    # Part 5: azure.
+    "azure/",
+}
 
 # {(relpath, enclosing function or "<module>"): reason}.
 _EMOJI_REASON = "regex pattern that strips/rewrites ❌ in LLM output, not a result"
+_MARKER_REASON = "status marker glyph rendered in a line, not a failure result"
 ALLOWLIST: dict[tuple[str, str], str] = {
     ("utils/content_optimization.py", "__init__"): _EMOJI_REASON,
+    ("github/check_markers.py", "<module>"): _MARKER_REASON,
+    ("github/_pr_format.py", "<module>"): "review state marker glyph, not a result",
+    ("github/_pr_format.py", "failing_run_header"): (
+        "heading line for a failing check run inside a successful report"
+    ),
+    ("github/issue_search.py", "github_bulk_update_issues"): (
+        "per-item failure lines inside a partial-success summary"
+    ),
 }
 
 
@@ -102,12 +124,11 @@ def _relpath(path: Path) -> str:
     return path.relative_to(_PACKAGE_ROOT).as_posix()
 
 
-def _in_pending_package(path: Path) -> bool:
-    parts = path.relative_to(_PACKAGE_ROOT).parts
-    return len(parts) > 1 and parts[0] in PENDING_PACKAGES
+def _is_pending(relpath: str) -> bool:
+    return any(relpath == p or relpath.startswith(p) for p in PENDING_PATHS)
 
 
-_CHECKED_FILES = [p for p in _discovered_files() if not _in_pending_package(p)]
+_CHECKED_FILES = [p for p in _discovered_files() if not _is_pending(_relpath(p))]
 
 
 @pytest.mark.parametrize("path", _CHECKED_FILES, ids=_relpath)
@@ -119,7 +140,7 @@ def test_module_has_no_mark_literal_outside_fail_when_not_pending(path):
 def test_discovery_includes_issue_modules_when_scanning_package():
     relpaths = {_relpath(p) for p in _CHECKED_FILES}
     assert relpaths
-    assert {"git/_staging_ops.py", "git/_branch_ops.py"} <= relpaths
+    assert {"git/_staging_ops.py", "git/_branch_ops.py", "github/pr.py"} <= relpaths
 
 
 def test_allowlist_matches_real_hits_when_entries_exist():
@@ -137,6 +158,14 @@ def test_detector_flags_constant_outside_fail_when_wrapped_or_not():
     assert _mark_hits(logged, "m.py") == []
 
 
-@pytest.mark.parametrize("package", sorted(PENDING_PACKAGES))
-def test_pending_package_exists_as_directory_when_listed(package):
-    assert (_PACKAGE_ROOT / package).is_dir()
+@pytest.mark.parametrize("entry", sorted(PENDING_PATHS))
+def test_pending_path_exists_when_listed(entry):
+    target = _PACKAGE_ROOT / entry
+    assert target.is_dir() if entry.endswith("/") else target.is_file()
+
+
+def test_is_pending_matches_exact_file_and_directory_prefix_when_listed():
+    assert _is_pending("azure/api.py")
+    assert _is_pending("github/ci_logs.py")
+    assert not _is_pending("github/pr.py")
+    assert not _is_pending("git/_staging_ops.py")
