@@ -9,7 +9,9 @@ record, so selection works over those (see _select_task).
 import logging
 from urllib.parse import parse_qs, urlparse
 
+from ..github._failures import http_failure
 from ..github.client import github_client_context
+from ..utils.tool_failure import fail
 from .api import azure_client_context
 from .log_rendering import FAILURE_RESULTS, fetch_and_render_log, fetch_timeline
 
@@ -186,16 +188,14 @@ async def azure_get_logs_for_check_run(
                 f"/repos/{repo_owner}/{repo_name}/check-runs/{check_run_id}"
             )
             if check_run_response.status != 200:
-                error_text = await check_run_response.text()
-                return (
-                    f"❌ Failed to get check run #{check_run_id}: "
-                    f"{check_run_response.status} - {error_text}"
+                return await http_failure(
+                    f"get check run #{check_run_id}", check_run_response
                 )
             check_run_data = await check_run_response.json()
 
         parsed = _parse_check_run_details_url(check_run_data.get("details_url"))
         if parsed is None:
-            return (
+            return fail(
                 f"❌ Check run #{check_run_id} does not have a recognizable "
                 "Azure DevOps details_url "
                 f"(got: {check_run_data.get('details_url')!r}). This tool "
@@ -210,21 +210,21 @@ async def azure_get_logs_for_check_run(
 
             job_record = _find_job_record(records, job_id)
             if job_record is None:
-                return (
+                return fail(
                     f"❌ Job {job_id} (from check run #{check_run_id}) not found "
                     f"in build #{build_id}'s timeline."
                 )
 
             children = _child_tasks_with_logs(records, job_id)
             if not children:
-                return (
+                return fail(
                     f"❌ Job '{job_record.get('name', job_id)}' in build "
                     f"#{build_id} has no child Task records with logs."
                 )
 
             selected, reason = _select_task(children, task_name)
             if selected is None:
-                return (
+                return fail(
                     f"❌ No task named {task_name!r} found among children of "
                     f"job '{job_record.get('name', job_id)}'."
                 )
@@ -257,9 +257,9 @@ async def azure_get_logs_for_check_run(
 
     except ValueError as auth_error:
         logger.error(f"Authentication error getting check run logs: {auth_error}")
-        return f"❌ {str(auth_error)}"
+        return fail(f"❌ {str(auth_error)}")
     except Exception as e:
         logger.error(
             f"Error getting logs for check run #{check_run_id}: {e}", exc_info=True
         )
-        return f"❌ Error getting logs for check run: {str(e)}"
+        return fail(f"❌ Error getting logs for check run: {str(e)}")
