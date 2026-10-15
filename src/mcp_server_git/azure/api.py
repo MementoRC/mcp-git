@@ -217,6 +217,80 @@ async def azure_get_build_logs(
         return fail(f"❌ Error getting build logs: {str(e)}")
 
 
+def _describe_failed_record(record: dict) -> list[str]:
+    """Report lines for one failed timeline record (header, times, issues)."""
+    status_emoji = _RESULT_MARKERS.get(record.get("result", ""), "❓")
+    lines = [
+        f"{status_emoji} {record.get('type', 'Unknown')}: {record.get('name', 'N/A')}",
+        f"   Result: {record.get('result', 'N/A')}",
+        f"   State: {record.get('state', 'N/A')}",
+    ]
+
+    if record.get("startTime"):
+        lines.append(f"   Started: {record['startTime']}")
+    if record.get("finishTime"):
+        lines.append(f"   Finished: {record['finishTime']}")
+
+    # Get error messages from issues
+    if record.get("issues"):
+        lines.append("   Issues:")
+        for issue in record["issues"][:5]:  # Limit to 5 issues
+            issue_type = issue.get("type", "unknown")
+            message = issue.get("message", "No message")
+            lines.append(f"     [{issue_type}] {message}")
+    return lines
+
+
+async def _read_log_lines(log_response) -> list:
+    """Log content as a list of lines (JSON "value" array or plain text)."""
+    # Azure DevOps returns log content as JSON with a "value" array
+    content_type = log_response.headers.get("Content-Type", "")
+    if "application/json" not in content_type:
+        log_text = await log_response.text()
+        return log_text.split("\n")
+    log_data = await log_response.json()
+    if isinstance(log_data, dict) and "value" in log_data:
+        return log_data["value"]
+    if isinstance(log_data, list):
+        return log_data
+    return [str(log_data)]
+
+
+async def _fetch_log_excerpt(
+    client, project: str, build_id: int, log_id: int, log_tail_lines: int
+) -> list[str]:
+    """Report lines with the last ``log_tail_lines`` of a log; [] if unavailable."""
+    try:
+        log_response = await client.get(
+            f"{project}/_apis/build/builds/{build_id}/logs/{log_id}?api-version=7.1",
+            accept="text/plain",
+        )
+        if log_response.status != 200:
+            return []
+        log_lines = await _read_log_lines(log_response)
+
+        lines: list[str] = []
+        original_line_count = len(log_lines)
+        if original_line_count > log_tail_lines:
+            excerpt_lines = log_lines[-log_tail_lines:]
+            lines.append(
+                f"   Log excerpt (showing last {log_tail_lines} of {original_line_count} lines):"
+            )
+            lines.append(
+                f"   ... [truncated {original_line_count - log_tail_lines} lines] ..."
+            )
+        else:
+            excerpt_lines = log_lines
+            lines.append(f"   Log excerpt ({original_line_count} lines):")
+        lines.append("   ```")
+        lines.extend(f"   {line}" for line in excerpt_lines)
+        lines.append("   ```")
+        return lines
+    except Exception as log_error:
+        logger.warning(f"Failed to get log {log_id}: {log_error}")
+        return []
+
+
 async def azure_get_failing_jobs(
     project: str, build_id: int, include_logs: bool = True, log_tail_lines: int = 500
 ) -> str:
@@ -268,77 +342,22 @@ async def azure_get_failing_jobs(
             output = [f"Failed Jobs for Build #{build_id}:\n"]
 
             for record in failed_records:
-                record_type = record.get("type", "Unknown")
-                status_emoji = _RESULT_MARKERS.get(record.get("result", ""), "❓")
-
-                record_name = record.get("name", "N/A")
-                output.append(f"{status_emoji} {record_type}: {record_name}")
-                output.append(f"   Result: {record.get('result', 'N/A')}")
-                output.append(f"   State: {record.get('state', 'N/A')}")
-
-                if record.get("startTime"):
-                    output.append(f"   Started: {record['startTime']}")
-                if record.get("finishTime"):
-                    output.append(f"   Finished: {record['finishTime']}")
-
-                # Get error messages from issues
-                if record.get("issues"):
-                    output.append("   Issues:")
-                    for issue in record["issues"][:5]:  # Limit to 5 issues
-                        issue_type = issue.get("type", "unknown")
-                        message = issue.get("message", "No message")
-                        output.append(f"     [{issue_type}] {message}")
+                output.extend(_describe_failed_record(record))
 
                 # Include log excerpt if requested.
                 # Use `record.get("log") or {}`: the log key may be present but
                 # explicitly null, in which case `.get("log", {})` returns None
                 # and `.get("id")` would raise 'NoneType' object has no attribute 'get'.
                 if include_logs and (record.get("log") or {}).get("id"):
-                    log_id = record["log"]["id"]
-                    try:
-                        log_response = await client.get(
-                            f"{project}/_apis/build/builds/{build_id}/logs/{log_id}?api-version=7.1",
-                            accept="text/plain",
+                    output.extend(
+                        await _fetch_log_excerpt(
+                            client,
+                            project,
+                            build_id,
+                            record["log"]["id"],
+                            log_tail_lines,
                         )
-                        if log_response.status == 200:
-                            # Azure DevOps returns log content as JSON with a "value" array
-                            content_type = log_response.headers.get("Content-Type", "")
-                            if "application/json" in content_type:
-                                log_data = await log_response.json()
-                                if isinstance(log_data, dict) and "value" in log_data:
-                                    log_lines = log_data["value"]
-                                elif isinstance(log_data, list):
-                                    log_lines = log_data
-                                else:
-                                    log_lines = [str(log_data)]
-                            else:
-                                # Plain text response
-                                log_text = await log_response.text()
-                                log_lines = log_text.split("\n")
-
-                            # Get last N lines
-                            original_line_count = len(log_lines)
-                            if len(log_lines) > log_tail_lines:
-                                truncated_count = original_line_count - log_tail_lines
-                                excerpt_lines = log_lines[-log_tail_lines:]
-                                output.append(
-                                    f"   Log excerpt (showing last {log_tail_lines} of {original_line_count} lines):"
-                                )
-                                output.append(
-                                    f"   ... [truncated {truncated_count} lines] ..."
-                                )
-                            else:
-                                excerpt_lines = log_lines
-                                output.append(
-                                    f"   Log excerpt ({original_line_count} lines):"
-                                )
-                            output.append("   ```")
-                            # Indent each line
-                            for line in excerpt_lines:
-                                output.append(f"   {line}")
-                            output.append("   ```")
-                    except Exception as log_error:
-                        logger.warning(f"Failed to get log {log_id}: {log_error}")
+                    )
 
                 output.append("")  # Empty line between records
 

@@ -104,74 +104,70 @@ class ContentTruncator:
         try:
             data = json.loads(content)
 
-            # For dictionaries, prioritize certain keys
             if isinstance(data, dict):
-                # Keep priority keys first (from config)
-                truncated_data = {}
-                for key in self.config.preserve_keys:
-                    if key in data:
-                        truncated_data[key] = data[key]
+                return self._truncate_json_dict(data, max_tokens)
+            if isinstance(data, list):
+                return self._truncate_json_list(data, max_tokens)
 
-                # Add other keys until we hit the limit
-                remaining_keys = [k for k in data if k not in self.config.preserve_keys]
-                for key in remaining_keys:
-                    test_data = {**truncated_data, key: data[key]}
-                    test_content = json.dumps(test_data, indent=2)
-                    if (
-                        self.token_estimator.estimate_tokens(
-                            test_content, ContentType.JSON
-                        ).estimated_tokens
-                        > max_tokens
-                    ):
-                        break
-                    truncated_data[key] = data[key]
-
-                # Add truncation indicator
-                if len(truncated_data) < len(data):
-                    truncated_data["_meta"] = {
-                        "truncated": True,
-                        "original_keys": len(data),
-                        "preserved_keys": len(truncated_data),
-                        "truncation_indicator": self.config.truncation_indicator,
-                    }
-
-                return json.dumps(truncated_data, indent=2)
-
-            elif isinstance(data, list):
-                # For lists, keep first N items
-                truncated_list = []
-                for _, item in enumerate(data):
-                    test_list = truncated_list + [item]
-                    test_content = json.dumps(test_list, indent=2)
-                    if (
-                        self.token_estimator.estimate_tokens(
-                            test_content, ContentType.JSON
-                        ).estimated_tokens
-                        > max_tokens
-                    ):
-                        break
-                    truncated_list.append(item)
-
-                # Add truncation indicator
-                if len(truncated_list) < len(data):
-                    truncated_list.append(
-                        {
-                            "_truncated": True,
-                            "original_length": len(data),
-                            "preserved_length": len(truncated_list),
-                            "indicator": self.config.truncation_indicator,
-                        }
-                    )
-
-                return json.dumps(truncated_list, indent=2)
-
-            else:
-                # For other JSON types, fall back to text truncation
-                return self._truncate_text(content, max_tokens)
+            # For other JSON types, fall back to text truncation
+            return self._truncate_text(content, max_tokens)
 
         except (json.JSONDecodeError, TypeError):
             # Fall back to text truncation if JSON parsing fails
             return self._truncate_text(content, max_tokens)
+
+    def _exceeds_json_limit(self, candidate: object, max_tokens: int) -> bool:
+        """Whether *candidate* serialized as indented JSON is over the limit."""
+        test_content = json.dumps(candidate, indent=2)
+        estimate = self.token_estimator.estimate_tokens(test_content, ContentType.JSON)
+        return estimate.estimated_tokens > max_tokens
+
+    def _truncate_json_dict(self, data: dict, max_tokens: int) -> str:
+        """Prioritize configured keys, then add others until the limit."""
+        # Keep priority keys first (from config)
+        truncated_data = {}
+        for key in self.config.preserve_keys:
+            if key in data:
+                truncated_data[key] = data[key]
+
+        # Add other keys until we hit the limit
+        remaining_keys = [k for k in data if k not in self.config.preserve_keys]
+        for key in remaining_keys:
+            if self._exceeds_json_limit({**truncated_data, key: data[key]}, max_tokens):
+                break
+            truncated_data[key] = data[key]
+
+        # Add truncation indicator
+        if len(truncated_data) < len(data):
+            truncated_data["_meta"] = {
+                "truncated": True,
+                "original_keys": len(data),
+                "preserved_keys": len(truncated_data),
+                "truncation_indicator": self.config.truncation_indicator,
+            }
+
+        return json.dumps(truncated_data, indent=2)
+
+    def _truncate_json_list(self, data: list, max_tokens: int) -> str:
+        """Keep the first N items that fit, then append a truncation marker."""
+        truncated_list: list = []
+        for item in data:
+            if self._exceeds_json_limit(truncated_list + [item], max_tokens):
+                break
+            truncated_list.append(item)
+
+        # Add truncation indicator
+        if len(truncated_list) < len(data):
+            truncated_list.append(
+                {
+                    "_truncated": True,
+                    "original_length": len(data),
+                    "preserved_length": len(truncated_list),
+                    "indicator": self.config.truncation_indicator,
+                }
+            )
+
+        return json.dumps(truncated_list, indent=2)
 
     def _truncate_structured(self, content: str, max_tokens: int) -> str:
         """Truncate structured content (YAML, TOML, etc.)."""
