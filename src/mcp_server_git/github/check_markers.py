@@ -26,6 +26,7 @@ CONCLUSION_MARKERS = {
     "success": "✅",
     "failure": "❌",
     "timed_out": "❌",
+    "startup_failure": "❌",
     "skipped": "⏭️",
     "neutral": "➖",
     "cancelled": "🚫",
@@ -40,6 +41,18 @@ STATUS_MARKERS = {
     "pending": "⏳",
     "requested": "⏳",
 }
+
+
+def conclusion_marker(conclusion: str | None, status: str | None = None) -> str:
+    """Single marker table for check runs, workflow runs and jobs (issue #293).
+
+    Only genuine failures render ❌; a skipped job is not a failure. With no
+    conclusion yet the item is still pending and ``status`` picks the marker
+    (🔄 in_progress, otherwise ⏳). Unknown conclusions render ❓.
+    """
+    if not conclusion:
+        return STATUS_MARKERS.get(status or "", "⏳")
+    return CONCLUSION_MARKERS.get(conclusion, UNKNOWN_MARKER)
 
 
 def bool_marker(ok: object) -> str:
@@ -62,7 +75,7 @@ def check_marker(run: dict) -> str:
     """
     if run.get("status") == "completed":
         conclusion = run.get("conclusion")
-        if conclusion is None:
+        if conclusion is None or conclusion == "":
             return UNKNOWN_MARKER
-        return CONCLUSION_MARKERS.get(str(conclusion), UNKNOWN_MARKER)
+        return conclusion_marker(str(conclusion))
     return STATUS_MARKERS.get(str(run.get("status")), UNKNOWN_MARKER)

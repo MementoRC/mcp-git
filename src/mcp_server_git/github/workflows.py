@@ -8,7 +8,7 @@ from datetime import datetime
 
 from mcp_server_git.github._paging import clamp_paging, invalid_choice
 from mcp_server_git.github._payload import login_of
-from mcp_server_git.github.check_markers import bool_marker
+from mcp_server_git.github.check_markers import conclusion_marker
 from mcp_server_git.github.client import github_client_context
 from mcp_server_git.github.run_failed_logs import failed_job_logs_lines
 from mcp_server_git.github.run_jobs import list_run_jobs
@@ -33,7 +33,7 @@ _RUN_CONCLUSIONS = (
 def _job_status_emoji(job: dict) -> str:
     """Status glyph for a job line inside a workflow-run report."""
     return {
-        "completed": bool_marker(job.get("conclusion") == "success"),
+        "completed": conclusion_marker(job.get("conclusion")),
         "in_progress": "🔄",
         "queued": "⏳",
     }.get(job["status"], "❓")
@@ -254,7 +254,7 @@ def _run_duration(run: dict) -> str | None:
 def _format_run(run: dict) -> list[str]:
     """Render one workflow run as output lines, ending with a blank line."""
     status_emoji = {
-        "completed": bool_marker(run.get("conclusion") == "success"),
+        "completed": conclusion_marker(run.get("conclusion")),
         "in_progress": "🔄",
         "queued": "⏳",
         "requested": "📋",
