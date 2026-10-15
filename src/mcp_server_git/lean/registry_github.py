@@ -151,7 +151,7 @@ def _register_github_tools(interface: Any, github_service: Any):
         ToolDefinition(
             name="github_get_workflow_run",
             implementation=github_ops.github_get_workflow_run,
-            description="Get detailed workflow run information",
+            description="Get detailed workflow run information; each job lists its id and URL. include_logs=true appends the last 100 log lines of each failed job",
             schema=GitHubGetWorkflowRun.model_json_schema(),
             domain="github",
             complexity="focused",
@@ -167,7 +167,7 @@ def _register_github_tools(interface: Any, github_service: Any):
         ToolDefinition(
             name="github_get_job_logs",
             implementation=github_ops.github_get_job_logs,
-            description="Get logs for a specific GitHub Actions job for CI debugging",
+            description="Get logs for a specific GitHub Actions job for CI debugging; identify it by job_id, or by run_id plus exact job_name",
             schema=GitHubGetJobLogs.model_json_schema(),
             domain="github",
             complexity="focused",

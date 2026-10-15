@@ -10,6 +10,8 @@ from mcp_server_git.github._paging import clamp_paging, invalid_choice
 from mcp_server_git.github._payload import login_of
 from mcp_server_git.github.check_markers import bool_marker
 from mcp_server_git.github.client import github_client_context
+from mcp_server_git.github.run_failed_logs import failed_job_logs_lines
+from mcp_server_git.github.run_jobs import list_run_jobs
 from mcp_server_git.utils.tool_failure import fail
 
 from .ci_logs import *  # noqa: F401,F403
@@ -37,10 +39,37 @@ def _job_status_emoji(job: dict) -> str:
     }.get(job["status"], "❓")
 
 
+def _job_lines(job: dict) -> list[str]:
+    """Report lines for one job: name, id, url, status and conclusion."""
+    lines = [f"  {_job_status_emoji(job)} {job['name']}"]
+    if job.get("id") is not None:
+        lines.append(f"    ID: {job['id']}")
+    if job.get("html_url"):
+        lines.append(f"    URL: {job['html_url']}")
+    lines.append(f"    Status: {job['status']}")
+    if job.get("conclusion"):
+        lines.append(f"    Conclusion: {job['conclusion']}")
+    return lines
+
+
 async def github_get_workflow_run(
     repo_owner: str, repo_name: str, run_id: int, include_logs: bool = False
 ) -> str:
-    """Get detailed workflow run information"""
+    """Get detailed workflow run information, including each job's id and URL.
+
+    Args:
+        repo_owner: Repository owner/organization
+        repo_name: Repository name
+        run_id: The workflow run ID
+        include_logs: If True, append the last 100 log lines of every job whose
+            conclusion is "failure" (total size capped). A job whose log cannot
+            be fetched gets a one-line note instead; the rest are still
+            returned. When no job failed, a single line says so.
+
+    Returns:
+        Run summary followed by a Jobs list; each job shows its name, ID, URL,
+        status and conclusion. The ID can be passed to github_get_job_logs.
+    """
     try:
         async with github_client_context() as client:
             # Get workflow run details
@@ -67,22 +96,17 @@ async def github_get_workflow_run(
                 output.append(f"URL: {run_data['html_url']}")
 
             # Get jobs if available
-            jobs_response = await client.get(
-                f"/repos/{repo_owner}/{repo_name}/actions/runs/{run_id}/jobs"
+            jobs, bad_response = await list_run_jobs(
+                client, repo_owner, repo_name, run_id
             )
-            if jobs_response.status == 200:
-                jobs_data = await jobs_response.json()
-                jobs = jobs_data.get("jobs", [])
-
-                if jobs:
-                    output.append("\nJobs:")
-                    for job in jobs:
-                        status_emoji = _job_status_emoji(job)
-
-                        output.append(f"  {status_emoji} {job['name']}")
-                        output.append(f"    Status: {job['status']}")
-                        if job.get("conclusion"):
-                            output.append(f"    Conclusion: {job['conclusion']}")
+            if bad_response is None and jobs:
+                output.append("\nJobs:")
+                for job in jobs:
+                    output.extend(_job_lines(job))
+                if include_logs:
+                    output.extend(
+                        await failed_job_logs_lines(repo_owner, repo_name, jobs)
+                    )
 
             return "\n".join(output)
 

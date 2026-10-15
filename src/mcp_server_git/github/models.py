@@ -966,7 +966,14 @@ class GitHubGetJobLogs(BaseModel):
         # For complete logs (still capped at 100KB for LLM safety)
         logs = github_get_job_logs(owner, repo, job_id=12345, full_log=True)
 
+    Instead of job_id, pass run_id and job_name to select a job by its exact
+    name within a workflow run:
+        logs = github_get_job_logs(owner, repo, run_id=987, job_name="test")
+
     Note:
+        - Give either job_id or both run_id and job_name, not both forms. An
+          unknown or ambiguous (duplicate) job_name is an error that lists the
+          available names or the matching ids.
         - Only one of head_lines / tail_lines / (start_line, end_line) may be
           given; grep composes with any of them.
         - grep searches the whole log by default, not just the last 500 lines.
@@ -983,7 +990,9 @@ class GitHubGetJobLogs(BaseModel):
 
     repo_owner: str  # GitHub repository owner or organization name
     repo_name: str  # GitHub repository name
-    job_id: int  # Job ID from GitHub Actions (from check runs or workflow jobs)
+    job_id: int | None = None  # Job ID (from check runs or workflow jobs)
+    run_id: int | None = None  # Workflow run ID; use with job_name instead of job_id
+    job_name: str | None = None  # Exact job name within run_id (instead of job_id)
     tail_lines: int | None = None  # Return only last N lines; None uses default (500)
     head_lines: int | None = None  # Return only first N lines (reaches the log start)
     start_line: int | None = None  # 1-indexed inclusive start of an explicit window
