@@ -14,6 +14,7 @@ from mcp_server_git.github.job_log_selection import (
     build_log_response_lines,
     write_full_log_response,
 )
+from mcp_server_git.github.run_jobs import select_job_id
 from mcp_server_git.utils.tool_failure import ToolFailure, fail
 
 logger = logging.getLogger(__name__)
@@ -285,7 +286,7 @@ async def github_await_workflow_completion(
 async def github_get_job_logs(
     repo_owner: str,
     repo_name: str,
-    job_id: int,
+    job_id: int | None = None,
     tail_lines: int | None = None,
     full_log: bool = False,
     head_lines: int | None = None,
@@ -295,12 +296,16 @@ async def github_get_job_logs(
     context_lines: int = 0,
     ignore_case: bool = False,
     output_path: str | None = None,
+    run_id: int | None = None,
+    job_name: str | None = None,
 ) -> str:
     """Get logs for a specific GitHub Actions job.
 
     Fetches the actual log content for a job, enabling CI failure diagnosis
-    without navigating to the GitHub UI. The job_id can be obtained from
-    github_get_failing_jobs or github_get_workflow_run output.
+    without navigating to the GitHub UI. Identify the job either by job_id
+    (from github_get_failing_jobs or github_get_workflow_run output) or by
+    run_id plus job_name, which is resolved by listing the run's jobs and
+    matching the name exactly. Give one form, not both.
 
     IMPORTANT: By default, logs are truncated to the last 500 lines to be
     LLM-context-friendly. Use head_lines/tail_lines/start_line+end_line/grep
@@ -310,7 +315,8 @@ async def github_get_job_logs(
     Args:
         repo_owner: Repository owner/organization
         repo_name: Repository name
-        job_id: The job ID (from check runs or workflow jobs)
+        job_id: The job ID (from check runs or workflow jobs). Omit when
+            using run_id + job_name
         tail_lines: Return only last N lines (default: 500 for LLM efficiency)
         full_log: If True, return complete log without line limit (still has
             100KB char limit unless output_path is given)
@@ -323,6 +329,9 @@ async def github_get_job_logs(
         ignore_case: Case-insensitive grep
         output_path: Absolute path to write the complete log to disk instead
             of returning it inline; the response then carries only metadata
+        run_id: Workflow run ID, used together with job_name instead of job_id
+        job_name: Exact job name within run_id. Fails if no job or more than
+            one job has that name (the message lists names or ids)
 
     Returns:
         Formatted string with job information and log content (or, when
@@ -335,6 +344,13 @@ async def github_get_job_logs(
 
     try:
         async with github_client_context() as client:
+            selected = await select_job_id(
+                client, repo_owner, repo_name, job_id, run_id, job_name
+            )
+            if isinstance(selected, ToolFailure):
+                return selected
+            job_id = selected
+
             # First get job details for context
             job_response = await client.get(
                 f"/repos/{repo_owner}/{repo_name}/actions/jobs/{job_id}"
@@ -367,27 +383,18 @@ async def github_get_job_logs(
             if output_path is not None:
                 return write_full_log_response(output, output_path, logs_text)
 
-            try:
-                output.extend(
-                    build_log_response_lines(
-                        logs_text,
-                        tail_lines=tail_lines,
-                        full_log=full_log,
-                        head_lines=head_lines,
-                        start_line=start_line,
-                        end_line=end_line,
-                        grep=grep,
-                        context_lines=context_lines,
-                        ignore_case=ignore_case,
-                        size_limit=_JOB_LOGS_MAX_SIZE_BYTES,
-                        char_limit=_JOB_LOGS_MAX_CHARS_FOR_LLM,
-                        separator_length=_JOB_LOGS_SEPARATOR_LENGTH,
-                    )
-                )
-            except LogSelectionError as exc:
-                return fail(f"❌ {exc}")
-
-            return "\n".join(output)
+            return _selected_log_response(
+                output,
+                logs_text,
+                tail_lines=tail_lines,
+                full_log=full_log,
+                head_lines=head_lines,
+                start_line=start_line,
+                end_line=end_line,
+                grep=grep,
+                context_lines=context_lines,
+                ignore_case=ignore_case,
+            )
 
     except ValueError as auth_error:
         logger.error(f"Authentication error getting job logs: {auth_error}")
@@ -398,6 +405,23 @@ async def github_get_job_logs(
     except Exception as e:
         logger.error(f"Unexpected error getting job logs: {e}", exc_info=True)
         return fail(f"❌ Error getting job logs: {str(e)}")
+
+
+def _selected_log_response(output: list[str], logs_text: str, **selection) -> str:
+    """Job header plus the requested slice of the log."""
+    try:
+        output.extend(
+            build_log_response_lines(
+                logs_text,
+                **selection,
+                size_limit=_JOB_LOGS_MAX_SIZE_BYTES,
+                char_limit=_JOB_LOGS_MAX_CHARS_FOR_LLM,
+                separator_length=_JOB_LOGS_SEPARATOR_LENGTH,
+            )
+        )
+    except LogSelectionError as exc:
+        return fail(f"❌ {exc}")
+    return "\n".join(output)
 
 
 def _logs_error_result(output: list[str], logs_error: str) -> str:
