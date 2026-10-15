@@ -27,8 +27,8 @@ If any condition fails, the lock file is left alone and the underlying
 git error is allowed to surface normally — this reaper never masks a real
 concurrent-access conflict.
 
-Every reap is logged at WARNING level (resolved lock path + age) so this
-never becomes a silent side effect.
+Every reap is logged at INFO level (lock path, size, age, holder-check
+result, triggering op name) so this never becomes a silent side effect.
 """
 
 from __future__ import annotations
@@ -75,13 +75,16 @@ def _is_reapable(size: int, age_seconds: float, holder: bool | None) -> bool:
     if holder is True:
         return False
     if holder is False:
-        return age_seconds >= _env_seconds(
-            _ORPHAN_AGE_ENV_VAR, _DEFAULT_ORPHAN_AGE_SECONDS
-        )
+        return age_seconds >= orphan_age_seconds()
     return size == 0 and age_seconds >= _max_age_seconds()
 
 
-def reap_stale_index_lock(git_dir: str) -> bool:
+def orphan_age_seconds() -> float:
+    """Age at which a lock with no live holder becomes reapable."""
+    return _env_seconds(_ORPHAN_AGE_ENV_VAR, _DEFAULT_ORPHAN_AGE_SECONDS)
+
+
+def reap_stale_index_lock(git_dir: str, *, op: str | None = None) -> bool:
     """Remove ``<git_dir>/index.lock`` if it is provably stale.
 
     Returns True if a lock was removed. When no live process holds the lock
@@ -110,9 +113,8 @@ def reap_stale_index_lock(git_dir: str) -> bool:
         return False
 
     age_seconds = time.time() - stat_result.st_mtime
-    if not _is_reapable(
-        stat_result.st_size, age_seconds, has_live_lock_holder(git_dir)
-    ):
+    holder = has_live_lock_holder(git_dir)
+    if not _is_reapable(stat_result.st_size, age_seconds, holder):
         # Held by a live process, or too fresh / partially written under the
         # conservative rule. Never touch it.
         return False
@@ -125,10 +127,13 @@ def reap_stale_index_lock(git_dir: str) -> bool:
         # normally rather than raising from the reaper.
         return False
 
-    logger.warning(
-        "Reaped stale index.lock at %s (size=%d, age=%.1fs)",
+    logger.info(
+        "Reaped stale index.lock at %s (size=%d bytes, age=%.1fs, "
+        "live_holder=%s, op=%s)",
         lock_path,
         stat_result.st_size,
         age_seconds,
+        holder,
+        op,
     )
     return True

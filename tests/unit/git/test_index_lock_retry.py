@@ -8,13 +8,14 @@ from unittest.mock import MagicMock, patch
 import pytest
 from git import Git, GitCommandError, Repo
 
-from mcp_server_git.git._commit_ops import git_commit, git_status
+from mcp_server_git.git._commit_ops import git_status
 from mcp_server_git.git._commit_runner import (
     CommitProcessResult,
     CommitTimeoutError,
     run_commit_process,
 )
 from mcp_server_git.git._staging_ops import git_add
+from mcp_server_git.lean.registry_git import _register_git_tools
 from mcp_server_git.utils.tool_failure import ToolFailure
 
 LOCK_ERROR = "fatal: Unable to create '/x/.git/index.lock': File exists."
@@ -37,20 +38,48 @@ def _plant_lock(repo: Repo, age_seconds: float) -> Path:
     return lock
 
 
+def _tool(name: str):
+    """Registered lean tool, i.e. the centralized wrap_repo_op path (#292)."""
+    interface = MagicMock()
+    registry = {}
+    interface.register_tool.side_effect = lambda t: registry.__setitem__(t.name, t)
+    _register_git_tools(interface, git_service=MagicMock())
+    return registry[name].implementation
+
+
+@pytest.fixture(autouse=True)
+def no_real_sleep(monkeypatch):
+    sleeps: list[float] = []
+    monkeypatch.setattr("mcp_server_git.git._lock_retry._sleep", sleeps.append)
+    return sleeps
+
+
+@pytest.fixture
+def unknown_holder(monkeypatch):
+    monkeypatch.setattr(
+        "mcp_server_git.lean.lock_reaper.has_live_lock_holder", lambda _: None
+    )
+    monkeypatch.setattr(
+        "mcp_server_git.lean.lock_holders.has_live_lock_holder", lambda _: None
+    )
+
+
 class TestGitAddLockRetry:
     def test_git_add_succeeds_after_reaping_orphaned_lock_when_lock_exists(self, repo):
         lock = _plant_lock(repo, age_seconds=60)
 
-        result = git_add(repo, files=["a.txt"])
+        result = _tool("git_add")(repo_path=repo.working_dir, files=["a.txt"])
 
         assert result.startswith("✅"), result
         assert not lock.exists()
         assert "a.txt" in repo.git.diff("--cached", "--name-only")
 
-    def test_git_add_returns_tool_failure_when_lock_is_too_young_to_reap(self, repo):
+    def test_git_add_returns_tool_failure_when_holder_unknown_and_lock_young(
+        self, repo, unknown_holder
+    ):
         lock = _plant_lock(repo, age_seconds=1)
 
-        result = git_add(repo, files=["a.txt"])
+        result = _tool("git_add")(repo_path=repo.working_dir, files=["a.txt"])
 
         assert isinstance(result, ToolFailure)
         assert "index.lock" in result
@@ -67,28 +96,34 @@ class TestGitAddLockRetry:
             raise GitCommandError(["git", "add"], 128, stderr=LOCK_ERROR)
 
         with patch.object(Git, "_call_process", side_effect=always_locked):
-            result = git_add(repo, files=["a.txt"])
+            result = _tool("git_add")(repo_path=repo.working_dir, files=["a.txt"])
 
         assert len(attempts) == 2
         assert isinstance(result, ToolFailure)
 
 
 class TestGitCommitLockRetryAndTimeout:
-    def _mock_repo(self, git_dir: str) -> MagicMock:
-        mock_repo = MagicMock()
-        mock_repo.working_dir = "/tmp/test_repo"
-        mock_repo.git_dir = git_dir
-        mock_repo.config_reader.return_value.get_value.return_value = "KEY"
-        return mock_repo
+    @staticmethod
+    def _commit(repo: Repo):
+        return _tool("git_commit")(
+            repo_path=repo.working_dir, message="m", gpg_key_id="KEY"
+        )
 
     def test_git_commit_retries_once_when_lock_reaped(self, repo):
-        lock = _plant_lock(repo, age_seconds=60)
-        locked = CommitProcessResult(128, "", LOCK_ERROR)
+        locks: list[Path] = []
         ok = CommitProcessResult(0, "", "")
+        calls = iter([None, ok])
+
+        def fake_run(*_args, **_kwargs):
+            if next(calls) is None:
+                locks.append(_plant_lock(repo, age_seconds=60))
+                return CommitProcessResult(128, "", LOCK_ERROR)
+            return ok
+
         with (
             patch(
                 "mcp_server_git.git._commit_ops.run_commit_process",
-                side_effect=[locked, ok],
+                side_effect=fake_run,
             ) as run,
             patch(
                 "mcp_server_git.git._commit_ops.subprocess.run",
@@ -99,14 +134,14 @@ class TestGitCommitLockRetryAndTimeout:
                 return_value="ok",
             ),
         ):
-            result = git_commit(self._mock_repo(repo.git_dir), message="m")
+            result = self._commit(repo)
 
         assert run.call_count == 2
         assert result.startswith("✅")
-        assert not lock.exists()
+        assert not locks[0].exists()
 
     def test_git_commit_returns_tool_failure_without_retry_when_lock_not_reaped(
-        self, repo
+        self, repo, unknown_holder
     ):
         _plant_lock(repo, age_seconds=1)
         locked = CommitProcessResult(128, "", LOCK_ERROR)
@@ -120,7 +155,7 @@ class TestGitCommitLockRetryAndTimeout:
                 return_value="ok",
             ),
         ):
-            result = git_commit(self._mock_repo(repo.git_dir), message="m")
+            result = self._commit(repo)
 
         assert run.call_count == 1
         assert isinstance(result, ToolFailure)
@@ -137,7 +172,7 @@ class TestGitCommitLockRetryAndTimeout:
                 return_value="ok",
             ),
         ):
-            result = git_commit(self._mock_repo(repo.git_dir), message="m")
+            result = self._commit(repo)
 
         assert isinstance(result, ToolFailure)
         assert "timed out" in result

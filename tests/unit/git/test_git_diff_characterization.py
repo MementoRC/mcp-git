@@ -161,7 +161,7 @@ def test_git_diff_returns_error_message_when_unexpected_exception(repo):
     class Boom:
         class git:  # noqa: N801
             @staticmethod
-            def diff(*_args):
+            def diff(*_args, **_kwargs):
                 raise RuntimeError("boom")
 
     assert git_diff(Boom) == "❌ Diff error: boom"

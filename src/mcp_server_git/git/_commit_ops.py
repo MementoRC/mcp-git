@@ -8,7 +8,7 @@ from ..utils.git_import import GitCommandError, Repo
 from ..utils.tool_failure import fail
 from ._commit_runner import CommitTimeoutError, run_commit_process
 from ._gpg import resolve_gpg_key
-from ._lock_retry import READ_ONLY_ENV, retry_after_lock_reap
+from ._lock_retry import READ_ONLY_ENV
 from .error_text import clean_git_error_text
 
 logger = logging.getLogger(__name__)
@@ -50,13 +50,8 @@ def git_commit(
     gpg_key_id: str | None = None,
     allow_empty: bool = False,
 ) -> str:
-    """Commit staged changes; retries once if an orphaned index.lock is reaped."""
-    return retry_after_lock_reap(
-        repo,
-        lambda: _git_commit_once(
-            repo, message, amend, gpg_sign, gpg_key_id, allow_empty
-        ),
-    )
+    """Commit staged changes (index.lock retry is handled by wrap_repo_op)."""
+    return _git_commit_once(repo, message, amend, gpg_sign, gpg_key_id, allow_empty)
 
 
 # GPG signing is forced for every commit (SECURITY REQUIREMENT).
