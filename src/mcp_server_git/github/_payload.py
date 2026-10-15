@@ -17,6 +17,11 @@ def body_preview(body: str) -> str:
     return f"{body[:BODY_PREVIEW_CHARS]}{ellipsis}"
 
 
+def provided_fields(**fields: Any) -> dict[str, Any]:
+    """Return ``fields`` without the ``None`` values, preserving order."""
+    return {key: value for key, value in fields.items() if value is not None}
+
+
 def obj_of(payload: dict[str, Any], key: str) -> dict[str, Any]:
     """Return ``payload[key]`` as a dict; ``{}`` when missing or null."""
     return payload.get(key) or {}

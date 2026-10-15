@@ -5,8 +5,14 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from mcp_server_git.github._branch_protection import (
+    format_branch_protection,
+    pr_reviews_payload,
+    restrictions_payload,
+    status_checks_payload,
+)
 from mcp_server_git.github._failures import http_failure
-from mcp_server_git.github._payload import obj_of
+from mcp_server_git.github._payload import provided_fields
 from mcp_server_git.github.check_markers import bool_marker
 from mcp_server_git.github.client import github_client_context
 from mcp_server_git.utils.tool_failure import fail
@@ -225,82 +231,7 @@ async def github_get_branch_protection(
 
             data = await response.json()
 
-            output = [f"Branch Protection for {repo_owner}/{repo_name}:{branch}\n"]
-
-            # Required status checks
-            if data.get("required_status_checks"):
-                checks = data["required_status_checks"]
-                output.append("✅ Required Status Checks:")
-                output.append(f"   Strict: {bool_marker(checks.get('strict'))}")
-                contexts = checks.get("contexts", [])
-                if contexts:
-                    output.append(f"   Contexts: {', '.join(contexts)}")
-                else:
-                    output.append("   Contexts: (none)")
-            else:
-                output.append(
-                    f"{bool_marker(False)} Required Status Checks: Not configured"
-                )
-
-            # Required PR reviews
-            if data.get("required_pull_request_reviews"):
-                reviews = data["required_pull_request_reviews"]
-                output.append("\n✅ Required Pull Request Reviews:")
-                output.append(
-                    f"   Dismiss Stale Reviews: {bool_marker(reviews.get('dismiss_stale_reviews'))}"
-                )
-                output.append(
-                    f"   Require Code Owner Reviews: {bool_marker(reviews.get('require_code_owner_reviews'))}"
-                )
-                output.append(
-                    f"   Required Approving Review Count: {reviews.get('required_approving_review_count', 0)}"
-                )
-                output.append(
-                    f"   Require Last Push Approval: {bool_marker(reviews.get('require_last_push_approval'))}"
-                )
-            else:
-                output.append(
-                    f"\n{bool_marker(False)} Required Pull Request Reviews: Not configured"
-                )
-
-            # Enforce admins
-            if data.get("enforce_admins"):
-                output.append(
-                    f"\n👮 Enforce Admins: {bool_marker(data['enforce_admins'].get('enabled'))}"
-                )
-
-            # Restrictions
-            if data.get("restrictions"):
-                output.append("\n🔒 Push Restrictions: Enabled")
-                restrictions = data["restrictions"]
-                if restrictions.get("users"):
-                    users = [u["login"] for u in restrictions["users"]]
-                    output.append(f"   Users: {', '.join(users)}")
-                if restrictions.get("teams"):
-                    teams = [t["slug"] for t in restrictions["teams"]]
-                    output.append(f"   Teams: {', '.join(teams)}")
-            else:
-                output.append("\n🔓 Push Restrictions: Not configured")
-
-            # Other settings
-            output.append("\n📋 Other Settings:")
-            output.append(
-                f"   Required Linear History: {bool_marker(obj_of(data, 'required_linear_history').get('enabled'))}"
-            )
-            output.append(
-                f"   Allow Force Pushes: {bool_marker(obj_of(data, 'allow_force_pushes').get('enabled'))}"
-            )
-            output.append(
-                f"   Allow Deletions: {bool_marker(obj_of(data, 'allow_deletions').get('enabled'))}"
-            )
-            output.append(
-                f"   Required Conversation Resolution: {bool_marker(obj_of(data, 'required_conversation_resolution').get('enabled'))}"
-            )
-            output.append(
-                f"   Lock Branch: {bool_marker(obj_of(data, 'lock_branch').get('enabled'))}"
-            )
-
-            return "\n".join(output)
+            return format_branch_protection(repo_owner, repo_name, branch, data)
 
     except ValueError as auth_error:
         logger.error(f"Authentication error getting branch protection: {auth_error}")
@@ -341,75 +272,34 @@ async def github_update_branch_protection(
 
     try:
         async with github_client_context() as client:
-            # Build the protection rules payload
             # GitHub API requires specific structure for branch protection
-            payload: dict[str, Any] = {}
-
-            # Required status checks
-            if (
-                required_status_checks_strict is not None
-                or required_status_checks_contexts is not None
-            ):
-                payload["required_status_checks"] = {
-                    "strict": required_status_checks_strict or False,
-                    "contexts": required_status_checks_contexts or [],
-                }
-            else:
-                payload["required_status_checks"] = None
-
-            # Required pull request reviews
-            if require_pull_request_reviews:
-                pr_reviews: dict[str, Any] = {}
-                if dismiss_stale_reviews is not None:
-                    pr_reviews["dismiss_stale_reviews"] = dismiss_stale_reviews
-                if require_code_owner_reviews is not None:
-                    pr_reviews["require_code_owner_reviews"] = (
-                        require_code_owner_reviews
-                    )
-                if required_approving_review_count is not None:
-                    pr_reviews["required_approving_review_count"] = (
-                        required_approving_review_count
-                    )
-                if require_last_push_approval is not None:
-                    pr_reviews["require_last_push_approval"] = (
-                        require_last_push_approval
-                    )
-                payload["required_pull_request_reviews"] = pr_reviews or None
-            else:
-                payload["required_pull_request_reviews"] = None
-
-            # Enforce admins
-            payload["enforce_admins"] = (
-                enforce_admins if enforce_admins is not None else False
-            )
-
-            # Restrictions
-            if restrict_pushes:
-                restrictions: dict[str, Any] = {
-                    "users": push_allowances_users or [],
-                    "teams": push_allowances_teams or [],
-                }
-                payload["restrictions"] = restrictions
-            else:
-                payload["restrictions"] = None
-
-            # Other settings
-            if required_linear_history is not None:
-                payload["required_linear_history"] = required_linear_history
-            if allow_force_pushes is not None:
-                payload["allow_force_pushes"] = allow_force_pushes
-            if allow_deletions is not None:
-                payload["allow_deletions"] = allow_deletions
-            if block_creations is not None:
-                payload["block_creations"] = block_creations
-            if required_conversation_resolution is not None:
-                payload["required_conversation_resolution"] = (
-                    required_conversation_resolution
-                )
-            if lock_branch is not None:
-                payload["lock_branch"] = lock_branch
-            if allow_fork_syncing is not None:
-                payload["allow_fork_syncing"] = allow_fork_syncing
+            payload: dict[str, Any] = {
+                "required_status_checks": status_checks_payload(
+                    required_status_checks_strict, required_status_checks_contexts
+                ),
+                "required_pull_request_reviews": pr_reviews_payload(
+                    require_pull_request_reviews,
+                    dismiss_stale_reviews=dismiss_stale_reviews,
+                    require_code_owner_reviews=require_code_owner_reviews,
+                    required_approving_review_count=required_approving_review_count,
+                    require_last_push_approval=require_last_push_approval,
+                ),
+                "enforce_admins": (
+                    enforce_admins if enforce_admins is not None else False
+                ),
+                "restrictions": restrictions_payload(
+                    restrict_pushes, push_allowances_users, push_allowances_teams
+                ),
+                **provided_fields(
+                    required_linear_history=required_linear_history,
+                    allow_force_pushes=allow_force_pushes,
+                    allow_deletions=allow_deletions,
+                    block_creations=block_creations,
+                    required_conversation_resolution=required_conversation_resolution,
+                    lock_branch=lock_branch,
+                    allow_fork_syncing=allow_fork_syncing,
+                ),
+            }
 
             response = await client.put(
                 f"/repos/{repo_owner}/{repo_name}/branches/{branch}/protection",
