@@ -4,6 +4,7 @@ import logging
 import os
 import subprocess
 
+from ..utils.tool_failure import fail
 from ._update_fields import first_required_error
 
 logger = logging.getLogger(__name__)
@@ -31,11 +32,11 @@ def _run_gh_command(args: list[str], cwd: str) -> tuple[str, str, int]:
 def _validate_repo_path(repo_path: str) -> str:
     """Validate repository path and return error message if invalid"""
     if not os.path.exists(repo_path):
-        return f"❌ Repository path does not exist: {repo_path}"
+        return fail(f"❌ Repository path does not exist: {repo_path}")
 
     git_dir = os.path.join(repo_path, ".git")
     if not os.path.exists(git_dir):
-        return f"❌ Not a git repository: {repo_path}"
+        return fail(f"❌ Not a git repository: {repo_path}")
 
     return ""
 
@@ -78,12 +79,12 @@ def gh_create_pr(
         stdout, stderr, returncode = _run_gh_command(args, repo_path)
 
         if returncode != 0:
-            return f"❌ Failed to create PR: {stderr}"
+            return fail(f"❌ Failed to create PR: {stderr}")
 
         return f"✅ Pull request created successfully\n{stdout.strip()}"
 
     except Exception as e:
-        return f"❌ Create PR error: {str(e)}"
+        return fail(f"❌ Create PR error: {str(e)}")
 
 
 def _build_edit_pr_args(
@@ -155,12 +156,12 @@ def gh_edit_pr(
         _stdout, stderr, returncode = _run_gh_command(args, repo_path)
 
         if returncode != 0:
-            return f"❌ Failed to edit PR: {stderr}"
+            return fail(f"❌ Failed to edit PR: {stderr}")
 
         return f"✅ Pull request #{pr_number} edited successfully"
 
     except Exception as e:
-        return f"❌ Edit PR error: {str(e)}"
+        return fail(f"❌ Edit PR error: {str(e)}")
 
 
 def gh_merge_pr(
@@ -179,7 +180,9 @@ def gh_merge_pr(
     # Validate merge method
     valid_methods = ["merge", "squash", "rebase"]
     if merge_method not in valid_methods:
-        return f"❌ Invalid merge method '{merge_method}'. Valid methods: {', '.join(valid_methods)}"
+        return fail(
+            f"❌ Invalid merge method '{merge_method}'. Valid methods: {', '.join(valid_methods)}"
+        )
 
     try:
         # Build command
@@ -201,12 +204,12 @@ def gh_merge_pr(
         stdout, stderr, returncode = _run_gh_command(args, repo_path)
 
         if returncode != 0:
-            return f"❌ Failed to merge PR: {stderr}"
+            return fail(f"❌ Failed to merge PR: {stderr}")
 
         return f"✅ Pull request #{pr_number} merged successfully using {merge_method}\n{stdout.strip()}"
 
     except Exception as e:
-        return f"❌ Merge PR error: {str(e)}"
+        return fail(f"❌ Merge PR error: {str(e)}")
 
 
 def gh_close_pr(
@@ -231,12 +234,12 @@ def gh_close_pr(
         _stdout, stderr, returncode = _run_gh_command(args, repo_path)
 
         if returncode != 0:
-            return f"❌ Failed to close PR: {stderr}"
+            return fail(f"❌ Failed to close PR: {stderr}")
 
         return f"✅ Pull request #{pr_number} closed successfully"
 
     except Exception as e:
-        return f"❌ Close PR error: {str(e)}"
+        return fail(f"❌ Close PR error: {str(e)}")
 
 
 def gh_reopen_pr(
@@ -261,12 +264,12 @@ def gh_reopen_pr(
         _stdout, stderr, returncode = _run_gh_command(args, repo_path)
 
         if returncode != 0:
-            return f"❌ Failed to reopen PR: {stderr}"
+            return fail(f"❌ Failed to reopen PR: {stderr}")
 
         return f"✅ Pull request #{pr_number} reopened successfully"
 
     except Exception as e:
-        return f"❌ Reopen PR error: {str(e)}"
+        return fail(f"❌ Reopen PR error: {str(e)}")
 
 
 def gh_ready_pr(
@@ -287,9 +290,9 @@ def gh_ready_pr(
         _stdout, stderr, returncode = _run_gh_command(args, repo_path)
 
         if returncode != 0:
-            return f"❌ Failed to mark PR as ready: {stderr}"
+            return fail(f"❌ Failed to mark PR as ready: {stderr}")
 
         return f"✅ Pull request #{pr_number} marked as ready for review"
 
     except Exception as e:
-        return f"❌ Ready PR error: {str(e)}"
+        return fail(f"❌ Ready PR error: {str(e)}")

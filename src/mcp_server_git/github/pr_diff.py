@@ -25,6 +25,7 @@ from mcp_server_git.github.job_log_selection import (
     build_log_response_lines,
     write_full_log_response,
 )
+from mcp_server_git.utils.tool_failure import ToolFailure, fail
 
 logger = logging.getLogger(__name__)
 
@@ -67,16 +68,16 @@ def _check_pr_response(
 ) -> str | None:
     """Translate a bad PR HTTP response into a user-facing error."""
     if response.status == 404:
-        return f"❌ PR #{pr_number} not found in {repo_owner}/{repo_name}"
+        return fail(f"❌ PR #{pr_number} not found in {repo_owner}/{repo_name}")
     if response.status == 403:
-        return (
+        return fail(
             f"❌ Access denied for PR #{pr_number}. "
             "Check repository permissions or API rate limits."
         )
     if response.status == 429:
-        return "❌ GitHub API rate limit exceeded. Please wait and try again."
+        return fail("❌ GitHub API rate limit exceeded. Please wait and try again.")
     if response.status != 200:
-        return f"❌ Failed to fetch PR #{pr_number}: HTTP {response.status}"
+        return fail(f"❌ Failed to fetch PR #{pr_number}: HTTP {response.status}")
     return None
 
 
@@ -114,6 +115,12 @@ async def _fetch_diff_text(
     if not diff_text.strip():
         return "", "\n📭 Diff is empty (no file changes)"
     return diff_text, ""
+
+
+def _with_notice(output: list[str], notice: str) -> str:
+    """Join *output* with *notice*; a failure notice makes the result a failure."""
+    joined = "\n".join([*output, notice])
+    return fail(joined) if isinstance(notice, ToolFailure) else joined
 
 
 def _apply_file_filter(
@@ -180,7 +187,7 @@ def _render_selection(
             )
         )
     except LogSelectionError as exc:
-        return f"❌ {exc}"
+        return fail(f"❌ {exc}")
 
     return "\n".join(output)
 
@@ -257,8 +264,7 @@ async def github_get_pr_diff(
                 client, repo_owner, repo_name, pr_number, as_patch
             )
             if notice:
-                output.append(notice)
-                return "\n".join(output)
+                return _with_notice(output, notice)
 
             _preamble, sections = split_sections(diff_text)
             file_count = len(sections)
@@ -289,10 +295,10 @@ async def github_get_pr_diff(
 
     except ValueError as auth_error:
         logger.error(f"Authentication error getting PR diff: {auth_error}")
-        return f"❌ {str(auth_error)}"
+        return fail(f"❌ {str(auth_error)}")
     except ConnectionError as conn_error:
         logger.error(f"Connection error getting PR diff: {conn_error}")
-        return f"❌ Network connection failed: {str(conn_error)}"
+        return fail(f"❌ Network connection failed: {str(conn_error)}")
     except Exception as e:
         logger.error(f"Unexpected error getting PR diff: {e}", exc_info=True)
-        return f"❌ Error getting PR diff: {str(e)}"
+        return fail(f"❌ Error getting PR diff: {str(e)}")

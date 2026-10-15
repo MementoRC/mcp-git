@@ -9,6 +9,7 @@ from mcp_server_git.github import _release_format as _fmt
 from mcp_server_git.github._paging import clamp_paging
 from mcp_server_git.github._update_fields import first_required_error
 from mcp_server_git.github.client import github_client_context
+from mcp_server_git.utils.tool_failure import fail
 
 logger = logging.getLogger(__name__)
 
@@ -40,14 +41,14 @@ def _create_payload(
 
 async def _create_error(response: Any, repo_owner: str, repo_name: str) -> str | None:
     if response.status == 404:
-        return f"❌ Repository {repo_owner}/{repo_name} not found"
+        return fail(f"❌ Repository {repo_owner}/{repo_name} not found")
     if response.status == 422:
         error_data = await response.json()
         error_msg = error_data.get("message", "Validation failed")
-        return f"❌ Failed to create release: {error_msg}"
+        return fail(f"❌ Failed to create release: {error_msg}")
     if response.status not in (200, 201):
         error_text = await response.text()
-        return f"❌ Failed to create release: {response.status} - {error_text}"
+        return fail(f"❌ Failed to create release: {response.status} - {error_text}")
     return None
 
 
@@ -113,20 +114,20 @@ async def github_create_release(
 
     except ValueError as auth_error:
         logger.error(f"Authentication error creating release: {auth_error}")
-        return f"❌ {str(auth_error)}"
+        return fail(f"❌ {str(auth_error)}")
     except ConnectionError as conn_error:
         logger.error(f"Connection error creating release: {conn_error}")
-        return f"❌ Network connection failed: {str(conn_error)}"
+        return fail(f"❌ Network connection failed: {str(conn_error)}")
     except Exception as e:
         logger.error(f"Unexpected error creating release: {e}", exc_info=True)
-        return f"❌ Error creating release: {str(e)}"
+        return fail(f"❌ Error creating release: {str(e)}")
 
 
 def _identifier_error(release_id: int | None, tag: str | None) -> str | None:
     if release_id is None and not tag:
-        return "❌ Either release_id or tag must be provided"
+        return fail("❌ Either release_id or tag must be provided")
     if release_id is not None and tag:
-        return "❌ Only one of release_id or tag can be provided"
+        return fail("❌ Only one of release_id or tag can be provided")
     return None
 
 
@@ -169,23 +170,27 @@ async def github_get_release(
                 identifier = (
                     f"ID {release_id}" if release_id is not None else f"tag '{tag}'"
                 )
-                return f"❌ Release {identifier} not found in {repo_owner}/{repo_name}"
+                return fail(
+                    f"❌ Release {identifier} not found in {repo_owner}/{repo_name}"
+                )
             if response.status != 200:
                 error_text = await response.text()
-                return f"❌ Failed to get release: {response.status} - {error_text}"
+                return fail(
+                    f"❌ Failed to get release: {response.status} - {error_text}"
+                )
 
             release = await response.json()
             return _fmt.format_release_details(repo_owner, repo_name, release)
 
     except ValueError as auth_error:
         logger.error(f"Authentication error getting release: {auth_error}")
-        return f"❌ {str(auth_error)}"
+        return fail(f"❌ {str(auth_error)}")
     except ConnectionError as conn_error:
         logger.error(f"Connection error getting release: {conn_error}")
-        return f"❌ Network connection failed: {str(conn_error)}"
+        return fail(f"❌ Network connection failed: {str(conn_error)}")
     except Exception as e:
         logger.error(f"Unexpected error getting release: {e}", exc_info=True)
-        return f"❌ Error getting release: {str(e)}"
+        return fail(f"❌ Error getting release: {str(e)}")
 
 
 async def github_list_releases(
@@ -213,10 +218,12 @@ async def github_list_releases(
             )
 
             if response.status == 404:
-                return f"❌ Repository {repo_owner}/{repo_name} not found"
+                return fail(f"❌ Repository {repo_owner}/{repo_name} not found")
             if response.status != 200:
                 error_text = await response.text()
-                return f"❌ Failed to list releases: {response.status} - {error_text}"
+                return fail(
+                    f"❌ Failed to list releases: {response.status} - {error_text}"
+                )
 
             releases = await response.json()
 
@@ -229,13 +236,13 @@ async def github_list_releases(
 
     except ValueError as auth_error:
         logger.error(f"Authentication error listing releases: {auth_error}")
-        return f"❌ {str(auth_error)}"
+        return fail(f"❌ {str(auth_error)}")
     except ConnectionError as conn_error:
         logger.error(f"Connection error listing releases: {conn_error}")
-        return f"❌ Network connection failed: {str(conn_error)}"
+        return fail(f"❌ Network connection failed: {str(conn_error)}")
     except Exception as e:
         logger.error(f"Unexpected error listing releases: {e}", exc_info=True)
-        return f"❌ Error listing releases: {str(e)}"
+        return fail(f"❌ Error listing releases: {str(e)}")
 
 
 def _update_payload(
@@ -300,7 +307,7 @@ async def github_update_release(
             )
 
             if not payload:
-                return "❌ No fields provided to update"
+                return fail("❌ No fields provided to update")
 
             response = await client.patch(
                 f"/repos/{repo_owner}/{repo_name}/releases/{release_id}",
@@ -308,10 +315,14 @@ async def github_update_release(
             )
 
             if response.status == 404:
-                return f"❌ Release {release_id} not found in {repo_owner}/{repo_name}"
+                return fail(
+                    f"❌ Release {release_id} not found in {repo_owner}/{repo_name}"
+                )
             if response.status != 200:
                 error_text = await response.text()
-                return f"❌ Failed to update release: {response.status} - {error_text}"
+                return fail(
+                    f"❌ Failed to update release: {response.status} - {error_text}"
+                )
 
             release = await response.json()
             release_url = release.get("html_url", "")
@@ -321,13 +332,13 @@ async def github_update_release(
 
     except ValueError as auth_error:
         logger.error(f"Authentication error updating release: {auth_error}")
-        return f"❌ {str(auth_error)}"
+        return fail(f"❌ {str(auth_error)}")
     except ConnectionError as conn_error:
         logger.error(f"Connection error updating release: {conn_error}")
-        return f"❌ Network connection failed: {str(conn_error)}"
+        return fail(f"❌ Network connection failed: {str(conn_error)}")
     except Exception as e:
         logger.error(f"Unexpected error updating release: {e}", exc_info=True)
-        return f"❌ Error updating release: {str(e)}"
+        return fail(f"❌ Error updating release: {str(e)}")
 
 
 async def github_delete_release(
@@ -351,22 +362,26 @@ async def github_delete_release(
             )
 
             if response.status == 404:
-                return f"❌ Release {release_id} not found in {repo_owner}/{repo_name}"
+                return fail(
+                    f"❌ Release {release_id} not found in {repo_owner}/{repo_name}"
+                )
             if response.status != 204:
                 error_text = await response.text()
-                return f"❌ Failed to delete release: {response.status} - {error_text}"
+                return fail(
+                    f"❌ Failed to delete release: {response.status} - {error_text}"
+                )
 
             return f"✅ Release {release_id} deleted successfully from {repo_owner}/{repo_name}"
 
     except ValueError as auth_error:
         logger.error(f"Authentication error deleting release: {auth_error}")
-        return f"❌ {str(auth_error)}"
+        return fail(f"❌ {str(auth_error)}")
     except ConnectionError as conn_error:
         logger.error(f"Connection error deleting release: {conn_error}")
-        return f"❌ Network connection failed: {str(conn_error)}"
+        return fail(f"❌ Network connection failed: {str(conn_error)}")
     except Exception as e:
         logger.error(f"Unexpected error deleting release: {e}", exc_info=True)
-        return f"❌ Error deleting release: {str(e)}"
+        return fail(f"❌ Error deleting release: {str(e)}")
 
 
 from .release_assets import *  # noqa: F401,F403

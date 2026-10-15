@@ -7,6 +7,7 @@ from typing import Any
 
 from mcp_server_git.github.client import GraphQLError, github_client_context
 
+from ..utils.tool_failure import fail
 from ._pr_format import format_issue_comment, format_review_comment
 from ._pr_graphql import _CONVERT_TO_DRAFT_MUTATION, _MARK_READY_MUTATION
 from ._update_fields import first_required_error
@@ -25,7 +26,7 @@ async def _fetch_pr_node_id(
     response = await client.get(f"/repos/{repo_owner}/{repo_name}/pulls/{pr_number}")
     if response.status != 200:
         error_text = await response.text()
-        return None, (
+        return None, fail(
             f"❌ Failed to fetch PR #{pr_number}: {response.status} - {error_text}"
         )
 
@@ -59,7 +60,7 @@ async def _run_draft_mutation(
             try:
                 data = await client.graphql(mutation, variables={"id": node_id})
             except GraphQLError as graphql_error:
-                return f"❌ Failed to {verb} PR #{pr_number}: {graphql_error}"
+                return fail(f"❌ Failed to {verb} PR #{pr_number}: {graphql_error}")
 
             pr = data[mutation_key]["pullRequest"]
             logger.info(f"✅ Successfully {verb} PR #{pr['number']}")
@@ -70,15 +71,15 @@ async def _run_draft_mutation(
 
     except ValueError as auth_error:
         logger.error(f"Authentication error trying to {verb} PR: {auth_error}")
-        return f"❌ {str(auth_error)}"
+        return fail(f"❌ {str(auth_error)}")
     except ConnectionError as conn_error:
         logger.error(f"Connection error trying to {verb} PR: {conn_error}")
-        return f"❌ Network connection failed: {str(conn_error)}"
+        return fail(f"❌ Network connection failed: {str(conn_error)}")
     except Exception as e:
         logger.error(
             f"Unexpected error trying to {verb} PR #{pr_number}: {e}", exc_info=True
         )
-        return f"❌ Error trying to {verb} PR: {str(e)}"
+        return fail(f"❌ Error trying to {verb} PR: {str(e)}")
 
 
 async def github_mark_pr_ready(repo_owner: str, repo_name: str, pr_number: int) -> str:
@@ -140,7 +141,7 @@ def _build_update_payload(
         payload["body"] = body
     if state is not None:
         if state not in ["open", "closed"]:
-            return payload, "❌ State must be 'open' or 'closed'"
+            return payload, fail("❌ State must be 'open' or 'closed'")
         payload["state"] = state
     if base is not None:
         payload["base"] = base
@@ -180,7 +181,9 @@ async def github_update_pr(
 
             if response.status != 200:
                 error_text = await response.text()
-                return f"❌ Failed to update PR #{pr_number}: {response.status} - {error_text}"
+                return fail(
+                    f"❌ Failed to update PR #{pr_number}: {response.status} - {error_text}"
+                )
 
             result = await response.json()
             logger.info(f"✅ Successfully updated PR #{pr_number}")
@@ -191,13 +194,13 @@ async def github_update_pr(
 
     except ValueError as auth_error:
         logger.error(f"Authentication error updating PR: {auth_error}")
-        return f"❌ {str(auth_error)}"
+        return fail(f"❌ {str(auth_error)}")
     except ConnectionError as conn_error:
         logger.error(f"Connection error updating PR: {conn_error}")
-        return f"❌ Network connection failed: {str(conn_error)}"
+        return fail(f"❌ Network connection failed: {str(conn_error)}")
     except Exception as e:
         logger.error(f"Unexpected error updating PR #{pr_number}: {e}", exc_info=True)
-        return f"❌ Error updating PR: {str(e)}"
+        return fail(f"❌ Error updating PR: {str(e)}")
 
 
 async def github_create_pr(
@@ -229,8 +232,8 @@ async def github_create_pr(
                     "No commits between" in error_text
                     or "A pull request already exists" in error_text
                 ):
-                    return f"❌ Could not create PR. Reason: {error_text}"
-                return f"❌ Failed to create PR: {response.status} - {error_text}"
+                    return fail(f"❌ Could not create PR. Reason: {error_text}")
+                return fail(f"❌ Failed to create PR: {response.status} - {error_text}")
 
             result = await response.json()
             logger.info(f"✅ Successfully created PR #{result['number']}")
@@ -240,13 +243,13 @@ async def github_create_pr(
 
     except ValueError as auth_error:
         logger.error(f"Authentication error creating PR: {auth_error}")
-        return f"❌ {str(auth_error)}"
+        return fail(f"❌ {str(auth_error)}")
     except ConnectionError as conn_error:
         logger.error(f"Connection error creating PR: {conn_error}")
-        return f"❌ Network connection failed: {str(conn_error)}"
+        return fail(f"❌ Network connection failed: {str(conn_error)}")
     except Exception as e:
         logger.error(f"Unexpected error creating PR: {e}", exc_info=True)
-        return f"❌ Error creating PR: {str(e)}"
+        return fail(f"❌ Error creating PR: {str(e)}")
 
 
 async def github_merge_pr(
@@ -265,7 +268,9 @@ async def github_merge_pr(
     try:
         async with github_client_context() as client:
             if merge_method not in ["merge", "squash", "rebase"]:
-                return "❌ merge_method must be one of 'merge', 'squash', or 'rebase'"
+                return fail(
+                    "❌ merge_method must be one of 'merge', 'squash', or 'rebase'"
+                )
 
             payload = {"merge_method": merge_method}
             if commit_title:
@@ -280,8 +285,10 @@ async def github_merge_pr(
             if response.status != 200:
                 error_text = await response.text()
                 if response.status in [405, 409]:
-                    return f"❌ Could not merge PR. Reason: {error_text}. This may be due to merge conflicts or failing status checks."
-                return f"❌ Failed to merge PR: {response.status} - {error_text}"
+                    return fail(
+                        f"❌ Could not merge PR. Reason: {error_text}. This may be due to merge conflicts or failing status checks."
+                    )
+                return fail(f"❌ Failed to merge PR: {response.status} - {error_text}")
 
             result = await response.json()
             if result.get("merged"):
@@ -295,13 +302,13 @@ async def github_merge_pr(
 
     except ValueError as auth_error:
         logger.error(f"Authentication error merging PR: {auth_error}")
-        return f"❌ {str(auth_error)}"
+        return fail(f"❌ {str(auth_error)}")
     except ConnectionError as conn_error:
         logger.error(f"Connection error merging PR: {conn_error}")
-        return f"❌ Network connection failed: {str(conn_error)}"
+        return fail(f"❌ Network connection failed: {str(conn_error)}")
     except Exception as e:
         logger.error(f"Unexpected error merging PR #{pr_number}: {e}", exc_info=True)
-        return f"❌ Error merging PR: {str(e)}"
+        return fail(f"❌ Error merging PR: {str(e)}")
 
 
 async def github_add_pr_comment(
@@ -322,7 +329,9 @@ async def github_add_pr_comment(
 
             if response.status != 201:
                 error_text = await response.text()
-                return f"❌ Failed to add comment: {response.status} - {error_text}"
+                return fail(
+                    f"❌ Failed to add comment: {response.status} - {error_text}"
+                )
 
             result = await response.json()
             logger.info(f"✅ Successfully added comment to PR #{pr_number}")
@@ -330,15 +339,15 @@ async def github_add_pr_comment(
 
     except ValueError as auth_error:
         logger.error(f"Authentication error adding PR comment: {auth_error}")
-        return f"❌ {str(auth_error)}"
+        return fail(f"❌ {str(auth_error)}")
     except ConnectionError as conn_error:
         logger.error(f"Connection error adding PR comment: {conn_error}")
-        return f"❌ Network connection failed: {str(conn_error)}"
+        return fail(f"❌ Network connection failed: {str(conn_error)}")
     except Exception as e:
         logger.error(
             f"Unexpected error adding comment to PR #{pr_number}: {e}", exc_info=True
         )
-        return f"❌ Error adding comment: {str(e)}"
+        return fail(f"❌ Error adding comment: {str(e)}")
 
 
 async def github_get_pr_comments(
@@ -359,7 +368,9 @@ async def github_get_pr_comments(
 
             if response.status != 200:
                 error_text = await response.text()
-                return f"❌ Failed to fetch comments: {response.status} - {error_text}"
+                return fail(
+                    f"❌ Failed to fetch comments: {response.status} - {error_text}"
+                )
 
             comments = await response.json()
 
@@ -374,16 +385,16 @@ async def github_get_pr_comments(
 
     except ValueError as auth_error:
         logger.error(f"Authentication error fetching PR comments: {auth_error}")
-        return f"❌ {str(auth_error)}"
+        return fail(f"❌ {str(auth_error)}")
     except ConnectionError as conn_error:
         logger.error(f"Connection error fetching PR comments: {conn_error}")
-        return f"❌ Network connection failed: {str(conn_error)}"
+        return fail(f"❌ Network connection failed: {str(conn_error)}")
     except Exception as e:
         logger.error(
             f"Unexpected error fetching comments for PR #{pr_number}: {e}",
             exc_info=True,
         )
-        return f"❌ Error fetching PR comments: {str(e)}"
+        return fail(f"❌ Error fetching PR comments: {str(e)}")
 
 
 async def github_get_pr_reviews(repo_owner: str, repo_name: str, pr_number: int) -> str:
@@ -402,7 +413,9 @@ async def github_get_pr_reviews(repo_owner: str, repo_name: str, pr_number: int)
 
             if response.status != 200:
                 error_text = await response.text()
-                return f"❌ Failed to fetch review comments: {response.status} - {error_text}"
+                return fail(
+                    f"❌ Failed to fetch review comments: {response.status} - {error_text}"
+                )
 
             comments = await response.json()
 
@@ -417,16 +430,16 @@ async def github_get_pr_reviews(repo_owner: str, repo_name: str, pr_number: int)
 
     except ValueError as auth_error:
         logger.error(f"Authentication error fetching PR review comments: {auth_error}")
-        return f"❌ {str(auth_error)}"
+        return fail(f"❌ {str(auth_error)}")
     except ConnectionError as conn_error:
         logger.error(f"Connection error fetching PR review comments: {conn_error}")
-        return f"❌ Network connection failed: {str(conn_error)}"
+        return fail(f"❌ Network connection failed: {str(conn_error)}")
     except Exception as e:
         logger.error(
             f"Unexpected error fetching review comments for PR #{pr_number}: {e}",
             exc_info=True,
         )
-        return f"❌ Error fetching PR review comments: {str(e)}"
+        return fail(f"❌ Error fetching PR review comments: {str(e)}")
 
 
 async def github_reply_to_pr_comment(
@@ -434,9 +447,9 @@ async def github_reply_to_pr_comment(
 ) -> str:
     """Reply to a specific review comment thread."""
     if not body or not body.strip():
-        return "❌ Error: reply body cannot be empty"
+        return fail("❌ Error: reply body cannot be empty")
     if len(body) > 65536:
-        return "❌ Error: reply body exceeds GitHub's 65536 character limit"
+        return fail("❌ Error: reply body exceeds GitHub's 65536 character limit")
 
     logger.debug(
         f"🚀 Replying to comment #{comment_id} on PR #{pr_number} in {repo_owner}/{repo_name}"
@@ -451,7 +464,9 @@ async def github_reply_to_pr_comment(
 
             if response.status != 201:
                 error_text = await response.text()
-                return f"❌ Failed to post reply: {response.status} - {error_text}"
+                return fail(
+                    f"❌ Failed to post reply: {response.status} - {error_text}"
+                )
 
             result = await response.json()
             reply_id = result.get("id", "unknown")
@@ -462,16 +477,16 @@ async def github_reply_to_pr_comment(
 
     except ValueError as auth_error:
         logger.error(f"Authentication error replying to PR comment: {auth_error}")
-        return f"❌ {str(auth_error)}"
+        return fail(f"❌ {str(auth_error)}")
     except ConnectionError as conn_error:
         logger.error(f"Connection error replying to PR comment: {conn_error}")
-        return f"❌ Network connection failed: {str(conn_error)}"
+        return fail(f"❌ Network connection failed: {str(conn_error)}")
     except Exception as e:
         logger.error(
             f"Unexpected error replying to comment #{comment_id} on PR #{pr_number}: {e}",
             exc_info=True,
         )
-        return f"❌ Error replying to comment: {str(e)}"
+        return fail(f"❌ Error replying to comment: {str(e)}")
 
 
 async def github_close_pr(repo_owner: str, repo_name: str, pr_number: int) -> str:

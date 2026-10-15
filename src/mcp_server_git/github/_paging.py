@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
+from ..utils.tool_failure import fail
+
 MAX_PER_PAGE = 100
 
 
@@ -16,4 +18,4 @@ def invalid_choice(name: str, value: str | None, allowed: Sequence[str]) -> str 
     """Return an error message when ``value`` is set but not in ``allowed``."""
     if value is None or value in allowed:
         return None
-    return f"❌ Invalid {name} '{value}'. Must be one of: {', '.join(allowed)}"
+    return fail(f"❌ Invalid {name} '{value}'. Must be one of: {', '.join(allowed)}")
