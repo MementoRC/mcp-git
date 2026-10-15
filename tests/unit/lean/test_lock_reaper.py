@@ -63,10 +63,16 @@ class TestReapStaleIndexLockDirect:
         assert any("index.lock" in r.message for r in caplog.records)
         assert any(r.levelno == logging.WARNING for r in caplog.records)
 
-    def test_non_zero_byte_lock_is_never_reaped_regardless_of_age(self, tmp_path):
-        """Critical safety test: a partially-written lock means a real
-        operation is mid-write. Never touch it, no matter how old."""
+    def test_non_zero_byte_lock_is_never_reaped_regardless_of_age(
+        self, tmp_path, monkeypatch
+    ):
+        """Critical safety test (fallback path, holder check unavailable): a
+        partially-written lock means a real operation is mid-write. Never
+        touch it, no matter how old."""
         # Arrange
+        monkeypatch.setattr(
+            "mcp_server_git.lean.lock_reaper.has_live_lock_holder", lambda _: None
+        )
         git_dir = tmp_path / ".git"
         git_dir.mkdir()
         lock = git_dir / "index.lock"
@@ -105,7 +111,10 @@ class TestReapStaleIndexLockDirect:
         assert not (git_dir / "index.lock").exists()
 
     def test_threshold_is_overridable_via_env_var(self, tmp_path, monkeypatch):
-        # Arrange
+        # Arrange (fallback path: holder check unavailable)
+        monkeypatch.setattr(
+            "mcp_server_git.lean.lock_reaper.has_live_lock_holder", lambda _: None
+        )
         monkeypatch.setenv("MCP_GIT_INDEX_LOCK_MAX_AGE_SECONDS", "1")
         git_dir = tmp_path / ".git"
         git_dir.mkdir()
@@ -196,9 +205,9 @@ class TestWrapRepoOpMutatesIndexGate:
         assert not lock.exists()
         assert "reaped commit" in str(result) or result is not None
 
-    def test_git_status_read_only_does_not_reap(self, tmp_path):
-        """Read-only tools must not have mutates_index wiring — a stale
-        lock there is left for an actual mutating op to clean up."""
+    def test_git_status_reaps_orphaned_lock_before_running(self, tmp_path):
+        """git_status opts into the reaper so an orphaned lock does not
+        linger behind a status check (issue #276)."""
         pytest.importorskip("git")
         from git import Repo
 
@@ -219,6 +228,5 @@ class TestWrapRepoOpMutatesIndexGate:
         # Act
         tool_def.implementation(repo_path=str(repo_path))
 
-        # Assert — git_status is read-only and not opted into the
-        # reaper, so the stale lock is untouched.
-        assert lock.exists()
+        # Assert
+        assert not lock.exists()

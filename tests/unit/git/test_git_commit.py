@@ -7,10 +7,9 @@ Tests verify:
 - allow_empty=False (default) does NOT add --allow-empty
 """
 
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock, patch
 
-import pytest
-
+from mcp_server_git.git._commit_runner import CommitProcessResult
 from mcp_server_git.git.models import GitCommit
 from mcp_server_git.git.operations import git_commit
 
@@ -46,91 +45,50 @@ class TestGitCommitAllowEmpty:
         mock_repo.config_reader.return_value.get_value.return_value = key_id
         return mock_repo
 
-    def _make_subprocess_results(self, commit_returncode: int = 0):
-        """Return (commit_result, rev_parse_result) mocks."""
-        commit_result = MagicMock()
-        commit_result.returncode = commit_returncode
-        commit_result.stdout = "1 file changed"
-        commit_result.stderr = ""
+    def _commit_cmd(self, **kwargs) -> list[str]:
+        """Run git_commit with the commit process mocked; return its argv."""
+        rev_parse_result = MagicMock(returncode=0, stdout="abc12345\n")
+        ok = CommitProcessResult(0, "1 file changed", "")
+        with (
+            patch(
+                "mcp_server_git.git._commit_ops.run_commit_process", return_value=ok
+            ) as mock_commit,
+            patch(
+                "mcp_server_git.git._commit_ops.subprocess.run",
+                return_value=rev_parse_result,
+            ),
+            patch(
+                "mcp_server_git.git.security.enforce_secure_git_config",
+                return_value="✅ secure",
+            ),
+        ):
+            git_commit(self._make_mock_repo(), **kwargs)
+        return mock_commit.call_args[0][0]
 
-        rev_parse_result = MagicMock()
-        rev_parse_result.returncode = 0
-        rev_parse_result.stdout = "abc12345\n"
-
-        return commit_result, rev_parse_result
-
-    @patch("mcp_server_git.git._commit_ops.subprocess.run")
-    @patch("mcp_server_git.git.security.enforce_secure_git_config")
-    def test_allow_empty_true_adds_flag_to_command(self, mock_security, mock_run):
+    def test_allow_empty_true_adds_flag_to_command(self):
         """allow_empty=True must add --allow-empty before --gpg-sign in cmd."""
-        mock_security.return_value = "✅ secure"
-        commit_result, rev_parse_result = self._make_subprocess_results()
-        mock_run.side_effect = [commit_result, rev_parse_result]
-
-        mock_repo = self._make_mock_repo()
-        git_commit(mock_repo, message="empty commit", allow_empty=True)
-
-        commit_call_args = mock_run.call_args_list[0]
-        cmd = commit_call_args[0][0]
+        cmd = self._commit_cmd(message="empty commit", allow_empty=True)
         assert "--allow-empty" in cmd
 
-    @patch("mcp_server_git.git._commit_ops.subprocess.run")
-    @patch("mcp_server_git.git.security.enforce_secure_git_config")
-    def test_allow_empty_false_does_not_add_flag(self, mock_security, mock_run):
+    def test_allow_empty_false_does_not_add_flag(self):
         """allow_empty=False (default) must NOT add --allow-empty to cmd."""
-        mock_security.return_value = "✅ secure"
-        commit_result, rev_parse_result = self._make_subprocess_results()
-        mock_run.side_effect = [commit_result, rev_parse_result]
-
-        mock_repo = self._make_mock_repo()
-        git_commit(mock_repo, message="normal commit", allow_empty=False)
-
-        commit_call_args = mock_run.call_args_list[0]
-        cmd = commit_call_args[0][0]
+        cmd = self._commit_cmd(message="normal commit", allow_empty=False)
         assert "--allow-empty" not in cmd
 
-    @patch("mcp_server_git.git._commit_ops.subprocess.run")
-    @patch("mcp_server_git.git.security.enforce_secure_git_config")
-    def test_allow_empty_default_does_not_add_flag(self, mock_security, mock_run):
+    def test_allow_empty_default_does_not_add_flag(self):
         """Calling git_commit without allow_empty must not add --allow-empty."""
-        mock_security.return_value = "✅ secure"
-        commit_result, rev_parse_result = self._make_subprocess_results()
-        mock_run.side_effect = [commit_result, rev_parse_result]
-
-        mock_repo = self._make_mock_repo()
-        git_commit(mock_repo, message="default commit")
-
-        commit_call_args = mock_run.call_args_list[0]
-        cmd = commit_call_args[0][0]
+        cmd = self._commit_cmd(message="default commit")
         assert "--allow-empty" not in cmd
 
-    @patch("mcp_server_git.git._commit_ops.subprocess.run")
-    @patch("mcp_server_git.git.security.enforce_secure_git_config")
-    def test_allow_empty_flag_position_before_gpg_sign(self, mock_security, mock_run):
+    def test_allow_empty_flag_position_before_gpg_sign(self):
         """--allow-empty must appear before --gpg-sign= in the command."""
-        mock_security.return_value = "✅ secure"
-        commit_result, rev_parse_result = self._make_subprocess_results()
-        mock_run.side_effect = [commit_result, rev_parse_result]
-
-        mock_repo = self._make_mock_repo()
-        git_commit(mock_repo, message="empty commit", allow_empty=True)
-
-        cmd = mock_run.call_args_list[0][0][0]
+        cmd = self._commit_cmd(message="empty commit", allow_empty=True)
         allow_empty_idx = cmd.index("--allow-empty")
         gpg_idx = next(i for i, arg in enumerate(cmd) if arg.startswith("--gpg-sign="))
         assert allow_empty_idx < gpg_idx
 
-    @patch("mcp_server_git.git._commit_ops.subprocess.run")
-    @patch("mcp_server_git.git.security.enforce_secure_git_config")
-    def test_allow_empty_combined_with_amend(self, mock_security, mock_run):
+    def test_allow_empty_combined_with_amend(self):
         """allow_empty=True and amend=True should both appear in command."""
-        mock_security.return_value = "✅ secure"
-        commit_result, rev_parse_result = self._make_subprocess_results()
-        mock_run.side_effect = [commit_result, rev_parse_result]
-
-        mock_repo = self._make_mock_repo()
-        git_commit(mock_repo, message="amend empty", amend=True, allow_empty=True)
-
-        cmd = mock_run.call_args_list[0][0][0]
+        cmd = self._commit_cmd(message="amend empty", amend=True, allow_empty=True)
         assert "--amend" in cmd
         assert "--allow-empty" in cmd

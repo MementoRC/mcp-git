@@ -100,9 +100,9 @@ def _register_git_tools(interface: Any, git_service: Any):
         mutates_index is an explicit opt-in (never inferred from the function
         name) that gates the stale index.lock reaper: only tools that
         genuinely write to the index pay the (cheap, stat-only) reaper check
-        before the underlying git op runs. Read-only tools (git_status,
-        git_diff*, git_log, ...) leave it at the default False and see zero
-        added overhead.
+        before the underlying git op runs. git_status also opts in (an
+        orphaned lock should not linger behind a status check); other
+        read-only tools (git_diff*, git_log, ...) leave it at False.
         """
 
         def wrapper(repo_path: str, **kwargs):
@@ -129,9 +129,10 @@ def _register_git_tools(interface: Any, git_service: Any):
         return wrapper
 
     git_tools = [
+        # Read-only, but opts into the reaper so a stale lock is cleared before the next write (#276).
         ToolDefinition(
             name="git_status",
-            implementation=wrap_repo_op(git_ops.git_status),
+            implementation=wrap_repo_op(git_ops.git_status, mutates_index=True),
             description="Shows the working tree status",
             schema=GitStatus.model_json_schema(),
             domain="git",
