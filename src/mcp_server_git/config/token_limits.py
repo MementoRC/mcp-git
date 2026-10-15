@@ -26,6 +26,16 @@ class TokenLimitProfile(Enum):
     DEVELOPMENT = "development"  # High limits for development/testing
 
 
+def _check_limit(
+    value: int, upper: int, negative_error: str, large_warning: str
+) -> None:
+    """Raise ValueError for a negative value; warn when above ``upper``."""
+    if value < 0:
+        raise ValueError(negative_error)
+    if value > upper:
+        logger.warning(large_warning)
+
+
 @dataclass
 class TokenLimitSettings:
     """Token limit configuration settings."""
@@ -64,42 +74,42 @@ class TokenLimitSettings:
 
     def __post_init__(self):
         """Validate token limit settings after initialization."""
-        # Validate core token limits
-        if self.llm_token_limit < 0:
-            raise ValueError("LLM token limit must be non-negative")
-        if self.llm_token_limit > 1000000:  # Reasonable upper bound
-            logger.warning(f"Very large LLM token limit: {self.llm_token_limit}")
+        # Core token limits (reasonable upper bound; human 0 = unlimited)
+        _check_limit(
+            self.llm_token_limit,
+            1000000,
+            "LLM token limit must be non-negative",
+            f"Very large LLM token limit: {self.llm_token_limit}",
+        )
+        _check_limit(
+            self.human_token_limit,
+            1000000,
+            "Human token limit must be non-negative",
+            f"Very large human token limit: {self.human_token_limit}",
+        )
+        _check_limit(
+            self.unknown_token_limit,
+            1000000,
+            "Unknown client token limit must be non-negative",
+            f"Very large unknown client token limit: {self.unknown_token_limit}",
+        )
 
-        if self.human_token_limit < 0:
-            raise ValueError("Human token limit must be non-negative")
-        if (
-            self.human_token_limit > 1000000 and self.human_token_limit != 0
-        ):  # 0 = unlimited
-            logger.warning(f"Very large human token limit: {self.human_token_limit}")
+        # Performance settings (10 seconds seems excessive)
+        _check_limit(
+            self.max_processing_time_ms,
+            10000,
+            "Max processing time must be non-negative",
+            f"Very large max processing time: {self.max_processing_time_ms}ms",
+        )
 
-        if self.unknown_token_limit < 0:
-            raise ValueError("Unknown client token limit must be non-negative")
-        if self.unknown_token_limit > 1000000:
-            logger.warning(
-                f"Very large unknown client token limit: {self.unknown_token_limit}"
-            )
-
-        # Validate performance settings
-        if self.max_processing_time_ms < 0:
-            raise ValueError("Max processing time must be non-negative")
-        if self.max_processing_time_ms > 10000:  # 10 seconds seems excessive
-            logger.warning(
-                f"Very large max processing time: {self.max_processing_time_ms}ms"
-            )
-
-        # Validate operation-specific limits
+        # Operation-specific limits
         for operation, limit in self.operation_limits.items():
-            if limit < 0:
-                raise ValueError(
-                    f"Operation limit for '{operation}' must be non-negative"
-                )
-            if limit > 1000000:
-                logger.warning(f"Very large operation limit for '{operation}': {limit}")
+            _check_limit(
+                limit,
+                1000000,
+                f"Operation limit for '{operation}' must be non-negative",
+                f"Very large operation limit for '{operation}': {limit}",
+            )
 
     @classmethod
     def from_profile(cls, profile: TokenLimitProfile) -> "TokenLimitSettings":

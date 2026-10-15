@@ -13,6 +13,12 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any
 
+from ._diff_truncation import (
+    append_content_lines,
+    collect_file_headers,
+    fit_file_headers,
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -291,88 +297,28 @@ class DiffTruncator(ContentTruncator):
             )
 
         lines = content.split("\n")
-        result_lines = []
-        files_processed = 0
-        files_truncated = 0
         total_files = len([l for l in lines if l.startswith("diff --git")])
+
+        def estimate(text: str) -> int:
+            return estimator.estimate_tokens(text, ContentType.DIFF).estimated_tokens
 
         # Reserve tokens for truncation summary
         sample_summary = "\n\n[Diff truncated: showing 99 files, 99 files omitted to fit token limit]"
-        summary_tokens = estimator.estimate_tokens(
-            sample_summary, ContentType.DIFF
-        ).estimated_tokens
-        available_tokens = max_tokens - summary_tokens
+        available_tokens = max_tokens - estimate(sample_summary)
 
         # First pass: collect all file headers to ensure we can show at least basic structure
-        file_headers = []
-        i = 0
-        current_file_lines = []
-
-        while i < len(lines):
-            line = lines[i]
-
-            if line.startswith("diff --git"):
-                # Save previous file if exists
-                if current_file_lines:
-                    file_headers.append(current_file_lines)
-                current_file_lines = [line]
-                files_processed += 1
-
-            elif line.startswith(("index ", "---", "+++")) and current_file_lines:
-                current_file_lines.append(line)
-            else:
-                # This is content - if we have headers, save the file structure
-                if current_file_lines and line.startswith("@@"):
-                    current_file_lines.append(line)
-                break  # Stop collecting headers once we hit content
-            i += 1
-
-        # Save last file headers
-        if current_file_lines:
-            file_headers.append(current_file_lines)
+        file_headers = collect_file_headers(lines)
 
         # Build result prioritizing file structure
-        for file_header in file_headers:
-            test_content = "\n".join(result_lines + file_header)
-            if (
-                estimator.estimate_tokens(
-                    test_content, ContentType.DIFF
-                ).estimated_tokens
-                <= available_tokens
-            ):
-                result_lines.extend(file_header)
-            else:
-                files_truncated += 1
-                break
-
-        # Add some content if there's room
-        remaining_budget = (
-            available_tokens
-            - estimator.estimate_tokens(
-                "\n".join(result_lines), ContentType.DIFF
-            ).estimated_tokens
+        result_lines, files_truncated = fit_file_headers(
+            file_headers, available_tokens, estimate
         )
 
-        if remaining_budget > 50:  # Only add content if we have reasonable room
-            i = 0
-            while i < len(lines):
-                line = lines[i]
+        # Add some content if there's room
+        remaining_budget = available_tokens - estimate("\n".join(result_lines))
 
-                if not any(
-                    line.startswith(prefix)
-                    for prefix in ["diff --git", "index ", "---", "+++"]
-                ):
-                    test_content = "\n".join(result_lines + [line])
-                    if (
-                        estimator.estimate_tokens(
-                            test_content, ContentType.DIFF
-                        ).estimated_tokens
-                        <= available_tokens
-                    ):
-                        result_lines.append(line)
-                    else:
-                        break
-                i += 1
+        if remaining_budget > 50:  # Only add content if we have reasonable room
+            append_content_lines(result_lines, lines, available_tokens, estimate)
 
         # Calculate files shown vs omitted
         files_shown = len(file_headers) - files_truncated

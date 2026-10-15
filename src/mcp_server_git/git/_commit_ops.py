@@ -59,6 +59,55 @@ def git_commit(
     )
 
 
+# GPG signing is forced for every commit (SECURITY REQUIREMENT).
+_FORCE_GPG = True
+
+
+def _require_gpg() -> str | None:
+    """Defense-in-depth: failure message if unsigned commits were enabled."""
+    if _FORCE_GPG:
+        return None
+    return fail(
+        "❌ SECURITY VIOLATION: Unsigned commits are not allowed by MCP Git Server"
+    )
+
+
+def _build_commit_cmd(
+    message: str, amend: bool, allow_empty: bool, key_id: str | None
+) -> list[str]:
+    """argv for a GPG-signed ``git commit``."""
+    cmd = ["git", "commit"]
+    if amend:
+        cmd.append("--amend")
+    if allow_empty:
+        cmd.append("--allow-empty")
+    cmd.append(f"--gpg-sign={key_id}")
+    cmd.extend(["-m", message])
+    return cmd
+
+
+def _commit_success_message(
+    repo: Repo, amend: bool, key_id: str | None, *, security_enforced: bool
+) -> str:
+    """Success report including the new HEAD hash (or 'unknown')."""
+    hash_result = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=repo.working_dir,
+        capture_output=True,
+        text=True,
+    )
+    commit_hash = (
+        hash_result.stdout.strip()[:8] if hash_result.returncode == 0 else "unknown"
+    )
+    action = "amended" if amend else "created"
+    msg = f"✅ Commit {commit_hash} {action} with VERIFIED GPG signature"
+    if security_enforced:
+        msg += "\n🔒 Security configuration enforced"
+    msg += f"\n🔒 Enforced GPG signing with key {key_id}"
+    msg += "\n⚠️  MCP Git Server used - no fallback to system git commands"
+    return msg
+
+
 def _git_commit_once(
     repo: Repo,
     message: str,
@@ -74,73 +123,33 @@ def _git_commit_once(
 
         # 🔒 SECURITY: Enforce secure configuration before committing
         security_result = enforce_secure_git_config(repo, strict_mode=True)
-        security_messages = []
-        if "✅" in security_result:
-            security_messages.append("🔒 Security configuration enforced")
-
-        # Force GPG signing for all commits (SECURITY REQUIREMENT)
-        force_gpg = True
+        security_enforced = "✅" in security_result
 
         # Get GPG key from parameters, environment, or git config
+        # (GPG signing is forced for every commit - SECURITY REQUIREMENT)
         force_key_id, gpg_error = resolve_gpg_key(repo, gpg_key_id)
         if gpg_error:
             return gpg_error
+        violation = _require_gpg()
+        if violation:
+            return violation
 
-        if force_gpg:
-            # Use git command directly for GPG signing
-            cmd = ["git", "commit"]
-            if amend:
-                cmd.append("--amend")
-            if allow_empty:
-                cmd.append("--allow-empty")
-            cmd.append(f"--gpg-sign={force_key_id}")
-            cmd.extend(["-m", message])
-
-            try:
-                result = run_commit_process(cmd, repo.working_dir)
-            except CommitTimeoutError as timeout_err:
-                return fail(
-                    f"❌ Commit failed: {timeout_err}\n"
-                    "🔒 The commit process group was terminated "
-                    "(a GPG pinentry or hook may be blocking)"
-                )
-            if result.returncode == 0:
-                # Get the commit hash from git log
-                hash_result = subprocess.run(
-                    ["git", "rev-parse", "HEAD"],
-                    cwd=repo.working_dir,
-                    capture_output=True,
-                    text=True,
-                )
-                commit_hash = (
-                    hash_result.stdout.strip()[:8]
-                    if hash_result.returncode == 0
-                    else "unknown"
-                )
-
-                action = "amended" if amend else "created"
-                success_msg = (
-                    f"✅ Commit {commit_hash} {action} with VERIFIED GPG signature"
-                )
-                if security_messages:
-                    success_msg += f"\n{chr(10).join(security_messages)}"
-
-                # Add security reminder
-                success_msg += f"\n🔒 Enforced GPG signing with key {force_key_id}"
-                success_msg += (
-                    "\n⚠️  MCP Git Server used - no fallback to system git commands"
-                )
-
-                return success_msg
-            else:
-                return fail(
-                    f"❌ Commit failed: {result.stderr}\n🔒 GPG signing was enforced but failed"
-                )
-        else:
-            # This path should never be reached due to force_gpg=True
+        cmd = _build_commit_cmd(message, amend, allow_empty, force_key_id)
+        try:
+            result = run_commit_process(cmd, repo.working_dir)
+        except CommitTimeoutError as timeout_err:
             return fail(
-                "❌ SECURITY VIOLATION: Unsigned commits are not allowed by MCP Git Server"
+                f"❌ Commit failed: {timeout_err}\n"
+                "🔒 The commit process group was terminated "
+                "(a GPG pinentry or hook may be blocking)"
             )
+        if result.returncode != 0:
+            return fail(
+                f"❌ Commit failed: {result.stderr}\n🔒 GPG signing was enforced but failed"
+            )
+        return _commit_success_message(
+            repo, amend, force_key_id, security_enforced=security_enforced
+        )
 
     except GitCommandError as e:
         return fail(

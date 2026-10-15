@@ -88,6 +88,156 @@ def _sanitize_json_string(s: str) -> str:
     return re.sub(r'"((?:[^"\\]|\\.)*?)"', _escape_controls, s, flags=re.DOTALL)
 
 
+def _tool_not_found(interface, tool_name: str) -> dict[str, Any]:
+    return {
+        "error": f"Tool '{tool_name}' not found",
+        "available_tools": list(interface.tool_registry.keys()),
+        "suggestion": "Use discover_tools() to find available tools",
+    }
+
+
+def _discover_registered_tools(interface, pattern: str) -> dict[str, Any]:
+    """Body of the discover_tools meta-tool."""
+    registry = interface.tool_registry
+    tools = [
+        {
+            "name": name,
+            "description": tool_def.description,
+            "domain": tool_def.domain,
+            "complexity": tool_def.complexity,
+        }
+        for name, tool_def in registry.items()
+        if not (pattern and pattern.strip() and pattern.lower() not in name.lower())
+    ]
+
+    def _count(domain: str) -> int:
+        return len([t for t in registry.values() if t.domain == domain])
+
+    result = {
+        "available_tools": tools,
+        "total_tools": len(registry),
+        "filtered_count": len(tools),
+        "domains": {
+            "git": _count("git"),
+            "github": _count("github"),
+            "azure": _count("azure"),
+        },
+        "context_saving": f"~{len(registry) * 0.5}K tokens saved vs traditional MCP",
+        "issues": "https://github.com/MementoRC/mcp-git/issues",
+    }
+
+    return apply_token_limits(result, "discover_tools", 1000)
+
+
+def _coerce_parameters(
+    tool_name: str, parameters: Any
+) -> tuple[Any, dict[str, Any] | None]:
+    """Coerce string parameters to a dict (clients may send a JSON string).
+
+    Returns (parameters, None) on success or (parameters, error_envelope).
+    """
+    if not isinstance(parameters, str):
+        return parameters, None
+
+    raw_parameters = cast(str, parameters)
+    try:
+        return json.loads(parameters), None
+    except json.JSONDecodeError:
+        # Some MCP clients serialize parameters with literal control
+        # characters inside string values (raw newlines, tabs) instead
+        # of the escaped forms (\n, \t) required by the JSON spec.
+        # This is common when the body contains multi-line markdown.
+        # Attempt to sanitize by replacing bare control characters
+        # inside what appear to be JSON string values, then retry.
+        try:
+            return json.loads(_sanitize_json_string(parameters)), None
+        except json.JSONDecodeError:
+            return parameters, {
+                "tool": tool_name,
+                "status": "error",
+                "error": f"Parameters must be a JSON object, got unparseable string: {raw_parameters[:100]}",
+            }
+
+
+def _validation_error_result(
+    tool_name: str, ve: ValidationError, schema: dict[str, Any]
+) -> dict[str, Any]:
+    return {
+        "tool": tool_name,
+        "status": "error",
+        "error": f"Parameter validation failed: {ve.message}",
+        "validation_path": list(ve.path) if ve.path else [],
+        "schema_path": list(ve.schema_path) if ve.schema_path else [],
+        "valid_parameters": list(schema.get("properties", {}).keys()),
+    }
+
+
+def _execution_error(tool_name: str, error: str) -> dict[str, Any]:
+    return {
+        "tool": tool_name,
+        "status": "error",
+        "error": error,
+        "execution_mode": "lean_mcp_dynamic",
+    }
+
+
+async def _validate_and_run(
+    interface, tool_name: str, tool_def, parameters: dict[str, Any]
+) -> dict[str, Any]:
+    """Validate parameters against the tool schema, run it, build the envelope."""
+    # Get cached schema for validation
+    schema = interface._schema_cache.get(tool_name, tool_def.schema)
+
+    # Validate parameters using JSON Schema
+    # This validates both parameter names AND values/types
+    try:
+        validate(instance=parameters, schema=schema)
+    except ValidationError as ve:
+        return _validation_error_result(tool_name, ve, schema)
+
+    # Validate path parameters to prevent relative path issues
+    # (honoring per-tool exemptions, e.g. submodule "path" which is
+    # intentionally repo-relative per gitmodules(5); issue #168).
+    try:
+        interface._validate_path_parameters(parameters, tool_def.relative_path_params)
+    except ValueError as ve:
+        return _execution_error(tool_name, str(ve))
+
+    # Execute tool through its implementation
+    # Check if implementation is async BEFORE calling to avoid race condition
+    # where a sync function might return a coroutine object as data
+    if inspect.iscoroutinefunction(tool_def.implementation):
+        result = await tool_def.implementation(**parameters)
+    else:
+        result = tool_def.implementation(**parameters)
+
+    return _build_envelope(tool_name, result, schema)
+
+
+async def _execute_registered_tool(
+    interface, tool_name: str, parameters: Any
+) -> dict[str, Any]:
+    """Body of the execute_tool meta-tool."""
+    if tool_name not in interface.tool_registry:
+        return _tool_not_found(interface, tool_name)
+
+    tool_def = interface.tool_registry[tool_name]
+
+    parameters, parse_error = _coerce_parameters(tool_name, parameters)
+    if parse_error is not None:
+        return parse_error
+
+    try:
+        return await _validate_and_run(interface, tool_name, tool_def, parameters)
+    except ValidationError as ve:
+        # Catch any schema validation errors not caught above
+        logger.error(f"Schema validation error in {tool_name}: {ve}")
+        return _execution_error(tool_name, f"Validation error: {ve.message}")
+    except Exception as e:
+        logger.error(f"Error executing {tool_name}: {e}", exc_info=True)
+        return _execution_error(tool_name, str(e))
+
+
 def setup_meta_tools(interface) -> None:
     """
     Register the 3 meta-tools on the interface's FastMCP app.
@@ -160,45 +310,7 @@ def setup_meta_tools(interface) -> None:
         - Use case description
         - Expected parameters and behavior
         """
-        tools = []
-
-        for name, tool_def in interface.tool_registry.items():
-            if pattern and pattern.strip() and pattern.lower() not in name.lower():
-                continue
-
-            tools.append(
-                {
-                    "name": name,
-                    "description": tool_def.description,
-                    "domain": tool_def.domain,
-                    "complexity": tool_def.complexity,
-                }
-            )
-
-        result = {
-            "available_tools": tools,
-            "total_tools": len(interface.tool_registry),
-            "filtered_count": len(tools),
-            "domains": {
-                "git": len(
-                    [t for t in interface.tool_registry.values() if t.domain == "git"]
-                ),
-                "github": len(
-                    [
-                        t
-                        for t in interface.tool_registry.values()
-                        if t.domain == "github"
-                    ]
-                ),
-                "azure": len(
-                    [t for t in interface.tool_registry.values() if t.domain == "azure"]
-                ),
-            },
-            "context_saving": f"~{len(interface.tool_registry) * 0.5}K tokens saved vs traditional MCP",
-            "issues": "https://github.com/MementoRC/mcp-git/issues",
-        }
-
-        return apply_token_limits(result, "discover_tools", 1000)
+        return _discover_registered_tools(interface, pattern)
 
     @app.tool()
     def get_tool_spec(tool_name: str) -> dict[str, Any]:
@@ -277,11 +389,7 @@ def setup_meta_tools(interface) -> None:
         File a feature request at https://github.com/MementoRC/mcp-git/issues
         """
         if tool_name not in interface.tool_registry:
-            return {
-                "error": f"Tool '{tool_name}' not found",
-                "available_tools": list(interface.tool_registry.keys()),
-                "suggestion": "Use discover_tools() to find available tools",
-            }
+            return _tool_not_found(interface, tool_name)
 
         tool_def = interface.tool_registry[tool_name]
         result = {
@@ -363,97 +471,7 @@ def setup_meta_tools(interface) -> None:
         File an issue at https://github.com/MementoRC/mcp-git/issues
         Include: tool name, parameters used, error message, expected vs actual behavior
         """
-        if tool_name not in interface.tool_registry:
-            return {
-                "error": f"Tool '{tool_name}' not found",
-                "available_tools": list(interface.tool_registry.keys()),
-                "suggestion": "Use discover_tools() to find available tools",
-            }
-
-        tool_def = interface.tool_registry[tool_name]
-
-        # Coerce string parameters to dict (clients may send JSON string)
-        if isinstance(parameters, str):
-            raw_parameters = cast(str, parameters)
-            try:
-                parameters = json.loads(parameters)
-            except json.JSONDecodeError:
-                # Some MCP clients serialize parameters with literal control
-                # characters inside string values (raw newlines, tabs) instead
-                # of the escaped forms (\n, \t) required by the JSON spec.
-                # This is common when the body contains multi-line markdown.
-                # Attempt to sanitize by replacing bare control characters
-                # inside what appear to be JSON string values, then retry.
-                try:
-                    sanitized = _sanitize_json_string(parameters)
-                    parameters = json.loads(sanitized)
-                except json.JSONDecodeError:
-                    return {
-                        "tool": tool_name,
-                        "status": "error",
-                        "error": f"Parameters must be a JSON object, got unparseable string: {raw_parameters[:100]}",
-                    }
-
-        try:
-            # Get cached schema for validation
-            schema = interface._schema_cache.get(tool_name, tool_def.schema)
-
-            # Validate parameters using JSON Schema
-            # This validates both parameter names AND values/types
-            try:
-                validate(instance=parameters, schema=schema)
-            except ValidationError as ve:
-                return {
-                    "tool": tool_name,
-                    "status": "error",
-                    "error": f"Parameter validation failed: {ve.message}",
-                    "validation_path": list(ve.path) if ve.path else [],
-                    "schema_path": list(ve.schema_path) if ve.schema_path else [],
-                    "valid_parameters": list(schema.get("properties", {}).keys()),
-                }
-
-            # Validate path parameters to prevent relative path issues
-            # (honoring per-tool exemptions, e.g. submodule "path" which is
-            # intentionally repo-relative per gitmodules(5); issue #168).
-            try:
-                interface._validate_path_parameters(
-                    parameters, tool_def.relative_path_params
-                )
-            except ValueError as ve:
-                return {
-                    "tool": tool_name,
-                    "status": "error",
-                    "error": str(ve),
-                    "execution_mode": "lean_mcp_dynamic",
-                }
-
-            # Execute tool through its implementation
-            # Check if implementation is async BEFORE calling to avoid race condition
-            # where a sync function might return a coroutine object as data
-            if inspect.iscoroutinefunction(tool_def.implementation):
-                result = await tool_def.implementation(**parameters)
-            else:
-                result = tool_def.implementation(**parameters)
-
-            return _build_envelope(tool_name, result, schema)
-
-        except ValidationError as ve:
-            # Catch any schema validation errors not caught above
-            logger.error(f"Schema validation error in {tool_name}: {ve}")
-            return {
-                "tool": tool_name,
-                "status": "error",
-                "error": f"Validation error: {ve.message}",
-                "execution_mode": "lean_mcp_dynamic",
-            }
-        except Exception as e:
-            logger.error(f"Error executing {tool_name}: {e}", exc_info=True)
-            return {
-                "tool": tool_name,
-                "status": "error",
-                "error": str(e),
-                "execution_mode": "lean_mcp_dynamic",
-            }
+        return await _execute_registered_tool(interface, tool_name, parameters)
 
     @app.tool()
     def server_info() -> dict[str, Any]:
