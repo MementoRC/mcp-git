@@ -33,11 +33,6 @@ _PACKAGE_ROOT = Path(mcp_server_git.__file__).resolve().parent
 # Modules still to be migrated in later PRs (#271 parts 3-5). Directory
 # entries end with "/". Each later PR removes its entries here.
 PENDING_PATHS = {
-    # Part 3: github CI, workflows, contents, repos.
-    "github/ci_logs.py",
-    "github/workflows.py",
-    "github/contents.py",
-    "github/repos.py",
     # Part 4: github security, permissions, scanning.
     "github/security.py",
     "github/permissions.py",
@@ -52,6 +47,7 @@ _MARKER_REASON = "status marker glyph rendered in a line, not a failure result"
 ALLOWLIST: dict[tuple[str, str], str] = {
     ("utils/content_optimization.py", "__init__"): _EMOJI_REASON,
     ("github/check_markers.py", "<module>"): _MARKER_REASON,
+    ("github/check_markers.py", "bool_marker"): _MARKER_REASON,
     ("github/_pr_format.py", "<module>"): "review state marker glyph, not a result",
     ("github/_pr_format.py", "failing_run_header"): (
         "heading line for a failing check run inside a successful report"
@@ -68,7 +64,7 @@ def _leads_with_mark(node: ast.AST) -> bool:
     return (
         isinstance(node, ast.Constant)
         and isinstance(node.value, str)
-        and node.value.startswith(_MARK)
+        and node.value.lstrip().startswith(_MARK)
     )
 
 
@@ -153,7 +149,9 @@ def test_detector_flags_constant_outside_fail_when_wrapped_or_not():
     bare = '_X = "❌ boom"\n\ndef op():\n    return _X\n'
     wrapped = '_X = fail("❌ boom")\n\ndef op():\n    return _X\n'
     logged = 'def op():\n    logger.error("❌ boom")\n    return fail(f"❌ {1}")\n'
+    padded = '_X = "\\n❌ boom"\n'
     assert _mark_hits(bare, "m.py") == [("m.py", "<module>")]
+    assert _mark_hits(padded, "m.py") == [("m.py", "<module>")]
     assert _mark_hits(wrapped, "m.py") == []
     assert _mark_hits(logged, "m.py") == []
 
@@ -166,6 +164,6 @@ def test_pending_path_exists_when_listed(entry):
 
 def test_is_pending_matches_exact_file_and_directory_prefix_when_listed():
     assert _is_pending("azure/api.py")
-    assert _is_pending("github/ci_logs.py")
+    assert _is_pending("github/security.py")
     assert not _is_pending("github/pr.py")
     assert not _is_pending("git/_staging_ops.py")

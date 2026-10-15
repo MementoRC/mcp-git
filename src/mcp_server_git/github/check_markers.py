@@ -42,6 +42,11 @@ STATUS_MARKERS = {
 }
 
 
+def bool_marker(ok: object) -> str:
+    """✅ when ``ok`` is truthy, otherwise ❌ (a flag or pass/fail line)."""
+    return "✅" if ok else "❌"
+
+
 def check_marker(run: dict) -> str:
     """Render one check run's marker from its status and conclusion.
 
