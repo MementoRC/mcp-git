@@ -75,6 +75,7 @@ from ..git.operations_extended import (
 )
 from ..utils.git_import import InvalidGitRepositoryError, NoSuchPathError, Repo
 from .interface import ToolDefinition
+from .registry_git_bundle import bundle_tool_definitions
 
 logger = logging.getLogger(__name__)
 
@@ -82,8 +83,6 @@ logger = logging.getLogger(__name__)
 def _register_git_tools(interface: Any, git_service: Any):
     """Register all Git domain tools."""
 
-    # Create wrapper functions that convert repo_path to Repo object
-    # The underlying operations expect Repo objects, not path strings
     def wrap_repo_op(
         op_func,
         param_map: dict[str, str] | None = None,
@@ -170,7 +169,7 @@ def _register_git_tools(interface: Any, git_service: Any):
         ToolDefinition(
             name="git_commit",
             implementation=wrap_repo_op(git_ops.git_commit, mutates_index=True),
-            description="Records changes to the repository",
+            description="Records GPG-signed changes; optional author, date (ISO 8601) and reuse_message_from (-C)",
             schema=GitCommit.model_json_schema(),
             domain="git",
             complexity="core",
@@ -239,7 +238,7 @@ def _register_git_tools(interface: Any, git_service: Any):
         ToolDefinition(
             name="git_checkout",
             implementation=wrap_repo_op(git_ops.git_checkout, mutates_index=True),
-            description="Switches branches",
+            description="Switches branches; refuses to clobber ignored files unless allow_overwrite_ignored; orphan=True makes an unborn branch",
             schema=GitCheckout.model_json_schema(),
             domain="git",
             complexity="core",
@@ -303,7 +302,7 @@ def _register_git_tools(interface: Any, git_service: Any):
         ToolDefinition(
             name="git_merge",
             implementation=wrap_repo_op(git_ops.git_merge, mutates_index=True),
-            description="Merge a branch into the current branch",
+            description="Merge a branch into the current branch; refuses to clobber ignored files unless allow_overwrite_ignored",
             schema=GitMerge.model_json_schema(),
             domain="git",
             complexity="core",
@@ -311,7 +310,7 @@ def _register_git_tools(interface: Any, git_service: Any):
         ToolDefinition(
             name="git_cherry_pick",
             implementation=wrap_repo_op(git_ops.git_cherry_pick, mutates_index=True),
-            description="Apply a commit from another branch to current branch",
+            description="Apply a commit to the current branch (GPG-signed when enforced); mainline selects the parent (-m) for merge commits",
             schema=GitCherryPick.model_json_schema(),
             domain="git",
             complexity="advanced",
@@ -503,7 +502,7 @@ def _register_git_tools(interface: Any, git_service: Any):
         ToolDefinition(
             name="git_branch_delete",
             implementation=wrap_repo_op(git_branch_delete),
-            description="Delete a local git branch (use force=True for unmerged branches)",
+            description="Delete a local git branch; refuses unmerged branches (-d) unless force=True (-D)",
             schema=GitBranchDelete.model_json_schema(),
             domain="git",
             complexity="focused",
@@ -586,6 +585,7 @@ def _register_git_tools(interface: Any, git_service: Any):
         ),
     ]
 
+    git_tools += bundle_tool_definitions(wrap_repo_op)
     for tool in git_tools:
         interface.register_tool(tool)
 

@@ -6,6 +6,9 @@ import subprocess
 
 from ..utils.git_import import GitCommandError, Repo
 from ..utils.tool_failure import fail
+from ._commit_ops import signing_enforced
+from ._gpg import resolve_gpg_key
+from ._ignored_guard import ignored_overwrite_failure
 from .error_text import clean_git_error_text
 
 logger = logging.getLogger(__name__)
@@ -126,30 +129,30 @@ def git_merge(
     source_branch: str,
     strategy: str = "merge",
     message: str | None = None,
+    allow_overwrite_ignored: bool = False,
 ) -> str:
-    """Merge source branch with strategy options"""
+    """Merge source branch with strategy options.
+
+    Refused when the merge would overwrite or remove ignored working-tree
+    files, unless ``allow_overwrite_ignored=True`` (issue #283).
+    """
     try:
         # Get current branch
         current_branch = repo.active_branch.name
 
-        # Check if source branch exists - support both short names and full remote refs
-        all_branches = [branch.name for branch in repo.branches]
-
-        # Add remote branches if remotes exist
-        try:
-            if repo.remotes:
-                for remote in repo.remotes:
-                    # Include both full remote ref names (e.g., 'origin/development')
-                    # and short names (e.g., 'development') for compatibility
-                    all_branches.extend([ref.name for ref in remote.refs])
-                    all_branches.extend(
-                        [ref.name.split("/")[-1] for ref in remote.refs]
-                    )
-        except Exception:
-            # Ignore remote access errors (e.g., no remotes configured)
-            pass
-        if source_branch not in all_branches:
+        # Source may be a short name or a full remote ref (e.g. 'origin/development')
+        if not _branch_exists(repo, source_branch):
             return fail(f"❌ Source branch '{source_branch}' not found")
+
+        blocked = ignored_overwrite_failure(
+            repo,
+            source_branch,
+            "merge",
+            allow=allow_overwrite_ignored,
+            only_changed=True,
+        )
+        if blocked:
+            return blocked
 
         # Build merge command
         merge_args = [source_branch]
@@ -173,13 +176,43 @@ def git_merge(
         return fail(f"❌ Merge error: {str(e)}")
 
 
-def git_cherry_pick(repo: Repo, commit_hash: str, no_commit: bool = False) -> str:
-    """Cherry-pick commits"""
+def _cherry_pick_options(
+    repo: Repo, no_commit: bool, gpg_sign: bool, mainline: int | None
+) -> list[str] | str:
+    """Option argv for ``git cherry-pick``, or a failure string.
+
+    Mirrors git_commit: when the server enforces signing every created commit
+    is signed with the resolved key, whatever ``gpg_sign`` says. ``--no-commit``
+    creates no commit, so nothing is signed then.
+    """
+    if mainline is not None and mainline < 1:
+        return fail("❌ mainline must be a positive parent number (>= 1)")
+    options: list[str] = []
+    if no_commit:
+        options.append("--no-commit")
+    elif gpg_sign or signing_enforced():
+        key, error = resolve_gpg_key(repo, None)
+        if error:
+            return error
+        options.append(f"--gpg-sign={key}")
+    if mainline is not None:
+        options.extend(["--mainline", str(mainline)])
+    return options
+
+
+def git_cherry_pick(
+    repo: Repo,
+    commit_hash: str,
+    no_commit: bool = False,
+    gpg_sign: bool = False,
+    mainline: int | None = None,
+) -> str:
+    """Cherry-pick commits (signed when signing is enforced; ``mainline`` = ``-m``)."""
     try:
-        # Build cherry-pick command
-        cp_args = [commit_hash]
-        if no_commit:
-            cp_args.insert(0, "--no-commit")
+        options = _cherry_pick_options(repo, no_commit, gpg_sign, mainline)
+        if isinstance(options, str):
+            return options
+        cp_args = [*options, commit_hash]
 
         # Perform cherry-pick
         result = repo.git.cherry_pick(*cp_args)

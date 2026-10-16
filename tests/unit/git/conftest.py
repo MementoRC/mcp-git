@@ -38,3 +38,26 @@ def real_repo(tmp_path: Path) -> Repo:
         config.set_value("user", "email", _USER_EMAIL)
     repo.index.commit("initial commit")
     return repo
+
+
+_FAKE_GPG = """#!/bin/sh
+cat >/dev/null
+echo "[GNUPG:] SIG_CREATED D 1 8 00 0 FAKEKEY 0 0" >&2
+printf -- '-----BEGIN PGP SIGNATURE-----\\nfake\\n-----END PGP SIGNATURE-----\\n'
+"""
+
+
+@pytest.fixture
+def signing_repo(real_repo: Repo, tmp_path: Path) -> Repo:
+    """``real_repo`` whose git can GPG-sign through a stub ``gpg.program``.
+
+    The stub emits the status line git requires, so signed commits succeed
+    for real without a keyring; ``git cat-file`` then shows a ``gpgsig``.
+    """
+    program = tmp_path / "fake-gpg"
+    program.write_text(_FAKE_GPG)
+    program.chmod(0o755)
+    with real_repo.config_writer() as config:
+        config.set_value("gpg", "program", str(program))
+        config.set_value("user", "signingkey", "FAKEKEY")
+    return real_repo
