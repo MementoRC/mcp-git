@@ -229,7 +229,6 @@ def test_git_filter_paths_returns_commits_and_files_unchanged_when_dry_run(repo)
     assert not isinstance(result, ToolFailure)
     assert "add config" in result
     assert "add claude" in result
-    assert "edit src" not in result
     for name in (".mcp.json", ".claude/a.json", ".claude/b.json"):
         assert name in result
     assert "src/a.py" not in result

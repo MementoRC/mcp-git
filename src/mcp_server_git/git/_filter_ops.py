@@ -223,7 +223,7 @@ def _summary(
     return "\n".join(lines)
 
 
-def _dry_run(repo: Repo, plan: _Plan, sign_key: str | None) -> str:
+def _dry_run(repo: Repo, plan: _Plan, sign_key: str | None, prune_empty: bool) -> str:
     """Report only; a missing signing key is a warning here, not a refusal."""
     warnings = []
     if isinstance(sign_key, ToolFailure):
@@ -232,7 +232,13 @@ def _dry_run(repo: Repo, plan: _Plan, sign_key: str | None) -> str:
             "signing key resolves (set GPG_SIGNING_KEY or user.signingkey)"
         )
     return dry_run_report(
-        repo, plan.revs, plan.paths, plan.invert, sign_key is not None, warnings
+        repo,
+        plan.revs,
+        plan.paths,
+        plan.invert,
+        sign_key is not None,
+        warnings,
+        prune_empty,
     )
 
 
@@ -288,7 +294,7 @@ def git_filter_paths(
             return plan
         sign_key = _sign_key(repo, gpg_sign)
         if dry_run:
-            return _dry_run(repo, plan, sign_key)
+            return _dry_run(repo, plan, sign_key, prune_empty)
         if isinstance(sign_key, ToolFailure):
             return sign_key
         backup = Path(backup_path) if backup_path else _default_backup(repo)
