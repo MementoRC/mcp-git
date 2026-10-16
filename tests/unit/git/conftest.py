@@ -40,6 +40,18 @@ def real_repo(tmp_path: Path) -> Repo:
     return repo
 
 
+@pytest.fixture
+def signing_not_enforced(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Disable signing enforcement in git_rebase.
+
+    For tests that pin rebase mechanics against repos with no signing key;
+    signing behaviour is covered by tests that use ``signing_repo``.
+    """
+    monkeypatch.setattr(
+        "mcp_server_git.git._rebase_ops.signing_enforced", lambda: False
+    )
+
+
 _FAKE_GPG = """#!/bin/sh
 cat >/dev/null
 echo "[GNUPG:] SIG_CREATED D 1 8 00 0 FAKEKEY 0 0" >&2
