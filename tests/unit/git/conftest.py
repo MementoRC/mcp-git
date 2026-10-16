@@ -16,7 +16,7 @@ import pytest
 pytest.importorskip("git")
 from git import Repo  # noqa: E402
 
-from mcp_server_git.git import _rebase_ops
+from mcp_server_git.git import _filter_ops, _rebase_ops
 
 _INITIAL_BRANCH = "main"
 _USER_NAME = "Test User"
@@ -44,12 +44,13 @@ def real_repo(tmp_path: Path) -> Repo:
 
 @pytest.fixture
 def signing_not_enforced(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Disable signing enforcement in git_rebase.
+    """Disable signing enforcement in git_rebase and git_filter_paths.
 
-    For tests that pin rebase mechanics against repos with no signing key;
-    signing behaviour is covered by tests that use ``signing_repo``.
+    For tests that pin rebase/filter mechanics against repos with no signing
+    key; signing behaviour is covered by tests that use ``signing_repo``.
     """
     monkeypatch.setattr(_rebase_ops, "signing_enforced", lambda: False)
+    monkeypatch.setattr(_filter_ops, "signing_enforced", lambda: False)
 
 
 _FAKE_GPG = """#!/bin/sh
