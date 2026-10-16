@@ -16,6 +16,8 @@ import pytest
 pytest.importorskip("git")
 from git import Repo  # noqa: E402
 
+from mcp_server_git.git import _rebase_ops
+
 _INITIAL_BRANCH = "main"
 _USER_NAME = "Test User"
 _USER_EMAIL = "test@example.com"
@@ -47,9 +49,7 @@ def signing_not_enforced(monkeypatch: pytest.MonkeyPatch) -> None:
     For tests that pin rebase mechanics against repos with no signing key;
     signing behaviour is covered by tests that use ``signing_repo``.
     """
-    monkeypatch.setattr(
-        "mcp_server_git.git._rebase_ops.signing_enforced", lambda: False
-    )
+    monkeypatch.setattr(_rebase_ops, "signing_enforced", lambda: False)
 
 
 _FAKE_GPG = """#!/bin/sh
