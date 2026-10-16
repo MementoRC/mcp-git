@@ -11,7 +11,7 @@ from .error_text import clean_git_error_text
 logger = logging.getLogger(__name__)
 
 __all__ = [
-    "_build_config_scope_kwargs",
+    "_build_config_scope_flags",
     "_validate_config_key",
     "_validate_config_file",
     "git_config_get",
@@ -20,22 +20,18 @@ __all__ = [
 ]
 
 _CONFIG_KEY_RE = re.compile(r"^[a-zA-Z0-9]([a-zA-Z0-9._/\\-]*[a-zA-Z0-9])?$")
-_CONFIG_SCOPE_MAP = {
-    "local": {},
-    "global": {"_global": True},
-    "system": {"system": True},
-}
+_CONFIG_SCOPES = ("local", "global", "system", "worktree")
 
 
-def _build_config_scope_kwargs(scope: str | None) -> dict:
-    """Return GitPython keyword arguments for the requested config scope."""
-    if scope is None or scope == "local":
-        return {}
-    if scope not in _CONFIG_SCOPE_MAP:
+def _build_config_scope_flags(scope: str | None) -> list[str]:
+    """Return the git CLI flag list (``--<scope>``) for a validated config scope."""
+    if scope is None:
+        return []
+    if scope not in _CONFIG_SCOPES:
         raise ValueError(
-            f"Invalid scope '{scope}'. Valid values: local, global, system"
+            f"Invalid scope '{scope}'. Valid values: {', '.join(_CONFIG_SCOPES)}"
         )
-    return _CONFIG_SCOPE_MAP[scope]
+    return [f"--{scope}"]
 
 
 def _validate_config_key(key: str) -> None:
@@ -89,12 +85,12 @@ def git_config_get(
     """
     try:
         _validate_config_key(key)
-        scope_kwargs = _build_config_scope_kwargs(scope)
+        flags = _build_config_scope_flags(scope)
         if file:
             _validate_config_file(repo, file)
-            value = repo.git.config(key, f=file, **scope_kwargs)
+            value = repo.git.config(*flags, key, f=file)
         else:
-            value = repo.git.config(key, **scope_kwargs)
+            value = repo.git.config(*flags, key)
         return f"{key} = {value}"
     except ValueError as e:
         return fail(f"❌ {e}")
@@ -125,12 +121,12 @@ def git_config_set(
     """
     try:
         _validate_config_key(key)
-        scope_kwargs = _build_config_scope_kwargs(scope)
+        flags = _build_config_scope_flags(scope)
         if file:
             _validate_config_file(repo, file)
-            repo.git.config(key, value, f=file, **scope_kwargs)
+            repo.git.config(*flags, key, value, f=file)
         else:
-            repo.git.config(key, value, **scope_kwargs)
+            repo.git.config(*flags, key, value)
         scope_info = f" [{scope}]" if scope else ""
         file_info = f" in {file}" if file else ""
         return f"✅ Config set{scope_info}{file_info}: {key} = {value}"
@@ -158,12 +154,12 @@ def git_config_list(
         Formatted list of config entries or an error message
     """
     try:
-        scope_kwargs = _build_config_scope_kwargs(scope)
+        flags = _build_config_scope_flags(scope)
         if file:
             _validate_config_file(repo, file)
-            output = repo.git.config("--list", f=file, **scope_kwargs)
+            output = repo.git.config(*flags, "--list", f=file)
         else:
-            output = repo.git.config("--list", **scope_kwargs)
+            output = repo.git.config(*flags, "--list")
         if not output.strip():
             return "No config entries found"
         source = file if file else (scope or "local")
