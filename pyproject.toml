@@ -58,13 +58,17 @@ target-version = "py312"
 line-length = 88
 
 [tool.ruff.lint]
-select = ["F", "E9", "W", "I", "B", "C4", "UP"]
+select = ["F", "E9", "W", "I", "B", "C4", "UP", "C901"]
 ignore = ["E501"]
 
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
 [tool.ruff.lint.per-file-ignores]
-"tests/**/*.py" = ["F821", "F401", "F841"]
+"tests/**/*.py" = ["F821", "F401", "F841", "C901"]
 # TDD type tests: Allow undefined names and unused imports during red phase
-"tests/unit/types/*.py" = ["F821", "F401", "F841"]
+# C901: the complexity policy targets production code, not test scaffolding
+"tests/unit/types/*.py" = ["F821", "F401", "F841", "C901"]
 # Ensure production code maintains strict standards
 "src/mcp_server_git/types/*.py" = []
 
