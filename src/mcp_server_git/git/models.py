@@ -40,7 +40,21 @@ class GitDiff(BaseModel):
 
 class GitCommit(BaseModel):
     repo_path: str
-    message: str
+    message: str | None = Field(
+        default=None,
+        description="Commit message (give exactly one of message or reuse_message_from)",
+    )
+    author: str | None = Field(
+        default=None, description="Author override, 'Name <email>' (--author)"
+    )
+    date: str | None = Field(
+        default=None,
+        description="Author date, ISO 8601 e.g. 2024-05-01T12:00:00+00:00 (--date)",
+    )
+    reuse_message_from: str | None = Field(
+        default=None,
+        description="Commit ref whose message is reused (-C); replaces message",
+    )
     amend: bool = Field(
         default=False,
         description="Amend the most recent commit instead of creating a new one",
@@ -160,6 +174,16 @@ class GitCreateBranch(BaseModel):
 class GitCheckout(BaseModel):
     repo_path: str
     branch_name: str
+    orphan: bool = Field(
+        default=False,
+        description="Create branch_name as a new orphan (unborn) branch "
+        "(--orphan); the old tree stays staged, clear it with git_rm",
+    )
+    allow_overwrite_ignored: bool = Field(
+        default=False,
+        description="Proceed even if ignored working-tree files would be "
+        "overwritten or removed (refused by default)",
+    )
 
 
 class GitShow(BaseModel):
@@ -335,12 +359,27 @@ class GitMerge(BaseModel):
     source_branch: str
     strategy: str = "merge"
     message: str | None = None
+    allow_overwrite_ignored: bool = Field(
+        default=False,
+        description="Proceed even if ignored working-tree files would be "
+        "overwritten or removed (refused by default)",
+    )
 
 
 class GitCherryPick(BaseModel):
     repo_path: str
     commit_hash: str
     no_commit: bool = False
+    gpg_sign: bool = Field(
+        default=False,
+        description="Sign the new commit; always applied when the server "
+        "enforces signing (the default configuration)",
+    )
+    mainline: int | None = Field(
+        default=None,
+        ge=1,
+        description="Parent number to use when picking a merge commit (-m)",
+    )
 
 
 class GitAbort(BaseModel):

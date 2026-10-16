@@ -6,6 +6,7 @@ import subprocess
 
 from ..utils.git_import import GitCommandError, Repo
 from ..utils.tool_failure import fail
+from ._commit_options import commit_option_args
 from ._commit_runner import CommitTimeoutError, run_commit_process
 from ._gpg import resolve_gpg_key
 from ._lock_retry import READ_ONLY_ENV
@@ -44,18 +45,36 @@ def git_status(repo: Repo, porcelain: bool = False) -> str:
 
 def git_commit(
     repo: Repo,
-    message: str,
+    message: str | None = None,
     amend: bool = False,  # If True, amend the most recent commit instead of creating new one
     gpg_sign: bool = False,
     gpg_key_id: str | None = None,
     allow_empty: bool = False,
+    author: str | None = None,
+    date: str | None = None,
+    reuse_message_from: str | None = None,
 ) -> str:
-    """Commit staged changes (index.lock retry is handled by wrap_repo_op)."""
-    return _git_commit_once(repo, message, amend, gpg_sign, gpg_key_id, allow_empty)
+    """Commit staged changes (index.lock retry is handled by wrap_repo_op).
+
+    ``author`` ("Name <email>"), ``date`` (author date, ISO 8601) and
+    ``reuse_message_from`` (commit ref, ``-C``) preserve metadata when
+    rebuilding history. Signing is enforced regardless of these.
+    """
+    option_args, option_error = commit_option_args(
+        message, author, date, reuse_message_from
+    )
+    if option_error:
+        return option_error
+    return _git_commit_once(repo, option_args, amend, gpg_sign, gpg_key_id, allow_empty)
 
 
 # GPG signing is forced for every commit (SECURITY REQUIREMENT).
 _FORCE_GPG = True
+
+
+def signing_enforced() -> bool:
+    """True when the server config forces GPG signing of every commit."""
+    return _FORCE_GPG
 
 
 def _require_gpg() -> str | None:
@@ -68,7 +87,7 @@ def _require_gpg() -> str | None:
 
 
 def _build_commit_cmd(
-    message: str, amend: bool, allow_empty: bool, key_id: str | None
+    option_args: list[str], amend: bool, allow_empty: bool, key_id: str | None
 ) -> list[str]:
     """argv for a GPG-signed ``git commit``."""
     cmd = ["git", "commit"]
@@ -77,7 +96,7 @@ def _build_commit_cmd(
     if allow_empty:
         cmd.append("--allow-empty")
     cmd.append(f"--gpg-sign={key_id}")
-    cmd.extend(["-m", message])
+    cmd.extend(option_args)
     return cmd
 
 
@@ -105,7 +124,7 @@ def _commit_success_message(
 
 def _git_commit_once(
     repo: Repo,
-    message: str,
+    option_args: list[str],
     amend: bool,
     gpg_sign: bool,
     gpg_key_id: str | None,
@@ -129,7 +148,7 @@ def _git_commit_once(
         if violation:
             return violation
 
-        cmd = _build_commit_cmd(message, amend, allow_empty, force_key_id)
+        cmd = _build_commit_cmd(option_args, amend, allow_empty, force_key_id)
         try:
             result = run_commit_process(cmd, repo.working_dir)
         except CommitTimeoutError as timeout_err:

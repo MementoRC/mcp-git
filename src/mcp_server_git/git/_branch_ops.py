@@ -6,6 +6,7 @@ from typing import Any, Literal
 
 from ..utils.git_import import GitCommandError, Repo
 from ..utils.tool_failure import fail
+from ._ignored_guard import ignored_overwrite_failure
 from ._lock_retry import run_index_op
 from .error_text import clean_git_error_text
 
@@ -100,42 +101,67 @@ def git_create_branch(
         return fail(f"❌ Branch creation error: {str(e)}")
 
 
-def git_checkout(repo: Repo, branch_name: str) -> str:
-    """Switch to a branch"""
+def _plan_checkout(repo: Repo, name: str) -> tuple[list[str], str, str] | str:
+    """Resolve *name* to ``(git checkout args, ref being switched to, success text)``.
+
+    Returns a failure string when *name* is neither a local branch, a full
+    remote ref (detached HEAD) nor the short name of a remote branch.
+    """
+    if name in [branch.name for branch in repo.branches]:
+        return [name], name, f"✅ Switched to branch '{name}'"
     try:
-        # Check if branch exists locally
-        local_branches = [branch.name for branch in repo.branches]
+        remote_refs = [ref.name for ref in repo.remote().refs]
+    except Exception:
+        return fail(f"❌ Branch '{name}' not found")
+    if name in remote_refs:
+        return [name], name, f"✅ Switched to '{name}' (detached HEAD)"
+    if name in [ref.split("/")[-1] for ref in remote_refs]:
+        return (
+            ["-b", name, f"origin/{name}"],
+            f"origin/{name}",
+            f"✅ Created and switched to branch '{name}' (tracking origin/{name})",
+        )
+    return fail(f"❌ Branch '{name}' not found locally or on remote")
 
-        if branch_name in local_branches:
-            # Switch to local branch
-            repo.git.checkout(branch_name)
-            return f"✅ Switched to branch '{branch_name}'"
-        else:
-            # Check if it's a full remote ref (e.g., 'origin/development')
-            try:
-                remote_refs = [ref.name for ref in repo.remote().refs]
-                if branch_name in remote_refs:
-                    # Checkout the remote ref directly (detached HEAD)
-                    repo.git.checkout(branch_name)
-                    return f"✅ Switched to '{branch_name}' (detached HEAD)"
-            except Exception:
-                pass
 
-            # Check if branch exists on remote (short name)
-            try:
-                remote_branches = [
-                    ref.name.split("/")[-1] for ref in repo.remote().refs
-                ]
-                if branch_name in remote_branches:
-                    # Create local tracking branch
-                    repo.git.checkout("-b", branch_name, f"origin/{branch_name}")
-                    return f"✅ Created and switched to branch '{branch_name}' (tracking origin/{branch_name})"
-                else:
-                    return fail(
-                        f"❌ Branch '{branch_name}' not found locally or on remote"
-                    )
-            except Exception:
-                return fail(f"❌ Branch '{branch_name}' not found")
+def _checkout_orphan(repo: Repo, branch_name: str) -> str:
+    """``git checkout --orphan``: unborn branch; index and tree stay as they are."""
+    if branch_name in [branch.name for branch in repo.branches]:
+        return fail(f"❌ Branch '{branch_name}' already exists")
+    repo.git.checkout("--orphan", branch_name)
+    return (
+        f"✅ Switched to new orphan branch '{branch_name}' (no commits yet; "
+        "the previous tree is still staged, use git_rm to clear it)"
+    )
+
+
+def git_checkout(
+    repo: Repo,
+    branch_name: str,
+    orphan: bool = False,
+    allow_overwrite_ignored: bool = False,
+) -> str:
+    """Switch to a branch.
+
+    ``orphan=True`` creates a new unborn branch (``git checkout --orphan``),
+    used to rebuild a root commit. Otherwise the switch is refused when it
+    would overwrite or remove ignored working-tree files, unless
+    ``allow_overwrite_ignored=True`` (issue #283).
+    """
+    try:
+        if orphan:
+            return _checkout_orphan(repo, branch_name)
+        plan = _plan_checkout(repo, branch_name)
+        if isinstance(plan, str):
+            return plan
+        args, ref, success = plan
+        blocked = ignored_overwrite_failure(
+            repo, ref, "switch to", allow=allow_overwrite_ignored
+        )
+        if blocked:
+            return blocked
+        repo.git.checkout(*args)
+        return success
 
     except GitCommandError as e:
         return fail(f"❌ Checkout failed: {clean_git_error_text(e.stderr, 'stderr')}")
