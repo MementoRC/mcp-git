@@ -342,7 +342,9 @@ class GitDiffBranches(BaseModel):
 
 class GitRebase(BaseModel):
     repo_path: str
-    target_branch: str
+    target_branch: str | None = Field(
+        default=None, description="Branch to rebase onto (omit only with root=true)"
+    )
     onto: str | None = Field(
         default=None, description="Rebase --onto target (new base)"
     )
@@ -351,6 +353,23 @@ class GitRebase(BaseModel):
     )
     branch: str | None = Field(
         default=None, description="Branch to rebase (default: current HEAD)"
+    )
+    root: bool = Field(
+        default=False,
+        description="Rebase all commits including the root (--root); "
+        "exclusive with target_branch, onto and fork_point",
+    )
+    rebase_merges: bool = Field(
+        default=False, description="Preserve merge commits (--rebase-merges)"
+    )
+    gpg_sign: bool = Field(
+        default=False,
+        description="Sign rewritten commits; always applied when the server "
+        "enforces signing (the default configuration)",
+    )
+    committer_date_is_author_date: bool = Field(
+        default=False,
+        description="Set committer date to author date (--committer-date-is-author-date)",
     )
 
 

@@ -294,7 +294,7 @@ def _register_git_tools(interface: Any, git_service: Any):
         ToolDefinition(
             name="git_rebase",
             implementation=wrap_repo_op(git_ops.git_rebase, mutates_index=True),
-            description="Rebase branch onto another. Supports --onto <new_base> <fork_point> [<branch>] for moving branches between bases",
+            description="Rebase branch onto another. Supports --onto <new_base> <fork_point> [<branch>] for moving branches between bases. Options: root (--root, exclusive with target_branch/onto), rebase_merges, gpg_sign (rewritten commits are always signed when server enforces signing), committer_date_is_author_date. Non-interactive; no exec",
             schema=GitRebase.model_json_schema(),
             domain="git",
             complexity="advanced",

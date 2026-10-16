@@ -22,21 +22,43 @@ __all__ = [
 ]
 
 
+# Headless server: never let rebase (esp. --root/--rebase-merges) open an editor.
+_NON_INTERACTIVE_ENV = {"GIT_SEQUENCE_EDITOR": "true", "GIT_EDITOR": "true"}
+
+
 def _validate_rebase_params(
-    onto: str | None, fork_point: str | None, branch: str | None
+    onto: str | None,
+    fork_point: str | None,
+    branch: str | None,
+    target_branch: str | None = None,
+    root: bool = False,
 ) -> str | None:
     """Return an error message for invalid rebase ref parameters, else None."""
     dangerous_chars = [";", "|", "&", "`", "$", "(", ")"]
     for param_name, param_value in [
+        ("target_branch", target_branch),
         ("onto", onto),
         ("fork_point", fork_point),
         ("branch", branch),
     ]:
+        if param_value and param_value.startswith("-"):
+            return fail(
+                f"❌ {param_name} must not start with '-': '{param_value}' "
+                "would be parsed as a git option"
+            )
         if param_value and any(char in param_value for char in dangerous_chars):
             return fail(
                 f"❌ Invalid characters detected in {param_name}: '{param_value}'"
             )
 
+    if root:
+        if target_branch or onto or fork_point:
+            return fail(
+                "❌ root cannot be combined with target_branch, onto or fork_point"
+            )
+        return None
+    if not target_branch:
+        return fail("❌ target_branch is required unless root=True")
     if onto and not fork_point:
         return fail("❌ --onto requires fork_point (the old base to rebase from)")
     if fork_point and not onto:
@@ -57,13 +79,45 @@ def _branch_exists(repo: Repo, name: str) -> bool:
     return name in all_branches
 
 
+def _rebase_options(
+    repo: Repo,
+    root: bool,
+    rebase_merges: bool,
+    gpg_sign: bool,
+    committer_date_is_author_date: bool,
+) -> list[str] | str:
+    """Option argv for ``git rebase``, or a failure string.
+
+    Signing mirrors git_commit: when the server enforces it every rewritten
+    commit is signed with the resolved key, whatever ``gpg_sign`` says.
+    ``--root`` adds ``--force-rebase`` so the whole history is really replayed
+    (and therefore re-signed) rather than fast-forwarded.
+    """
+    options: list[str] = []
+    if root:
+        options.extend(["--root", "--force-rebase"])
+    if rebase_merges:
+        options.append("--rebase-merges")
+    if committer_date_is_author_date:
+        options.append("--committer-date-is-author-date")
+    if gpg_sign or signing_enforced():
+        key, error = resolve_gpg_key(repo, None)
+        if error:
+            return error
+        options.append(f"--gpg-sign={key}")
+    return options
+
+
 def _build_rebase_args(
-    target_branch: str,
+    target_branch: str | None,
     onto: str | None,
     fork_point: str | None,
     branch: str | None,
+    root: bool = False,
 ) -> list[str | None]:
-    """Build the argument list for `git rebase`."""
+    """Build the argument list for `git rebase` (after the options)."""
+    if root or target_branch is None:
+        return [branch] if branch else []
     if onto:
         args: list[str | None] = ["--onto", onto, fork_point]
         if branch:
@@ -76,38 +130,49 @@ def _build_rebase_args(
 
 def git_rebase(
     repo: Repo,
-    target_branch: str,
+    target_branch: str | None = None,
     onto: str | None = None,
     fork_point: str | None = None,
     branch: str | None = None,
+    root: bool = False,
+    rebase_merges: bool = False,
+    gpg_sign: bool = False,
+    committer_date_is_author_date: bool = False,
 ) -> str:
-    """Rebase current branch onto target branch.
+    """Rebase current branch onto target branch (always non-interactive).
 
     Supports --onto for rebasing between bases:
         git rebase --onto <new_base> <old_fork_point> [<branch>]
-
-    Examples:
-        git_rebase(repo, "main")                          # simple rebase
-        git_rebase(repo, "main", branch="feature")        # rebase feature onto main
-        git_rebase(repo, "main",                          # --onto rebase
-                   onto="new-base", fork_point="old-base")
+    ``root=True`` replays the whole history (``--root``) and excludes
+    target_branch/onto/fork_point. No ``--exec`` is exposed.
     """
     try:
-        invalid = _validate_rebase_params(onto, fork_point, branch)
+        invalid = _validate_rebase_params(onto, fork_point, branch, target_branch, root)
         if invalid:
             return invalid
 
         # Get current branch for success message
         current_branch = repo.active_branch.name
 
-        # Check if target branch exists (only when not using --onto)
-        if not onto and not _branch_exists(repo, target_branch):
+        # Check if target branch exists (only when not using --onto/--root)
+        if target_branch and not onto and not _branch_exists(repo, target_branch):
             return fail(f"❌ Target branch '{target_branch}' not found")
 
-        args = _build_rebase_args(target_branch, onto, fork_point, branch)
-        result = repo.git.rebase(*args)
+        options = _rebase_options(
+            repo, root, rebase_merges, gpg_sign, committer_date_is_author_date
+        )
+        if isinstance(options, str):
+            return options
+        args = [
+            *options,
+            *_build_rebase_args(target_branch, onto, fork_point, branch, root),
+        ]
+        with repo.git.custom_environment(**_NON_INTERACTIVE_ENV):
+            result = repo.git.rebase(*args)
 
         rebase_branch = branch or current_branch
+        if root:
+            return f"✅ Successfully rebased {rebase_branch} --root\n{result}"
         if onto:
             return f"✅ Successfully rebased {rebase_branch} --onto {onto} (from {fork_point})\n{result}"
         return f"✅ Successfully rebased {rebase_branch} onto {target_branch}\n{result}"

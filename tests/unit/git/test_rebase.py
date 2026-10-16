@@ -82,6 +82,8 @@ def _make_repo(
 class TestGitRebaseOnto:
     """Tests for git_rebase with --onto parameter."""
 
+    pytestmark = pytest.mark.usefixtures("signing_not_enforced")
+
     def test_rebase_simple_returns_success(self):
         """Existing behavior preserved: simple rebase onto target."""
         repo = _make_repo()

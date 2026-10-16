@@ -7,6 +7,8 @@ import pytest
 
 from mcp_server_git.git.operations import git_rebase
 
+pytestmark = pytest.mark.usefixtures("signing_not_enforced")
+
 
 def _commit(repo: git.Repo, name: str, content: str, message: str) -> None:
     path = Path(repo.working_dir) / name
