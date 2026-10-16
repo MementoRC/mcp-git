@@ -15,7 +15,7 @@ from fastapi import Request
 from fastapi.responses import JSONResponse
 
 from ..repository_binding import RemoteContaminationError, RepositoryBindingError
-from .http_rpc_responses import rpc_error, rpc_result
+from .http_rpc_responses import invalid_params, rpc_error, rpc_result
 from .http_tool_call import ToolCallHandler
 from .http_tool_catalog import PROTOCOL_VERSION, TOOLS_LIST
 
@@ -74,12 +74,23 @@ class MCPRequestHandler:
         except Exception:
             return rpc_error(None, -32700, "Parse error", status_code=400)
 
+        if not isinstance(body, dict):
+            return rpc_error(
+                None,
+                -32600,
+                "Invalid Request: batch requests are not supported"
+                if isinstance(body, list)
+                else "Invalid Request: body must be a JSON object",
+            )
+
         method = body.get("method")
         params = body.get("params", {})
         req_id = body.get("id")
 
         if body.get("jsonrpc") != "2.0":
             return rpc_error(req_id, -32600, "Invalid Request - jsonrpc must be '2.0'")
+        if not isinstance(params, dict):
+            return invalid_params(req_id, "params", params)
 
         handler = self._methods.get(method) if isinstance(method, str) else None
         if handler is None:

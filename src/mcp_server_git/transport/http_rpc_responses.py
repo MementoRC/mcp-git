@@ -10,6 +10,28 @@ def rpc_result(req_id: Any, result: dict[str, Any]) -> JSONResponse:
     return JSONResponse(content={"jsonrpc": "2.0", "id": req_id, "result": result})
 
 
+def json_type_name(value: Any) -> str:
+    """Return the JSON type name of a decoded value (null, string, number, ...)."""
+    if value is None:
+        return "null"
+    if isinstance(value, bool):
+        return "boolean"
+    if isinstance(value, (int, float)):
+        return "number"
+    if isinstance(value, str):
+        return "string"
+    return "array" if isinstance(value, list) else "object"
+
+
+def invalid_params(req_id: Any, what: str, value: Any) -> JSONResponse:
+    """Build the -32602 response for a non-object ``params``/``arguments``."""
+    return rpc_error(
+        req_id,
+        -32602,
+        f"Invalid params: {what} must be an object, got {json_type_name(value)}",
+    )
+
+
 def rpc_error(
     req_id: Any,
     code: int,

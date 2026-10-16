@@ -323,9 +323,50 @@ class TestEnvelope:
         assert response.json()["error"]["code"] == -32600
         assert response.json()["id"] is None
 
-    async def test_post_raises_when_batch_array_sent(self, client):
-        with pytest.raises(AttributeError):
-            await client.post("/mcp", json=[INIT_BODY])
+    @pytest.mark.parametrize("batch", [[INIT_BODY], []])
+    async def test_post_returns_invalid_request_when_batch_array_sent(
+        self, client, batch
+    ):
+        response = await client.post("/mcp", json=batch)
+
+        assert response.status_code == 200
+        assert response.json() == {
+            "jsonrpc": "2.0",
+            "id": None,
+            "error": {
+                "code": -32600,
+                "message": "Invalid Request: batch requests are not supported",
+            },
+        }
+
+    @pytest.mark.parametrize("body", [b"5", b'"text"', b"null", b"true"])
+    async def test_post_returns_invalid_request_when_body_is_scalar(self, client, body):
+        response = await client.post(
+            "/mcp", content=body, headers={"Content-Type": "application/json"}
+        )
+
+        assert response.status_code == 200
+        assert response.json()["id"] is None
+        assert response.json()["error"]["code"] == -32600
+
+    @pytest.mark.parametrize(
+        ("params", "type_name"),
+        [("x", "string"), (5, "number"), ([1], "array"), (None, "null")],
+    )
+    @pytest.mark.parametrize("method", ["tools/list", "tools/call"])
+    async def test_post_returns_invalid_params_when_params_not_object(
+        self, client, method, params, type_name
+    ):
+        response = await client.post(
+            "/mcp",
+            json={"jsonrpc": "2.0", "method": method, "params": params, "id": 1},
+            headers={"MCP-Session-Id": "s"},
+        )
+
+        assert response.json()["error"] == {
+            "code": -32602,
+            "message": f"Invalid params: params must be an object, got {type_name}",
+        }
 
     async def test_post_returns_method_not_found_when_unknown_method(self, client):
         response = await client.post(
@@ -420,16 +461,17 @@ class TestToolsCall:
 
         assert response.json()["error"]["code"] == -32602
 
-    async def test_call_returns_internal_error_when_params_not_object(self, client):
+    async def test_call_returns_invalid_params_when_arguments_not_object(self, client):
         response = await client.post(
             "/mcp",
-            json={"jsonrpc": "2.0", "method": "tools/call", "params": "x", "id": 1},
+            json=_call("discover_tools", "x"),
             headers={"MCP-Session-Id": "s"},
         )
 
-        error = response.json()["error"]
-        assert error["code"] == -32603
-        assert error["message"].startswith("Internal error: ")
+        assert response.json()["error"] == {
+            "code": -32602,
+            "message": "Invalid params: arguments must be an object, got string",
+        }
 
     async def test_call_wraps_result_when_discover_tools(self, server, client):
         mock = _stub(server, "discover_tools", return_value={"tools": ["a"]})
