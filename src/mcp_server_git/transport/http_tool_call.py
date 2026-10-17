@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any
 from fastapi.responses import JSONResponse
 
 from ..server_metadata import build_server_info
-from .http_rpc_responses import rpc_error, rpc_result
+from .http_rpc_responses import invalid_params, rpc_error, rpc_result
 
 if TYPE_CHECKING:
     from .http_server import HTTPGitServer
@@ -41,6 +41,10 @@ class ToolCallHandler:
         self, req_id: Any, params: Any, session_id: str | None
     ) -> JSONResponse:
         """Handle a ``tools/call`` JSON-RPC request."""
+        if not isinstance(params, dict):
+            return invalid_params(req_id, "params", params)
+        if "arguments" in params and not isinstance(params["arguments"], dict):
+            return invalid_params(req_id, "arguments", params["arguments"])
         if not session_id:
             if not self._server.default_repo:
                 return rpc_error(req_id, -32000, "MCP-Session-Id header required")
