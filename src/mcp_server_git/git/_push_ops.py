@@ -5,9 +5,16 @@ import os
 import subprocess
 from pathlib import Path
 
+from ..utils.credential_helpers import credential_hint
 from ..utils.git_import import GitCommandError, Repo
 from ..utils.tool_failure import fail
-from ._github_token import _resolve_github_token
+from ._push_auth import (
+    PushAuth,
+    configured_push_url,
+    is_github_https,
+    resolve_push_auth,
+    run_push,
+)
 from .error_text import clean_git_error_text
 
 logger = logging.getLogger(__name__)
@@ -139,6 +146,7 @@ def _push_refspec(
     force_with_lease_expect: str | None,
     force_if_includes: bool,
     dry_run: bool,
+    auth: PushAuth | None,
 ) -> str:
     """Push a raw refspec."""
     # branch is None here, so a bare-SHA lease takes its refname from
@@ -152,17 +160,36 @@ def _push_refspec(
     if force_if_includes:
         force_args.append("--force-if-includes")
     extra = ["--dry-run"] if dry_run else []
-    repo.git.push(*force_args, remote, refspec, *extra)
+    run_push(repo, [*force_args, remote, refspec, *extra], auth)
     suffix = _DRY_RUN_SUFFIX if dry_run else ""
-    return f"✅ Successfully pushed refspec '{refspec}' to {remote}{suffix}"
+    return (
+        f"✅ Successfully pushed refspec '{refspec}' to {remote}{suffix}"
+        + _auth_note(auth)
+    )
 
 
-def _push_delete(repo: Repo, remote: str, branch: str | None, dry_run: bool) -> str:
+def _push_delete(
+    repo: Repo, remote: str, branch: str | None, dry_run: bool, auth: PushAuth | None
+) -> str:
     """Delete a remote branch."""
     extra = ["--dry-run"] if dry_run else []
-    repo.git.push(remote, "--delete", branch, *extra)
+    run_push(repo, [remote, "--delete", str(branch), *extra], auth)
     suffix = _DRY_RUN_SUFFIX if dry_run else ""
-    return f"✅ Successfully deleted remote branch '{branch}' from {remote}{suffix}"
+    return (
+        f"✅ Successfully deleted remote branch '{branch}' from {remote}{suffix}"
+        + _auth_note(auth)
+    )
+
+
+def _auth_note(auth: PushAuth | None) -> str:
+    return auth.success_note() if auth else ""
+
+
+def _with_hint(message: str, error_text: str, url: str, repo: Repo) -> str:
+    """Append the credential-helper hint (#303) to a failure, keeping it a failure."""
+    cwd = repo.working_dir if isinstance(repo.working_dir, str) else None
+    hint = credential_hint(error_text, url, cwd)
+    return fail(message + hint) if hint else message
 
 
 def _build_push_args(
@@ -194,18 +221,6 @@ def _build_push_args(
     return push_args
 
 
-def _remote_url_info(repo: Repo, remote: str) -> tuple[str, bool]:
-    """Return (remote URL, is_github) for GitHub authentication handling."""
-    remote_url = ""
-    is_github = False
-    try:
-        remote_url = repo.remote(remote).url
-        is_github = "github.com" in remote_url
-    except Exception:
-        pass
-    return remote_url, is_github
-
-
 def _success_message(
     branch: str | None, remote: str, set_upstream: bool, dry_run: bool
 ) -> str:
@@ -216,32 +231,6 @@ def _success_message(
     if dry_run:
         success_msg += _DRY_RUN_SUFFIX
     return success_msg
-
-
-def _push_with_token(
-    repo: Repo,
-    remote: str,
-    remote_url: str,
-    github_token: str,
-    push_args: list[str],
-    success_msg: str,
-) -> str:
-    """Push using a token injected into the remote URL, restoring it after."""
-    logger.debug("🔍 DEBUG: Token found, proceeding with authenticated push")
-    # Format: https://token@github.com/user/repo.git
-    auth_url = remote_url.replace("https://", f"https://{github_token}@")
-
-    # Temporarily set remote URL with token
-    repo.remote(remote).set_url(auth_url)
-
-    try:
-        repo.git.push(*push_args)
-        # Indicate which authentication method was used
-        if os.getenv("GITHUB_TOKEN"):
-            return success_msg + "\n🔐 Used GITHUB_TOKEN authentication"
-        return success_msg + "\n🔐 Used GitHub CLI authentication"
-    finally:
-        repo.remote(remote).set_url(remote_url)
 
 
 def _system_git_failure(
@@ -267,6 +256,7 @@ def _system_git_failure(
 
 def _push_with_system_git(
     repo: Repo,
+    url: str,
     push_args: list[str],
     success_msg: str,
     force: bool,
@@ -295,7 +285,9 @@ def _push_with_system_git(
 
         if result.returncode == 0:
             return success_msg + "\n🔐 Used system git authentication"
-        return _system_git_failure(repo, result.stderr.strip(), force, force_with_lease)
+        error_output = result.stderr.strip()
+        failure = _system_git_failure(repo, error_output, force, force_with_lease)
+        return _with_hint(failure, error_output, url, repo)
     except subprocess.TimeoutExpired:
         return fail(
             "❌ Push operation timed out. Check network connection and repository access"
@@ -304,26 +296,9 @@ def _push_with_system_git(
         return fail(f"❌ System git push failed: {str(e)}")
 
 
-def _push_github_https(
-    repo: Repo,
-    remote: str,
-    remote_url: str,
-    push_args: list[str],
-    success_msg: str,
-    force: bool,
-    force_with_lease: bool,
-) -> str:
-    """Push to a GitHub HTTPS remote: token auth, else system git."""
-    github_token = _resolve_github_token(repo)
-    if github_token:
-        return _push_with_token(
-            repo, remote, remote_url, github_token, push_args, success_msg
-        )
-    return _push_with_system_git(repo, push_args, success_msg, force, force_with_lease)
-
-
 def _push_regular(
     repo: Repo,
+    url: str,
     push_args: list[str],
     success_msg: str,
     force: bool,
@@ -337,7 +312,8 @@ def _push_regular(
         error_text = clean_git_error_text(e.stderr, "stderr")
         if "non-fast-forward" in error_text:
             return _push_rejected_message(force, force_with_lease)
-        return fail(f"❌ Push failed (exit {e.status}): {error_text}")
+        failure = fail(f"❌ Push failed (exit {e.status}): {error_text}")
+        return _with_hint(failure, error_text, url, repo)
 
 
 def _outer_git_error(
@@ -351,9 +327,8 @@ def _outer_git_error(
     if "Authentication failed" in error_text or "401" in error_text:
         repo_env = Path(repo.working_dir) / ".env"
         token = os.getenv("GITHUB_TOKEN", "")
-        token_info = (
-            f"length={len(token)}, starts_with={token[:4]}..." if token else "NOT SET"
-        )
+        # Length only: never echo any part of the token (#303).
+        token_info = f"SET (length={len(token)})" if token else "NOT SET"
         return fail(
             f"❌ {_AUTH_HELP}"
             f"🔍 DEBUG [OUTER_EXCEPTION]: GITHUB_TOKEN: {token_info}, "
@@ -366,6 +341,34 @@ def _outer_git_error(
     if "non-fast-forward" in error_text:
         return _push_rejected_message(force, force_with_lease)
     return fail(f"❌ Push failed (exit {status}): {error_text}")
+
+
+def _active_branch(repo: Repo) -> str | None:
+    try:
+        return repo.active_branch.name
+    except TypeError:  # Detached HEAD or no commits
+        return None
+
+
+def _push_branch(
+    repo: Repo,
+    url: str,
+    auth: PushAuth | None,
+    push_args: list[str],
+    success_msg: str,
+    force: bool,
+    force_with_lease: bool,
+) -> str:
+    """Push a branch: server token, else system git (GitHub HTTPS), else plain."""
+    if auth is not None:
+        logger.debug("🔍 DEBUG: Token found, proceeding with authenticated push")
+        run_push(repo, push_args, auth)
+        return success_msg + auth.success_note()
+    if is_github_https(url):
+        return _push_with_system_git(
+            repo, url, push_args, success_msg, force, force_with_lease
+        )
+    return _push_regular(repo, url, push_args, success_msg, force, force_with_lease)
 
 
 def git_push(
@@ -409,6 +412,7 @@ def git_push(
       - ``dry_run``: maps to ``--dry-run``. Compatible with all push modes.
         When True, git reports what would be pushed without modifying remote state.
     """
+    url = ""
     try:
         error = _validate_push_args(
             branch,
@@ -423,6 +427,13 @@ def git_push(
         if error is not None:
             return error
 
+        if refspec is None and not branch:
+            branch = _active_branch(repo)
+            if branch is None:
+                return fail("❌ No active branch found and no branch specified")
+
+        url = configured_push_url(repo, remote)
+        auth = resolve_push_auth(repo, url)
         if refspec is not None:
             return _push_refspec(
                 repo,
@@ -433,16 +444,10 @@ def git_push(
                 force_with_lease_expect,
                 force_if_includes,
                 dry_run,
+                auth,
             )
         if delete:
-            return _push_delete(repo, remote, branch, dry_run)
-
-        # Get current branch if not specified
-        if not branch:
-            try:
-                branch = repo.active_branch.name
-            except TypeError:  # Detached HEAD or no commits
-                return fail("❌ No active branch found and no branch specified")
+            return _push_delete(repo, remote, branch, dry_run, auth)
 
         push_args = _build_push_args(
             remote,
@@ -455,22 +460,13 @@ def git_push(
             dry_run,
         )
         success_msg = _success_message(branch, remote, set_upstream, dry_run)
-
-        remote_url, is_github = _remote_url_info(repo, remote)
-        if is_github and remote_url.startswith("https://"):
-            return _push_github_https(
-                repo,
-                remote,
-                remote_url,
-                push_args,
-                success_msg,
-                force,
-                force_with_lease,
-            )
-        return _push_regular(repo, push_args, success_msg, force, force_with_lease)
+        return _push_branch(
+            repo, url, auth, push_args, success_msg, force, force_with_lease
+        )
 
     except GitCommandError as e:
         error_text = clean_git_error_text(e.stderr, "stderr")
-        return _outer_git_error(repo, error_text, e.status, force, force_with_lease)
+        failure = _outer_git_error(repo, error_text, e.status, force, force_with_lease)
+        return _with_hint(failure, error_text, url, repo)
     except Exception as e:
         return fail(f"❌ Push error: {str(e)}")

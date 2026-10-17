@@ -9,6 +9,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from .utils.credential_helpers import credential_helper_health
+
 # Keep in sync with [project] version in pyproject.toml. The sync is asserted
 # by tests/unit/test_server_metadata.py.
 __version__ = "0.6.3"
@@ -65,4 +67,7 @@ def build_server_info(tool_registry: dict[str, Any], transport: str) -> dict[str
         "total_tools": len(tool_registry),
         "transport": transport,
         "protocol_version": "2024-11-05",
+        # "warning" when a credential helper's executable is missing (#303);
+        # details are in the lean interface's health_check.
+        "credential_helper_status": credential_helper_health()["status"],
     }
