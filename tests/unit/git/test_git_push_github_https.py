@@ -4,7 +4,9 @@ Characterization tests for git_push on GitHub HTTPS remotes (issue #255).
 These paths need a credential/network boundary, so the repo is a mock and the
 only patched collaborator is ``subprocess.run`` (used for both ``gh auth
 token`` and the system-git fallback). The token source is driven through the
-``GITHUB_TOKEN`` environment variable.
+``GITHUB_TOKEN`` environment variable. A token push goes through
+``repo.git(c=[...]).push(...)`` (the per-call credential helper, #303), which
+on the mock is ``repo.git.return_value.push``.
 """
 
 import subprocess
@@ -14,6 +16,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from git.exc import GitCommandError
 
+from mcp_server_git.git._push_auth import TOKEN_ENV_VAR
 from mcp_server_git.git.operations import git_push
 
 URL = "https://github.com/owner/repo.git"
@@ -57,10 +60,13 @@ def test_git_push_returns_token_auth_success_when_github_token_set(
 
     assert result == (
         "✅ Successfully pushed main to origin (set upstream tracking)"
-        " (dry-run; no remote state modified)\n🔐 Used GITHUB_TOKEN authentication"
+        " (dry-run; no remote state modified)"
+        "\n🔐 Used server GitHub token (GITHUB_TOKEN environment variable)"
     )
-    urls = [c.args[0] for c in https_repo.remote.return_value.set_url.call_args_list]
-    assert urls == ["https://tok1234567890@github.com/owner/repo.git", URL]
+    push = https_repo.git.return_value.push
+    assert push.call_args.args == ("--set-upstream", "origin", "main", "--dry-run")
+    assert push.call_args.kwargs["env"][TOKEN_ENV_VAR] == "tok1234567890"
+    https_repo.remote.return_value.set_url.assert_not_called()
 
 
 def test_git_push_returns_cli_auth_success_when_only_gh_cli_has_token(
@@ -70,15 +76,16 @@ def test_git_push_returns_cli_auth_success_when_only_gh_cli_has_token(
         result = git_push(https_repo)
 
     assert result == (
-        "✅ Successfully pushed main to origin\n🔐 Used GitHub CLI authentication"
+        "✅ Successfully pushed main to origin"
+        "\n🔐 Used server GitHub token (GitHub CLI gh auth token)"
     )
 
 
-def test_git_push_restores_url_and_returns_outer_auth_error_when_token_push_fails(
+def test_git_push_returns_outer_auth_error_without_token_text_when_token_push_fails(
     https_repo: MagicMock, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv("GITHUB_TOKEN", "tok1234567890")
-    https_repo.git.push.side_effect = GitCommandError(
+    https_repo.git.return_value.push.side_effect = GitCommandError(
         "push", 1, stderr="Authentication failed"
     )
 
@@ -87,16 +94,19 @@ def test_git_push_restores_url_and_returns_outer_auth_error_when_token_push_fail
     assert result.startswith(
         "❌ Authentication failed. Configure GITHUB_TOKEN environment variable "
         "or GitHub CLI authentication (gh auth login)\n"
-        "🔍 DEBUG [OUTER_EXCEPTION]: GITHUB_TOKEN: length=13, starts_with=tok1..., "
+        "🔍 DEBUG [OUTER_EXCEPTION]: GITHUB_TOKEN: SET (length=13), "
     )
     assert result.endswith("🔍 Outer GitPython error: Authentication failed")
-    assert https_repo.remote.return_value.set_url.call_args.args == (URL,)
+    assert "tok1" not in result
+    https_repo.remote.return_value.set_url.assert_not_called()
 
 
 def test_git_push_returns_outer_auth_error_without_env_token_when_cli_token_push_fails(
     https_repo: MagicMock,
 ) -> None:
-    https_repo.git.push.side_effect = GitCommandError("push", 1, stderr="HTTP 401")
+    https_repo.git.return_value.push.side_effect = GitCommandError(
+        "push", 1, stderr="HTTP 401"
+    )
 
     with patch("subprocess.run", return_value=_run_result(stdout="cli-token-123456\n")):
         result = git_push(https_repo)
@@ -120,7 +130,9 @@ def test_git_push_returns_permission_denied_when_error_mentions_403(
     https_repo: MagicMock, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv("GITHUB_TOKEN", "tok1234567890")
-    https_repo.git.push.side_effect = GitCommandError("push", 1, stderr="error 403")
+    https_repo.git.return_value.push.side_effect = GitCommandError(
+        "push", 1, stderr="error 403"
+    )
 
     result = git_push(https_repo)
 
@@ -131,7 +143,7 @@ def test_git_push_returns_rejected_hint_when_token_push_non_fast_forward(
     https_repo: MagicMock, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv("GITHUB_TOKEN", "tok1234567890")
-    https_repo.git.push.side_effect = GitCommandError(
+    https_repo.git.return_value.push.side_effect = GitCommandError(
         "push", 1, stderr="! [rejected] (non-fast-forward)"
     )
 
@@ -146,7 +158,9 @@ def test_git_push_returns_exit_code_failure_when_token_push_fails_otherwise(
     https_repo: MagicMock, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv("GITHUB_TOKEN", "tok1234567890")
-    https_repo.git.push.side_effect = GitCommandError("push", 7, stderr="boom")
+    https_repo.git.return_value.push.side_effect = GitCommandError(
+        "push", 7, stderr="boom"
+    )
 
     result = git_push(https_repo)
 
@@ -157,7 +171,7 @@ def test_git_push_returns_push_error_when_unexpected_exception_raised(
     https_repo: MagicMock, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv("GITHUB_TOKEN", "tok1234567890")
-    https_repo.git.push.side_effect = RuntimeError("kaboom")
+    https_repo.git.return_value.push.side_effect = RuntimeError("kaboom")
 
     result = git_push(https_repo)
 

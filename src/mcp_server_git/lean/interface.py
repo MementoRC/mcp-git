@@ -21,6 +21,7 @@ from typing import Any, cast
 from fastmcp import FastMCP
 
 from mcp_server_git.config import config_manager
+from mcp_server_git.utils.credential_helpers import credential_helper_health
 from mcp_server_git.utils.tool_failure import ToolFailure
 
 from ._envelope import build_tool_envelope
@@ -459,6 +460,8 @@ class GitLeanInterface:
                     [t for t in self.tool_registry.values() if t.domain == "azure"]
                 ),
             },
+            # Informational (#303): stale helpers break system-git pushes.
+            "credential_helpers": credential_helper_health(),
         }
 
 
