@@ -26,6 +26,7 @@ __all__ = [
     "remote_failure",
     "resolve_revs",
     "scope_param_failure",
+    "tree_matches",
 ]
 
 # Paths are file names, never pathspec magic or globs.
@@ -164,12 +165,21 @@ def resolve_revs(repo: Repo, all_refs: bool, branch: str | None) -> list[str] | 
     return [ref]
 
 
-def no_match_failure(repo: Repo, revs: list[str], paths: list[str]) -> str | None:
-    """Refuse when no commit in scope contains any listed path."""
+def tree_matches(repo: Repo, sha: str, paths: list[str]) -> list[str]:
+    """Files in the tree of *sha* at or under any of *paths* (literal)."""
     with repo.git.custom_environment(**LITERAL_ENV):
-        hit = repo.git.rev_list("-1", "--full-history", *revs, "--", *paths)
-    if hit.strip():
-        return None
+        out = repo.git.ls_tree("-r", "-z", "--name-only", sha, "--", *paths)
+    return [name for name in out.split("\0") if name]
+
+
+def no_match_failure(repo: Repo, revs: list[str], paths: list[str]) -> str | None:
+    """Refuse when no commit tree in scope contains any listed path.
+
+    Checks trees (not history simplification), so it agrees with the dry run.
+    """
+    for sha in repo.git.rev_list(*revs).split():
+        if tree_matches(repo, sha, paths):
+            return None
     return fail(
         f"❌ None of the paths ({', '.join(paths)}) appear in any commit of "
         f"{' '.join(revs)}; nothing to filter"
