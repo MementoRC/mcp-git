@@ -369,7 +369,7 @@ async def github_get_job_logs(
                 f"/repos/{repo_owner}/{repo_name}/actions/jobs/{job_id}/logs",
                 allow_redirects=True,
             )
-            logs_error = _check_logs_response(logs_response)
+            logs_error = _check_logs_response(logs_response, job_data)
             if logs_error is not None:
                 return _logs_error_result(output, logs_error)
 
@@ -467,9 +467,14 @@ def _build_job_header(job_id: int, job_data: dict) -> list[str]:
     return output
 
 
-def _check_logs_response(response) -> str | None:
+def _check_logs_response(response, job_data: dict | None = None) -> str | None:
     """Translate a bad log-fetch HTTP response into a user-facing message."""
     if response.status == 404:
+        if (job_data or {}).get("status") in ("queued", "in_progress", "waiting"):
+            return (
+                "\n⚠️ Logs are available only after the job completes "
+                "(the REST API has no live tail)"
+            )
         return "\n⚠️ Logs not available (may have been deleted)"
     if response.status == 403:
         return fail("\n❌ Access denied for logs. Check repository permissions.")

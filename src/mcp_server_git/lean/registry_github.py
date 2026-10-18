@@ -74,6 +74,7 @@ from ..github.models import (
     GitHubUploadReleaseAsset,
 )
 from .interface import ToolDefinition
+from .registry_github_workflow import workflow_action_tool_definitions
 
 logger = logging.getLogger(__name__)
 
@@ -647,6 +648,7 @@ def _register_github_tools(interface: Any, github_service: Any):
         ),
     ]
 
+    github_tools += workflow_action_tool_definitions()
     for tool in github_tools:
         interface.register_tool(tool)
 
