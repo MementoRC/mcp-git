@@ -17,12 +17,14 @@ from ..git._bundle_ops import git_bundle_create, git_bundle_verify
 from ..git.models_bundle import GitBundleCreate, GitBundleVerify
 from .interface import ToolDefinition
 from .registry_git_filter import filter_tool_definitions
+from .registry_git_maintenance import maintenance_tool_definitions
 
 
 def bundle_tool_definitions(wrap_repo_op: Callable[..., Any]) -> list[ToolDefinition]:
     """ToolDefinitions for the bundle tools and git_filter_paths (#283)."""
     return [
         *filter_tool_definitions(wrap_repo_op),
+        *maintenance_tool_definitions(wrap_repo_op),
         ToolDefinition(
             name="git_bundle_create",
             implementation=wrap_repo_op(git_bundle_create),
