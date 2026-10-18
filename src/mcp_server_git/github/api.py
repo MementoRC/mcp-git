@@ -11,12 +11,14 @@ from .patches import PatchMemoryManager as PatchMemoryManager  # noqa: F401  # r
 from .permissions import *  # noqa: F401,F403
 from .pr import *  # noqa: F401,F403
 from .pr_actions import *  # noqa: F401,F403
+from .pr_check_rerun import *  # noqa: F401,F403
 from .pr_diff import *  # noqa: F401,F403
 from .release_assets import *  # noqa: F401,F403
 from .releases import *  # noqa: F401,F403
 from .repos import *  # noqa: F401,F403
 from .scanning import *  # noqa: F401,F403
 from .security import *  # noqa: F401,F403
+from .workflow_actions import *  # noqa: F401,F403
 from .workflows import *  # noqa: F401,F403
 
 logger = logging.getLogger(__name__)
