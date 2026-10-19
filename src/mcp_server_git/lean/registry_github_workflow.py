@@ -6,6 +6,7 @@ system, so each description states that the tool changes CI state.
 
 from ..github.models_workflow_actions import (
     GitHubCancelWorkflowRun,
+    GitHubDispatchWorkflow,
     GitHubForceCancelWorkflowRun,
     GitHubRerequestCheckRun,
     GitHubRerunFailedJobs,
@@ -22,6 +23,7 @@ from ..github.workflow_actions import (
     github_rerun_job,
     github_rerun_workflow_run,
 )
+from ..github.workflow_dispatch import github_dispatch_workflow
 from .interface import ToolDefinition
 
 _SPECS = (
@@ -68,6 +70,15 @@ _SPECS = (
         "POST /check-runs/{check_run_id}/rerequest. Returns its refreshed name, "
         "status, app and details URL.",
         GitHubRerequestCheckRun,
+    ),
+    (
+        "github_dispatch_workflow",
+        github_dispatch_workflow,
+        "MUTATING: triggers a workflow via POST /actions/workflows/{workflow_id}/"
+        "dispatches (file name or numeric id; ref defaults to the default branch). "
+        "Returns the discovered run's id, status, attempt and URL, or a hint to poll "
+        "when the run is not visible yet.",
+        GitHubDispatchWorkflow,
     ),
     (
         "github_rerun_failed_pr_checks",

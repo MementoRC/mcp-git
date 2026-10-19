@@ -100,7 +100,7 @@ async def _post_expecting(
     )
 
 
-async def _get_json(client: Any, endpoint: str) -> dict | None:
+async def get_json(client: Any, endpoint: str) -> dict | None:
     """GET a JSON object; ``None`` on any non-200 status or error."""
     try:
         response = await client.get(endpoint)
@@ -110,7 +110,7 @@ async def _get_json(client: Any, endpoint: str) -> dict | None:
         return None
 
 
-def _run_summary_lines(run: dict) -> str:
+def run_summary_lines(run: dict) -> str:
     return (
         f"Run {run.get('id')}: {run.get('name')}\n"
         f"  Status: {run.get('status')}\n"
@@ -122,21 +122,21 @@ def _run_summary_lines(run: dict) -> str:
 
 async def run_summary(client: Any, repo_owner: str, repo_name: str, run_id: int) -> str:
     """Fetch the run and summarise it, or say the status could not be fetched."""
-    run = await _get_json(
+    run = await get_json(
         client, f"/repos/{repo_owner}/{repo_name}/actions/runs/{run_id}"
     )
     if run is None:
         return (
             f"Run {run_id}: status could not be fetched (poll github_get_workflow_run)."
         )
-    return _run_summary_lines(run)
+    return run_summary_lines(run)
 
 
 async def job_run_id(
     client: Any, repo_owner: str, repo_name: str, job_id: int
 ) -> int | None:
     """The run a job belongs to, or ``None`` when the job cannot be fetched."""
-    job = await _get_json(
+    job = await get_json(
         client, f"/repos/{repo_owner}/{repo_name}/actions/jobs/{job_id}"
     )
     return job.get("run_id") if job else None
@@ -227,7 +227,7 @@ async def _actions_check_hint(
     client: Any, repo_owner: str, repo_name: str, check_run_id: int, status: int
 ) -> ToolFailure | None:
     """Failure steering to github_rerun_job when the check run is an Actions job."""
-    check = await _get_json(
+    check = await get_json(
         client, f"/repos/{repo_owner}/{repo_name}/check-runs/{check_run_id}"
     )
     if not check or (check.get("app") or {}).get("slug") != _ACTIONS_APP:
@@ -256,7 +256,7 @@ async def rerequest_check_op(
         return await status_failure(
             action, response, repo_owner, repo_name, scope="checks"
         )
-    check = await _get_json(client, endpoint)
+    check = await get_json(client, endpoint)
     if check is None:
         summary = f"Check run {check_run_id}: status could not be fetched."
     else:
