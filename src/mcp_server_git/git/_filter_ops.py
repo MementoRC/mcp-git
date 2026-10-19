@@ -217,8 +217,10 @@ def _summary(
             "the local history is now divergent from them. This tool never pushes"
         )
     lines.append(
-        "Reminder: old objects stay reachable via the reflog until git_gc / "
-        "git_reflog_expire. Nothing was pushed or fetched"
+        "Reminder: old objects stay reachable via the reflog and loose objects "
+        "until git_reflog_expire(dry_run=False) then git_gc(prune='now', "
+        "dry_run=False) have run, once no other session uses the repo. "
+        "Nothing was pushed or fetched"
     )
     return "\n".join(lines)
 
