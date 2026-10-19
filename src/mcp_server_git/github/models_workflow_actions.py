@@ -51,6 +51,24 @@ class GitHubRerequestCheckRun(BaseModel):
     )
 
 
+class GitHubDispatchWorkflow(BaseModel):
+    repo_owner: str = Field(description=_OWNER)
+    repo_name: str = Field(description=_NAME)
+    workflow_id: str = Field(
+        description="Workflow file name (e.g. 'ci.yml') or numeric workflow id"
+    )
+    ref: str | None = Field(
+        default=None, description="Branch or tag to run on (default: default branch)"
+    )
+    inputs: dict[str, str] | None = Field(
+        default=None, description="workflow_dispatch inputs (omitted when unset)"
+    )
+    wait_for_run_s: int = Field(
+        default=15,
+        description="Seconds to poll for the new run (0 skips discovery; max 60)",
+    )
+
+
 class GitHubRerunFailedPRChecks(BaseModel):
     repo_owner: str = Field(description=_OWNER)
     repo_name: str = Field(description=_NAME)
