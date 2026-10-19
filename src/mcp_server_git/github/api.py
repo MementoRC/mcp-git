@@ -19,6 +19,7 @@ from .repos import *  # noqa: F401,F403
 from .scanning import *  # noqa: F401,F403
 from .security import *  # noqa: F401,F403
 from .workflow_actions import *  # noqa: F401,F403
+from .workflow_dispatch import *  # noqa: F401,F403
 from .workflows import *  # noqa: F401,F403
 
 logger = logging.getLogger(__name__)
