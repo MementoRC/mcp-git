@@ -552,13 +552,23 @@ def _register_github_tools(interface: Any, github_service: Any):
         ToolDefinition(
             name="github_get_content",
             implementation=github_ops.github_get_content,
-            description="Read a file's decoded contents at a ref (branch/tag/SHA) without cloning",
+            description="Read a file's decoded contents at a ref (branch/tag/SHA) without cloning; grep or start_line/end_line trim output",
             schema=GitHubGetContent.model_json_schema(),
             domain="github",
             complexity="core",
             # `path` is a repo-relative identifier for the GitHub contents API,
             # not a local filesystem path — nothing is read from disk, so the
             # absolute-path requirement would leave no valid input (#206).
+            relative_path_params={"path"},
+        ),
+        # discover_tools matches names only, so alias for `discover_tools("file")` (#314)
+        ToolDefinition(
+            name="github_get_file_contents",
+            implementation=github_ops.github_get_content,
+            description="Alias of github_get_content: read a file at a ref, with grep/line-range trimming",
+            schema=GitHubGetContent.model_json_schema(),
+            domain="github",
+            complexity="core",
             relative_path_params={"path"},
         ),
         ToolDefinition(
