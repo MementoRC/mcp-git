@@ -62,7 +62,7 @@ async def test_github_rerun_failed_pr_checks_reruns_run_once_when_two_jobs_share
     result = await call(github_rerun_failed_pr_checks, client, "o", "r", 4)
 
     assert not isinstance(result, ToolFailure)
-    assert client.posts() == [(f"{RUN}/9/rerun-failed-jobs", {})]
+    assert client.posts() == [(f"{RUN}/9/rerun-failed-jobs", {"json": {}})]
     assert "1 of 1 actions succeeded" in result
 
 
@@ -72,8 +72,19 @@ async def test_github_rerun_failed_pr_checks_rerequests_check_when_app_is_not_ac
 
     result = await call(github_rerun_failed_pr_checks, client, "o", "r", 4)
 
-    assert client.posts() == [(f"{CHECK}/20/rerequest", {})]
+    assert client.posts() == [(f"{CHECK}/20/rerequest", {"json": {}})]
     assert "Azure" in result and "1 of 1 actions succeeded" in result
+
+
+@pytest.mark.asyncio
+async def test_github_rerun_failed_pr_checks_sends_dict_json_body_when_posting():
+    client = _client([_actions_check(10), _azure_check(20)])
+
+    await call(github_rerun_failed_pr_checks, client, "o", "r", 4)
+
+    posts = client.posts()
+    assert len(posts) == 2
+    assert all(isinstance(kw.get("json"), dict) for _, kw in posts)
 
 
 @pytest.mark.asyncio
@@ -97,7 +108,7 @@ async def test_github_rerun_failed_pr_checks_resolves_run_via_job_when_url_unpar
 
     await call(github_rerun_failed_pr_checks, client, "o", "r", 4)
 
-    assert client.posts() == [(f"{RUN}/9/rerun-failed-jobs", {})]
+    assert client.posts() == [(f"{RUN}/9/rerun-failed-jobs", {"json": {}})]
 
 
 @pytest.mark.asyncio
@@ -118,7 +129,7 @@ async def test_github_rerun_failed_pr_checks_follows_pagination_when_more_pages_
 
     pages = [kw["params"]["page"] for m, ep, kw in client.calls if (m, ep) == CHECKS]
     assert pages == [1, 2]
-    assert client.posts() == [(f"{CHECK}/20/rerequest", {})]
+    assert client.posts() == [(f"{CHECK}/20/rerequest", {"json": {}})]
 
 
 @pytest.mark.asyncio
