@@ -87,6 +87,13 @@ class GitAdd(BaseModel):
     patterns: list[str] | None = Field(
         default=None, description="Glob patterns to stage"
     )
+    force: bool = Field(
+        default=False,
+        description=(
+            "Stage files that match .gitignore rules (git add -f), e.g. "
+            "fork-only files in a '*'-ignoring conda-forge feedstock."
+        ),
+    )
 
 
 class GitReset(BaseModel):
@@ -99,13 +106,29 @@ class GitReset(BaseModel):
 class GitUpdateIndex(BaseModel):
     repo_path: str
     files: list[str] = Field(description="File paths to update in the index")
-    chmod: Literal["+x", "-x"] = Field(
+    chmod: Literal["+x", "-x"] | None = Field(
+        default=None,
         description=(
             "Set (+x) or clear (-x) the executable bit recorded in the git "
             "INDEX for the given files (git update-index --chmod). This "
             "changes the mode git tracks regardless of core.filemode, unlike "
-            "a working-tree chmod which core.filemode=false silently drops."
-        )
+            "a working-tree chmod which core.filemode=false silently drops. "
+            "At least one of chmod, add, remove is required."
+        ),
+    )
+    add: bool = Field(
+        default=False,
+        description=(
+            "Register untracked files in the index (git update-index --add). "
+            "Works on gitignored files without needing -f."
+        ),
+    )
+    remove: bool = Field(
+        default=False,
+        description=(
+            "Drop files deleted from the working tree out of the index "
+            "(git update-index --remove)."
+        ),
     )
 
 
