@@ -834,6 +834,11 @@ class GitHubGetContent(BaseModel):
     repo_name: str
     path: str
     ref: str | None = None  # branch, tag, or SHA; default = repo default branch
+    grep: str | None = None  # Regex; return only matching lines (numbered)
+    start_line: int | None = None  # 1-indexed first line to return
+    end_line: int | None = None  # 1-indexed last line to return (inclusive)
+    context_lines: int = 0  # Lines of context either side of a grep match
+    ignore_case: bool = False  # Case-insensitive grep
 
 
 class GitHubResolveRef(BaseModel):

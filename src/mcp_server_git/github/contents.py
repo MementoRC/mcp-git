@@ -12,9 +12,11 @@ import base64
 import logging
 from typing import Any
 
+from ..text_limits import cap_characters
 from ..utils.tool_failure import fail
 from ._payload import obj_of
 from .client import github_client_context
+from .job_log_selection import LogSelectionError, resolve_window, select_log_text
 
 logger = logging.getLogger(__name__)
 
@@ -56,8 +58,61 @@ def _decode_content(data: dict[str, Any], path: str) -> tuple[str | None, str | 
     return raw, None
 
 
+def _trim_text(
+    text: str,
+    *,
+    grep: str | None,
+    start_line: int | None,
+    end_line: int | None,
+    context_lines: int,
+    ignore_case: bool,
+) -> str:
+    """Select lines with the job-log helpers; output carries 1-based line numbers.
+
+    Raises LogSelectionError on an invalid range or grep pattern.
+    """
+    lines = text.splitlines()
+    total = len(lines)
+    start, end, _, _ = resolve_window(
+        total, start_line=start_line, end_line=end_line, whole_log_default=True
+    )
+    if grep is None:
+        label = f"showing lines {start}-{end} of {total}"
+        body = "\n".join(
+            f"{n}: {line}" for n, line in enumerate(lines[start - 1 : end], start)
+        )
+        body, _ = cap_characters(body, keep_head=True)
+        return f"{label}\n\n{body}"
+
+    selection = select_log_text(
+        lines,
+        start_line=start_line,
+        end_line=end_line,
+        grep=grep,
+        context_lines=context_lines,
+        ignore_case=ignore_case,
+    )
+    if selection.match_count == 0:
+        return f"🔍 No lines matched {grep!r} (searched lines {start}-{end} of {total})"
+    label = (
+        f"{selection.match_count} matching lines for {grep!r} "
+        f"within lines {start}-{end} of {total}"
+    )
+    return f"{label}\n\n{selection.text}"
+
+
 def _format_file(
-    repo_owner: str, repo_name: str, path: str, ref: str | None, data: dict[str, Any]
+    repo_owner: str,
+    repo_name: str,
+    path: str,
+    ref: str | None,
+    data: dict[str, Any],
+    *,
+    grep: str | None = None,
+    start_line: int | None = None,
+    end_line: int | None = None,
+    context_lines: int = 0,
+    ignore_case: bool = False,
 ) -> str:
     """Render a single file's header and decoded text, or a failure."""
     entry_type = data.get("type")
@@ -75,7 +130,20 @@ def _format_file(
         + (f" @ {ref}" if ref else "")
         + f"\nsha: {data.get('sha')} | size: {data.get('size', 0)} bytes\n"
     )
-    return header + "\n" + str(text)
+    if grep is None and start_line is None and end_line is None:
+        return header + "\n" + str(text)
+    try:
+        body = _trim_text(
+            str(text),
+            grep=grep,
+            start_line=start_line,
+            end_line=end_line,
+            context_lines=context_lines,
+            ignore_case=ignore_case,
+        )
+    except LogSelectionError as exc:
+        return fail(f"❌ {exc}")
+    return header + body
 
 
 async def github_get_content(
@@ -83,6 +151,11 @@ async def github_get_content(
     repo_name: str,
     path: str,
     ref: str | None = None,
+    grep: str | None = None,
+    start_line: int | None = None,
+    end_line: int | None = None,
+    context_lines: int = 0,
+    ignore_case: bool = False,
 ) -> str:
     """Get a single file's contents from a GitHub repo at an optional ref.
 
@@ -96,6 +169,11 @@ async def github_get_content(
         path: File path within the repo (no leading slash required)
         ref: Optional branch, tag, or commit SHA (defaults to the repo's
             default branch)
+        grep: Regex; return only matching lines (numbered), within any range
+        start_line: 1-indexed first line to return
+        end_line: 1-indexed last line to return (inclusive)
+        context_lines: Lines of context either side of a grep match
+        ignore_case: Case-insensitive grep
     """
     logger.debug(
         f"🔍 Getting content for {repo_owner}/{repo_name}/{path}"
@@ -125,7 +203,18 @@ async def github_get_content(
             # A directory returns a JSON array of entries.
             if isinstance(data, list):
                 return _format_directory(repo_owner, repo_name, path, ref, data)
-            return _format_file(repo_owner, repo_name, path, ref, data)
+            return _format_file(
+                repo_owner,
+                repo_name,
+                path,
+                ref,
+                data,
+                grep=grep,
+                start_line=start_line,
+                end_line=end_line,
+                context_lines=context_lines,
+                ignore_case=ignore_case,
+            )
 
     except ValueError as auth_error:
         logger.error(f"Authentication error getting content: {auth_error}")
