@@ -177,7 +177,7 @@ def _register_git_tools(interface: Any, git_service: Any):
         ToolDefinition(
             name="git_add",
             implementation=wrap_repo_op(git_ops.git_add, mutates_index=True),
-            description="Adds file contents to the staging area",
+            description="Adds file contents to the staging area; force=True stages gitignored files (-f)",
             schema=GitAdd.model_json_schema(),
             domain="git",
             complexity="core",
@@ -193,7 +193,7 @@ def _register_git_tools(interface: Any, git_service: Any):
         ToolDefinition(
             name="git_update_index",
             implementation=wrap_repo_op(git_ops.git_update_index, mutates_index=True),
-            description="Sets or clears the executable bit recorded in the git index (--chmod=+x/-x)",
+            description="Updates the git index directly: --chmod=+x/-x, --add (register untracked/ignored files), --remove; at least one required",
             schema=GitUpdateIndex.model_json_schema(),
             domain="git",
             complexity="core",
