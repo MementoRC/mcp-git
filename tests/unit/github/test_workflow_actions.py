@@ -56,7 +56,7 @@ async def test_github_cancel_workflow_run_returns_run_state_when_accepted():
     result = await call(github_cancel_workflow_run, client, "o", "r", 9)
 
     assert not isinstance(result, ToolFailure)
-    assert client.posts() == [(f"{RUN}/9/cancel", {})]
+    assert client.posts() == [(f"{RUN}/9/cancel", {"json": {}})]
     assert "Attempt: 2" in result and "actions/runs/9" in result
     assert "Status: queued" in result and "CI" in result
 
@@ -68,7 +68,7 @@ async def test_github_force_cancel_workflow_run_posts_force_cancel_when_called()
     result = await call(github_force_cancel_workflow_run, client, "o", "r", 9)
 
     assert not isinstance(result, ToolFailure)
-    assert [ep for ep, _ in client.posts()] == [f"{RUN}/9/force-cancel"]
+    assert client.posts() == [(f"{RUN}/9/force-cancel", {"json": {}})]
 
 
 @pytest.mark.asyncio
@@ -128,13 +128,13 @@ async def test_github_cancel_workflow_run_reports_success_when_followup_get_fail
 
 
 @pytest.mark.asyncio
-async def test_github_rerun_workflow_run_posts_rerun_without_body_when_defaults():
+async def test_github_rerun_workflow_run_posts_empty_json_body_when_defaults():
     client = _client(f"{RUN}/9/rerun", FakeResponse(201))
 
     result = await call(github_rerun_workflow_run, client, "o", "r", 9)
 
     assert not isinstance(result, ToolFailure)
-    assert client.posts() == [(f"{RUN}/9/rerun", {})]
+    assert client.posts() == [(f"{RUN}/9/rerun", {"json": {}})]
     assert "Attempt: 2" in result and "actions/runs/9" in result
 
 
@@ -174,7 +174,7 @@ async def test_github_rerun_failed_jobs_delegates_with_failed_only_when_called()
     result = await call(github_rerun_failed_jobs, client, "o", "r", 9)
 
     assert not isinstance(result, ToolFailure)
-    assert [ep for ep, _ in client.posts()] == [f"{RUN}/9/rerun-failed-jobs"]
+    assert client.posts() == [(f"{RUN}/9/rerun-failed-jobs", {"json": {}})]
 
 
 @pytest.mark.asyncio
@@ -210,6 +210,7 @@ async def test_github_rerun_job_reports_success_when_job_lookup_fails():
 
     assert not isinstance(result, ToolFailure)
     assert "could not be fetched" in result
+    assert client.posts() == [(f"{JOB}/5/rerun", {"json": {}})]
 
 
 # --------------------------------------------------------------------------
@@ -236,6 +237,7 @@ async def test_github_rerequest_check_run_returns_check_state_when_accepted():
     result = await call(github_rerequest_check_run, client, "o", "r", 7)
 
     assert not isinstance(result, ToolFailure)
+    assert client.posts() == [(f"{CHECK}/7/rerequest", {"json": {}})]
     assert "Azure build" in result and "azure-pipelines" in result
     assert "https://dev.azure.com/x" in result and "Status: queued" in result
 

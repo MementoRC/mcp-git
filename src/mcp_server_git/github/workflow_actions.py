@@ -92,7 +92,7 @@ async def _post_expecting(
     conflict_hint: str = "",
 ) -> ToolFailure | None:
     """POST and return ``None`` on the expected status, else the failure."""
-    response = await client.post(endpoint, **({"json": payload} if payload else {}))
+    response = await client.post(endpoint, json=payload or {})
     if response.status == expected:
         return None
     return await status_failure(
@@ -245,7 +245,7 @@ async def rerequest_check_op(
     """Rerequest a check run created by a GitHub App; reports its refreshed state."""
     action = f"rerequest check run {check_run_id}"
     endpoint = f"/repos/{repo_owner}/{repo_name}/check-runs/{check_run_id}"
-    response = await client.post(f"{endpoint}/rerequest")
+    response = await client.post(f"{endpoint}/rerequest", json={})
     if response.status != 201:
         if response.status in (403, 422):
             hint = await _actions_check_hint(
