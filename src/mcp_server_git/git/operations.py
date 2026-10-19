@@ -54,7 +54,7 @@ from ._remote_ops import (
     git_remote_rename,
     git_remote_set_url,
 )
-from ._staging_ops import git_add, git_ls_files, git_reset, git_update_index
+from ._staging_ops import git_add, git_ls_files, git_reset
 from ._stash_ops import (
     git_stash_drop,
     git_stash_list,
@@ -68,6 +68,7 @@ from ._submodule_ops import (
     git_submodule_update,
 )
 from ._tag_ops import git_tag_create, git_tag_delete, git_tag_list
+from ._update_index_ops import git_update_index
 
 __all__ = [
     "git_clone",

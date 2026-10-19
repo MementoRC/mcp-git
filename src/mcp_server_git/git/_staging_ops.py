@@ -19,7 +19,6 @@ __all__ = [
     "_format_file_list",
     "git_ls_files",
     "git_reset",
-    "git_update_index",
 ]
 
 _FILE_LIST_DISPLAY_LIMIT = 20
@@ -30,6 +29,7 @@ def git_add(
     files: list[str] | None = None,
     update_only: bool = False,
     patterns: list[str] | None = None,
+    force: bool = False,
 ) -> str:
     """Add files to git staging area with support for batch operations and patterns
 
@@ -38,6 +38,7 @@ def git_add(
         files: List of specific file paths to add (traditional behavior)
         update_only: If True, stage only modifications and deletions, not new files (equivalent to git add -u)
         patterns: List of glob patterns to match files (e.g., ["*.py", "src/**/*.js"])
+        force: If True, stage files matched by .gitignore (git add -f)
 
     Returns:
         Success or error message string
@@ -58,16 +59,24 @@ def git_add(
         if update_only:
             return _add_tracked_updates(repo)
         if patterns:
-            return _add_patterns(repo, patterns)
+            return _add_patterns(repo, patterns, force)
         if files:
-            return _add_files(repo, files)
+            return _add_files(repo, files, force)
         # Fallback (should not be reached due to parameter validation above)
         return _NO_FILES_MESSAGE
 
     except GitCommandError as e:
-        return fail(f"❌ Git add failed: {clean_git_error_text(e.stderr, 'stderr')}")
+        text = clean_git_error_text(e.stderr, "stderr")
+        return fail(f"❌ Git add failed: {_force_hint(text, force)}")
     except Exception as e:
         return fail(f"❌ Git add failed: {str(e)}")
+
+
+def _force_hint(text: str, force: bool) -> str:
+    """Hint at force=True when git rejected the add because of ignore rules."""
+    if not force and "ignored by one of your .gitignore" in text:
+        text += " (use force=True to stage ignored files, git add -f)"
+    return text
 
 
 _NO_FILES_MESSAGE = fail(
@@ -110,7 +119,7 @@ def _add_tracked_updates(repo: Repo) -> str:
     return f"✅ Added {len(newly_staged)} file(s) to staging area (tracked updates)"
 
 
-def _add_patterns(repo: Repo, patterns: list[str]) -> str:
+def _add_patterns(repo: Repo, patterns: list[str], force: bool = False) -> str:
     """Stage files matching glob patterns, reporting the delta staged."""
     # Validate patterns for safety (no command injection)
     for pattern in patterns:
@@ -121,7 +130,7 @@ def _add_patterns(repo: Repo, patterns: list[str]) -> str:
     # success/failure based on stale state from an earlier staging call).
     try:
         staged_before = _get_staged_file_set(repo)
-        repo.git.add(*patterns)
+        repo.git.add(*(["-f"] if force else []), *patterns)
         staged_after = _get_staged_file_set(repo)
         newly_staged = sorted(staged_after - staged_before)
         if newly_staged:
@@ -132,9 +141,8 @@ def _add_patterns(repo: Repo, patterns: list[str]) -> str:
             )
         return f"⚠️ No files matched patterns: {', '.join(patterns)}"
     except GitCommandError as e:
-        return fail(
-            f"❌ Pattern matching failed: {clean_git_error_text(e.stderr, 'stderr')}"
-        )
+        text = clean_git_error_text(e.stderr, "stderr")
+        return fail(f"❌ Pattern matching failed: {_force_hint(text, force)}")
 
 
 def _parse_porcelain_paths(status_output: str) -> set:
@@ -147,7 +155,7 @@ def _parse_porcelain_paths(status_output: str) -> set:
     return status_files
 
 
-def _add_files(repo: Repo, files: list[str]) -> str:
+def _add_files(repo: Repo, files: list[str], force: bool = False) -> str:
     """Stage explicit file paths after validating they exist or are in git status."""
     status_output = repo.git.status("--porcelain", env=READ_ONLY_ENV)
     status_files = _parse_porcelain_paths(status_output)
@@ -161,7 +169,7 @@ def _add_files(repo: Repo, files: list[str]) -> str:
     # difference. Pathspecs like "." or a directory never equal a staged
     # filename, so comparing literal input strings always under-reports.
     staged_before = _get_staged_file_set(repo)
-    repo.git.add(*files)
+    repo.git.add(*(["-f"] if force else []), *files)
     staged_after = _get_staged_file_set(repo)
     newly_staged = sorted(staged_after - staged_before)
 
@@ -389,52 +397,6 @@ def _reset_success_message(
         return f"✅ Hard reset{target_msg} - {status_before if status_before else 'no changes'} discarded"
     # Fallback return (should not reach here)
     return "✅ Reset completed"
-
-
-def git_update_index(repo: Repo, files: list[str], chmod: str) -> str:
-    """Set or clear the executable bit recorded in the git INDEX (issue #236).
-
-    Uses the plumbing `git update-index --chmod` rather than a working-tree
-    os.chmod: a working-tree chmod is silently dropped when
-    core.filemode=false, whereas --chmod records the mode in the index
-    regardless of that setting.
-
-    Args:
-        repo: Git repository object
-        files: File paths to update (must already be tracked by git)
-        chmod: "+x" to set the executable bit, "-x" to clear it
-
-    Returns:
-        Success or error message string
-    """
-    try:
-        if not files:
-            return fail(
-                "❌ No files specified. Provide at least one tracked file path."
-            )
-
-        untracked = [f for f in files if not repo.git.ls_files("--", f).strip()]
-        if untracked:
-            return fail(
-                f"❌ Not tracked by git, stage first with git_add: "
-                f"{_format_file_list(untracked)}"
-            )
-
-        repo.git.update_index(f"--chmod={chmod}", "--", *files)
-
-        action = (
-            "Set executable bit (+x)"
-            if chmod == "+x"
-            else "Cleared executable bit (-x)"
-        )
-        return f"✅ {action} on {len(files)} file(s): {_format_file_list(files)}"
-
-    except GitCommandError as e:
-        return fail(
-            f"❌ git update-index failed: {clean_git_error_text(e.stderr, 'stderr')}"
-        )
-    except Exception as e:
-        return fail(f"❌ git update-index failed: {str(e)}")
 
 
 def git_ls_files(
