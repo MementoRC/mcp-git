@@ -106,8 +106,14 @@ def annotation_lines(annotations: list[dict]) -> list[str]:
     return lines
 
 
-def format_pr_summary(pr_number: int, pr_data: dict) -> list[str]:
-    """Header, identity, description and URL lines for ``github_get_pr_details``."""
+def format_pr_summary(
+    pr_number: int, pr_data: dict, full_body: bool = False
+) -> list[str]:
+    """Header, identity, description and URL lines for ``github_get_pr_details``.
+
+    ``full_body`` returns the description verbatim instead of the shared
+    preview, so callers can safely round-trip it through a PR body edit (#320).
+    """
     output = [f"Pull Request #{pr_number}:\n"]
     output.append(f"Title: {pr_data.get('title', 'N/A')}")
     output.append(f"State: {pr_data.get('state', 'N/A')}")
@@ -116,13 +122,16 @@ def format_pr_summary(pr_number: int, pr_data: dict) -> list[str]:
         output.append(merged)
     output.append(f"Author: {login_of(pr_data)}")
     output.append(f"Base: {obj_of(pr_data, 'base').get('ref', 'N/A')}")
-    output.append(f"Head: {obj_of(pr_data, 'head').get('ref', 'N/A')}")
+    head = obj_of(pr_data, "head")
+    output.append(f"Head: {head.get('ref', 'N/A')}")
+    if head.get("sha"):
+        output.append(f"Head SHA: {head['sha']}")
     output.append(f"Created: {pr_data.get('created_at', 'N/A')}")
     output.append(f"Updated: {pr_data.get('updated_at', 'N/A')}")
 
     body = pr_data.get("body")
     if body:
-        output.append(f"\nDescription:\n{body_preview(body)}")
+        output.append(f"\nDescription:\n{body if full_body else body_preview(body)}")
     if pr_data.get("html_url"):
         output.append(f"\nURL: {pr_data['html_url']}")
     return output

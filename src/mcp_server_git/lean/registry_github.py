@@ -103,7 +103,7 @@ def _register_github_tools(interface: Any, github_service: Any):
         ToolDefinition(
             name="github_get_pr_details",
             implementation=github_ops.github_get_pr_details,
-            description="Get detailed information about a pull request",
+            description="Get detailed information about a pull request, including the head SHA; set full_body=true for the untruncated body",
             schema=GitHubGetPRDetails.model_json_schema(),
             domain="github",
             complexity="focused",
