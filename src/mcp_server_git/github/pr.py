@@ -215,8 +215,13 @@ async def github_get_pr_details(
     pr_number: int,
     include_files: bool = False,
     include_reviews: bool = False,
+    full_body: bool = False,
 ) -> str:
-    """Get comprehensive PR details"""
+    """Get comprehensive PR details.
+
+    The description is previewed (cut with ``...``) by default; pass
+    ``full_body=True`` to get it verbatim. The head SHA is always shown.
+    """
     try:
         async with github_client_context() as client:
             # Get PR details
@@ -228,7 +233,7 @@ async def github_get_pr_details(
 
             pr_data = await pr_response.json()
 
-            output = format_pr_summary(pr_number, pr_data)
+            output = format_pr_summary(pr_number, pr_data, full_body)
             pulls = f"/repos/{repo_owner}/{repo_name}/pulls/{pr_number}"
             for wanted, label, formatter in (
                 (include_files, "files", format_files_section),

@@ -121,6 +121,10 @@ class GitHubGetPRDetails(BaseModel):
     pr_number: int
     include_files: bool = False
     include_reviews: bool = False
+    full_body: bool = Field(
+        default=False,
+        description="Return the PR body verbatim instead of a truncated preview",
+    )
 
 
 class GitHubListPullRequests(BaseModel):
