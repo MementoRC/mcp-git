@@ -15,8 +15,8 @@ from .error_text import clean_git_error_text
 logger = logging.getLogger(__name__)
 
 # Signature-aware pretty format used when show_signature=True (issue #196).
-# %G? = signature validity code (G/B/U/X/Y/R/E/N), %GS = signer name.
-SIGNATURE_LOG_FORMAT = "%h %G? %GS %s"
+# %G? = signature validity code (G/B/U/X/Y/R/E/N), %GK = key id, %GS = signer.
+SIGNATURE_LOG_FORMAT = "%h %G? %GK %GS %s"
 
 __all__ = [
     "git_status",
@@ -179,13 +179,17 @@ def _git_commit_once(
 def _log_format_args(
     oneline: bool, format_str: str | None, show_signature: bool
 ) -> list[str]:
-    """Formatting options; oneline beats format_str beats show_signature."""
+    """Formatting options.
+
+    show_signature wins over oneline (one ``hash status key signer subject``
+    line per commit); otherwise oneline beats format_str.
+    """
+    if show_signature and (oneline or not format_str):
+        return ["--pretty=format:" + SIGNATURE_LOG_FORMAT]
     if oneline:
         return ["--oneline"]
     if format_str:
         return ["--pretty=format:" + format_str]
-    if show_signature:
-        return ["--pretty=format:" + SIGNATURE_LOG_FORMAT]
     return []
 
 
@@ -277,8 +281,9 @@ def git_log(
         oneline: Compact "hash message" format (equivalent to --oneline)
         graph: Show merge graph (--graph)
         format_str: Custom format string (e.g., "%h - %s (%an)")
-        show_signature: Include GPG signature status via %G? / %GS placeholders.
-            Ignored when `oneline` or `format_str` is given.
+        show_signature: Emit "hash status key signer subject" per commit via
+            %G? / %GK / %GS (also with `oneline`). Ignored only when a custom
+            `format_str` is given without `oneline`.
         since: Date filter - commits after this date (e.g., "2024-01-01", "1 week ago")
         until: Date filter - commits before this date (e.g., "yesterday", "2024-12-31")
         author: Filter by commit author (email or name)
@@ -332,17 +337,22 @@ def git_log(
 
 
 def git_show(
-    repo: Repo, revision: str, stat_only: bool = False, max_lines: int | None = None
+    repo: Repo,
+    revision: str,
+    stat_only: bool = False,
+    max_lines: int | None = None,
+    show_signature: bool = False,
 ) -> str:
     """Show commit details with diff and size limiting options"""
+    sig_args = ["--show-signature"] if show_signature else []
     try:
         if stat_only:
             # Return only commit info and file statistics
-            show_output = repo.git.show("--stat", revision)
+            show_output = repo.git.show("--stat", *sig_args, revision)
             return f"Commit details for {revision}:\n{show_output}"
 
         # Get full commit details
-        show_output = repo.git.show(revision)
+        show_output = repo.git.show(*sig_args, revision)
 
         # Apply line limit if specified
         if max_lines and max_lines > 0:
