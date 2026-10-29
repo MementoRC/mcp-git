@@ -14,7 +14,9 @@ from collections.abc import Callable
 from typing import Any
 
 from ..git._bundle_ops import git_bundle_create, git_bundle_verify
+from ..git._signature_ops import git_verify_commit
 from ..git.models_bundle import GitBundleCreate, GitBundleVerify
+from ..git.models_signature import GitVerifyCommit
 from .interface import ToolDefinition
 from .registry_git_filter import filter_tool_definitions
 from .registry_git_maintenance import maintenance_tool_definitions
@@ -25,6 +27,18 @@ def bundle_tool_definitions(wrap_repo_op: Callable[..., Any]) -> list[ToolDefini
     return [
         *filter_tool_definitions(wrap_repo_op),
         *maintenance_tool_definitions(wrap_repo_op),
+        ToolDefinition(
+            name="git_verify_commit",
+            implementation=wrap_repo_op(git_verify_commit),
+            description=(
+                "Verify a commit's GPG/SSH signature (default HEAD): status "
+                "decoded to words, key id and signer; unsigned commits report "
+                "'not signed' rather than an error"
+            ),
+            schema=GitVerifyCommit.model_json_schema(),
+            domain="git",
+            complexity="focused",
+        ),
         ToolDefinition(
             name="git_bundle_create",
             implementation=wrap_repo_op(git_bundle_create),

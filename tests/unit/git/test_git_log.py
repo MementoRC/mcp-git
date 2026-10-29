@@ -542,8 +542,10 @@ class TestGitLogShowSignature:
         assert "--pretty=format:" + format_str in args
         assert "--pretty=format:" + SIGNATURE_LOG_FORMAT not in args
 
-    def test_git_log_prefers_oneline_when_show_signature_true_and_oneline_true(self):
-        """Should use --oneline, not the signature format, when both are given."""
+    def test_git_log_uses_signature_format_when_show_signature_true_and_oneline_true(
+        self,
+    ):
+        """Should use the signature format, not bare --oneline, when both are given."""
         # Arrange
         mock_repo = Mock()
         mock_repo.git.log.return_value = "abc123 Fix bug"
@@ -553,8 +555,8 @@ class TestGitLogShowSignature:
 
         # Assert
         args = mock_repo.git.log.call_args[0]
-        assert "--oneline" in args
-        assert "--pretty=format:" + SIGNATURE_LOG_FORMAT not in args
+        assert "--oneline" not in args
+        assert "--pretty=format:" + SIGNATURE_LOG_FORMAT in args
 
     def test_git_log_omits_pretty_format_when_show_signature_false(self):
         """Should not add any --pretty=format: argument when show_signature is

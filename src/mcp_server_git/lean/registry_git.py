@@ -246,7 +246,7 @@ def _register_git_tools(interface: Any, git_service: Any):
         ToolDefinition(
             name="git_show",
             implementation=wrap_repo_op(git_ops.git_show),
-            description="Shows the contents of a commit",
+            description="Shows the contents of a commit; show_signature=true adds GPG verification output",
             schema=GitShow.model_json_schema(),
             domain="git",
             complexity="core",

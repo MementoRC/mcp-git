@@ -214,6 +214,10 @@ class GitShow(BaseModel):
     revision: str
     stat_only: bool | None = False
     max_lines: int | None = None
+    show_signature: bool = Field(
+        default=False,
+        description="Include GPG signature verification output (--show-signature)",
+    )
 
 
 class GitInit(BaseModel):
