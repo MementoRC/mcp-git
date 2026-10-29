@@ -112,6 +112,26 @@ def _validate_diff_parameters(
     return True, ""
 
 
+def _invalid_context_lines(context_lines: int | None) -> str | None:
+    """Return an error message when context_lines is not a non-negative int."""
+    if context_lines is None:
+        return None
+    if (
+        isinstance(context_lines, bool)
+        or not isinstance(context_lines, int)
+        or context_lines < 0
+    ):
+        return fail(
+            f"❌ Parameter validation failed: context_lines must be an integer >= 0, got {context_lines!r}"
+        )
+    return None
+
+
+def _context_args(context_lines: int | None) -> list[str]:
+    """Return the git -U<n> argument for context_lines, or none for git default."""
+    return [] if context_lines is None else [f"-U{context_lines}"]
+
+
 def _apply_diff_size_limiting(
     diff_output: str,
     operation_name: str,
@@ -153,11 +173,15 @@ def git_diff_unstaged(
     max_lines: int | None = None,
     name_only: bool = False,
     paths: list[str] | None = None,
+    context_lines: int | None = None,
 ) -> str:
     """Get unstaged changes diff with file-specific and advanced options"""
+    invalid = _invalid_context_lines(context_lines)
+    if invalid:
+        return invalid
     try:
         # Build git diff arguments
-        diff_args = []
+        diff_args = _context_args(context_lines)
 
         # Add options based on parameters
         if name_only:
@@ -207,11 +231,15 @@ def git_diff_staged(
     max_lines: int | None = None,
     name_only: bool = False,
     paths: list[str] | None = None,
+    context_lines: int | None = None,
 ) -> str:
     """Get staged changes diff with file-specific and advanced options"""
+    invalid = _invalid_context_lines(context_lines)
+    if invalid:
+        return invalid
     try:
         # Build git diff arguments
-        diff_args = ["--cached"]
+        diff_args = ["--cached", *_context_args(context_lines)]
 
         # Add options based on parameters
         if name_only:
@@ -265,6 +293,7 @@ def git_diff(
     base_commit: str | None = None,
     target_commit: str | None = None,
     paths: list[str] | None = None,
+    context_lines: int | None = None,
 ) -> str:
     """Get diff with advanced options including commit ranges and file filtering.
 
@@ -284,6 +313,7 @@ def git_diff(
         base_commit: Starting commit for comparison (requires target_commit)
         target_commit: Ending commit for comparison (requires base_commit)
         paths: Filter diff to specific files/directories
+        context_lines: Lines of context per hunk (git -U<n>, >= 0); None = git default
 
     Returns:
         Formatted diff output with validation warnings if applicable
@@ -291,6 +321,9 @@ def git_diff(
     Raises:
         Returns error message if parameters are conflicting or invalid
     """
+    invalid_context = _invalid_context_lines(context_lines)
+    if invalid_context:
+        return invalid_context
     # Validate parameters for conflicts and security
     is_valid, validation_msg = _validate_diff_parameters(
         target=target,
@@ -307,6 +340,7 @@ def git_diff(
         diff_args, diff_description = _resolve_diff_target(
             target, commit_range, base_commit, target_commit
         )
+        diff_args.extend(_context_args(context_lines))
         diff_args.extend(_diff_option_args(name_only, stat_only, paths))
 
         # Execute git diff with arguments

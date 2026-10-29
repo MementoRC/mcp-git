@@ -105,11 +105,11 @@ def test_git_add_returns_added_list_when_files_are_new(repo):
     )
 
 
-def test_git_add_returns_no_changes_warning_when_files_already_staged(repo):
+def test_git_add_returns_already_staged_report_when_files_already_staged(repo):
     _write(repo, "new.txt")
     repo.git.add("new.txt")
     assert git_add(repo, files=["new.txt"]) == (
-        "⚠️ No changes detected in specified files"
+        "✅ Already staged; index matches working tree (1 path(s)): new.txt"
     )
 
 

@@ -145,7 +145,7 @@ def _register_git_tools(interface: Any, git_service: Any):
         ToolDefinition(
             name="git_diff_unstaged",
             implementation=wrap_repo_op(git_ops.git_diff_unstaged),
-            description="Shows changes in the working directory that are not yet staged",
+            description="Shows changes in the working directory that are not yet staged; context_lines sets -U<n>",
             schema=GitDiffUnstaged.model_json_schema(),
             domain="git",
             complexity="core",
@@ -153,7 +153,7 @@ def _register_git_tools(interface: Any, git_service: Any):
         ToolDefinition(
             name="git_diff_staged",
             implementation=wrap_repo_op(git_ops.git_diff_staged),
-            description="Shows changes that are staged for commit",
+            description="Shows changes that are staged for commit; context_lines sets -U<n>",
             schema=GitDiffStaged.model_json_schema(),
             domain="git",
             complexity="core",
@@ -161,7 +161,7 @@ def _register_git_tools(interface: Any, git_service: Any):
         ToolDefinition(
             name="git_diff",
             implementation=wrap_repo_op(git_ops.git_diff),
-            description="Shows differences between branches or commits",
+            description="Shows differences between branches or commits; context_lines sets -U<n>",
             schema=GitDiff.model_json_schema(),
             domain="git",
             complexity="core",

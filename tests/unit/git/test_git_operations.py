@@ -34,7 +34,7 @@ class TestGitAdd:
         mock_repo.git.add = Mock()
         # git_add snapshots the index before/after the add; nothing staged
         # yet, then both files staged.
-        mock_repo.git.diff.side_effect = ["", "file1.py\nfile2.py"]
+        mock_repo.git.diff.side_effect = ["", "file1.py\nfile2.py", ""]
 
         mock_path = Mock()
         mock_path.__truediv__ = Mock(return_value=mock_path)
@@ -50,7 +50,7 @@ class TestGitAdd:
         # Assert
         assert "✅ Added 2 file(s) to staging area: file1.py, file2.py" in result
         mock_repo.git.add.assert_called_once_with(*files)
-        assert mock_repo.git.diff.call_count == 2
+        assert mock_repo.git.diff.call_count == 3
 
     @patch("mcp_server_git.git._staging_ops.Path")
     def test_git_add_stages_deleted_files_successfully(self, mock_path_class):
@@ -61,7 +61,7 @@ class TestGitAdd:
         # Simulate git status showing deleted file
         mock_repo.git.status.return_value = " D deleted_file.py\n M modified_file.py"
         mock_repo.git.add = Mock()
-        mock_repo.git.diff.side_effect = ["", "deleted_file.py"]
+        mock_repo.git.diff.side_effect = ["", "deleted_file.py", ""]
 
         mock_path = Mock()
         mock_path.__truediv__ = Mock(return_value=mock_path)
@@ -116,7 +116,7 @@ class TestGitAdd:
         # Git status shows one deleted file
         mock_repo.git.status.return_value = " D deleted.py"
         mock_repo.git.add = Mock()
-        mock_repo.git.diff.side_effect = ["", "existing.py\ndeleted.py"]
+        mock_repo.git.diff.side_effect = ["", "existing.py\ndeleted.py", ""]
 
         # Mock Path constructor and the / operator properly
         mock_repo_path = Mock()
@@ -195,7 +195,7 @@ class TestGitAdd:
             "MM conflict_file.py"
         )
         mock_repo.git.add = Mock()
-        mock_repo.git.diff.side_effect = ["", "deleted_file.py"]
+        mock_repo.git.diff.side_effect = ["", "deleted_file.py", ""]
 
         mock_path = Mock()
         mock_path.__truediv__ = Mock(return_value=mock_path)
@@ -244,7 +244,7 @@ class TestGitAdd:
         mock_repo.working_dir = "/test/repo"
         mock_repo.git.status.return_value = ""
         mock_repo.git.add = Mock()
-        mock_repo.git.diff.side_effect = ["", "symlink_file.py"]
+        mock_repo.git.diff.side_effect = ["", "symlink_file.py", ""]
 
         mock_path = Mock()
         mock_path.__truediv__ = Mock(return_value=mock_path)
@@ -273,7 +273,8 @@ class TestGitAdd:
         # git diff --cached fails on both snapshot calls (e.g. no HEAD);
         # the ls-files fallback provides the before/after staged sets.
         mock_repo.git.diff.side_effect = GitCommandError("diff failed")
-        mock_repo.git.ls_files.side_effect = ["", "test_file.py"]
+        mock_repo.head.is_valid.return_value = False
+        mock_repo.git.ls_files.side_effect = ["", "test_file.py", "test_file.py"]
 
         mock_path = Mock()
         mock_path.__truediv__ = Mock(return_value=mock_path)
@@ -330,7 +331,7 @@ class TestGitAddBatchOperations:
         mock_repo = Mock()
         mock_repo.working_dir = "/test/repo"
         mock_repo.git.add = Mock()
-        mock_repo.git.diff.side_effect = ["", "modified.py\ndeleted.py"]
+        mock_repo.git.diff.side_effect = ["", "modified.py\ndeleted.py", ""]
 
         # Act
         result = git_add(mock_repo, update_only=True)
@@ -345,7 +346,7 @@ class TestGitAddBatchOperations:
         mock_repo = Mock()
         mock_repo.working_dir = "/test/repo"
         mock_repo.git.add = Mock()
-        mock_repo.git.diff.side_effect = ["", "file1.py\nfile2.py"]
+        mock_repo.git.diff.side_effect = ["", "file1.py\nfile2.py", ""]
         patterns = ["*.py"]
 
         # Act
@@ -362,7 +363,7 @@ class TestGitAddBatchOperations:
         mock_repo = Mock()
         mock_repo.working_dir = "/test/repo"
         mock_repo.git.add = Mock()
-        mock_repo.git.diff.side_effect = ["", "file1.py\nfile2.js"]
+        mock_repo.git.diff.side_effect = ["", "file1.py\nfile2.js", ""]
         patterns = ["*.py", "*.js"]
 
         # Act
@@ -474,7 +475,7 @@ class TestGitAddBatchOperations:
         mock_repo.working_dir = "/test/repo"
         mock_repo.git.status.return_value = " M file1.py"
         mock_repo.git.add = Mock()
-        mock_repo.git.diff.side_effect = ["", "file1.py"]
+        mock_repo.git.diff.side_effect = ["", "file1.py", ""]
 
         mock_path = Mock()
         mock_path.__truediv__ = Mock(return_value=mock_path)
