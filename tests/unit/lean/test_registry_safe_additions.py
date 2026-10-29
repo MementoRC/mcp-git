@@ -39,7 +39,11 @@ def test_registry_advertises_bundle_create_params_when_schema_read():
         ("git_commit", {"author", "date", "reuse_message_from"}),
         ("git_cherry_pick", {"gpg_sign", "mainline"}),
         ("git_checkout", {"orphan", "allow_overwrite_ignored"}),
-        ("git_merge", {"allow_overwrite_ignored"}),
+        (
+            "git_merge",
+            {"allow_overwrite_ignored", "source", "no_commit", "no_ff", "ff_only"},
+        ),
+        ("git_pull", {"ff_only"}),
     ],
 )
 def test_registry_advertises_new_params_when_schema_read(tool, params):

@@ -8,7 +8,7 @@ from ..utils.git_import import GitCommandError, Repo
 from ..utils.tool_failure import fail
 from ._commit_ops import signing_enforced
 from ._gpg import resolve_gpg_key
-from ._ignored_guard import ignored_overwrite_failure
+from ._merge_cmd import git_merge
 from .error_text import clean_git_error_text
 
 logger = logging.getLogger(__name__)
@@ -187,58 +187,6 @@ def git_rebase(
             return fail(f"❌ Rebase failed: {error_text}")
     except Exception as e:
         return fail(f"❌ Rebase error: {str(e)}")
-
-
-def git_merge(
-    repo: Repo,
-    source_branch: str,
-    strategy: str = "merge",
-    message: str | None = None,
-    allow_overwrite_ignored: bool = False,
-) -> str:
-    """Merge source branch with strategy options.
-
-    Refused when the merge would overwrite or remove ignored working-tree
-    files, unless ``allow_overwrite_ignored=True`` (issue #283).
-    """
-    try:
-        # Get current branch
-        current_branch = repo.active_branch.name
-
-        # Source may be a short name or a full remote ref (e.g. 'origin/development')
-        if not _branch_exists(repo, source_branch):
-            return fail(f"❌ Source branch '{source_branch}' not found")
-
-        blocked = ignored_overwrite_failure(
-            repo,
-            source_branch,
-            "merge",
-            allow=allow_overwrite_ignored,
-            only_changed=True,
-        )
-        if blocked:
-            return blocked
-
-        # Build merge command
-        merge_args = [source_branch]
-        if message:
-            merge_args.extend(["-m", message])
-
-        # Perform merge
-        result = repo.git.merge(*merge_args)
-
-        return f"✅ Successfully merged {source_branch} into {current_branch}\n{result}"
-
-    except GitCommandError as e:
-        error_text = clean_git_error_text(e.stderr, "stderr")
-        if "conflict" in error_text.lower():
-            return fail(
-                "❌ Merge failed due to conflicts. Resolve conflicts and commit"
-            )
-        else:
-            return fail(f"❌ Merge failed: {error_text}")
-    except Exception as e:
-        return fail(f"❌ Merge error: {str(e)}")
 
 
 def _cherry_pick_options(

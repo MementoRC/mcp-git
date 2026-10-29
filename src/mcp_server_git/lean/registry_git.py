@@ -278,7 +278,7 @@ def _register_git_tools(interface: Any, git_service: Any):
         ToolDefinition(
             name="git_pull",
             implementation=wrap_repo_op(git_ops.git_pull),
-            description="Pull changes from remote repository",
+            description="Pull changes from remote repository; ff_only refuses non-fast-forward pulls (--ff-only)",
             schema=GitPull.model_json_schema(),
             domain="git",
             complexity="core",
@@ -302,7 +302,7 @@ def _register_git_tools(interface: Any, git_service: Any):
         ToolDefinition(
             name="git_merge",
             implementation=wrap_repo_op(git_ops.git_merge, mutates_index=True),
-            description="Merge a branch into the current branch; refuses to clobber ignored files unless allow_overwrite_ignored",
+            description="Merge a commit-ish (branch, tag, remote ref or SHA) into the current branch; source is an alias of source_branch. Options: no_commit (stage only), no_ff, ff_only (exclusive with no_ff/no_commit). Reports the merge commit's GPG signature status (VERIFIED GPG signature, UNSIGNED, or code). Refuses to clobber ignored files unless allow_overwrite_ignored",
             schema=GitMerge.model_json_schema(),
             domain="git",
             complexity="core",
