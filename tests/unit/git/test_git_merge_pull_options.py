@@ -23,7 +23,10 @@ def _init(tmp_path) -> Repo:
     path = tmp_path / "repo"
     path.mkdir()
     repo = Repo.init(path, initial_branch="main")
-    repo.config_writer().set_value("commit", "gpgsign", "false").release()
+    with repo.config_writer() as config:
+        config.set_value("commit", "gpgsign", "false")
+        config.set_value("user", "name", "Test User")
+        config.set_value("user", "email", "test@example.com")
     _commit(repo, "base.txt", "base\n", "initial")
     return repo
 
