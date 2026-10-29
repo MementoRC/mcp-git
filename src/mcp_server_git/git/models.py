@@ -335,6 +335,10 @@ class GitPull(BaseModel):
     repo_path: str
     remote: str = "origin"
     branch: str | None = None
+    ff_only: bool = Field(
+        default=False,
+        description="Refuse to pull unless it fast-forwards (--ff-only)",
+    )
 
 
 class GitFetch(BaseModel):
@@ -417,13 +421,32 @@ class GitRebase(BaseModel):
 
 class GitMerge(BaseModel):
     repo_path: str
-    source_branch: str
+    source_branch: str | None = Field(
+        default=None,
+        description="Commit-ish to merge: branch, tag, remote ref or commit SHA",
+    )
+    source: str | None = Field(
+        default=None,
+        description="Alias of source_branch (error if both given and differ)",
+    )
     strategy: str = "merge"
     message: str | None = None
     allow_overwrite_ignored: bool = Field(
         default=False,
         description="Proceed even if ignored working-tree files would be "
         "overwritten or removed (refused by default)",
+    )
+    no_commit: bool = Field(
+        default=False,
+        description="Stage the merge result but do not commit (implies --no-ff)",
+    )
+    no_ff: bool = Field(
+        default=False, description="Always create a merge commit (--no-ff)"
+    )
+    ff_only: bool = Field(
+        default=False,
+        description="Refuse unless fast-forward is possible (--ff-only); "
+        "exclusive with no_ff/no_commit",
     )
 
 

@@ -23,8 +23,13 @@ __all__ = [
 ]
 
 
-def git_pull(repo: Repo, remote: str = "origin", branch: str | None = None) -> str:
-    """Pull changes from remote repository"""
+def git_pull(
+    repo: Repo,
+    remote: str = "origin",
+    branch: str | None = None,
+    ff_only: bool = False,
+) -> str:
+    """Pull changes from remote repository (``ff_only`` = ``--ff-only``)"""
     try:
         # Get current branch if not specified
         if not branch:
@@ -34,10 +39,8 @@ def git_pull(repo: Repo, remote: str = "origin", branch: str | None = None) -> s
                 return fail("❌ No active branch found and no branch specified")
 
         # Perform pull
-        if branch:
-            result = repo.git.pull(remote, branch)
-        else:
-            result = repo.git.pull(remote)
+        flags = ["--ff-only"] if ff_only else []
+        result = repo.git.pull(*flags, remote, branch)
 
         return f"✅ Successfully pulled from {remote}/{branch}\n{result}"
 
