@@ -157,7 +157,7 @@ class TestGitAddPathspecReporting:
         # Assert — only b.txt is newly staged by this call
         assert result.startswith("✅ Added 1 file(s) to staging area:")
         assert "b.txt" in result
-        assert "a.txt" not in result
+        assert "1 already staged: a.txt" in result
         assert _staged_paths(repo) == {"a.txt", "b.txt"}
 
     def test_dot_pathspec_with_no_initial_commit_handles_missing_head(self, tmp_path):

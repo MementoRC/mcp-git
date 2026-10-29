@@ -10,12 +10,21 @@ class GitStatus(BaseModel):
     porcelain: bool = False
 
 
+_CONTEXT_LINES_DESC = (
+    "Lines of context around each hunk (git -U<n>, must be >= 0); "
+    "omit for git's default of 3. 0 shows only changed lines."
+)
+
+
 class GitDiffUnstaged(BaseModel):
     repo_path: str
     stat_only: bool | None = False
     max_lines: int | None = None
     name_only: bool | None = False
     paths: list[str] | None = None
+    context_lines: int | None = Field(
+        default=None, ge=0, description=_CONTEXT_LINES_DESC
+    )
 
 
 class GitDiffStaged(BaseModel):
@@ -24,6 +33,9 @@ class GitDiffStaged(BaseModel):
     max_lines: int | None = None
     name_only: bool | None = False
     paths: list[str] | None = None
+    context_lines: int | None = Field(
+        default=None, ge=0, description=_CONTEXT_LINES_DESC
+    )
 
 
 class GitDiff(BaseModel):
@@ -36,6 +48,9 @@ class GitDiff(BaseModel):
     base_commit: str | None = None
     target_commit: str | None = None
     paths: list[str] | None = None
+    context_lines: int | None = Field(
+        default=None, ge=0, description=_CONTEXT_LINES_DESC
+    )
 
 
 class GitCommit(BaseModel):

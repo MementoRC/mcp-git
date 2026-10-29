@@ -6,6 +6,7 @@ from pathlib import Path
 
 from ..utils.git_import import GitCommandError, Repo
 from ..utils.tool_failure import fail
+from ._add_report import describe_add_result, staged_status
 from ._lock_retry import READ_ONLY_ENV
 from .error_text import clean_git_error_text
 
@@ -173,9 +174,9 @@ def _add_files(repo: Repo, files: list[str], force: bool = False) -> str:
     staged_after = _get_staged_file_set(repo)
     newly_staged = sorted(staged_after - staged_before)
 
-    if newly_staged:
-        return f"✅ Added {len(newly_staged)} file(s) to staging area: {_format_file_list(newly_staged)}"
-    return "⚠️ No changes detected in specified files"
+    return describe_add_result(
+        newly_staged, staged_status(repo, files), _format_file_list
+    )
 
 
 def _get_staged_file_set(repo: Repo) -> set:
