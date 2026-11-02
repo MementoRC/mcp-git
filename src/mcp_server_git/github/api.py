@@ -5,6 +5,7 @@ import logging
 from .ci_logs import *  # noqa: F401,F403
 from .client import github_client_context as github_client_context  # noqa: F401
 from .contents import *  # noqa: F401,F403
+from .issue_comments import *  # noqa: F401,F403
 from .issue_search import *  # noqa: F401,F403
 from .issues import *  # noqa: F401,F403
 from .patches import PatchMemoryManager as PatchMemoryManager  # noqa: F401  # re-export
