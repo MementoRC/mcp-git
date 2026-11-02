@@ -80,6 +80,10 @@ class GitCommit(BaseModel):
         default=False,
         description="Allow creating a commit with no staged changes (--allow-empty)",
     )
+    no_verify: bool = Field(
+        default=False,
+        description="Skip pre-commit and commit-msg hooks (--no-verify); still GPG-signed. Restricted to branches matching MCP_GIT_NO_VERIFY_BRANCHES when that is set",
+    )
 
 
 class GitAdd(BaseModel):

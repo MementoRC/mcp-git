@@ -36,7 +36,7 @@ def test_registry_advertises_bundle_create_params_when_schema_read():
 @pytest.mark.parametrize(
     ("tool", "params"),
     [
-        ("git_commit", {"author", "date", "reuse_message_from"}),
+        ("git_commit", {"author", "date", "reuse_message_from", "no_verify"}),
         ("git_cherry_pick", {"gpg_sign", "mainline"}),
         ("git_checkout", {"orphan", "allow_overwrite_ignored"}),
         (
