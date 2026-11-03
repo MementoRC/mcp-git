@@ -10,6 +10,7 @@ from ._commit_options import commit_option_args
 from ._commit_runner import CommitTimeoutError, run_commit_process
 from ._gpg import resolve_gpg_key
 from ._lock_retry import READ_ONLY_ENV
+from ._no_verify_guard import no_verify_refusal
 from .error_text import clean_git_error_text
 
 logger = logging.getLogger(__name__)
@@ -53,19 +54,23 @@ def git_commit(
     author: str | None = None,
     date: str | None = None,
     reuse_message_from: str | None = None,
+    no_verify: bool = False,
 ) -> str:
     """Commit staged changes (index.lock retry is handled by wrap_repo_op).
 
     ``author`` ("Name <email>"), ``date`` (author date, ISO 8601) and
     ``reuse_message_from`` (commit ref, ``-C``) preserve metadata when
-    rebuilding history. Signing is enforced regardless of these.
+    rebuilding history. ``no_verify`` skips hooks (``--no-verify``, optionally
+    branch-restricted). Signing is enforced regardless of these.
     """
     option_args, option_error = commit_option_args(
         message, author, date, reuse_message_from
     )
     if option_error:
         return option_error
-    return _git_commit_once(repo, option_args, amend, gpg_sign, gpg_key_id, allow_empty)
+    return _git_commit_once(
+        repo, option_args, amend, gpg_sign, gpg_key_id, allow_empty, no_verify
+    )
 
 
 # GPG signing is forced for every commit (SECURITY REQUIREMENT).
@@ -87,21 +92,32 @@ def _require_gpg() -> str | None:
 
 
 def _build_commit_cmd(
-    option_args: list[str], amend: bool, allow_empty: bool, key_id: str | None
+    option_args: list[str],
+    amend: bool,
+    allow_empty: bool,
+    key_id: str | None,
+    no_verify: bool = False,
 ) -> list[str]:
-    """argv for a GPG-signed ``git commit``."""
+    """argv for a GPG-signed ``git commit`` (``--no-verify`` never drops signing)."""
     cmd = ["git", "commit"]
     if amend:
         cmd.append("--amend")
     if allow_empty:
         cmd.append("--allow-empty")
+    if no_verify:
+        cmd.append("--no-verify")
     cmd.append(f"--gpg-sign={key_id}")
     cmd.extend(option_args)
     return cmd
 
 
 def _commit_success_message(
-    repo: Repo, amend: bool, key_id: str | None, *, security_enforced: bool
+    repo: Repo,
+    amend: bool,
+    key_id: str | None,
+    *,
+    security_enforced: bool,
+    no_verify: bool = False,
 ) -> str:
     """Success report including the new HEAD hash (or 'unknown')."""
     hash_result = subprocess.run(
@@ -119,6 +135,8 @@ def _commit_success_message(
         msg += "\n🔒 Security configuration enforced"
     msg += f"\n🔒 Enforced GPG signing with key {key_id}"
     msg += "\n⚠️  MCP Git Server used - no fallback to system git commands"
+    if no_verify:
+        msg += "\n⚠️  no_verify=true: pre-commit and commit-msg hooks were skipped"
     return msg
 
 
@@ -129,8 +147,11 @@ def _git_commit_once(
     gpg_sign: bool,
     gpg_key_id: str | None,
     allow_empty: bool,
+    no_verify: bool = False,
 ) -> str:
     """Commit staged changes with optional amend, GPG signing and automatic security enforcement"""
+    if no_verify and (refusal := no_verify_refusal(repo)):
+        return refusal
     try:
         # Import security functions locally to avoid circular imports
         from .security import enforce_secure_git_config
@@ -148,7 +169,9 @@ def _git_commit_once(
         if violation:
             return violation
 
-        cmd = _build_commit_cmd(option_args, amend, allow_empty, force_key_id)
+        cmd = _build_commit_cmd(
+            option_args, amend, allow_empty, force_key_id, no_verify
+        )
         try:
             result = run_commit_process(cmd, repo.working_dir)
         except CommitTimeoutError as timeout_err:
@@ -162,7 +185,11 @@ def _git_commit_once(
                 f"❌ Commit failed: {result.stderr}\n🔒 GPG signing was enforced but failed"
             )
         return _commit_success_message(
-            repo, amend, force_key_id, security_enforced=security_enforced
+            repo,
+            amend,
+            force_key_id,
+            security_enforced=security_enforced,
+            no_verify=no_verify,
         )
 
     except GitCommandError as e:

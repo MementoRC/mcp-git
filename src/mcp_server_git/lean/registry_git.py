@@ -169,7 +169,7 @@ def _register_git_tools(interface: Any, git_service: Any):
         ToolDefinition(
             name="git_commit",
             implementation=wrap_repo_op(git_ops.git_commit, mutates_index=True),
-            description="Records GPG-signed changes; optional author, date (ISO 8601) and reuse_message_from (-C)",
+            description="Records GPG-signed changes; optional author, date (ISO 8601) and reuse_message_from (-C); no_verify (--no-verify, still signed)",
             schema=GitCommit.model_json_schema(),
             domain="git",
             complexity="core",
