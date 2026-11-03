@@ -73,7 +73,9 @@ def test_git_commit_reports_unknown_hash_when_rev_parse_fails():
 def test_git_commit_returns_failure_when_commit_process_exits_nonzero():
     result = _commit(run={"return_value": CommitProcessResult(1, "", "hook said no")})
     assert result == (
-        "❌ Commit failed: hook said no\n🔒 GPG signing was enforced but failed"
+        "❌ Commit failed: hook said no\n"
+        "🪝 A pre-commit or commit-msg hook may have rejected the commit "
+        "(see output above)"
     )
     assert isinstance(result, ToolFailure)
 

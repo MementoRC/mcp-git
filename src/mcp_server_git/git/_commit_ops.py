@@ -140,6 +140,25 @@ def _commit_success_message(
     return msg
 
 
+_SIGNING_FAILURE = re.compile(
+    r"gpg failed to sign|failed to sign|gpg:|signing failed"
+    r"|secret key not available|no secret key",
+    re.IGNORECASE,
+)
+
+
+def _commit_failure_hint(stderr: str, no_verify: bool) -> str:
+    """Suffix for a failed commit: GPG only for signing errors, else a hook hint."""
+    if _SIGNING_FAILURE.search(stderr):
+        return "\n🔒 GPG signing was enforced but failed"
+    if not no_verify:
+        return (
+            "\n🪝 A pre-commit or commit-msg hook may have rejected the commit "
+            "(see output above)"
+        )
+    return ""
+
+
 def _git_commit_once(
     repo: Repo,
     option_args: list[str],
@@ -181,9 +200,8 @@ def _git_commit_once(
                 "(a GPG pinentry or hook may be blocking)"
             )
         if result.returncode != 0:
-            return fail(
-                f"❌ Commit failed: {result.stderr}\n🔒 GPG signing was enforced but failed"
-            )
+            hint = _commit_failure_hint(result.stderr, no_verify)
+            return fail(f"❌ Commit failed: {result.stderr}{hint}")
         return _commit_success_message(
             repo,
             amend,
