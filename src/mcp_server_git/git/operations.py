@@ -4,6 +4,7 @@ Decomposed for AG file-size policy. See _*_ops.py modules for implementations.
 Public API preserved: tests and `git/__init__.py` continue to import from here.
 """
 
+from ._apply_cmd import git_apply
 from ._branch_ops import (
     git_branch_list,
     git_checkout,
@@ -89,6 +90,7 @@ __all__ = [
     "git_create_branch",
     "git_checkout",
     "git_merge",
+    "git_apply",
     "git_rebase",
     "git_cherry_pick",
     "git_abort",

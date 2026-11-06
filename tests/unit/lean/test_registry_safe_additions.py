@@ -44,6 +44,10 @@ def test_registry_advertises_bundle_create_params_when_schema_read():
             {"allow_overwrite_ignored", "source", "no_commit", "no_ff", "ff_only"},
         ),
         ("git_pull", {"ff_only"}),
+        (
+            "git_apply",
+            {"patch_path", "patch_text", "check", "index", "three_way", "reverse"},
+        ),
     ],
 )
 def test_registry_advertises_new_params_when_schema_read(tool, params):
@@ -53,7 +57,7 @@ def test_registry_advertises_new_params_when_schema_read(tool, params):
 
 
 @pytest.mark.parametrize(
-    "name", ["git_commit", "git_cherry_pick", "git_checkout", "git_merge"]
+    "name", ["git_commit", "git_cherry_pick", "git_checkout", "git_merge", "git_apply"]
 )
 def test_registry_keeps_mutates_index_when_tool_gains_params(name):
     assert _closure_cell(_REGISTRY[name], "mutates_index") is True
