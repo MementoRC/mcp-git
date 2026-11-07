@@ -454,6 +454,27 @@ class GitMerge(BaseModel):
     )
 
 
+class GitApply(BaseModel):
+    repo_path: str
+    patch_path: str | None = Field(
+        default=None,
+        description="Patch file (relative paths resolve against the working tree); "
+        "exclusive with patch_text",
+    )
+    patch_text: str | None = Field(
+        default=None,
+        description="Inline unified-diff text; exclusive with patch_path",
+    )
+    check: bool = Field(
+        default=False, description="Dry run: verify the patch applies (--check)"
+    )
+    index: bool = Field(default=False, description="Also update the index (--index)")
+    three_way: bool = Field(
+        default=False, description="Fall back to a three-way merge (--3way)"
+    )
+    reverse: bool = Field(default=False, description="Apply in reverse (-R)")
+
+
 class GitCherryPick(BaseModel):
     repo_path: str
     commit_hash: str

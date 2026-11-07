@@ -10,6 +10,7 @@ from ..git.merge_ops import git_merge_file
 from ..git.models import (
     GitAbort,
     GitAdd,
+    GitApply,
     GitBranchDelete,
     GitBranchList,
     GitBranchUpdate,
@@ -304,6 +305,14 @@ def _register_git_tools(interface: Any, git_service: Any):
             implementation=wrap_repo_op(git_ops.git_merge, mutates_index=True),
             description="Merge a commit-ish (branch, tag, remote ref or SHA) into the current branch; source is an alias of source_branch. Options: no_commit (stage only), no_ff, ff_only (exclusive with no_ff/no_commit). Reports the merge commit's GPG signature status (VERIFIED GPG signature, UNSIGNED, or code). Refuses to clobber ignored files unless allow_overwrite_ignored",
             schema=GitMerge.model_json_schema(),
+            domain="git",
+            complexity="core",
+        ),
+        ToolDefinition(
+            name="git_apply",
+            implementation=wrap_repo_op(git_ops.git_apply, mutates_index=True),
+            description="Apply a unified-diff patch (patch_path or inline patch_text) to the working tree. Options: check (dry run, --check), index (also update the index), three_way (--3way), reverse (-R). Returns touched files with +/- counts; on failure returns git's stderr and changes nothing",
+            schema=GitApply.model_json_schema(),
             domain="git",
             complexity="core",
         ),
