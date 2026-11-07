@@ -354,6 +354,112 @@ class TestAzureGetLogsForCheckRun:
             assert "written to" in written_result
 
     @pytest.mark.asyncio
+    async def test_largest_log_uses_listing_line_count_when_timeline_lacks_it(self):
+        """#338: later task has the higher log id but a tiny log; big one wins."""
+        records = [
+            {"id": _JOB_ID, "type": "Job", "name": "linux_64", "log": {"id": 5}},
+            {
+                "id": "t-post",
+                "type": "Task",
+                "name": "Post-job: Checkout",
+                "parentId": _JOB_ID,
+                "result": "succeeded",
+                "log": {"id": 34},
+            },
+            {
+                "id": "t-build",
+                "type": "Task",
+                "name": "Run docker build",
+                "parentId": _JOB_ID,
+                "result": "succeeded",
+                "log": {"id": 31},
+            },
+        ]
+        gh_client, az_client = _mock_clients(
+            details_url=_details_url(), records=records
+        )
+        default_get = az_client.get.side_effect
+        listing = AsyncMock()
+        listing.status = 200
+        listing.json = AsyncMock(
+            return_value={
+                "value": [{"id": 34, "lineCount": 10}, {"id": 31, "lineCount": 2485}]
+            }
+        )
+
+        async def routed_get(url, **kwargs):
+            if url.split("?")[0].endswith("/logs"):
+                return listing
+            return await default_get(url, **kwargs)
+
+        az_client.get = AsyncMock(side_effect=routed_get)
+
+        with (
+            patch(
+                "mcp_server_git.azure.check_run_logs.github_client_context"
+            ) as mock_gh,
+            patch(
+                "mcp_server_git.azure.check_run_logs.azure_client_context"
+            ) as mock_az,
+        ):
+            mock_gh.return_value.__aenter__.return_value = gh_client
+            mock_az.return_value.__aenter__.return_value = az_client
+
+            result = await azure_get_logs_for_check_run(
+                "conda-forge", "feedstock", 987654321
+            )
+
+            log_urls = [
+                call.args[0]
+                for call in az_client.get.call_args_list
+                if "/logs/" in call.args[0]
+            ]
+            assert "/logs/31?" in log_urls[0]
+            assert "Task: Run docker build" in result
+            assert "largest log (no failing task)" in result
+            assert "Post-job: Checkout: Log #34 (10 lines)" in result
+
+    @pytest.mark.asyncio
+    async def test_largest_log_falls_back_to_timeline_returns_task_when_listing_errors(
+        self,
+    ):
+        """If the logs listing call raises, selection uses timeline lineCount."""
+        gh_client, az_client = _mock_clients(
+            details_url=_details_url(), records=_timeline_records()
+        )
+        default_get = az_client.get.side_effect
+
+        async def failing_listing_get(url, **kwargs):
+            if url.split("?")[0].endswith("/logs"):
+                raise RuntimeError("listing unavailable")
+            return await default_get(url, **kwargs)
+
+        az_client.get = AsyncMock(side_effect=failing_listing_get)
+
+        with (
+            patch(
+                "mcp_server_git.azure.check_run_logs.github_client_context"
+            ) as mock_gh,
+            patch(
+                "mcp_server_git.azure.check_run_logs.azure_client_context"
+            ) as mock_az,
+        ):
+            mock_gh.return_value.__aenter__.return_value = gh_client
+            mock_az.return_value.__aenter__.return_value = az_client
+
+            result = await azure_get_logs_for_check_run(
+                "conda-forge", "feedstock", 987654321
+            )
+
+            log_urls = [
+                call.args[0]
+                for call in az_client.get.call_args_list
+                if "/logs/" in call.args[0]
+            ]
+            assert "/logs/19?" in log_urls[0]
+            assert "largest log (no failing task)" in result
+
+    @pytest.mark.asyncio
     async def test_malformed_details_url_returns_clear_error(self):
         """A non-Azure or malformed details_url returns an error, not a crash."""
         gh_client, az_client = _mock_clients(

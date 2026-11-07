@@ -12,9 +12,10 @@ from mcp_server_git.github.client import github_client_context
 from mcp_server_git.github.job_log_selection import (
     LogSelectionError,
     build_log_response_lines,
-    write_full_log_response,
+    write_log_with_optional_selection,
 )
 from mcp_server_git.github.run_jobs import select_job_id
+from mcp_server_git.utils.log_paths import resolve_output_path
 from mcp_server_git.utils.tool_failure import ToolFailure, fail
 
 logger = logging.getLogger(__name__)
@@ -298,6 +299,7 @@ async def github_get_job_logs(
     output_path: str | None = None,
     run_id: int | None = None,
     job_name: str | None = None,
+    save_to_disk: bool = False,
 ) -> str:
     """Get logs for a specific GitHub Actions job.
 
@@ -327,8 +329,13 @@ async def github_get_job_logs(
             default, not just the last 500 lines
         context_lines: Lines of context to keep either side of a grep match
         ignore_case: Case-insensitive grep
-        output_path: Absolute path to write the complete log to disk instead
-            of returning it inline; the response then carries only metadata
+        output_path: Absolute path to write the complete log to disk. The
+            response carries only metadata unless tail_lines, head_lines,
+            start_line/end_line or grep is also given, in which case that
+            selection is appended (the file always holds the full log)
+        save_to_disk: If True and output_path is not given, write the full
+            log to $MCP_GIT_LOG_DIR (default <tmp>/mcp-git-logs) as
+            github-<owner>-<repo>-job-<job_id>.log; output_path wins
         run_id: Workflow run ID, used together with job_name instead of job_id
         job_name: Exact job name within run_id. Fails if no job or more than
             one job has that name (the message lists names or ids)
@@ -380,8 +387,32 @@ async def github_get_job_logs(
                 output.append("\n📭 Log content is empty")
                 return "\n".join(output)
 
+            output_path = resolve_output_path(
+                output_path,
+                save_to_disk,
+                "github",
+                repo_owner,
+                repo_name,
+                "job",
+                job_id,
+            )
             if output_path is not None:
-                return write_full_log_response(output, output_path, logs_text)
+                return write_log_with_optional_selection(
+                    output,
+                    output_path,
+                    logs_text,
+                    tail_lines=tail_lines,
+                    full_log=full_log,
+                    head_lines=head_lines,
+                    start_line=start_line,
+                    end_line=end_line,
+                    grep=grep,
+                    context_lines=context_lines,
+                    ignore_case=ignore_case,
+                    size_limit=_JOB_LOGS_MAX_SIZE_BYTES,
+                    char_limit=_JOB_LOGS_MAX_CHARS_FOR_LLM,
+                    separator_length=_JOB_LOGS_SEPARATOR_LENGTH,
+                )
 
             return _selected_log_response(
                 output,

@@ -75,19 +75,58 @@ def _child_tasks_with_logs(records: list[dict], job_id: str) -> list[dict]:
     ]
 
 
+async def _fetch_line_counts(az_client, project: str, build_id: int) -> dict[int, int]:
+    """Map log id -> lineCount from the build's logs listing (best effort).
+
+    Timeline records carry log.id but no line count; the listing
+    (GET .../builds/{id}/logs) does. Any failure yields an empty map so
+    selection degrades to the timeline-only behaviour.
+    """
+    try:
+        response = await az_client.get(
+            f"{project}/_apis/build/builds/{build_id}/logs?api-version=7.1"
+        )
+        if response.status != 200:
+            return {}
+        data = await response.json()
+        entries = data.get("value", [])
+        return {
+            entry["id"]: entry["lineCount"]
+            for entry in entries
+            if isinstance(entry, dict)
+            and isinstance(entry.get("id"), int)
+            and isinstance(entry.get("lineCount"), int)
+        }
+    except Exception as e:
+        logger.warning(f"Could not fetch log line counts for build #{build_id}: {e}")
+        return {}
+
+
+def _line_count(task: dict, line_counts: dict[int, int]) -> int | None:
+    """Line count for a task's log: the listing's value, else the timeline's."""
+    log = task.get("log") or {}
+    log_id = log.get("id")
+    if isinstance(log_id, int) and log_id in line_counts:
+        return line_counts[log_id]
+    return log.get("lineCount")
+
+
 def _select_task(
-    children: list[dict], task_name: str | None
+    children: list[dict],
+    task_name: str | None,
+    line_counts: dict[int, int] | None = None,
 ) -> tuple[dict | None, str]:
     """Pick the child Task to fetch a log for.
 
     Priority: an explicit task_name match (case-insensitive), then the
     first task with a failing result, then the task with the largest log
-    (by line count when known; ``max`` keeps the first entry on a tie, so
-    this also covers "fetch order" when no line counts are available).
+    (by line count from the logs listing, falling back to any timeline
+    lineCount; ``max`` keeps the first entry on a tie).
 
     Returns (selected, reason). selected is None only when task_name was
     given but matched no child.
     """
+    counts = line_counts or {}
     if task_name is not None:
         for task in children:
             if (task.get("name") or "").lower() == task_name.lower():
@@ -98,9 +137,7 @@ def _select_task(
         if task.get("result") in FAILURE_RESULTS:
             return task, f"first task with failing result ({task['result']})"
 
-    largest = max(
-        children, key=lambda task: (task.get("log") or {}).get("lineCount") or 0
-    )
+    largest = max(children, key=lambda task: _line_count(task, counts) or 0)
     return largest, "largest log (no failing task)"
 
 
@@ -112,6 +149,7 @@ def _build_check_run_header(
     selected: dict,
     siblings: list[dict],
     reason: str,
+    line_counts: dict[int, int] | None = None,
 ) -> list[str]:
     """Render the header shown above the selected task's log content.
 
@@ -132,7 +170,11 @@ def _build_check_run_header(
         output.append("Other tasks in this job (re-query with azure_get_build_logs):")
         for task in other_siblings:
             sibling_log_id = (task.get("log") or {}).get("id", "N/A")
-            output.append(f"  - {task.get('name', 'N/A')}: Log #{sibling_log_id}")
+            count = _line_count(task, line_counts or {})
+            suffix = f" ({count} lines)" if count is not None else ""
+            output.append(
+                f"  - {task.get('name', 'N/A')}: Log #{sibling_log_id}{suffix}"
+            )
     output.append("")
     return output
 
@@ -151,6 +193,7 @@ async def azure_get_logs_for_check_run(
     context_lines: int = 0,
     ignore_case: bool = False,
     output_path: str | None = None,
+    save_to_disk: bool = False,
 ) -> str:
     """Resolve a GitHub check run to its Azure build job and return that job's log.
 
@@ -175,8 +218,13 @@ async def azure_get_logs_for_check_run(
             default, not just the last 500 lines
         context_lines: Lines of context to keep either side of a grep match
         ignore_case: Case-insensitive grep
-        output_path: Absolute path to write the complete log to disk instead
-            of returning it inline; the response then carries only metadata
+        output_path: Absolute path to write the complete log to disk. The
+            response carries only metadata unless tail_lines, head_lines,
+            start_line/end_line or grep is also given, in which case that
+            selection is appended (the file always holds the full log)
+        save_to_disk: If True and output_path is not given, write the full
+            log to $MCP_GIT_LOG_DIR (default <tmp>/mcp-git-logs) as
+            azure-<project>-build-<build_id>-log-<log_id>.log
 
     Returns:
         Formatted string with the resolved job/task, sibling tasks, and log
@@ -222,7 +270,8 @@ async def azure_get_logs_for_check_run(
                     f"#{build_id} has no child Task records with logs."
                 )
 
-            selected, reason = _select_task(children, task_name)
+            line_counts = await _fetch_line_counts(az_client, project, build_id)
+            selected, reason = _select_task(children, task_name, line_counts)
             if selected is None:
                 return fail(
                     f"❌ No task named {task_name!r} found among children of "
@@ -236,6 +285,7 @@ async def azure_get_logs_for_check_run(
                 selected=selected,
                 siblings=children,
                 reason=reason,
+                line_counts=line_counts,
             )
 
             return await fetch_and_render_log(
@@ -253,6 +303,7 @@ async def azure_get_logs_for_check_run(
                 context_lines=context_lines,
                 ignore_case=ignore_case,
                 output_path=output_path,
+                save_to_disk=save_to_disk,
             )
 
     except ValueError as auth_error:
