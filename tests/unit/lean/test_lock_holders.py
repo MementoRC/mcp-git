@@ -1,7 +1,6 @@
 """Live-holder aware reaping of index.lock (issue #276). Linux /proc only."""
 
 import os
-import shutil
 import subprocess
 import sys
 import time
@@ -54,14 +53,20 @@ def open_holder():
 
 @pytest.fixture
 def git_named_process():
-    """Spawn a `sleep` whose argv[0] basename is `git`, in a given cwd."""
+    """Spawn a sleeping Python whose argv[0] basename is `git`, in a given cwd.
+
+    Python, not `sleep`: multicall coreutils (uutils, now on ubuntu-latest
+    runners) refuse to run when argv[0] names another utility.
+    """
     procs: list[subprocess.Popen] = []
 
     def start(bin_dir: Path, cwd: Path) -> subprocess.Popen:
         bin_dir.mkdir(exist_ok=True)
         link = bin_dir / "git"
-        link.symlink_to(shutil.which("sleep") or "/bin/sleep")
-        proc = subprocess.Popen([str(link), "60"], cwd=cwd)
+        link.symlink_to(os.path.realpath(sys.executable))
+        proc = subprocess.Popen(
+            [str(link), "-c", "import time; time.sleep(60)"], cwd=cwd
+        )
         procs.append(proc)
         time.sleep(0.2)
         return proc
