@@ -130,6 +130,7 @@ async def azure_get_build_logs(
     context_lines: int = 0,
     ignore_case: bool = False,
     output_path: str | None = None,
+    save_to_disk: bool = False,
 ) -> str:
     """Get logs from an Azure DevOps build
 
@@ -156,8 +157,13 @@ async def azure_get_build_logs(
             default, not just the last 500 lines
         context_lines: Lines of context to keep either side of a grep match
         ignore_case: Case-insensitive grep
-        output_path: Absolute path to write the complete log to disk instead
-            of returning it inline; the response then carries only metadata
+        output_path: Absolute path to write the complete log to disk. The
+            response carries only metadata unless tail_lines, head_lines,
+            start_line/end_line or grep is also given, in which case that
+            selection is appended (the file always holds the full log)
+        save_to_disk: If True and output_path is not given, write the full
+            log to $MCP_GIT_LOG_DIR (default <tmp>/mcp-git-logs) as
+            azure-<project>-build-<build_id>-log-<log_id>.log
 
     Returns:
         Formatted string with log information or content
@@ -205,6 +211,7 @@ async def azure_get_build_logs(
                 context_lines=context_lines,
                 ignore_case=ignore_case,
                 output_path=output_path,
+                save_to_disk=save_to_disk,
             )
 
     except ValueError as auth_error:

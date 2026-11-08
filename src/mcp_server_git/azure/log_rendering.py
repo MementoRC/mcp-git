@@ -12,8 +12,9 @@ from ..github._failures import http_failure
 from ..github.job_log_selection import (
     LogSelectionError,
     build_log_response_lines,
-    write_full_log_response,
+    write_log_with_optional_selection,
 )
+from ..utils.log_paths import resolve_output_path
 from ..utils.tool_failure import ToolFailure, fail
 
 logger = logging.getLogger(__name__)
@@ -120,6 +121,7 @@ async def fetch_and_render_log(
     context_lines: int,
     ignore_case: bool,
     output_path: str | None,
+    save_to_disk: bool = False,
 ) -> str:
     """Fetch one Azure build log and render it with github_get_job_logs' selection knobs.
 
@@ -139,8 +141,33 @@ async def fetch_and_render_log(
 
     logs_text = "\n".join(await read_log_lines(response))
 
+    output_path = resolve_output_path(
+        output_path,
+        save_to_disk,
+        "azure",
+        project,
+        "build",
+        build_id,
+        "log",
+        log_id,
+    )
     if output_path is not None:
-        return write_full_log_response(header, output_path, logs_text)
+        return write_log_with_optional_selection(
+            header,
+            output_path,
+            logs_text,
+            tail_lines=tail_lines,
+            full_log=full_log,
+            head_lines=head_lines,
+            start_line=start_line,
+            end_line=end_line,
+            grep=grep,
+            context_lines=context_lines,
+            ignore_case=ignore_case,
+            size_limit=AZURE_LOGS_MAX_SIZE_BYTES,
+            char_limit=AZURE_LOGS_MAX_CHARS_FOR_LLM,
+            separator_length=AZURE_LOGS_SEPARATOR_LENGTH,
+        )
 
     try:
         header.extend(

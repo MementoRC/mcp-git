@@ -988,7 +988,11 @@ class GitHubGetJobLogs(BaseModel):
         - grep searches the whole log by default, not just the last 500 lines.
         - output_path writes the complete log to disk and returns only
           metadata (no log content enters context); it must be an absolute
-          path.
+          path. Combine it with tail_lines/head_lines/start_line+end_line/grep
+          to also get that selection in the response (file stays complete).
+        - save_to_disk=True (no output_path) writes the complete log to
+          $MCP_GIT_LOG_DIR (default <tmp>/mcp-git-logs) as
+          github-<owner>-<repo>-job-<job_id>.log; output_path wins.
         - Every response reports total lines, total bytes, and whether the
           returned content was truncated.
         - Hard limit: 100KB character limit for LLM context protection
@@ -1011,6 +1015,7 @@ class GitHubGetJobLogs(BaseModel):
     context_lines: int = 0  # Lines of context to keep either side of a grep match
     ignore_case: bool = False  # Case-insensitive grep
     output_path: str | None = None  # Absolute path; write the full log there instead
+    save_to_disk: bool = False  # Write the full log under MCP_GIT_LOG_DIR/tmp default
 
 
 class GitHubGetPRDiff(BaseModel):

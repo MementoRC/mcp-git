@@ -20,7 +20,9 @@ class AzureGetBuildLogs(BaseModel):
     When log_id is given, the same selection/output knobs as
     github_get_job_logs are available: tail_lines defaults to the last 500
     lines; head_lines, start_line/end_line, grep, context_lines,
-    ignore_case, full_log, and output_path behave identically.
+    ignore_case, full_log, output_path and save_to_disk behave identically.
+    output_path alone returns metadata only; combined with tail_lines,
+    head_lines, start_line/end_line or grep it also returns that selection.
     """
 
     project: str
@@ -35,6 +37,7 @@ class AzureGetBuildLogs(BaseModel):
     context_lines: int = 0  # Lines of context to keep either side of a grep match
     ignore_case: bool = False  # Case-insensitive grep
     output_path: str | None = None  # Absolute path; write the full log there instead
+    save_to_disk: bool = False  # Write the full log under MCP_GIT_LOG_DIR/tmp default
 
 
 class AzureGetFailingJobs(BaseModel):
@@ -77,3 +80,4 @@ class AzureGetLogsForCheckRun(BaseModel):
     context_lines: int = 0  # Lines of context to keep either side of a grep match
     ignore_case: bool = False  # Case-insensitive grep
     output_path: str | None = None  # Absolute path; write the full log there instead
+    save_to_disk: bool = False  # Write the full log under MCP_GIT_LOG_DIR/tmp default

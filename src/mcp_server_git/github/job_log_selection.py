@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from ..text_limits import MAX_CHARS_FOR_LLM, cap_characters  # noqa: F401  # re-export
-from ..utils.tool_failure import fail
+from ..utils.tool_failure import ToolFailure, fail
 
 logger = logging.getLogger(__name__)
 
@@ -304,6 +304,55 @@ def write_full_log_response(
         )
     )
     return "\n".join(output)
+
+
+def write_log_with_optional_selection(
+    output: list[str],
+    output_path: str,
+    logs_text: str,
+    *,
+    tail_lines: int | None,
+    full_log: bool,
+    head_lines: int | None,
+    start_line: int | None,
+    end_line: int | None,
+    grep: str | None,
+    context_lines: int,
+    ignore_case: bool,
+    size_limit: int,
+    char_limit: int,
+    separator_length: int = 60,
+) -> str:
+    """Write the full log to disk; append a selection only if one was requested (#336).
+
+    Without an explicit selector (or with full_log) the response stays
+    metadata-only.
+    """
+    written = write_full_log_response(output, output_path, logs_text)
+    explicit = any(
+        value is not None
+        for value in (tail_lines, head_lines, start_line, end_line, grep)
+    )
+    if isinstance(written, ToolFailure) or full_log or not explicit:
+        return written
+    try:
+        lines = build_log_response_lines(
+            logs_text,
+            tail_lines=tail_lines,
+            full_log=full_log,
+            head_lines=head_lines,
+            start_line=start_line,
+            end_line=end_line,
+            grep=grep,
+            context_lines=context_lines,
+            ignore_case=ignore_case,
+            size_limit=size_limit,
+            char_limit=char_limit,
+            separator_length=separator_length,
+        )
+    except LogSelectionError as exc:
+        return fail(f"❌ {exc}")
+    return "\n".join([written, *lines])
 
 
 def build_log_response_lines(
