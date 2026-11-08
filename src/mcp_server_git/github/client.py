@@ -9,6 +9,8 @@ from typing import Any
 
 import aiohttp
 
+from ..identity import current_identity
+
 logger = logging.getLogger(__name__)
 
 
@@ -155,11 +157,17 @@ class GitHubClient:
 
 
 def get_github_client() -> GitHubClient | None:
-    """Get GitHub client with token from environment.
+    """Get GitHub client with the active identity's token, else GITHUB_TOKEN.
 
+    The identity is set by the tool dispatcher for mapped repos (#340).
     Assumes environment variables have already been loaded by the server.
     """
-    token = os.getenv("GITHUB_TOKEN")
+    identity = current_identity.get()
+    if identity is not None and identity.token:
+        logger.info("GitHub API client using identity %s", identity.name)
+        token = identity.token
+    else:
+        token = os.getenv("GITHUB_TOKEN")
     logger.debug(f"🔑 GITHUB_TOKEN check: {'Found' if token else 'Not found'}")
 
     if not token:

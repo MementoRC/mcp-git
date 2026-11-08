@@ -4,6 +4,7 @@ import logging
 import re
 import subprocess
 
+from ..identity import IdentityError, RepoIdentity, identity_for_repo
 from ..utils.git_import import GitCommandError, Repo
 from ..utils.tool_failure import fail
 from ._commit_options import commit_option_args
@@ -118,6 +119,7 @@ def _commit_success_message(
     *,
     security_enforced: bool,
     no_verify: bool = False,
+    identity_name: str | None = None,
 ) -> str:
     """Success report including the new HEAD hash (or 'unknown')."""
     hash_result = subprocess.run(
@@ -134,6 +136,8 @@ def _commit_success_message(
     if security_enforced:
         msg += "\n🔒 Security configuration enforced"
     msg += f"\n🔒 Enforced GPG signing with key {key_id}"
+    if identity_name:
+        msg += f"\nidentity: {identity_name}"
     msg += "\n⚠️  MCP Git Server used - no fallback to system git commands"
     if no_verify:
         msg += "\n⚠️  no_verify=true: pre-commit and commit-msg hooks were skipped"
@@ -159,6 +163,20 @@ def _commit_failure_hint(stderr: str, no_verify: bool) -> str:
     return ""
 
 
+_REQUIRED_IDENTITY_FIELDS = ("gpg_key", "author_name", "author_email")
+
+
+def _validated_identity(repo: Repo) -> RepoIdentity | None:
+    """Mapped identity for the repo; it must never commit with the owner's key."""
+    identity = identity_for_repo(repo)
+    if identity is None:
+        return None
+    for name in _REQUIRED_IDENTITY_FIELDS:
+        if not getattr(identity, name):
+            raise IdentityError(f"identity '{identity.name}': missing {name}")
+    return identity
+
+
 def _git_commit_once(
     repo: Repo,
     option_args: list[str],
@@ -176,12 +194,19 @@ def _git_commit_once(
         from .security import enforce_secure_git_config
 
         # 🔒 SECURITY: Enforce secure configuration before committing
-        security_result = enforce_secure_git_config(repo, strict_mode=True)
+        identity = _validated_identity(repo)
+        security_result = enforce_secure_git_config(
+            repo, strict_mode=True, identity_active=identity is not None
+        )
         security_enforced = "✅" in security_result
+        if identity is not None:
+            logger.info("Commit using identity %s", identity.name)
 
-        # Get GPG key from parameters, environment, or git config
+        # Get GPG key from parameters, identity, environment, or git config
         # (GPG signing is forced for every commit - SECURITY REQUIREMENT)
-        force_key_id, gpg_error = resolve_gpg_key(repo, gpg_key_id)
+        force_key_id, gpg_error = resolve_gpg_key(
+            repo, gpg_key_id, identity.gpg_key if identity else None
+        )
         if gpg_error:
             return gpg_error
         violation = _require_gpg()
@@ -192,7 +217,9 @@ def _git_commit_once(
             option_args, amend, allow_empty, force_key_id, no_verify
         )
         try:
-            result = run_commit_process(cmd, repo.working_dir)
+            result = run_commit_process(
+                cmd, repo.working_dir, identity.commit_env() if identity else None
+            )
         except CommitTimeoutError as timeout_err:
             return fail(
                 f"❌ Commit failed: {timeout_err}\n"
@@ -208,8 +235,11 @@ def _git_commit_once(
             force_key_id,
             security_enforced=security_enforced,
             no_verify=no_verify,
+            identity_name=identity.name if identity else None,
         )
 
+    except IdentityError as e:
+        return fail(f"❌ Commit refused: {e}")
     except GitCommandError as e:
         return fail(
             f"❌ Commit failed: {clean_git_error_text(e.stderr, 'stderr')}\n"

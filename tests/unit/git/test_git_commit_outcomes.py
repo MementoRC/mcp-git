@@ -159,4 +159,4 @@ def test_git_commit_builds_expected_argv_when_flags_vary(kwargs, expected):
         patch(_SECURITY, return_value="✅ secure"),
     ):
         git_commit(_repo(), "msg", gpg_key_id="KEY1", **kwargs)
-    assert run.call_args[0] == (expected, "/tmp/test_repo")
+    assert run.call_args[0] == (expected, "/tmp/test_repo", None)

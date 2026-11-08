@@ -21,6 +21,7 @@ from typing import Any, cast
 from fastmcp import FastMCP
 
 from mcp_server_git.config import config_manager
+from mcp_server_git.identity import identity_scope
 from mcp_server_git.utils.credential_helpers import credential_helper_health
 from mcp_server_git.utils.tool_failure import ToolFailure
 
@@ -358,10 +359,11 @@ class GitLeanInterface:
             )
 
             # Execute tool
-            if inspect.iscoroutinefunction(tool_def.implementation):
-                result = await tool_def.implementation(**parameters)
-            else:
-                result = tool_def.implementation(**parameters)
+            with identity_scope(parameters):
+                if inspect.iscoroutinefunction(tool_def.implementation):
+                    result = await tool_def.implementation(**parameters)
+                else:
+                    result = tool_def.implementation(**parameters)
 
             # Every registered implementation is wrapped by _wrap_tool,
             # which catches exceptions -- including the TypeError for an

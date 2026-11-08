@@ -61,10 +61,15 @@ def _terminate_group(proc: subprocess.Popen) -> None:
         proc.communicate()
 
 
-def run_commit_process(cmd: list[str], cwd: str) -> CommitProcessResult:
-    """Run *cmd* in a new session; raise CommitTimeoutError on timeout."""
+def run_commit_process(
+    cmd: list[str], cwd: str, extra_env: dict[str, str] | None = None
+) -> CommitProcessResult:
+    """Run *cmd* in a new session; raise CommitTimeoutError on timeout.
+
+    ``extra_env`` applies to this subprocess only, never to ``os.environ``.
+    """
     timeout = commit_timeout_seconds()
-    env = {**os.environ, "GIT_TERMINAL_PROMPT": "0"}
+    env = {**os.environ, "GIT_TERMINAL_PROMPT": "0", **(extra_env or {})}
     proc = subprocess.Popen(
         cmd,
         cwd=cwd,
