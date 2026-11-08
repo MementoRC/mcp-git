@@ -7,11 +7,16 @@ including a stale global one) followed by a helper that reads the token from
 environment: never in argv, ``.git/config``, logs or output.
 """
 
+import logging
 from dataclasses import dataclass, field
 from urllib.parse import urlsplit
 
+from ..identity import identity_for_slug, slug_from_url
 from ..utils.git_import import Repo
 from ._github_token import resolve_github_token
+
+logger = logging.getLogger(__name__)
+IDENTITY_PREFIX = "identity:"
 
 __all__ = [
     "CREDENTIAL_OVERRIDES",
@@ -51,6 +56,9 @@ class PushAuth:
         return {TOKEN_ENV_VAR: self.token, "GIT_TERMINAL_PROMPT": "0"}
 
     def success_note(self) -> str:
+        if self.source.startswith(IDENTITY_PREFIX):
+            name = self.source.removeprefix(IDENTITY_PREFIX)
+            return f"\n🔐 Used server GitHub token (identity token)\nidentity: {name}"
         return f"\n🔐 Used server GitHub token ({_SOURCE_LABELS[self.source]})"
 
 
@@ -80,6 +88,11 @@ def resolve_push_auth(repo: Repo, url: str) -> PushAuth | None:
     """Token auth for a GitHub HTTPS push URL, else None (system git as-is)."""
     if not is_github_https(url):
         return None
+    slug = slug_from_url(url)
+    identity = identity_for_slug(slug) if slug else None
+    if identity is not None and identity.token:
+        logger.info("Push using identity %s", identity.name)
+        return PushAuth(identity.token, f"{IDENTITY_PREFIX}{identity.name}")
     resolved = resolve_github_token(repo)
     return PushAuth(*resolved) if resolved else None
 

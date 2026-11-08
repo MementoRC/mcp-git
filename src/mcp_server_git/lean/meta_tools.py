@@ -15,6 +15,7 @@ from typing import Any, cast
 
 from jsonschema import ValidationError, validate
 
+from ..identity import identity_scope
 from ..server_metadata import build_server_info
 from ._envelope import _is_error_result, build_tool_envelope
 from .token_limiter import apply_token_limits
@@ -206,10 +207,11 @@ async def _validate_and_run(
     # Execute tool through its implementation
     # Check if implementation is async BEFORE calling to avoid race condition
     # where a sync function might return a coroutine object as data
-    if inspect.iscoroutinefunction(tool_def.implementation):
-        result = await tool_def.implementation(**parameters)
-    else:
-        result = tool_def.implementation(**parameters)
+    with identity_scope(parameters):
+        if inspect.iscoroutinefunction(tool_def.implementation):
+            result = await tool_def.implementation(**parameters)
+        else:
+            result = tool_def.implementation(**parameters)
 
     return _build_envelope(tool_name, result, schema)
 

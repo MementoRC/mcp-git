@@ -46,15 +46,15 @@ def resolve_github_token(repo: Repo) -> tuple[str, str] | None:
     """Find a GitHub token and its source: repo .env, GITHUB_TOKEN, then gh CLI.
 
     Returns ``(token, source)`` with source ``".env"``, ``"env"`` or ``"gh"``,
-    or None when no token resolves. The repo .env is still loaded into the
-    process environment, as before.
+    or None when no token resolves. The repo .env is only read, never loaded
+    into os.environ, because loading it leaked one repo's token to other
+    repos (#340).
     """
-    from dotenv import dotenv_values, load_dotenv
+    from dotenv import dotenv_values
 
     repo_env = Path(repo.working_dir) / ".env"
     if repo_env.exists():
-        logger.info(f"🔍 DEBUG: Loading .env from repository: {repo_env}")
-        load_dotenv(repo_env, override=True)
+        logger.info(f"🔍 DEBUG: Reading .env from repository: {repo_env}")
         token = dotenv_values(repo_env).get("GITHUB_TOKEN")
         if token:
             return token, ".env"

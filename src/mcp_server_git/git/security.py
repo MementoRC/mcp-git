@@ -245,8 +245,15 @@ def _format_changes(changes_made: list[str]) -> str:
     return result
 
 
-def enforce_secure_git_config(repo: Repo, strict_mode: bool = True) -> str:
-    """Enforce secure Git configuration (GPG signing, proper user config)"""
+def enforce_secure_git_config(
+    repo: Repo, strict_mode: bool = True, identity_active: bool = False
+) -> str:
+    """Enforce secure Git configuration (GPG signing, proper user config).
+
+    With ``identity_active`` (issue #340) the per-repo identity supplies the
+    author and key per commit, so neither the env's nor the identity's
+    name/email/key is ever written into the repo config.
+    """
 
     try:
         config_writer = repo.config_writer()
@@ -258,15 +265,16 @@ def enforce_secure_git_config(repo: Repo, strict_mode: bool = True) -> str:
         signing_key = _read_config(repo, "user", "signingkey", None)
         gpg_sign = _read_config(repo, "commit", "gpgsign", "false")
 
-        error = _enforce_identity(config_writer, current, strict_mode, changes_made)
-        if error:
-            return error
+        if not identity_active:
+            error = _enforce_identity(config_writer, current, strict_mode, changes_made)
+            if error:
+                return error
 
         if not _gpgsign_enabled(gpg_sign):
             config_writer.set_value("commit", "gpgsign", "true")
             changes_made.append("Enabled GPG signing for commits (commit.gpgsign=true)")
 
-        if not signing_key:
+        if not signing_key and not identity_active:
             error = _enforce_signing_key(config_writer, strict_mode, changes_made)
             if error:
                 return error

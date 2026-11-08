@@ -256,6 +256,42 @@ AZURE_DEVOPS_ORG=your_organization_name
 
 **For ClaudeCode users**: If you have your `.env` file in your ClaudeCode workspace root (e.g., `/home/memento/ClaudeCode/.env`), it will be automatically detected and loaded when running the MCP server from any subdirectory within that workspace.
 
+### Per-repo GitHub identities
+
+Lets selected repos push, commit and call the GitHub API as a different identity (for example a bot). Every repo not listed behaves exactly as before.
+
+**Map file**: `$MCP_GIT_IDENTITIES`, default `~/.config/mcp-git/identities.toml`:
+
+```toml
+[identities.roth-bot]
+env_file = "~/.config/gh/roth-bot.env"
+repos = ["MementoRC/roth_planner"]   # Owner/repo, case-insensitive
+```
+
+**Env file** (read only, never loaded into the server's environment; `chmod 600`). `GITHUB_TOKEN`, `GPG_SIGNING_KEY`, `GIT_AUTHOR_NAME` and `GIT_AUTHOR_EMAIL` are required; the committer keys are optional and default to the author:
+
+```
+GITHUB_TOKEN=...
+GPG_SIGNING_KEY=...
+GIT_AUTHOR_NAME=...
+GIT_AUTHOR_EMAIL=...
+GIT_COMMITTER_NAME=...
+GIT_COMMITTER_EMAIL=...
+```
+
+**Adding an identity**: edit the TOML (or add an env file). The map reloads when the file's mtime changes; no restart needed. A missing map file means no identities (default behaviour).
+
+**Fail closed**: a mapped repo never silently runs as the owner. A missing or unreadable env file, an env file without `GITHUB_TOKEN`, or (for commits) a missing signing key or author name/email produces a tool error. An invalid map file (bad TOML, `env_file` not a string, `repos` not a list of strings) makes every identity lookup, and so every push, commit and repo-scoped API call, return a tool error until the file is fixed, because the server cannot tell which repos were meant to be mapped. Error messages name the problem, never secret values.
+
+**Which identity served a call**: `git_commit` and authenticated `git_push` results contain an `identity: <name>` line, and every identity use is logged at info level (names only, never tokens).
+
+**Precedence**
+- Push token: identity token, then repo `.env`, `GITHUB_TOKEN`, `gh auth token`. The identity follows the push URL, not `origin`: a push to a fork or second remote uses the identity mapped to that URL's repo, or none.
+- Commit signing key: explicit `gpg_key_id`, then identity key, then `GPG_SIGNING_KEY`, then `user.signingkey`. Author/committer come from the identity unless `author` is passed. While an identity is active the server does not write any key or user name/email into the repo config.
+- GitHub API tools: when `repo_owner`/`repo_name` match a mapped repo, the identity token is used instead of `GITHUB_TOKEN`.
+
+**Limits**: tag, merge, cherry-pick and rebase commits still use the default identity. A GitHub App is a possible future alternative.
+
 ### Usage with Claude Desktop
 
 Add this to your `claude_desktop_config.json`:

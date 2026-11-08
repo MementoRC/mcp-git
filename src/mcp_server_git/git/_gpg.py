@@ -12,18 +12,21 @@ from ..utils.tool_failure import fail
 
 
 def resolve_gpg_key(
-    repo: Repo, gpg_key_id: str | None
+    repo: Repo, gpg_key_id: str | None, identity_key: str | None = None
 ) -> tuple[str | None, str | None]:
     """Resolve the GPG signing key to use.
 
-    Precedence: explicit ``gpg_key_id`` -> ``GPG_SIGNING_KEY`` env var ->
-    repo's ``user.signingkey`` git config.
+    Precedence: explicit ``gpg_key_id`` -> per-repo identity key (#340) ->
+    ``GPG_SIGNING_KEY`` env var -> repo's ``user.signingkey`` git config.
 
     Returns:
         (key_id, error) — exactly one of the two is non-None.
     """
     if gpg_key_id:
         return gpg_key_id, None
+
+    if identity_key:
+        return identity_key, None
 
     env_key = os.getenv("GPG_SIGNING_KEY")
     if env_key:
