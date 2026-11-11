@@ -10,6 +10,7 @@ from typing import Any
 import aiohttp
 
 from ..identity import current_identity
+from .graphql_errors import summarize_graphql_errors
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +27,7 @@ class GraphQLError(Exception):
 
     def __init__(self, errors: list[dict[str, Any]]):
         self.errors = errors
-        messages = "; ".join(e.get("message", str(e)) for e in errors)
+        messages = summarize_graphql_errors(errors)
         super().__init__(f"GraphQL request failed: {messages}")
 
 
