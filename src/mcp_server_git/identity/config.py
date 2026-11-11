@@ -2,7 +2,10 @@
 
 ``MCP_GIT_IDENTITIES`` (default ``~/.config/mcp-git/identities.toml``) maps
 ``Owner/repo`` slugs to an env file holding that identity's token, GPG key and
-author/committer. Env files are read with ``dotenv_values`` only: never loaded
+author/committer. An identity may also list ``owners = ["login", ...]``: only
+those owners (case-insensitive, exact) get that identity for owner-level
+resources such as GitHub Projects; repo slugs are never promoted to owner
+level, and an owner listed under two identities makes the map invalid. Env files are read with ``dotenv_values`` only: never loaded
 into ``os.environ``, and token values are never logged.
 
 Fail closed: a broken map or env file raises :class:`IdentityError` rather than
@@ -15,6 +18,7 @@ import threading
 import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import NamedTuple
 
 from dotenv import dotenv_values
 
@@ -60,8 +64,15 @@ class RepoIdentity:
 
 
 _Entries = dict[str, tuple[str, Path]]
+
+
+class _IdentityMap(NamedTuple):
+    repos: _Entries  # lowercased ``owner/repo`` slug -> (identity, env file)
+    owners: _Entries  # lowercased owner login -> (identity, env file)
+
+
 # (path, mtime_ns) -> parsed map, or the invalid-map reason (a str).
-_cache: dict[tuple[str, int], _Entries | str] = {}
+_cache: dict[tuple[str, int], _IdentityMap | str] = {}
 _cache_lock = threading.Lock()
 
 
@@ -69,42 +80,59 @@ def config_path() -> Path:
     return Path(os.environ.get(CONFIG_ENV_VAR) or DEFAULT_CONFIG).expanduser()
 
 
-def _parse_entry(name: str, entry: object) -> tuple[Path, list[str]]:
+def _str_list(name: str, entry: dict, key: str) -> list[str]:
+    value = entry.get(key, [])
+    if not isinstance(value, list) or not all(isinstance(v, str) for v in value):
+        raise ValueError(f"identity '{name}': {key} must be a list of strings")
+    return value
+
+
+def _parse_entry(name: str, entry: object) -> tuple[Path, list[str], list[str]]:
     if not isinstance(entry, dict):
         raise ValueError(f"identity '{name}' must be a table")
     env_file = entry.get("env_file")
     if not isinstance(env_file, str):
         raise ValueError(f"identity '{name}': env_file must be a string")
-    repos = entry.get("repos", [])
-    if not isinstance(repos, list) or not all(isinstance(r, str) for r in repos):
-        raise ValueError(f"identity '{name}': repos must be a list of strings")
-    return Path(env_file).expanduser(), repos
+    return (
+        Path(env_file).expanduser(),
+        _str_list(name, entry, "repos"),
+        _str_list(name, entry, "owners"),
+    )
 
 
-def _parse(path: Path) -> _Entries | str:
+def _parse(path: Path) -> _IdentityMap | str:
     """Parsed map, or the reason it is invalid."""
     try:
         data = tomllib.loads(path.read_text(encoding="utf-8"))
         identities = data.get("identities", {})
         if not isinstance(identities, dict):
             raise ValueError("identities must be a table")
-        mapping: _Entries = {}
+        repo_map: _Entries = {}
+        owner_map: _Entries = {}
         for name, entry in identities.items():
-            env_file, repos = _parse_entry(name, entry)
+            env_file, repos, owners = _parse_entry(name, entry)
             for slug in repos:
-                mapping[slug.lower()] = (name, env_file)
-        return mapping
+                repo_map[slug.lower()] = (name, env_file)
+            for owner in owners:
+                prior = owner_map.get(owner.strip().lower())
+                if prior and prior[0] != name:
+                    raise ValueError(
+                        f"owner '{owner}' is listed under both identities "
+                        f"'{prior[0]}' and '{name}'"
+                    )
+                owner_map[owner.strip().lower()] = (name, env_file)
+        return _IdentityMap(repo_map, owner_map)
     except (OSError, ValueError) as exc:  # TOMLDecodeError is a ValueError
         logger.warning("Invalid identity map %s: %s", path, exc)
         return str(exc)
 
 
-def _load_map() -> _Entries:
+def _load_map() -> _IdentityMap:
     path = config_path()
     try:
         key = (str(path), path.stat().st_mtime_ns)
     except OSError:
-        return {}
+        return _IdentityMap({}, {})
     with _cache_lock:
         if key not in _cache:
             _cache.clear()
@@ -144,32 +172,21 @@ def identity_for_slug(slug: str) -> RepoIdentity | None:
     Raises:
         IdentityError: the map or the mapped env file is invalid.
     """
-    hit = _load_map().get(slug.strip().lower())
+    hit = _load_map().repos.get(slug.strip().lower())
     return _build(*hit) if hit else None
 
 
 def identity_for_owner(owner: str) -> RepoIdentity | None:
     """Identity for an owner-level resource (e.g. a GitHub Project), else None.
 
-    Collects the identities of every ``owner/...`` slug in the map. Exactly one
-    distinct identity is returned. With no mapped slug the result is None, so
-    the caller falls back to the default ``GITHUB_TOKEN``, exactly as an
-    unmapped repo does.
+    Only an identity that explicitly lists the owner in its ``owners`` key
+    (case-insensitive, exact) is returned. Repo slugs are never consulted: a
+    repo mapping is not promoted to owner level. Otherwise the result is None,
+    so the caller falls back to the default ``GITHUB_TOKEN``.
 
     Raises:
-        IdentityError: the owner's repos map to different identities (fail
-            closed: the owner-level token is ambiguous), or the map or the
-            mapped env file is invalid.
+        IdentityError: the map is invalid (including an owner listed under two
+            identities) or the mapped env file is invalid.
     """
-    prefix = owner.strip().lower() + "/"
-    hits = {
-        name: env_file
-        for slug, (name, env_file) in _load_map().items()
-        if slug.startswith(prefix)
-    }
-    if len(hits) > 1:
-        raise IdentityError(
-            f"owner '{owner}' maps to conflicting identities {sorted(hits)}; "
-            "cannot choose a token for an owner-level resource"
-        )
-    return _build(*next(iter(hits.items()))) if hits else None
+    hit = _load_map().owners.get(owner.strip().lower())
+    return _build(*hit) if hit else None

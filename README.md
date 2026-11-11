@@ -266,7 +266,10 @@ Lets selected repos push, commit and call the GitHub API as a different identity
 [identities.roth-bot]
 env_file = "~/.config/gh/roth-bot.env"
 repos = ["MementoRC/roth_planner"]   # Owner/repo, case-insensitive
+owners = ["roth-org"]                # optional: owner logins for owner-level resources
 ```
+
+`owners` (optional, case-insensitive exact match) is the only way an identity is used for owner-level resources such as `github_project_*` tools. A `repos` entry is never promoted to owner level: an owner not listed in any `owners` uses the default `GITHUB_TOKEN`. Listing the same owner under two identities, or a non-list `owners`, makes the map invalid (fail closed).
 
 **Env file** (read only, never loaded into the server's environment; `chmod 600`). `GITHUB_TOKEN`, `GPG_SIGNING_KEY`, `GIT_AUTHOR_NAME` and `GIT_AUTHOR_EMAIL` are required; the committer keys are optional and default to the author:
 
