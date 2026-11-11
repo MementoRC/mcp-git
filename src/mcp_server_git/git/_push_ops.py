@@ -2,6 +2,7 @@
 
 import logging
 import os
+import re
 import subprocess
 from pathlib import Path
 
@@ -29,6 +30,19 @@ _AUTH_HELP = (
     "or GitHub CLI authentication (gh auth login)\n"
 )
 _PERMISSION_DENIED = fail("❌ Permission denied. Check repository access permissions")
+
+
+def _http_status(code: int) -> re.Pattern[str]:
+    """Match ``code`` only as an HTTP status in git output.
+
+    Bare substring matching misread any path or ref containing the digits
+    (a ``pytest-401`` temp dir in the remote URL) as an auth failure.
+    """
+    return re.compile(rf"(?:error:?|HTTP(?:/[\d.]+)?)\s*{code}(?!\d)", re.IGNORECASE)
+
+
+_HTTP_401 = _http_status(401)
+_HTTP_403 = _http_status(403)
 
 
 def _lease_flag(expect: str | None, refname: str | None) -> str:
@@ -237,7 +251,7 @@ def _system_git_failure(
     repo: Repo, error_output: str, force: bool, force_with_lease: bool
 ) -> str:
     """Render a failed system-git push."""
-    if "Authentication failed" in error_output or "401" in error_output:
+    if "Authentication failed" in error_output or _HTTP_401.search(error_output):
         repo_env = Path(repo.working_dir) / ".env"
         token_status = "SET" if os.getenv("GITHUB_TOKEN") else "NOT SET"
         return fail(
@@ -247,7 +261,7 @@ def _system_git_failure(
             f"working_dir: {repo.working_dir}\n"
             f"🔍 System git error: {error_output}"
         )
-    if "403" in error_output or "Permission denied" in error_output:
+    if _HTTP_403.search(error_output) or "Permission denied" in error_output:
         return _PERMISSION_DENIED
     if "non-fast-forward" in error_output:
         return _push_rejected_message(force, force_with_lease)
@@ -324,7 +338,7 @@ def _outer_git_error(
     force_with_lease: bool,
 ) -> str:
     """Render a GitCommandError that escaped the inner push paths."""
-    if "Authentication failed" in error_text or "401" in error_text:
+    if "Authentication failed" in error_text or _HTTP_401.search(error_text):
         repo_env = Path(repo.working_dir) / ".env"
         token = os.getenv("GITHUB_TOKEN", "")
         # Length only: never echo any part of the token (#303).
@@ -336,7 +350,7 @@ def _outer_git_error(
             f"working_dir: {repo.working_dir}\n"
             f"🔍 Outer GitPython error: {error_text}"
         )
-    if "403" in error_text:
+    if _HTTP_403.search(error_text):
         return _PERMISSION_DENIED
     if "non-fast-forward" in error_text:
         return _push_rejected_message(force, force_with_lease)
