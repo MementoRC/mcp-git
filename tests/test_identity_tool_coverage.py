@@ -28,15 +28,50 @@ def _github_tools() -> dict[str, set[str]]:
     }
 
 
-def test_registry_github_tools_accept_repo_owner_and_name_when_not_account_level():
+# Owner-level resources (GitHub Projects): ``identity_scope`` maps them through
+# ``owner`` + ``owner_type`` -> ``identity_for_owner``. Every registered
+# ``github_project_*`` tool must be here and take all three parameters.
+OWNER_PARAMS = {"owner", "owner_type", "project_number"}
+
+
+def _owner_scoped(tools: dict[str, set[str]]) -> set[str]:
+    return {name for name in tools if name.startswith("github_project_")}
+
+
+def test_registry_github_tools_fall_in_exactly_one_scope_category_when_enumerated():
     tools = _github_tools()
     assert len(tools) > 50  # guards against an accidentally empty enumeration
+    owner_scoped = _owner_scoped(tools)
+    repo_scoped = {n for n, p in tools.items() if {"repo_owner", "repo_name"} <= p}
+    categories = (repo_scoped, set(ACCOUNT_LEVEL), owner_scoped)
+    for name in tools:
+        assert sum(name in c for c in categories) == 1, name
+
+
+def test_registry_github_tools_accept_repo_owner_and_name_when_not_account_level():
+    tools = _github_tools()
+    owner_scoped = _owner_scoped(tools)
     missing = sorted(
         name
         for name, props in tools.items()
-        if name not in ACCOUNT_LEVEL and not {"repo_owner", "repo_name"} <= props
+        if name not in ACCOUNT_LEVEL
+        and name not in owner_scoped
+        and not {"repo_owner", "repo_name"} <= props
     )
     assert missing == []
+
+
+def test_owner_scoped_tools_require_owner_type_and_project_number_when_enumerated():
+    tools = _github_tools()
+    owner_scoped = _owner_scoped(tools)
+    assert len(owner_scoped) >= 4
+    assert {
+        "github_project_list_items",
+        "github_project_get_fields",
+        "github_project_set_item_field",
+        "github_project_add_item",
+    } <= owner_scoped
+    assert [n for n in sorted(owner_scoped) if not OWNER_PARAMS <= tools[n]] == []
 
 
 def test_account_level_allowlist_names_registered_tools_when_enumerated():

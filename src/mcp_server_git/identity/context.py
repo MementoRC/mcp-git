@@ -6,7 +6,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from typing import Any
 
-from .config import RepoIdentity, identity_for_slug
+from .config import RepoIdentity, identity_for_owner, identity_for_slug
 
 logger = logging.getLogger(__name__)
 
@@ -29,15 +29,28 @@ def use_identity(identity: RepoIdentity | None) -> Iterator[None]:
 
 @contextmanager
 def identity_scope(parameters: dict[str, Any]) -> Iterator[None]:
-    """Activate the identity mapped to ``repo_owner``/``repo_name``, if any."""
+    """Activate the identity mapped to ``repo_owner``/``repo_name``, if any.
+
+    Owner-level tools (``owner`` + ``owner_type``, no repo params) use
+    :func:`identity_for_owner` instead.
+    """
     owner = parameters.get("repo_owner")
     name = parameters.get("repo_name")
     identity = None
+    label = f"{owner}/{name}"
     if isinstance(owner, str) and isinstance(name, str):
-        identity = identity_for_slug(f"{owner}/{name}")
+        identity = identity_for_slug(label)
+    elif (
+        owner is None
+        and name is None
+        and isinstance(parameters.get("owner"), str)
+        and "owner_type" in parameters
+    ):
+        label = parameters["owner"]
+        identity = identity_for_owner(label)
     if identity is None:
         yield
         return
-    logger.info("API call for %s/%s using identity %s", owner, name, identity.name)
+    logger.info("API call for %s using identity %s", label, identity.name)
     with use_identity(identity):
         yield
