@@ -23,7 +23,13 @@ logger = logging.getLogger(__name__)
 CONFIG_ENV_VAR = "MCP_GIT_IDENTITIES"
 DEFAULT_CONFIG = "~/.config/mcp-git/identities.toml"
 
-__all__ = ["IdentityError", "RepoIdentity", "config_path", "identity_for_slug"]
+__all__ = [
+    "IdentityError",
+    "RepoIdentity",
+    "config_path",
+    "identity_for_owner",
+    "identity_for_slug",
+]
 
 
 class IdentityError(Exception):
@@ -140,3 +146,30 @@ def identity_for_slug(slug: str) -> RepoIdentity | None:
     """
     hit = _load_map().get(slug.strip().lower())
     return _build(*hit) if hit else None
+
+
+def identity_for_owner(owner: str) -> RepoIdentity | None:
+    """Identity for an owner-level resource (e.g. a GitHub Project), else None.
+
+    Collects the identities of every ``owner/...`` slug in the map. Exactly one
+    distinct identity is returned. With no mapped slug the result is None, so
+    the caller falls back to the default ``GITHUB_TOKEN``, exactly as an
+    unmapped repo does.
+
+    Raises:
+        IdentityError: the owner's repos map to different identities (fail
+            closed: the owner-level token is ambiguous), or the map or the
+            mapped env file is invalid.
+    """
+    prefix = owner.strip().lower() + "/"
+    hits = {
+        name: env_file
+        for slug, (name, env_file) in _load_map().items()
+        if slug.startswith(prefix)
+    }
+    if len(hits) > 1:
+        raise IdentityError(
+            f"owner '{owner}' maps to conflicting identities {sorted(hits)}; "
+            "cannot choose a token for an owner-level resource"
+        )
+    return _build(*next(iter(hits.items()))) if hits else None
