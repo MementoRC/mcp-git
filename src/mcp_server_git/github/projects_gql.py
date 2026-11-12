@@ -13,6 +13,7 @@ from typing import Any
 from mcp_server_git.utils.tool_failure import fail
 
 from .client import GraphQLError
+from .projects_paging import ProjectError, drain_connection
 from .workflow_actions import run_guarded
 
 __all__ = [
@@ -30,30 +31,51 @@ __all__ = [
 _ROOTS = {"user": "user", "org": "organization"}
 
 
-class ProjectError(Exception):
-    """A user-facing Projects failure (reported as an error envelope)."""
-
+_FIELDS = """
+pageInfo { hasNextPage endCursor }
+nodes {
+  __typename
+  ... on ProjectV2FieldCommon { id name dataType }
+  ... on ProjectV2SingleSelectField { options { id name } }
+  ... on ProjectV2IterationField {
+    configuration {
+      iterations { id title startDate duration }
+      completedIterations { id title startDate duration }
+    }
+  }
+}
+"""
 
 _PROJECT_Q = """
 query($login: String!, $number: Int!) {
   ROOT(login: $login) {
     projectV2(number: $number) {
       id title number
-      fields(first: 100) {
-        nodes {
-          __typename
-          ... on ProjectV2FieldCommon { id name dataType }
-          ... on ProjectV2SingleSelectField { options { id name } }
-          ... on ProjectV2IterationField {
-            configuration {
-              iterations { id title startDate duration }
-              completedIterations { id title startDate duration }
-            }
-          }
-        }
-      }
+      fields(first: 100) { FIELDS }
     }
   }
+}
+""".replace("FIELDS", _FIELDS)
+
+_FIELDS_Q = """
+query($id: ID!, $cursor: String) {
+  node(id: $id) { ... on ProjectV2 { fields(first: 100, after: $cursor) { FIELDS } } }
+}
+""".replace("FIELDS", _FIELDS)
+
+_VALUES = """
+pageInfo { hasNextPage endCursor }
+nodes {
+  __typename
+  ... on ProjectV2ItemFieldTextValue { text FIELD }
+  ... on ProjectV2ItemFieldNumberValue { number FIELD }
+  ... on ProjectV2ItemFieldDateValue { date FIELD }
+  ... on ProjectV2ItemFieldSingleSelectValue { name FIELD }
+  ... on ProjectV2ItemFieldIterationValue { title FIELD }
+  ... on ProjectV2ItemFieldLabelValue { labels(first: 20) { nodes { name } } FIELD }
+  ... on ProjectV2ItemFieldMilestoneValue { milestone { title } FIELD }
+  ... on ProjectV2ItemFieldUserValue { users(first: 20) { nodes { login } } FIELD }
+  ... on ProjectV2ItemFieldRepositoryValue { repository { nameWithOwner } FIELD }
 }
 """
 
@@ -66,21 +88,16 @@ content {
   ... on PullRequest { number title state url repository { nameWithOwner } }
   ... on DraftIssue { title }
 }
-fieldValues(first: 50) {
-  nodes {
-    __typename
-    ... on ProjectV2ItemFieldTextValue { text FIELD }
-    ... on ProjectV2ItemFieldNumberValue { number FIELD }
-    ... on ProjectV2ItemFieldDateValue { date FIELD }
-    ... on ProjectV2ItemFieldSingleSelectValue { name FIELD }
-    ... on ProjectV2ItemFieldIterationValue { title FIELD }
-    ... on ProjectV2ItemFieldLabelValue { labels(first: 20) { nodes { name } } FIELD }
-    ... on ProjectV2ItemFieldMilestoneValue { milestone { title } FIELD }
-    ... on ProjectV2ItemFieldUserValue { users(first: 20) { nodes { login } } FIELD }
-    ... on ProjectV2ItemFieldRepositoryValue { repository { nameWithOwner } FIELD }
+fieldValues(first: 50) { VALUES }
+""".replace("VALUES", _VALUES).replace("FIELD", _FIELD)
+
+_VALUES_Q = """
+query($id: ID!, $cursor: String) {
+  node(id: $id) {
+    ... on ProjectV2Item { fieldValues(first: 100, after: $cursor) { VALUES } }
   }
 }
-""".replace("FIELD", _FIELD)
+""".replace("VALUES", _VALUES).replace("FIELD", _FIELD)
 
 _ITEMS_Q = """
 query($id: ID!, $cursor: String) {
@@ -116,6 +133,14 @@ async def fetch_project(
             f"Project #{number} not found for {owner_type} '{owner}', or the "
             "token cannot see it (needs the 'read:project' scope)."
         )
+
+    async def more_fields(cursor: str) -> dict[str, Any]:
+        data = await client.graphql(_FIELDS_Q, {"id": project["id"], "cursor": cursor})
+        return data["node"]["fields"]
+
+    project["fields"] = {
+        "nodes": await drain_connection(project["fields"], more_fields, "Fields")
+    }
     return project
 
 
@@ -171,18 +196,26 @@ def flatten_item(node: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+async def _complete_values(client: Any, node: dict[str, Any]) -> dict[str, Any]:
+    """Merge any further ``fieldValues`` pages into the item node."""
+
+    async def more_values(cursor: str) -> dict[str, Any]:
+        data = await client.graphql(_VALUES_Q, {"id": node["id"], "cursor": cursor})
+        return data["node"]["fieldValues"]
+
+    nodes = await drain_connection(node["fieldValues"], more_values, "Field values")
+    return {**node, "fieldValues": {"nodes": nodes}}
+
+
 async def fetch_items(client: Any, project_id: str) -> list[dict[str, Any]]:
-    """Every item of the project, paginating past 100."""
-    items: list[dict[str, Any]] = []
-    cursor: str | None = None
-    while True:
+    """Every item of the project, paginating items and each item's values."""
+
+    async def page(cursor: str | None) -> dict[str, Any]:
         data = await client.graphql(_ITEMS_Q, {"id": project_id, "cursor": cursor})
-        page = data["node"]["items"]
-        items.extend(flatten_item(n) for n in page["nodes"])
-        info = page["pageInfo"]
-        cursor = info.get("endCursor")
-        if not info.get("hasNextPage") or not cursor:
-            return items
+        return data["node"]["items"]
+
+    nodes = await drain_connection(await page(None), page, "Items")
+    return [flatten_item(await _complete_values(client, n)) for n in nodes]
 
 
 async def fetch_item(client: Any, item_id: str) -> dict[str, Any]:
@@ -191,7 +224,7 @@ async def fetch_item(client: Any, item_id: str) -> dict[str, Any]:
     node = data.get("node")
     if not node or "id" not in node:
         raise ProjectError(f"Project item '{item_id}' not found.")
-    return flatten_item(node)
+    return flatten_item(await _complete_values(client, node))
 
 
 def repo_matches(item_repo: str | None, repo: str) -> bool:
