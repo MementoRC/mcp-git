@@ -193,6 +193,24 @@ def test_git_push_leaves_token_out_of_config_and_output_when_push_fails(
     assert TOKEN not in _config_text(work_repo)
 
 
+@pytest.mark.parametrize("digits", ["401", "403"])
+def test_git_push_reports_push_failure_when_remote_path_contains_http_status_digits(
+    tmp_path: Path, digits: str
+) -> None:
+    """Root cause of the #351 flake: pytest's ``pytest-<N>`` temp-dir counter
+    reaching 401/403 put those digits in git's stderr, and a bare substring
+    match turned an ordinary push failure into an auth/permission message."""
+    remote = tmp_path / f"pytest-{digits}" / "remote.git"
+    git.Repo.init(remote, bare=True)
+    repo = _make_repo(tmp_path / "work", GITHUB_URL, remote)
+
+    result = git_push(repo, branch="no-such-branch")
+
+    assert result.startswith("❌ Push failed (exit 1): "), result
+    assert digits in result
+    assert TOKEN not in result
+
+
 @pytest.mark.parametrize(
     "url",
     [
