@@ -290,10 +290,11 @@ def _register_github_tools(interface: Any, github_service: Any):
         ToolDefinition(
             name="github_get_pr_reviews",
             implementation=github_ops.github_get_pr_reviews,
-            description="Get inline code review comments on a pull request. Bot template placeholders (e.g. ${{ metadata.patch }}) are auto-expanded via the rendered body. Diff hunks are included for each comment.",
+            description="Get inline code review comments on a pull request. Bot template placeholders (e.g. ${{ metadata.patch }}) are auto-expanded via the rendered body. Diff hunks are included for each comment. Accepts optional comment_ids and unresolved_only filters; unresolved_only uses review-thread state.",
             schema=GitHubGetPRReviews.model_json_schema(),
             domain="github",
             complexity="focused",
+            keywords=("review comment", "thread"),
         ),
         ToolDefinition(
             name="github_reply_to_pr_comment",

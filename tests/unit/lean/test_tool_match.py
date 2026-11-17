@@ -61,6 +61,16 @@ def test_discover_tools_returns_graphql_query_when_pattern_is_graphql(iface):
     assert "github_graphql_query" in names
 
 
+def test_discover_tools_returns_thread_tools_when_pattern_is_thread_keyword(iface):
+    def names(pattern):
+        return [t["name"] for t in iface.discover_tools(pattern)["available_tools"]]
+
+    assert {"github_resolve_review_thread", "github_unresolve_review_thread"} <= set(
+        names("resolve")
+    )
+    assert "github_list_review_threads" in names("discussion")
+
+
 def test_discover_tools_ignores_description_when_pattern_only_in_description(iface):
     result = iface.discover_tools("caps output")
 

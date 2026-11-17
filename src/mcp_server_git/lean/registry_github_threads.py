@@ -19,6 +19,8 @@ _OWNER_NOTE = (
     "global); they select the token via the identity mapping."
 )
 
+_KEYWORDS = ("thread", "review thread", "review comment", "discussion", "conversation")
+
 _SPECS = (
     (
         "github_list_review_threads",
@@ -64,6 +66,7 @@ def thread_tool_definitions() -> list[ToolDefinition]:
             schema=model.model_json_schema(),
             domain="github",
             complexity="focused",
+            keywords=_KEYWORDS + (("resolve",) if "resolve" in name else ()),
         )
         for name, implementation, description, model in _SPECS
     ]
