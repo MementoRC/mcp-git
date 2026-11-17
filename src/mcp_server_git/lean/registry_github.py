@@ -74,6 +74,7 @@ from ..github.models import (
     GitHubUploadReleaseAsset,
 )
 from .interface import ToolDefinition
+from .registry_github_graphql import graphql_tool_definitions
 from .registry_github_issue_comments import issue_comment_tool_definitions
 from .registry_github_labels import label_tool_definitions
 from .registry_github_projects import project_tool_definitions
@@ -665,6 +666,7 @@ def _register_github_tools(interface: Any, github_service: Any):
     github_tools += issue_comment_tool_definitions()
     github_tools += label_tool_definitions()
     github_tools += project_tool_definitions()
+    github_tools += graphql_tool_definitions()
     for tool in github_tools:
         interface.register_tool(tool)
 
