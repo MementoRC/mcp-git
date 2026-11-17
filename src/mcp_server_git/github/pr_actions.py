@@ -8,7 +8,7 @@ from typing import Any
 from mcp_server_git.github.client import GraphQLError, github_client_context
 
 from ..utils.tool_failure import fail
-from ._pr_format import format_issue_comment, format_review_comment
+from ._pr_format import format_issue_comment
 from ._pr_graphql import _CONVERT_TO_DRAFT_MUTATION, _MARK_READY_MUTATION
 from ._update_fields import first_required_error
 
@@ -395,51 +395,6 @@ async def github_get_pr_comments(
             exc_info=True,
         )
         return fail(f"❌ Error fetching PR comments: {str(e)}")
-
-
-async def github_get_pr_reviews(repo_owner: str, repo_name: str, pr_number: int) -> str:
-    """Get inline code review comments on a PR."""
-    logger.debug(
-        f"🚀 Fetching review comments for PR #{pr_number} in {repo_owner}/{repo_name}"
-    )
-
-    try:
-        async with github_client_context() as client:
-            response = await client.get(
-                f"/repos/{repo_owner}/{repo_name}/pulls/{pr_number}/comments",
-                accept="application/vnd.github.full+json",
-                params={"per_page": 100},
-            )
-
-            if response.status != 200:
-                error_text = await response.text()
-                return fail(
-                    f"❌ Failed to fetch review comments: {response.status} - {error_text}"
-                )
-
-            comments = await response.json()
-
-        if not comments:
-            return f"No review comments on PR #{pr_number}"
-
-        lines = [f"Review comments on PR #{pr_number} ({len(comments)} total):\n"]
-        for c in comments:
-            lines.extend(format_review_comment(c))
-
-        return "\n".join(lines)
-
-    except ValueError as auth_error:
-        logger.error(f"Authentication error fetching PR review comments: {auth_error}")
-        return fail(f"❌ {str(auth_error)}")
-    except ConnectionError as conn_error:
-        logger.error(f"Connection error fetching PR review comments: {conn_error}")
-        return fail(f"❌ Network connection failed: {str(conn_error)}")
-    except Exception as e:
-        logger.error(
-            f"Unexpected error fetching review comments for PR #{pr_number}: {e}",
-            exc_info=True,
-        )
-        return fail(f"❌ Error fetching PR review comments: {str(e)}")
 
 
 async def github_reply_to_pr_comment(
