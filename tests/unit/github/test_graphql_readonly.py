@@ -1,12 +1,14 @@
 """Read-only GraphQL guard and github_graphql_query tool (#355)."""
 
 import json
+from unittest.mock import MagicMock
 
 import pytest
 
 from mcp_server_git.github.client import GraphQLError
 from mcp_server_git.github.graphql_query import MAX_CHARS, github_graphql_query
 from mcp_server_git.github.graphql_readonly import read_only_violation
+from mcp_server_git.lean.interface import GitLeanInterface
 from mcp_server_git.utils.tool_failure import ToolFailure
 
 from ._actions_fakes import call
@@ -25,6 +27,14 @@ ALLOWED = {
     "mutation_as_alias": "{ mutation: viewer { subscription: login } }",
     "mutation_as_enum_default": "query Q($m: Kind = mutation) { viewer { login } }",
     "multiple_queries": "query A { viewer { id } } query B { viewer { login } }",
+    "comment_ends_at_crlf": "# c\r\n{a}",
+    "comment_ends_at_lone_cr": "# c\r{a}",
+    "leading_bom": "﻿{a}",
+    "keyword_prefix_field_names": "{ mutationX _mutation subscriptionY }",
+    "block_string_escaped_triple_quote": 'query { a(b: """x \\""" y""") }',
+    "block_string_backslash_then_escaped_triple_quote": 'query { a(b: """x \\\\""" y""") }',
+    "nested_input_object_default": "query Q($a: In = {x: {y: 1}}) {a}",
+    "exponent_and_negative_numbers": "{ a(x: 1e5, y: -1) }",
 }
 
 REJECTED = {
@@ -51,6 +61,28 @@ REJECTED = {
     "stray_symbol": ("%%%", "unexpected character"),
     "header_without_body": ("query Q", "incomplete"),
     "top_level_string": ('"desc" { a }', "unexpected top-level"),
+    "cr_ends_comment_hiding_mutation": (
+        'fragment F on Mutation { addStar(input:{starrableId:"X"}) { clientMutationId } }'
+        " #\r mutation { ...F }",
+        "mutation",
+    ),
+    "cr_ends_comment_before_mutation": ("{a} #\r mutation{b}", "mutation"),
+    "lf_ends_comment_before_mutation": ("{a} # x\n mutation{b}", "mutation"),
+    "crlf_ends_comment_before_mutation": ("{a} # x\r\n mutation{b}", "mutation"),
+    "bom_inside_keyword": ("mut﻿ation{a}", "unexpected top-level"),
+    "bom_between_definitions": ("{a}﻿ mutation{b}", "byte order mark"),
+    "bom_inside_selection": ("{ a﻿ }", "byte order mark"),
+    "non_ascii_name": ("{ é }", "unexpected character"),
+    "nul_byte": ("{ a\x00 }", "unexpected character"),
+    "number_prefixed_keyword": ("1mutation{a}", "mutation"),
+    "string_escape_swallows_cr": ('{ a(b: "x\\\r") }', "unterminated string"),
+    # Known, intentional false rejections: the guard is keyword-based and
+    # fail-closed, so a forbidden keyword used as a name is refused too.
+    "false_rejection_query_named_mutation": ("query mutation {a}", "mutation"),
+    "false_rejection_fragment_named_subscription": (
+        "fragment subscription on T {a}",
+        "subscription",
+    ),
 }
 
 
@@ -65,6 +97,19 @@ def test_read_only_violation_returns_reason_when_document_is_unsafe(document, re
 
     assert violation is not None
     assert reason in violation
+
+
+def test_read_only_violation_allows_deeply_nested_input_when_balanced():
+    document = "{a" * 5000 + "}" * 5000
+
+    assert read_only_violation(document) is None
+
+
+def test_github_graphql_query_schema_has_no_operation_name_property():
+    iface = GitLeanInterface(MagicMock(), MagicMock(), MagicMock())
+    schema = iface.get_tool_spec("github_graphql_query")["schema"]
+
+    assert not {"operationName", "operation_name"} & set(schema["properties"])
 
 
 class FakeGraphQL:

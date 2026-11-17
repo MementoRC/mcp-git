@@ -9,7 +9,9 @@ is rejected.
 
 from collections.abc import Iterator
 
-_IGNORED = frozenset(" \t\r\n,﻿")
+_BOM = "﻿"
+_LINE_END = frozenset("\r\n")
+_IGNORED = frozenset(" \t\r\n,")
 _PUNCT = frozenset("!$&()=:@[]{|}.")
 _NUMBER_CHARS = frozenset("-+0123456789")
 _CLOSERS = {"{": "}", "(": ")", "[": "]"}
@@ -37,15 +39,30 @@ def _end_block_string(text: str, i: int) -> int:
 def _end_string(text: str, i: int) -> int:
     while i < len(text):
         ch = text[i]
-        if ch == "\\":
+        if ch == "\\" and text[i + 1 : i + 2] not in _LINE_END:
             i += 2
         elif ch == '"':
             return i + 1
-        elif ch in "\r\n":
+        elif ch in _LINE_END:
             break
         else:
             i += 1
     raise _Reject("unterminated string")
+
+
+def _end_comment(text: str, i: int) -> int:
+    """A comment runs to the first LF or CR (the spec's LineTerminator) or EOF."""
+    while i < len(text) and text[i] not in _LINE_END:
+        i += 1
+    return i
+
+
+def _unexpected(ch: str) -> _Reject:
+    if ch == _BOM:
+        return _Reject(
+            "byte order mark (U+FEFF) is only allowed at the start of the document"
+        )
+    return _Reject(f"unexpected character {ch!r}")
 
 
 def _end_name(text: str, i: int) -> int:
@@ -56,14 +73,13 @@ def _end_name(text: str, i: int) -> int:
 
 def _tokens(text: str) -> Iterator[str]:
     """Yield names, punctuators and a ``"`` marker per string literal."""
-    i, n = 0, len(text)
+    i, n = (1 if text.startswith(_BOM) else 0), len(text)
     while i < n:
         ch = text[i]
         if ch in _IGNORED:
             i += 1
         elif ch == "#":
-            end = text.find("\n", i)
-            i = n if end < 0 else end
+            i = _end_comment(text, i)
         elif text.startswith('"""', i):
             i = _end_block_string(text, i + 3)
             yield _STRING
@@ -80,7 +96,7 @@ def _tokens(text: str) -> Iterator[str]:
         elif ch in _NUMBER_CHARS:
             i += 1
         else:
-            raise _Reject(f"unexpected character {ch!r}")
+            raise _unexpected(ch)
 
 
 def _check_top_level(tok: str, in_definition: bool) -> None:
