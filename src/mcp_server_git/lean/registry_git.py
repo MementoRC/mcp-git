@@ -247,10 +247,11 @@ def _register_git_tools(interface: Any, git_service: Any):
         ToolDefinition(
             name="git_show",
             implementation=wrap_repo_op(git_ops.git_show),
-            description="Shows the contents of a commit; show_signature=true adds GPG verification output",
+            description='Shows a commit; show_signature=true adds GPG output. Read a file at a commit with revision="<rev>:<path>" (e.g. "a9b0382:pyproject.toml"); max_lines caps output',
             schema=GitShow.model_json_schema(),
             domain="git",
             complexity="core",
+            keywords=("revision", "file at commit", "cat-file", "blob"),
         ),
         ToolDefinition(
             name="git_init",

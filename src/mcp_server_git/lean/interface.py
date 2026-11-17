@@ -29,6 +29,7 @@ from ._envelope import build_tool_envelope
 from ._error_hints import add_valid_parameters_hint
 from .response_offloader import ResponseOffloader
 from .token_limiter import MCPTokenLimiter
+from .tool_match import tool_matches
 
 logger = logging.getLogger(__name__)
 
@@ -78,6 +79,7 @@ class ToolDefinition:
         complexity: str = "focused",
         examples: list[dict[str, Any]] | None = None,
         relative_path_params: set[str] | None = None,
+        keywords: tuple[str, ...] = (),
     ):
         """Initialize a ToolDefinition.
 
@@ -95,7 +97,9 @@ class ToolDefinition:
                 semantically repo-relative by git convention (e.g. the
                 "path" parameter on git_submodule_add per gitmodules(5);
                 issue #168). Defaults to None (no exemptions).
+            keywords: Extra discover_tools search terms (#355).
         """
+        self.keywords = tuple(keywords)
         self.name = name
         self.implementation = implementation
         self.description = description
@@ -394,7 +398,7 @@ class GitLeanInterface:
         tools = []
 
         for name, tool_def in self.tool_registry.items():
-            if pattern and pattern.strip() and pattern.lower() not in name.lower():
+            if not tool_matches(pattern, tool_def):
                 continue
 
             tools.append(

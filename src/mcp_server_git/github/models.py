@@ -386,6 +386,13 @@ class GitHubGetPRReviews(BaseModel):
     repo_owner: str
     repo_name: str
     pr_number: int
+    comment_ids: list[int] | None = Field(
+        default=None, description="Only return the review comments with these ids"
+    )
+    unresolved_only: bool = Field(
+        default=False,
+        description="Only return comments whose review thread is unresolved",
+    )
 
 
 class GitHubReplyToPRComment(BaseModel):
