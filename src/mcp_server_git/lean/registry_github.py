@@ -82,6 +82,7 @@ from .registry_github_threads import thread_tool_definitions
 from .registry_github_workflow import workflow_action_tool_definitions
 
 logger = logging.getLogger(__name__)
+_REPLY_KEYWORDS = ("thread", "review thread", "review comment", "reply", "discussion")
 
 
 def _register_github_tools(interface: Any, github_service: Any):
@@ -299,10 +300,11 @@ def _register_github_tools(interface: Any, github_service: Any):
         ToolDefinition(
             name="github_reply_to_pr_comment",
             implementation=github_ops.github_reply_to_pr_comment,
-            description="Reply to a specific review comment thread on a pull request",
+            description="MUTATING: replies in the review thread containing comment_id (a numeric REST comment id, e.g. database_id from github_list_review_threads or id from github_get_pr_reviews). Equivalent to github_reply_review_thread, which takes a thread node id instead.",
             schema=GitHubReplyToPRComment.model_json_schema(),
             domain="github",
             complexity="focused",
+            keywords=_REPLY_KEYWORDS,
         ),
         ToolDefinition(
             name="github_close_pr",

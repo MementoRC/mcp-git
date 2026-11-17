@@ -36,7 +36,8 @@ _SPECS = (
         github_reply_review_thread,
         "MUTATING: replies to a review thread by thread_id (from "
         "github_list_review_threads). Returns the new comment's url and "
-        "database_id." + _OWNER_NOTE,
+        "database_id." + _OWNER_NOTE + " Equivalent to github_reply_to_pr_comment, "
+        "which takes a numeric comment_id plus pr_number instead of a thread node id.",
         GitHubReplyReviewThread,
     ),
     (

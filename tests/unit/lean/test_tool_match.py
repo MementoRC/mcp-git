@@ -69,6 +69,7 @@ def test_discover_tools_returns_thread_tools_when_pattern_is_thread_keyword(ifac
         names("resolve")
     )
     assert "github_list_review_threads" in names("discussion")
+    assert "github_reply_to_pr_comment" in names("thread")
 
 
 def test_discover_tools_ignores_description_when_pattern_only_in_description(iface):
