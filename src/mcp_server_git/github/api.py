@@ -16,6 +16,7 @@ from .pr import *  # noqa: F401,F403
 from .pr_actions import *  # noqa: F401,F403
 from .pr_check_rerun import *  # noqa: F401,F403
 from .pr_diff import *  # noqa: F401,F403
+from .pr_review_list import *  # noqa: F401,F403
 from .pr_reviews import *  # noqa: F401,F403
 from .release_assets import *  # noqa: F401,F403
 from .releases import *  # noqa: F401,F403
