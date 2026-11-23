@@ -1,11 +1,13 @@
 """GitHub PR review thread tool definitions (#355)."""
 
 from ..github.models_threads import (
+    GitHubListPRReviews,
     GitHubListReviewThreads,
     GitHubReplyReviewThread,
     GitHubResolveReviewThread,
     GitHubUnresolveReviewThread,
 )
+from ..github.pr_review_list import github_list_pr_reviews
 from ..github.review_threads import (
     github_list_review_threads,
     github_reply_review_thread,
@@ -21,6 +23,8 @@ _OWNER_NOTE = (
 
 _KEYWORDS = ("thread", "review thread", "review comment", "discussion", "conversation")
 
+_REVIEW_LIST_KEYWORDS = ("review", "reviewer", "bot", "copilot", "sourcery", "commit")
+
 _SPECS = (
     (
         "github_list_review_threads",
@@ -30,6 +34,16 @@ _SPECS = (
         "first comment (database_id, author, url, body cut to ~200 chars). Use "
         "unresolved_only to see just open threads.",
         GitHubListReviewThreads,
+    ),
+    (
+        "github_list_pr_reviews",
+        github_list_pr_reviews,
+        "Read-only: lists a PR's reviews (all pages), one compact row each: id, "
+        "author, author_type, state, commit_id, submitted_at. No bodies; never "
+        "offloaded. Bot logins keep '[bot]' (authors filter is a case-insensitive "
+        "substring). Inline comment bodies: github_get_pr_reviews; threads: "
+        "github_list_review_threads.",
+        GitHubListPRReviews,
     ),
     (
         "github_reply_review_thread",
@@ -67,7 +81,9 @@ def thread_tool_definitions() -> list[ToolDefinition]:
             schema=model.model_json_schema(),
             domain="github",
             complexity="focused",
-            keywords=_KEYWORDS + (("resolve",) if "resolve" in name else ()),
+            keywords=_KEYWORDS
+            + (("resolve",) if "resolve" in name else ())
+            + _REVIEW_LIST_KEYWORDS * (name == "github_list_pr_reviews"),
         )
         for name, implementation, description, model in _SPECS
     ]

@@ -72,6 +72,15 @@ def test_discover_tools_returns_thread_tools_when_pattern_is_thread_keyword(ifac
     assert "github_reply_to_pr_comment" in names("thread")
 
 
+@pytest.mark.parametrize("pattern", ["copilot", "reviewer", "sourcery"])
+def test_discover_tools_returns_list_pr_reviews_when_pattern_is_reviewer_keyword(
+    iface, pattern
+):
+    names = [t["name"] for t in iface.discover_tools(pattern)["available_tools"]]
+
+    assert "github_list_pr_reviews" in names
+
+
 def test_discover_tools_ignores_description_when_pattern_only_in_description(iface):
     result = iface.discover_tools("caps output")
 

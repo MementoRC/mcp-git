@@ -27,7 +27,7 @@ from mcp_server_git.utils.tool_failure import ToolFailure
 
 from ._envelope import build_tool_envelope
 from ._error_hints import add_valid_parameters_hint
-from .response_offloader import ResponseOffloader
+from .response_offloader import NEVER_OFFLOAD_TOOLS, ResponseOffloader
 from .token_limiter import MCPTokenLimiter
 from .tool_match import tool_matches
 
@@ -260,6 +260,8 @@ class GitLeanInterface:
 
     def _process_result(self, result: Any, tool_name: str) -> Any:
         """Offload or token-limit *result*, preserving ToolFailure status."""
+        if tool_name in NEVER_OFFLOAD_TOOLS:
+            return result
         processed = result
         offloaded = False
         if self.response_offloader and self.response_offloader.should_offload(

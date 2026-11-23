@@ -19,6 +19,10 @@ logger = logging.getLogger(__name__)
 _DEFAULT_OFFLOAD_DIR = os.environ.get("MCP_GIT_OFFLOAD_DIR", "/tmp")
 _DEFAULT_MAX_AGE = 3600  # 1 hour
 
+# Tools whose output is already compact and must always be returned inline:
+# never offloaded to a file and never token-truncated (#357).
+NEVER_OFFLOAD_TOOLS = frozenset({"github_list_pr_reviews"})
+
 
 def _summarize_diff(result: Any) -> str:
     """Summarize unified diff: files changed, insertions, deletions."""
@@ -96,6 +100,8 @@ class ResponseOffloader:
 
     def should_offload(self, result: Any, tool_name: str) -> bool:
         """Check if a result should be offloaded to file."""
+        if tool_name in NEVER_OFFLOAD_TOOLS:
+            return False
         if not isinstance(result, dict | str | list):
             return False
         data = result if isinstance(result, dict) else {"result": result}
