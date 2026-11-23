@@ -11,6 +11,7 @@ from unittest.mock import patch
 import pytest
 
 from mcp_server_git.github.pr_review_list import github_list_pr_reviews
+from mcp_server_git.github.projects_paging import MAX_PAGES
 from mcp_server_git.lean.response_offloader import (
     NEVER_OFFLOAD_TOOLS,
     ResponseOffloader,
@@ -103,7 +104,7 @@ async def test_list_pr_reviews_matches_bot_login_when_authors_substring_differs_
     bot = _review(2, "copilot-pull-request-reviewer[bot]", "Bot")
     client = FakeClient({_REVIEWS: [_review(1), bot]})
 
-    data = json.loads(await _run(client, authors=["COPILOT"]))
+    data = json.loads(await _run(client, authors=["PULL-REQUEST"]))
 
     assert data["total"] == 2
     assert data["returned"] == 1
@@ -168,6 +169,17 @@ async def test_list_pr_reviews_fails_when_pages_exceed_max_pages():
 
     assert isinstance(result, ToolFailure)
     assert "refusing to truncate" in result
+
+
+@pytest.mark.asyncio
+async def test_list_pr_reviews_returns_all_rows_when_reviews_fill_exactly_max_pages():
+    total = MAX_PAGES * 100
+    client = FakeClient({_REVIEWS: [_review(i) for i in range(total)]})
+
+    data = json.loads(await _run(client))
+
+    assert data["total"] == total
+    assert len(client.endpoints) == MAX_PAGES + 1
 
 
 @pytest.mark.asyncio

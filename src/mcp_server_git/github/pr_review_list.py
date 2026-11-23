@@ -26,7 +26,8 @@ async def _fetch_pages(
 ) -> list[dict[str, Any]] | ToolFailure:
     """Every REST page of *endpoint*, or a ready failure."""
     items: list[dict[str, Any]] = []
-    for page in range(1, MAX_PAGES + 1):
+    # One probe page past the cap: an endpoint holding exactly the cap is complete.
+    for page in range(1, MAX_PAGES + 2):
         response = await client.get(
             endpoint, params={"per_page": _PER_PAGE, "page": page}
         )
@@ -38,6 +39,10 @@ async def _fetch_pages(
         batch = await response.json()
         if not isinstance(batch, list):
             return fail(f"❌ Unexpected response shape from {endpoint}: expected list")
+        if page > MAX_PAGES:
+            if not batch:
+                return items
+            break
         items.extend(batch)
         if len(batch) < _PER_PAGE:
             return items
